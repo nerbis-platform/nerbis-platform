@@ -1,0 +1,63 @@
+name: "Bug Report"
+description: "Reportar algo que no funciona correctamente"
+labels: ["tipo: bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción del bug
+      description: ¿Qué está pasando? ¿Qué esperabas que pasara?
+      placeholder: "Cuando hago X, pasa Y en vez de Z..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      description: ¿Cómo puedo reproducir el bug?
+      value: |
+        1. Ir a '...'
+        2. Hacer click en '...'
+        3. Ver el error en '...'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Módulo afectado
+      options:
+        - Core / Auth
+        - E-commerce
+        - Bookings
+        - Services
+        - Orders / Pagos
+        - Cart
+        - Notifications
+        - Subscriptions
+        - Frontend
+        - Mobile
+        - Websites
+        - Otro
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Severidad
+      options:
+        - "P0: Producción caída / bloqueante"
+        - "P1: Importante, afecta funcionalidad clave"
+        - "P2: Molesto pero tiene workaround"
+        - "P3: Menor, cosmético"
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Logs
+      description: Si aplica, agrega capturas o logs del error
+      placeholder: Pega imágenes o logs aquí...
