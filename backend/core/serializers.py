@@ -1,0 +1,413 @@
+# backend/core/serializers.py
+
+from rest_framework import serializers
+from django.contrib.auth.password_validation import validate_password
+from .models import Tenant, User, Banner
+
+
+class TenantSerializer(serializers.ModelSerializer):
+    """Serializer para Tenant (información pública)"""
+
+    # Campos de suscripción (read-only, vienen del modelo)
+    plan_display = serializers.CharField(source="get_plan_display", read_only=True)
+    subscription_status = serializers.CharField(read_only=True)
+    days_remaining = serializers.IntegerField(read_only=True)
+    is_trial = serializers.BooleanField(read_only=True)
+
+    industry_display = serializers.CharField(source="get_industry_display", read_only=True)
+    website_status = serializers.SerializerMethodField()
+
+    def get_website_status(self, obj):
+        config = getattr(obj, 'website_config', None)
+        return config.status if config else None
+
+    class Meta:
+        model = Tenant
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "industry",
+            "industry_display",
+            "email",
+            "phone",
+            "city",
+            "country",
+            "logo",
+            "primary_color",
+            "secondary_color",
+            "timezone",
+            "currency",
+            "language",
+            "years_experience",
+            "clients_count",
+            "treatments_count",
+            "average_rating",
+            "hero_image_home",
+            "hero_image_services",
+            # Feature flags
+            "has_shop",
+            "has_bookings",
+            "has_services",
+            "has_marketing",
+            "has_website",
+            "modules_configured",
+            # Suscripción
+            "plan",
+            "plan_display",
+            "subscription_status",
+            "days_remaining",
+            "is_trial",
+            # Website
+            "website_status",
+        ]
+        read_only_fields = ["id", "slug"]
+
+
+
+class UserSerializer(serializers.ModelSerializer):
+    """Serializer para User (información completa)"""
+
+    tenant_name = serializers.CharField(source="tenant.name", read_only=True)
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "full_name",
+            "phone",
+            "avatar",
+            "tenant",
+            "tenant_name",
+            "role",
+            "role_display",
+            "is_active",
+            "date_joined",
+        ]
+        read_only_fields = ["id", "tenant", "date_joined"]
+
+    def get_full_name(self, obj) -> str:
+        return obj.get_full_name() or obj.username
+
+
+class UserPublicSerializer(serializers.ModelSerializer):
+    """Serializer para User (información pública - sin datos sensibles)"""
+
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "full_name",
+            "avatar",
+        ]
+        read_only_fields = fields
+
+    def get_full_name(self, obj) -> str:
+        return obj.get_full_name() or obj.username
+
+
+class UserSessionSerializer(serializers.ModelSerializer):
+    """
+    Serializer para la sesión del usuario autenticado.
+    Incluye los campos necesarios para el frontend (navegación, badges de rol, etc).
+    """
+
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "full_name",
+            "role",
+        ]
+        read_only_fields = fields
+
+    def get_full_name(self, obj) -> str:
+        return obj.get_full_name() or obj.username
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    """
+    Serializer para registro de nuevos usuarios.
+
+    El tenant se obtiene del request (header X-Tenant-Slug o query param ?tenant=).
+    No se requiere tenant_slug en el body.
+    El username se genera automáticamente desde el email.
+    """
+
+    password = serializers.CharField(
+        write_only=True, required=True, validators=[validate_password], style={"input_type": "password"}
+    )
+    password2 = serializers.CharField(write_only=True, required=True, style={"input_type": "password"})
+
+    class Meta:
+        model = User
+        fields = ["email", "password", "password2", "first_name", "last_name", "phone"]
+
+    def validate_email(self, value):
+        """Normalizar email a minúsculas"""
+        return value.lower()
+
+    def validate(self, attrs):
+        """Validaciones que requieren múltiples campos"""
+        # Validar que las contraseñas coincidan
+        if attrs["password"] != attrs["password2"]:
+            raise serializers.ValidationError({"password": "Las contraseñas no coinciden"})
+
+        # Obtener el tenant del request (inyectado por el middleware)
+        request = self.context.get("request")
+        if not request or not hasattr(request, "tenant"):
+            raise serializers.ValidationError({"tenant": "No se pudo identificar el centro"})
+
+        tenant = request.tenant
+
+        # Validar email único por tenant (case-insensitive)
+        email = attrs.get("email", "").lower()
+        if User.objects.filter(tenant=tenant, email__iexact=email).exists():
+            raise serializers.ValidationError({
+                "email": "Ya existe un usuario con este email en este centro. Por favor inicia sesión."
+            })
+
+        return attrs
+
+    def _generate_username(self, email, tenant):
+        """Generar username único desde el email"""
+        base_username = email.split("@")[0].lower()
+        username = base_username
+        counter = 1
+
+        while User.objects.filter(tenant=tenant, username=username).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+
+        return username
+
+    def create(self, validated_data):
+        validated_data.pop("password2")
+
+        # Obtener tenant del request
+        request = self.context.get("request")
+        tenant = request.tenant
+
+        # Generar username automáticamente desde el email
+        email = validated_data["email"].lower()
+        username = self._generate_username(email, tenant)
+
+        user = User.objects.create_user(
+            tenant=tenant,
+            username=username,
+            email=email,
+            password=validated_data["password"],
+            first_name=validated_data.get("first_name", ""),
+            last_name=validated_data.get("last_name", ""),
+            phone=validated_data.get("phone", ""),
+            role="customer",
+        )
+        return user
+
+
+class LoginSerializer(serializers.Serializer):
+    """
+    Serializer para login por email.
+
+    El tenant se obtiene del request (header X-Tenant-Slug o query param ?tenant=).
+    """
+
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True, write_only=True, style={"input_type": "password"})
+
+
+class SetPasswordSerializer(serializers.Serializer):
+    """Serializer para establecer contraseña con token"""
+
+    token = serializers.CharField(required=True)
+    password = serializers.CharField(
+        required=True,
+        write_only=True,
+        validators=[validate_password],
+        style={"input_type": "password"},
+    )
+    password2 = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={"input_type": "password"},
+    )
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password2"]:
+            raise serializers.ValidationError({"password": "Las contraseñas no coinciden"})
+        return attrs
+
+
+class UpdateProfileSerializer(serializers.ModelSerializer):
+    """Serializer para actualizar el perfil del usuario"""
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "phone"]
+
+    def validate_first_name(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("El nombre es requerido")
+        return value.strip()
+
+    def validate_last_name(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("El apellido es requerido")
+        return value.strip()
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """Serializer para cambiar la contraseña"""
+
+    current_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        validators=[validate_password],
+    )
+    new_password2 = serializers.CharField(required=True, write_only=True)
+
+    def validate(self, attrs):
+        if attrs["new_password"] != attrs["new_password2"]:
+            raise serializers.ValidationError({"new_password": "Las contraseñas no coinciden"})
+        return attrs
+
+
+class TenantRegisterSerializer(serializers.Serializer):
+    """
+    Serializer para registro de nuevos tenants (dueños de negocio).
+
+    Crea un Tenant + Usuario administrador en una sola transacción.
+    No requiere tenant previo (endpoint público).
+    """
+
+    # Datos del negocio
+    business_name = serializers.CharField(max_length=200, required=True)
+    industry = serializers.ChoiceField(choices=Tenant.INDUSTRY_CHOICES, default="other")
+    country = serializers.ChoiceField(choices=Tenant.COUNTRY_CHOICES, default="Colombia")
+
+    # Datos del administrador
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(
+        write_only=True, required=True, validators=[validate_password], style={"input_type": "password"}
+    )
+    password2 = serializers.CharField(write_only=True, required=True, style={"input_type": "password"})
+    first_name = serializers.CharField(max_length=150, required=False, default="")
+    last_name = serializers.CharField(max_length=150, required=False, default="")
+    phone = serializers.CharField(max_length=20, required=False, default="", allow_blank=True)
+
+    def validate_email(self, value):
+        return value.lower()
+
+    def validate_business_name(self, value):
+        slug = value.lower().replace(" ", "-")
+        if Tenant.objects.filter(slug__startswith=slug).exists():
+            # No bloquear, el slug se generará único automáticamente
+            pass
+        return value
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password2"]:
+            raise serializers.ValidationError({"password": "Las contraseñas no coinciden"})
+
+        # Verificar que no exista un tenant con este email
+        email = attrs.get("email", "").lower()
+        if Tenant.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError({
+                "email": "Ya existe un negocio registrado con este email"
+            })
+
+        return attrs
+
+    def create(self, validated_data):
+        from django.db import transaction
+        from django.utils.text import slugify
+
+        validated_data.pop("password2")
+        password = validated_data.pop("password")
+
+        business_name = validated_data.pop("business_name")
+        industry = validated_data.pop("industry", "other")
+        country = validated_data.pop("country", "Colombia")
+
+        email = validated_data.pop("email")
+        first_name = validated_data.pop("first_name", "")
+        last_name = validated_data.pop("last_name", "")
+        phone = validated_data.pop("phone", "")
+
+        with transaction.atomic():
+            # Generar slug único
+            base_slug = slugify(business_name)
+            slug = base_slug
+            counter = 1
+            while Tenant.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+
+            # Crear Tenant (signals auto-crean Subscription + Modules)
+            tenant = Tenant.objects.create(
+                name=business_name,
+                slug=slug,
+                email=email,
+                phone=phone,
+                industry=industry,
+                country=country,
+                plan="trial",
+            )
+
+            # Crear usuario administrador
+            username = email.split("@")[0].lower()
+            user = User.objects.create_user(
+                tenant=tenant,
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                phone=phone,
+                role="admin",
+            )
+
+        return user
+
+
+class BannerSerializer(serializers.ModelSerializer):
+    """Serializer para Banner (información pública)"""
+
+    banner_type_display = serializers.CharField(source="get_banner_type_display", read_only=True)
+    position_display = serializers.CharField(source="get_position_display", read_only=True)
+
+    class Meta:
+        model = Banner
+        fields = [
+            "id",
+            "name",
+            "message",
+            "link_url",
+            "link_text",
+            "banner_type",
+            "banner_type_display",
+            "position",
+            "position_display",
+            "background_color",
+            "text_color",
+            "is_dismissible",
+            "priority",
+            "rotation_interval",
+        ]
+        read_only_fields = fields

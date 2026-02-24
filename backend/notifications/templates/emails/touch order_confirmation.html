@@ -1,0 +1,93 @@
+<!-- backend/notifications/templates/emails/order_confirmation.html -->
+
+{% extends "emails/base.html" %}
+
+{% block title %}Confirmación de Orden - {{ order.order_number }}{% endblock %}
+
+{% block content %}
+<h2>¡Orden Confirmada!</h2>
+
+<p>Hola {{ user.first_name }},</p>
+
+<p>Hemos recibido tu orden y está siendo procesada. A continuación encontrarás los detalles:</p>
+
+<div class="info-box">
+    <p><strong>Número de Orden:</strong> {{ order.order_number }}</p>
+    <p><strong>Fecha:</strong> {{ order.created_at|date:"d/m/Y H:i" }}</p>
+    <p><strong>Estado:</strong> {{ order.get_status_display }}</p>
+</div>
+
+<h3>Resumen de tu pedido:</h3>
+
+{% if order.product_items.all %}
+<h4>Productos:</h4>
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    {% for item in order.product_items.all %}
+    <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">
+            {{ item.product_name }}
+        </td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">
+            x{{ item.quantity }}
+        </td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">
+            €{{ item.total_price }}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+
+{% if order.service_items.all %}
+<h4>Servicios/Citas:</h4>
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    {% for item in order.service_items.all %}
+    <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">
+            <strong>{{ item.service_name }}</strong><br>
+            <small>📅 {{ item.appointment_datetime|date:"d/m/Y H:i" }}</small><br>
+            <small>👤 {{ item.staff_member_name }}</small>
+        </td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">
+            €{{ item.price }}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+
+<table style="width: 100%; margin-top: 20px;">
+    <tr>
+        <td style="text-align: right; padding: 5px;">
+            <strong>Subtotal:</strong>
+        </td>
+        <td style="text-align: right; padding: 5px; width: 100px;">
+            €{{ order.subtotal }}
+        </td>
+    </tr>
+    <tr>
+        <td style="text-align: right; padding: 5px;">
+            <strong>IVA (21%):</strong>
+        </td>
+        <td style="text-align: right; padding: 5px;">
+            €{{ order.tax_amount }}
+        </td>
+    </tr>
+    <tr style="font-size: 18px; color: #667eea;">
+        <td style="text-align: right; padding: 10px 5px; border-top: 2px solid #eee;">
+            <strong>TOTAL:</strong>
+        </td>
+        <td style="text-align: right; padding: 10px 5px; border-top: 2px solid #eee;">
+            <strong>€{{ order.total }}</strong>
+        </td>
+    </tr>
+</table>
+
+<p style="margin-top: 30px;">
+    <a href="{{ frontend_url }}/dashboard/orders" class="button">Ver mi Orden</a>
+</p>
+
+<p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
+
+<p>¡Gracias por tu compra!</p>
+{% endblock %}

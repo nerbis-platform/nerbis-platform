@@ -1,0 +1,32 @@
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+    {# Historial #}
+    {% if show_history %}
+        {% url opts|admin_urlname:'history' original.pk|admin_urlquote as history_url %}
+        {% trans 'History' as title %}
+        {% add_preserved_filters history_url as link %}
+        <li>
+            <a href="{{ link }}"
+               class="cursor-pointer flex items-center gap-2 px-3 py-2 text-left whitespace-nowrap hover:text-primary-600 dark:hover:text-primary-500"
+               title="{{ title }}">
+                <span class="material-symbols-outlined">history</span>
+                {{ title }}
+            </a>
+        </li>
+    {% endif %}
+
+    {# Ver en sitio #}
+    {% if has_absolute_url and show_view_on_site %}
+        {% trans 'View on site' as title %}
+        <li>
+            <a href="{{ absolute_url }}"
+               target="_blank"
+               class="cursor-pointer flex items-center gap-2 px-3 py-2 text-left whitespace-nowrap hover:text-primary-600 dark:hover:text-primary-500"
+               title="{{ title }}">
+                <span class="material-symbols-outlined">open_in_new</span>
+                {{ title }}
+            </a>
+        </li>
+    {% endif %}
+{% endblock %}

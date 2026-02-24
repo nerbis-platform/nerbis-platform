@@ -1,0 +1,301 @@
+/*
+ * Custom Admin CSS for GRAVITIFY
+ * Identidad premium: Teal (#95D0C9), Azul Oscuro (#1C3B57), Inter font
+ * Solo light mode
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ============================================
+   FUENTE GLOBAL
+   ============================================ */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+}
+
+/* ============================================
+   OCULTAR botón de "view related" (icono del ojo)
+   Solo mantener el lápiz (change) y el + (add)
+   ============================================ */
+.related-widget-wrapper .view-related,
+.related-widget-wrapper a[data-popup="yes"][id*="view_"] {
+    display: none !important;
+}
+
+.related-widget-wrapper a[title="View selected"],
+.related-widget-wrapper a[title*="View"],
+.related-widget-wrapper a[title*="Ver seleccionado"] {
+    display: none !important;
+}
+
+.related-widget-wrapper > a[href*="/change/"]:first-of-type + a,
+.related-widget-wrapper .related-lookup-view {
+    display: none !important;
+}
+
+[class*="related-widget"] a[data-popup][title*="View"],
+[class*="related-widget"] a[data-popup][title*="ver"] {
+    display: none !important;
+}
+
+.related-widget-wrapper a[data-popup="yes"].view-related-link,
+a.related-widget-wrapper-link[href*="/view/"] {
+    display: none !important;
+}
+
+.related-widget-wrapper > a:nth-of-type(3) {
+    display: none !important;
+}
+
+/* ============================================
+   FILAS DE TABLA
+   ============================================ */
+#result_list tbody tr {
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#result_list tbody tr:hover {
+    background-color: rgb(149 208 201 / 0.12) !important;
+    box-shadow: inset 4px 0 0 #95D0C9;
+}
+
+#result_list tbody tr:nth-child(odd) {
+    background-color: rgb(249 250 251);
+}
+
+#result_list tbody tr:nth-child(even) {
+    background-color: white;
+}
+
+#result_list tbody tr td {
+    border-bottom: 1px solid rgb(229 231 235) !important;
+}
+
+/* ============================================
+   Links en la tabla
+   ============================================ */
+#result_list tbody tr th a,
+#result_list tbody tr td a {
+    color: rgb(17 24 39) !important;
+    font-weight: 500;
+    text-decoration: none !important;
+    pointer-events: none;
+}
+
+/* Checkboxes */
+#result_list tbody tr td input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #95D0C9;
+    pointer-events: auto !important;
+}
+
+#result_list tbody tr.selected,
+#result_list tbody tr:has(input[type="checkbox"]:checked) {
+    background-color: rgb(149 208 201 / 0.15) !important;
+    box-shadow: inset 4px 0 0 #95D0C9;
+}
+
+/* Badges hover */
+#result_list tbody tr td span[style*="background-color"] {
+    transition: transform 0.15s ease;
+}
+
+#result_list tbody tr:hover td span[style*="background-color"] {
+    transform: scale(1.05);
+}
+
+/* ============================================
+   CABECERA DE TABLA
+   ============================================ */
+#result_list thead th {
+    background-color: rgb(243 244 246) !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: rgb(75 85 99) !important;
+    border-bottom: 2px solid #95D0C9 !important;
+}
+
+#result_list thead th a {
+    color: rgb(75 85 99) !important;
+    pointer-events: auto !important;
+}
+
+#result_list thead th:hover {
+    background-color: rgb(229 231 235) !important;
+}
+
+/* ============================================
+   BOTÓN EDITAR
+   ============================================ */
+.admin-edit-action-cell {
+    text-align: center;
+    width: 100px;
+}
+
+.btn-edit-record {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background-color: #95D0C9;
+    color: rgb(17 24 39) !important;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    border-radius: 6px;
+    text-decoration: none !important;
+    transition: all 0.2s ease;
+    cursor: pointer !important;
+    border: none;
+    pointer-events: auto !important;
+}
+
+.btn-edit-record:hover {
+    background-color: #7ABEB6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgb(0 0 0 / 0.15);
+}
+
+/* ============================================
+   MENSAJE DE AYUDA
+   ============================================ */
+#changelist .results {
+    position: relative;
+}
+
+#changelist .results::before {
+    content: "Usa el botón 'Editar' de cada fila para modificar un registro";
+    display: block;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    background-color: rgb(149 208 201 / 0.1);
+    border: 1px solid #95D0C9;
+    border-radius: 8px;
+    color: rgb(75 85 99);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* ============================================
+   BOTONES DE ACCIÓN
+   ============================================ */
+.object-tools a,
+input[type="submit"],
+button[type="submit"] {
+    transition: all 0.2s ease !important;
+}
+
+.object-tools a:hover,
+input[type="submit"]:hover,
+button[type="submit"]:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* ============================================
+   BARRA DE ACCIONES (selección múltiple)
+   ============================================ */
+#changelist .actions,
+.changelist .actions,
+[data-actions],
+.actions-container {
+    background-color: #95D0C9 !important;
+    border: 1px solid #7ABEB6 !important;
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+#changelist .actions,
+#changelist .actions *,
+#changelist .actions label,
+#changelist .actions span,
+#changelist .actions p,
+#changelist .actions div,
+#changelist .actions .action-counter,
+.changelist .actions,
+.changelist .actions *,
+.changelist .actions label,
+.changelist .actions span,
+[data-actions],
+[data-actions] *,
+[data-actions] label,
+[data-actions] span {
+    color: rgb(17 24 39) !important;
+    font-weight: 500;
+}
+
+#changelist .actions select,
+.changelist .actions select,
+[data-actions] select {
+    background-color: white !important;
+    color: rgb(17 24 39) !important;
+    border: 1px solid rgb(17 24 39 / 0.2) !important;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-weight: 500;
+}
+
+#changelist .actions button,
+#changelist .actions input[type="submit"],
+.changelist .actions button,
+.changelist .actions input[type="submit"],
+[data-actions] button {
+    background-color: #1C3B57 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#changelist .actions button:hover,
+#changelist .actions input[type="submit"]:hover,
+.changelist .actions button:hover,
+.changelist .actions input[type="submit"]:hover,
+[data-actions] button:hover {
+    background-color: rgb(31 41 55) !important;
+    transform: translateY(-1px);
+}
+
+/* ============================================
+   OCULTAR BOTÓN DE AGREGAR EN CHANGE FORM
+   ============================================ */
+body.change-form .object-tools a[href*="/add/"],
+body.change-form ul.object-tools a[href*="/add/"],
+body.change-form .object-tools li:has(a[href*="/add/"]),
+body.change-form [class*="object-tools"] a[href*="/add/"] {
+    display: none !important;
+}
+
+body.change-form .object-tools li a[href$="/add/"] {
+    display: none !important;
+}
+
+body.change-form [data-dropdown] a[href*="/add/"],
+body.change-form .dropdown a[href*="/add/"],
+body.change-form menu a[href*="/add/"],
+body.change-form nav a[href*="/add/"] {
+    display: none !important;
+}
+
+body.change-form header a[href$="/add/"],
+body.change-form .flex a[href$="/add/"],
+body.change-form [class*="tools"] a[href$="/add/"] {
+    display: none !important;
+}
+
+body.change-form a[href$="/add/"][class*="bg-primary"],
+body.change-form a[href$="/add/"][class*="rounded"] {
+    display: none !important;
+}
+
+body.change-form .fixed.bottom-4,
+body.change-form .fixed.bottom-6,
+body.change-form a.fixed[href*="/add/"] {
+    display: none !important;
+}

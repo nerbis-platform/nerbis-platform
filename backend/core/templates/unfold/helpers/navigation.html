@@ -1,0 +1,22 @@
+{% load i18n unfold static %}
+
+<nav id="nav-sidebar-inner" class="bg-base-50 flex flex-col min-h-screen dark:text-font-default-dark dark:bg-base-950/20 {% element_classes 'navigation_inner' %}">
+    {% include "unfold/helpers/navigation_header.html" %}
+
+    {% include "unfold/helpers/search.html" %}
+
+    {% if sidebar_navigation|length > 0 %}
+        {% include "unfold/helpers/app_list.html" with app_list=available_apps %}
+    {% else %}
+        {% include "admin/app_list.html" with app_list=available_apps show_changelinks=False %}
+    {% endif %}
+
+    <!-- Powered by GRAVITIFY Eco - Footer del sidebar -->
+    <div class="mt-auto border-t border-base-200 dark:border-base-800 px-4 py-4">
+        <div class="flex items-center justify-center gap-2 text-xs text-base-500 dark:text-base-400">
+            <span>Powered by</span>
+            <img src="{% static 'branding/gravitify_logo.png' %}" alt="GRAVITIFY" class="h-5 w-auto opacity-70">
+            <span class="font-bold text-base-700 dark:text-base-200">GRAVITIFY Eco</span>
+        </div>
+    </div>
+</nav>

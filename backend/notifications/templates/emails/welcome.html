@@ -1,0 +1,33 @@
+<!-- backend/notifications/templates/emails/welcome.html -->
+
+{% extends "emails/base.html" %}
+
+{% block title %}Bienvenido{% endblock %}
+
+{% block content %}
+<h2>Bienvenido a {{ tenant_name }}</h2>
+
+<p>Hola {{ user.first_name|default:"" }},</p>
+
+<p>Tu cuenta ha sido creada exitosamente. Estamos encantados de tenerte con nosotros.</p>
+
+<div class="info-box">
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Cuenta:</strong> {{ tenant_name }}</p>
+</div>
+
+<h3>Primeros Pasos</h3>
+<ul style="line-height: 1.8;">
+    <li>Explora nuestros servicios y productos disponibles.</li>
+    <li>Completa tu perfil con tu informaci&oacute;n personal.</li>
+    <li>Reserva tu primera cita o realiza tu primer pedido.</li>
+</ul>
+
+<p style="margin-top: 30px;">
+    <a href="{{ frontend_url }}/dashboard" class="button">Ir a Mi Panel</a>
+</p>
+
+<p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
+
+<p>Un saludo cordial,<br>El equipo de {{ tenant_name }}</p>
+{% endblock %}

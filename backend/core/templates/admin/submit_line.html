@@ -1,0 +1,191 @@
+{% load i18n admin_urls %}
+
+<div {% if not is_popup %}id="submit-row"{% endif %} class="relative lg:sticky lg:bottom-0 z-40">
+    <div class="backdrop-blur-xs bg-white/80 rounded-b-default pb-4 px-4 dark:bg-base-900/80 lg:border-t lg:border-base-200 relative lg:scrollable-top lg:py-0 dark:border-base-800">
+        <div class="flex flex-col-reverse gap-3 items-center mx-auto lg:flex-row-reverse container lg:h-[64px]">
+            {% block submit-row %}
+                {# Grupo derecho: Guardar + Volver (acciones seguras juntas) #}
+                {% if show_save %}
+                    <button type="submit" form="{{ opts.model_name }}_form" name="_save" id="save-button"
+                        class="block border border-transparent font-medium px-3 py-2 rounded-default w-full lg:w-auto transition-all duration-200 bg-base-300 text-base-500 cursor-not-allowed dark:bg-base-700 dark:text-base-500"
+                        disabled>
+                        Guardar
+                    </button>
+                {% endif %}
+
+                {# Botón Volver - al lado de Guardar #}
+                {% url opts|admin_urlname:'changelist' as changelist_url %}
+                <a href="{% add_preserved_filters changelist_url %}"
+                   class="cursor-pointer font-medium px-3 py-2 rounded-default text-center transition-all w-full lg:w-auto flex items-center justify-center gap-2"
+                   style="background-color: #e3e54e; color: #111827;"
+                   onmouseover="this.style.backgroundColor='#d4d645'"
+                   onmouseout="this.style.backgroundColor='#e3e54e'"
+                   id="back-button">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">arrow_back</span>
+                    Volver
+                </a>
+
+                {% for action in actions_submit_line %}
+                    <button type="submit" form="{{ opts.model_name }}_form" {% if not action.attrs.name %}name="{{ action.action_name }}"{% endif %} class="border border-base-200 cursor-pointer flex font-medium gap-2 items-center justify-center px-3 py-2 rounded-default transition-all w-full hover:bg-base-50 lg:w-auto dark:border-base-700 dark:hover:text-base-200 dark:hover:bg-base-900" {% include "unfold/helpers/attrs.html" with attrs=action.attrs %}>
+                        {% if action.icon %}
+                            <span class="material-symbols-outlined">
+                                {{ action.icon }}
+                            </span>
+                        {% endif %}
+
+                        {{ action.description }}
+                    </button>
+                {% endfor %}
+
+                {# Grupo izquierdo: Eliminar (acción peligrosa aislada) #}
+                {% if show_delete_link and original %}
+                    <div class="flex flex-col gap-3 mr-auto w-full lg:flex-row lg:w-auto">
+                        {% url opts|admin_urlname:'delete' original.pk|admin_urlquote as delete_url %}
+                        <a href="{% add_preserved_filters delete_url %}" class="bg-red-600 cursor-pointer flex items-center justify-center font-medium h-[38px] px-3 py-2 rounded-default text-center text-white w-full lg:w-auto dark:bg-red-500/20 dark:text-red-500" id="delete-button">
+                            Eliminar
+                        </a>
+                    </div>
+                {% endif %}
+            {% endblock %}
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const saveButton = document.getElementById('save-button');
+    const cancelButton = document.getElementById('cancel-button');
+    const backButton = document.getElementById('back-button');
+    const deleteButton = document.getElementById('delete-button');
+    if (!saveButton) return;
+
+    // Encontrar el formulario
+    const formId = saveButton.getAttribute('form');
+    const form = document.getElementById(formId) || document.querySelector('form');
+    if (!form) return;
+
+    let initialFormData = null;
+    let hasChanges = false;
+
+    // Capturar estado inicial del formulario
+    function captureInitialState() {
+        initialFormData = new FormData(form);
+    }
+
+    // Comparar estado actual con inicial
+    function checkForChanges() {
+        if (!initialFormData) return false;
+
+        const currentFormData = new FormData(form);
+
+        // Comparar todos los campos
+        for (let [key, value] of currentFormData.entries()) {
+            const initialValue = initialFormData.get(key);
+
+            // Manejar archivos de forma especial
+            if (value instanceof File && initialValue instanceof File) {
+                if (value.name !== initialValue.name || value.size !== initialValue.size) {
+                    return true;
+                }
+            } else if (value instanceof File) {
+                // Nuevo archivo seleccionado
+                if (value.name) return true;
+            } else if (value !== initialValue) {
+                return true;
+            }
+        }
+
+        // Verificar si se eliminaron campos
+        for (let [key, value] of initialFormData.entries()) {
+            if (!currentFormData.has(key)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Actualizar estado del botón
+    function updateSaveButton() {
+        hasChanges = checkForChanges();
+
+        if (hasChanges) {
+            saveButton.disabled = false;
+            saveButton.classList.remove('bg-base-300', 'text-base-500', 'cursor-not-allowed', 'dark:bg-base-700', 'dark:text-base-500');
+            saveButton.classList.add('bg-primary-600', 'text-white', 'cursor-pointer', 'hover:bg-primary-700');
+        } else {
+            saveButton.disabled = true;
+            saveButton.classList.add('bg-base-300', 'text-base-500', 'cursor-not-allowed', 'dark:bg-base-700', 'dark:text-base-500');
+            saveButton.classList.remove('bg-primary-600', 'text-white', 'cursor-pointer', 'hover:bg-primary-700');
+        }
+    }
+
+    // Escuchar cambios en el formulario
+    function setupListeners() {
+        // Eventos para inputs de texto, selects, etc.
+        form.addEventListener('input', updateSaveButton);
+        form.addEventListener('change', updateSaveButton);
+
+        // Observar cambios en el DOM (para widgets dinámicos)
+        const observer = new MutationObserver(function(mutations) {
+            setTimeout(updateSaveButton, 100);
+        });
+
+        observer.observe(form, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['value', 'checked', 'selected']
+        });
+    }
+
+    // Advertir antes de salir con cambios sin guardar
+    function setupBeforeUnload() {
+        window.addEventListener('beforeunload', function(e) {
+            if (hasChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        });
+
+        // Permitir navegación si se hace clic en volver, cancelar o eliminar
+        if (backButton) {
+            backButton.addEventListener('click', function() {
+                hasChanges = false;
+            });
+        }
+        if (cancelButton) {
+            cancelButton.addEventListener('click', function() {
+                hasChanges = false;
+            });
+        }
+        if (deleteButton) {
+            deleteButton.addEventListener('click', function() {
+                hasChanges = false;
+            });
+        }
+
+        // Permitir submit sin advertencia
+        form.addEventListener('submit', function() {
+            hasChanges = false;
+        });
+    }
+
+    // Inicializar cuando el DOM esté listo
+    function init() {
+        // Pequeño delay para que los widgets terminen de inicializar
+        setTimeout(function() {
+            captureInitialState();
+            setupListeners();
+            setupBeforeUnload();
+        }, 500);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>

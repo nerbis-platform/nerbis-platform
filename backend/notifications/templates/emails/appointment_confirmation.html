@@ -1,0 +1,43 @@
+<!-- backend/notifications/templates/emails/appointment_confirmation.html -->
+
+{% extends "emails/base.html" %}
+
+{% block title %}Cita Confirmada{% endblock %}
+
+{% block content %}
+<h2>📅 ¡Tu Cita está Confirmada!</h2>
+
+<p>Hola {{ user.first_name }},</p>
+
+<p>Tu cita ha sido confirmada. Te esperamos en la fecha y hora indicadas.</p>
+
+<div class="info-box">
+    <p><strong>Servicio:</strong> {{ appointment.service.name }}</p>
+    <p><strong>Fecha y Hora:</strong> {{ appointment.start_datetime|date:"l, d de F de Y" }} a las {{ appointment.start_datetime|date:"H:i" }}</p>
+    <p><strong>Duración:</strong> {{ appointment.service.formatted_duration }}</p>
+    <p><strong>Profesional:</strong> {{ appointment.staff_member.full_name }}</p>
+    <p><strong>Precio:</strong> €{{ appointment.service.price }}</p>
+</div>
+
+{% if appointment.notes %}
+<div class="info-box" style="border-left-color: #f59e0b;">
+    <p><strong>Notas:</strong></p>
+    <p>{{ appointment.notes }}</p>
+</div>
+{% endif %}
+
+<h3>Información Importante:</h3>
+<ul style="line-height: 1.8;">
+    <li>Por favor llega <strong>10 minutos antes</strong> de tu cita.</li>
+    <li>Si necesitas cancelar o reprogramar, hazlo con al menos <strong>24 horas de anticipación</strong>.</li>
+    <li>Te enviaremos un recordatorio 24 horas antes de tu cita.</li>
+</ul>
+
+<p style="margin-top: 30px;">
+    <a href="{{ frontend_url }}/dashboard/appointments" class="button">Ver Mis Citas</a>
+</p>
+
+<p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
+
+<p>¡Nos vemos pronto!</p>
+{% endblock %}

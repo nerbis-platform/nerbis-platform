@@ -1,0 +1,30 @@
+{% extends "admin/object_history.html" %}
+{% load i18n admin_urls %}
+
+{% block content %}
+{# Encabezado con contexto #}
+<div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+        <a href="../"
+           style="background-color: #e3e54e; color: #111827; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; font-weight: 500; font-size: 13px; transition: all 0.15s ease;"
+           onmouseover="this.style.backgroundColor='#d4d645'"
+           onmouseout="this.style.backgroundColor='#e3e54e'">
+            <span class="material-symbols-outlined" style="font-size: 16px;">arrow_back</span>
+            Volver
+        </a>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span class="material-symbols-outlined" style="font-size: 28px; color: #6b7280;">history</span>
+        <div>
+            <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #111827;">
+                Historial de cambios
+            </h1>
+            <p style="margin: 4px 0 0 0; font-size: 14px; color: #6b7280;">
+                {{ object|truncatewords:10 }}
+            </p>
+        </div>
+    </div>
+</div>
+
+{{ block.super }}
+{% endblock %}

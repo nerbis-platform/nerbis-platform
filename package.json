@@ -1,0 +1,14 @@
+{
+  "name": "eco-graviti",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Herramientas de desarrollo para ECO-GRAVITI (monorepo root)",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.4.2",
+    "@commitlint/config-conventional": "^20.4.2",
+    "husky": "^9.1.7"
+  }
+}

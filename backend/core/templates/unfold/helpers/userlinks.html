@@ -1,0 +1,144 @@
+{% load i18n static unfold %}
+
+<div class="flex flex-row gap-4 items-center ml-auto">
+    {% if environment %}
+        {% include "unfold/helpers/label.html" with text=environment.0 type=environment.1 %}
+    {% endif %}
+
+    {% action_list %}
+
+    {% if nav_global_side %}
+        {{ nav_global_side }}
+    {% endif %}
+
+    <!-- Menú de usuario con dropdown -->
+    <div class="relative border-l border-base-200 dark:border-base-700 pl-4 ml-2" x-data="{ open: false }">
+        <!-- Botón del menú -->
+        <div class="flex items-center gap-3 cursor-pointer select-none px-2 py-1.5 rounded-lg hover:bg-base-100 dark:hover:bg-base-800 transition-colors"
+             x-on:click="open = !open"
+             x-bind:class="{'bg-base-100 dark:bg-base-800': open}">
+            {% with has_avatar=request.user.avatar.name has_tenant_logo=request.user.tenant.logo.name %}
+                {% if has_avatar %}
+                <!-- Avatar del usuario (prioridad) -->
+                <img src="{{ request.user.avatar.url }}" alt="Avatar" class="rounded-full select-none shadow-sm border-2 border-base-300 dark:border-base-600 object-cover" style="width: 44px; height: 44px;">
+                {% elif request.user.tenant and has_tenant_logo %}
+                <!-- Logo del negocio (fallback) -->
+                <div class="h-11 w-auto min-w-11 max-w-28 px-2 flex items-center justify-center rounded-lg select-none shadow-sm overflow-hidden border border-base-300 dark:border-base-600 bg-white">
+                    <img src="{{ request.user.tenant.logo.url }}" alt="{{ request.user.tenant.name }}" class="h-8 w-auto object-contain">
+                </div>
+                {% else %}
+                <!-- Logo por defecto de GRAVITIFY -->
+                <div class="flex items-center justify-center rounded-full select-none shadow-sm overflow-hidden border border-base-300 dark:border-base-600"
+                     style="width: 44px; height: 44px; background: url('{% static 'branding/Isotipo_color.png' %}') center/70% no-repeat #e0e7ff;">
+                </div>
+                {% endif %}
+            {% endwith %}
+            <div class="flex flex-col text-right min-w-0">
+                <span class="text-sm font-semibold text-base-700 dark:text-base-200 leading-tight truncate max-w-[150px]">
+                    {{ request.user.get_full_name|default:request.user.email }}
+                </span>
+                {% if request.user.tenant %}
+                    <span class="text-[11px] text-base-500 dark:text-base-400 leading-tight flex items-center gap-1 justify-end">
+                        <span class="truncate max-w-[90px]">{{ request.user.tenant.name }}</span>
+                        {% if request.user.is_superuser %}
+                            <span class="inline-flex items-center px-1 py-px rounded text-[7px] font-bold uppercase text-white"
+                                  style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);">
+                                Super
+                            </span>
+                        {% elif request.user.role == 'admin' %}
+                            <span class="inline-flex items-center px-1 py-px rounded text-[7px] font-bold uppercase text-white"
+                                  style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);">
+                                Admin
+                            </span>
+                        {% elif request.user.role == 'staff' %}
+                            <span class="inline-flex items-center px-1 py-px rounded text-[7px] font-bold uppercase text-white"
+                                  style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);">
+                                Staff
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-1 py-px rounded text-[7px] font-bold uppercase text-white"
+                                  style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+                                Cliente
+                            </span>
+                        {% endif %}
+                    </span>
+                {% elif request.user.is_superuser %}
+                    <span class="text-[11px] leading-tight flex items-center gap-1 justify-end">
+                        <span class="text-primary-500 dark:text-primary-400 font-medium">GRAVITIFY</span>
+                        <span class="inline-flex items-center px-1 py-px rounded text-[7px] font-bold uppercase text-white"
+                              style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);">
+                            Super
+                        </span>
+                    </span>
+                {% endif %}
+            </div>
+            <span class="material-symbols-outlined text-base-400 dark:text-base-500 text-lg transition-transform"
+                  x-bind:class="{'rotate-180': open}">
+                expand_more
+            </span>
+        </div>
+
+        <!-- Dropdown menu -->
+        <div class="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-base-800 border border-base-200 dark:border-base-700 rounded-lg shadow-xl z-50 py-1 overflow-hidden"
+             x-cloak
+             x-show="open"
+             x-transition:enter="transition ease-out duration-100"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-75"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             x-on:click.outside="open = false">
+
+            <!-- Info del usuario -->
+            <div class="px-4 py-3 border-b border-base-200 dark:border-base-700">
+                <p class="text-sm font-medium text-base-900 dark:text-base-100 truncate">
+                    {{ request.user.get_full_name|default:request.user.get_username }}
+                </p>
+                <p class="text-xs text-base-500 dark:text-base-400 truncate">
+                    {{ request.user.email }}
+                </p>
+            </div>
+
+            <!-- Theme switch -->
+            {% include "unfold/helpers/theme_switch.html" %}
+
+            <!-- Language switch -->
+            {% include "unfold/helpers/language_switch.html" %}
+
+            <!-- Links de cuenta -->
+            {% if account_links %}
+                {% for link in account_links %}
+                    <a href="{{ link.link }}" class="flex items-center gap-3 px-4 py-2 text-sm text-base-700 dark:text-base-300 hover:bg-base-100 dark:hover:bg-base-700 transition-colors">
+                        <span class="material-symbols-outlined text-base">settings</span>
+                        {{ link.title }}
+                    </a>
+                {% endfor %}
+            {% else %}
+                <!-- Editar mi perfil -->
+                <a href="{% url 'admin:core_user_change' request.user.pk %}" class="flex items-center gap-3 px-4 py-2 text-sm text-base-700 dark:text-base-300 hover:bg-base-100 dark:hover:bg-base-700 transition-colors">
+                    <span class="material-symbols-outlined text-base">person</span>
+                    {% translate 'My profile' %}
+                </a>
+
+                {% if request.user.has_usable_password %}
+                    <a href="{% url 'admin:password_change' %}" class="flex items-center gap-3 px-4 py-2 text-sm text-base-700 dark:text-base-300 hover:bg-base-100 dark:hover:bg-base-700 transition-colors">
+                        <span class="material-symbols-outlined text-base">lock</span>
+                        {% translate 'Change password' %}
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            <!-- Separador y Logout -->
+            <div class="border-t border-base-200 dark:border-base-700 mt-1 pt-1">
+                <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
+                        <span class="material-symbols-outlined text-base">logout</span>
+                        {% translate 'Log out' %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,3 @@
+# Pre-commit hook - se configurará con linters en el paso de CI
+# Por ahora solo valida que el commit pase
+exit 0

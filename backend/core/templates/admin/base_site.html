@@ -1,0 +1,555 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="icon" href="{% static 'branding/Isotipo_color.png' %}" type="image/png">
+
+<style>
+/* ============================================
+   OCULTAR NOMBRE DE APP EN BREADCRUMB
+   Solo mostrar: Home > Nombre del modelo
+   Se usa JavaScript para mayor compatibilidad
+   ============================================ */
+
+/* ============================================
+   BADGE DE SUSCRIPCIÓN PARA ADMIN DE TENANT
+   ============================================ */
+.subscription-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 99999;
+    padding: 8px 16px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.subscription-banner + * {
+    margin-top: 40px;
+}
+
+/* Ajustar el layout de Unfold cuando hay banner */
+body.has-subscription-banner {
+    padding-top: 40px !important;
+}
+
+/* Ajustar el sidebar de Unfold (selector específico) */
+body.has-subscription-banner #nav-sidebar {
+    top: 40px !important;
+    max-height: calc(100vh - 40px) !important;
+}
+
+/* Ajustar el contenedor del sidebar */
+body.has-subscription-banner #nav-sidebar > div {
+    max-height: calc(100vh - 40px) !important;
+}
+
+/* Asegurar que el contenido principal tenga margen */
+body.has-subscription-banner #main {
+    margin-top: 0 !important;
+}
+
+/* Ajustar el contenedor del page */
+body.has-subscription-banner #page {
+    min-height: calc(100vh - 40px) !important;
+}
+
+.subscription-banner.trial {
+    background: linear-gradient(90deg, #3B82F6, #6366F1);
+    color: white;
+}
+
+.subscription-banner.trial-warning {
+    background: linear-gradient(90deg, #F59E0B, #EF4444);
+    color: white;
+}
+
+.subscription-banner.expired {
+    background: linear-gradient(90deg, #DC2626, #991B1B);
+    color: white;
+}
+
+.subscription-banner.active {
+    background: linear-gradient(90deg, #059669, #10B981);
+    color: white;
+}
+
+.subscription-banner .badge-icon {
+    font-size: 16px;
+}
+
+.subscription-banner .plan-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.subscription-banner a {
+    color: white;
+    text-decoration: underline;
+    margin-left: 8px;
+}
+
+.subscription-banner a:hover {
+    opacity: 0.9;
+}
+/* ============================================
+   FIX: Datepicker z-index para que funcione
+   sobre cualquier overlay del admin
+   ============================================ */
+.calendarbox, .clockbox {
+    z-index: 100000 !important;
+}
+
+/* Asegurar que el calendario sea visible y clickeable */
+.calendarbox .calendar,
+.calendarbox .calendar-shortcuts,
+.calendarbox .calendar-cancel,
+.calendarbox table,
+.calendarbox td,
+.calendarbox th,
+.calendarbox a {
+    position: relative;
+    z-index: inherit;
+    pointer-events: auto !important;
+}
+
+/* ============================================
+   ESTILOS GLOBALES PARA MEJORAR UX EN ADMIN
+   Visibilidad de registros editables
+   ============================================ */
+
+/* Filas de tabla en change_list (lista de registros) */
+#result_list tbody tr {
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Hover effect para filas - Light mode */
+#result_list tbody tr:hover {
+    background-color: rgb(149 208 201 / 0.2) !important; /* #95D0C9/20 */
+    box-shadow: inset 4px 0 0 #95D0C9; /* Borde izquierdo amarillo-lima */
+}
+
+/* Alternancia de colores en filas para mejor legibilidad */
+#result_list tbody tr:nth-child(odd) {
+    background-color: rgb(249 250 251); /* gray-50 */
+}
+
+#result_list tbody tr:nth-child(even) {
+    background-color: white;
+}
+
+/* Bordes más visibles entre filas */
+#result_list tbody tr td {
+    border-bottom: 1px solid rgb(229 231 235) !important; /* gray-200 */
+}
+
+/* ============================================
+   Links en la tabla - Estilo de texto normal
+   ============================================ */
+
+/* Links principales se ven como texto normal (no clickeables visualmente) */
+#result_list tbody tr th a,
+#result_list tbody tr td a {
+    color: rgb(17 24 39) !important; /* gray-900 */
+    font-weight: 500;
+    text-decoration: none !important;
+    pointer-events: none; /* Deshabilitar click en el nombre */
+}
+
+/* Mejorar checkboxes de selección */
+#result_list tbody tr td input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #95D0C9;
+    pointer-events: auto !important;
+}
+
+/* Efecto de selección con checkbox */
+#result_list tbody tr.selected,
+#result_list tbody tr:has(input[type="checkbox"]:checked) {
+    background-color: rgb(149 208 201 / 0.2) !important; /* #95D0C9/20 */
+    box-shadow: inset 4px 0 0 #95D0C9;
+}
+
+/* Badges y estados más visibles */
+#result_list tbody tr td span[style*="background-color"] {
+    transition: transform 0.15s ease;
+}
+
+#result_list tbody tr:hover td span[style*="background-color"] {
+    transform: scale(1.05);
+}
+
+/* Mejorar la cabecera de la tabla */
+#result_list thead th {
+    background-color: rgb(243 244 246) !important; /* gray-100 */
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: rgb(75 85 99) !important; /* gray-600 */
+    border-bottom: 2px solid #95D0C9 !important;
+}
+
+/* Sortable headers - mantener clickeables */
+#result_list thead th a {
+    color: rgb(75 85 99) !important;
+    pointer-events: auto !important;
+}
+
+#result_list thead th:hover {
+    background-color: rgb(229 231 235) !important;
+}
+
+/* ============================================
+   Botón Editar - Columna de acciones
+   ============================================ */
+
+/* Columna de acciones agregada por JS */
+.admin-edit-action-cell {
+    text-align: center;
+    width: 100px;
+}
+
+/* Botón Editar */
+.btn-edit-record {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background-color: #95D0C9;
+    color: rgb(17 24 39) !important; /* Texto oscuro para mejor contraste */
+    font-weight: 600;
+    font-size: 0.8125rem;
+    border-radius: 6px;
+    text-decoration: none !important;
+    transition: all 0.2s ease;
+    cursor: pointer !important;
+    border: none;
+    pointer-events: auto !important; /* Habilitar click en el botón */
+}
+
+.btn-edit-record:hover {
+    background-color: #7ABEB6; /* #95D0C9 más oscuro */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgb(0 0 0 / 0.15);
+}
+
+/* ============================================
+   Mensaje de ayuda para nuevos usuarios
+   ============================================ */
+
+#changelist .results {
+    position: relative;
+}
+
+#changelist .results::before {
+    content: "💡 Usa el botón 'Editar' de cada fila para modificar un registro";
+    display: block;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    background-color: rgb(149 208 201 / 0.15); /* #95D0C9/15 */
+    border: 1px solid #95D0C9;
+    border-radius: 8px;
+    color: rgb(75 85 99); /* gray-600 */
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* ============================================
+   Botones de acción más visibles
+   ============================================ */
+
+.object-tools a,
+input[type="submit"],
+button[type="submit"] {
+    transition: all 0.2s ease !important;
+}
+
+.object-tools a:hover,
+input[type="submit"]:hover,
+button[type="submit"]:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* ============================================
+   Barra de acciones de selección múltiple
+   ============================================ */
+
+/* Contenedor principal de acciones - Light mode */
+#changelist .actions,
+.changelist .actions,
+[data-actions],
+.actions-container {
+    background-color: #95D0C9 !important;
+    border: 1px solid #7ABEB6 !important;
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+/* Texto en la barra de acciones - Light mode */
+#changelist .actions,
+#changelist .actions *,
+#changelist .actions label,
+#changelist .actions span,
+#changelist .actions p,
+#changelist .actions div,
+#changelist .actions .action-counter,
+.changelist .actions,
+.changelist .actions *,
+.changelist .actions label,
+.changelist .actions span,
+[data-actions],
+[data-actions] *,
+[data-actions] label,
+[data-actions] span {
+    color: rgb(17 24 39) !important; /* Texto oscuro */
+    font-weight: 500;
+}
+
+/* Select de acciones */
+#changelist .actions select,
+.changelist .actions select,
+[data-actions] select {
+    background-color: white !important;
+    color: rgb(17 24 39) !important;
+    border: 1px solid rgb(17 24 39 / 0.2) !important;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-weight: 500;
+}
+
+/* Botón de ejecutar acción */
+#changelist .actions button,
+#changelist .actions input[type="submit"],
+.changelist .actions button,
+.changelist .actions input[type="submit"],
+[data-actions] button {
+    background-color: rgb(17 24 39) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#changelist .actions button:hover,
+#changelist .actions input[type="submit"]:hover,
+.changelist .actions button:hover,
+.changelist .actions input[type="submit"]:hover,
+[data-actions] button:hover {
+    background-color: rgb(31 41 55) !important;
+    transform: translateY(-1px);
+}
+
+/* ============================================
+   OCULTAR BOTÓN DE AGREGAR EN CHANGE FORM
+   El botón de agregar solo tiene sentido en el listado
+   ============================================ */
+
+/* Ocultar botón de agregar en object-tools (barra superior) */
+body.change-form .object-tools a[href*="/add/"],
+body.change-form ul.object-tools a[href*="/add/"],
+body.change-form .object-tools li:has(a[href*="/add/"]),
+body.change-form [class*="object-tools"] a[href*="/add/"] {
+    display: none !important;
+}
+
+/* Ocultar el li que contiene el link de agregar */
+body.change-form .object-tools li a[href$="/add/"] {
+    display: none !important;
+}
+
+/* Unfold usa dropdowns - ocultar items de agregar */
+body.change-form [data-dropdown] a[href*="/add/"],
+body.change-form .dropdown a[href*="/add/"],
+body.change-form menu a[href*="/add/"],
+body.change-form nav a[href*="/add/"] {
+    display: none !important;
+}
+
+/* Ocultar cualquier link que termine en /add/ en la página de edición */
+body.change-form header a[href$="/add/"],
+body.change-form .flex a[href$="/add/"],
+body.change-form [class*="tools"] a[href$="/add/"] {
+    display: none !important;
+}
+
+/* Selectores adicionales para Unfold */
+body.change-form a[href$="/add/"][class*="bg-primary"],
+body.change-form a[href$="/add/"][class*="rounded"] {
+    display: none !important;
+}
+
+/* FAB flotante (por si acaso) */
+body.change-form .fixed.bottom-4,
+body.change-form .fixed.bottom-6,
+body.change-form a.fixed[href*="/add/"] {
+    display: none !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const resultList = document.getElementById('result_list');
+    if (!resultList) return;
+
+    // Agregar columna de header "Acciones"
+    const thead = resultList.querySelector('thead tr');
+    if (thead) {
+        const actionHeader = document.createElement('th');
+        actionHeader.textContent = 'Acciones';
+        actionHeader.className = 'admin-edit-action-cell';
+        actionHeader.style.cssText = 'background-color: rgb(243 244 246) !important; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; color: rgb(75 85 99) !important; border-bottom: 2px solid #95D0C9 !important;';
+        thead.appendChild(actionHeader);
+    }
+
+    // Agregar botón Editar a cada fila
+    const rows = resultList.querySelectorAll('tbody tr');
+    rows.forEach(function(row) {
+        // Buscar el primer link en la fila (es el link de edición)
+        const editLink = row.querySelector('th a, td a');
+        if (editLink) {
+            const editUrl = editLink.href;
+
+            // Crear celda de acciones
+            const actionCell = document.createElement('td');
+            actionCell.className = 'admin-edit-action-cell';
+
+            // Crear botón Editar
+            const editButton = document.createElement('a');
+            editButton.href = editUrl;
+            editButton.className = 'btn-edit-record';
+            editButton.textContent = 'Editar';
+
+            actionCell.appendChild(editButton);
+            row.appendChild(actionCell);
+        }
+    });
+
+});
+
+// Ocultar nombre de app en breadcrumb (Core, Services, etc.)
+// Solo ocultar links que apunten a URLs de apps: /admin/core/, /admin/services/
+(function() {
+    function hideAppInBreadcrumb() {
+        // Lista de apps conocidas para ocultar en breadcrumb
+        const appsToHide = ['core', 'services', 'bookings', 'ecommerce', 'orders', 'cart', 'coupons', 'promotions', 'reviews', 'billing', 'subscriptions'];
+
+        // Buscar links que coincidan con URLs de apps
+        document.querySelectorAll('a').forEach(function(link) {
+            const href = link.getAttribute('href') || '';
+
+            // Verificar si es un link a una app (ej: /admin/core/)
+            const appMatch = href.match(/\/admin\/([^\/]+)\/?$/);
+            if (appMatch && appsToHide.includes(appMatch[1])) {
+                // Ocultar el link y el separador siguiente (chevron)
+                link.style.display = 'none';
+
+                // Buscar y ocultar el chevron siguiente
+                let nextEl = link.nextElementSibling;
+                while (nextEl) {
+                    if (nextEl.textContent && nextEl.textContent.includes('chevron')) {
+                        nextEl.style.display = 'none';
+                        break;
+                    }
+                    // Si es un span que contiene el chevron
+                    if (nextEl.querySelector && nextEl.querySelector('.material-symbols-outlined')) {
+                        nextEl.style.display = 'none';
+                        break;
+                    }
+                    nextEl = nextEl.nextElementSibling;
+                }
+            }
+        });
+    }
+
+    // Ejecutar cuando el DOM esté listo
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', hideAppInBreadcrumb);
+    } else {
+        setTimeout(hideAppInBreadcrumb, 50);
+    }
+})();
+
+</script>
+
+{% if subscription_info %}
+<script>
+// Crear e insertar el banner de suscripción
+document.addEventListener('DOMContentLoaded', function() {
+    const subscriptionInfo = {
+        tenantName: "{{ subscription_info.tenant_name|escapejs }}",
+        plan: "{{ subscription_info.plan|escapejs }}",
+        isTrial: {{ subscription_info.is_trial|yesno:"true,false" }},
+        isExpired: {{ subscription_info.is_expired|yesno:"true,false" }},
+        daysRemaining: {% if subscription_info.days_remaining is not None %}{{ subscription_info.days_remaining }}{% else %}null{% endif %},
+        status: "{{ subscription_info.subscription_status|escapejs }}"
+    };
+
+    // Determinar clase CSS y mensaje
+    let bannerClass = 'active';
+    let icon = '✓';
+    let message = '';
+
+    if (subscriptionInfo.isExpired) {
+        bannerClass = 'expired';
+        icon = '⚠️';
+        message = 'Tu suscripción ha expirado. Contacta a soporte para renovar.';
+    } else if (subscriptionInfo.isTrial) {
+        if (subscriptionInfo.daysRemaining !== null && subscriptionInfo.daysRemaining <= 7) {
+            bannerClass = 'trial-warning';
+            icon = '⏰';
+            message = `Período de prueba: ${subscriptionInfo.daysRemaining} día${subscriptionInfo.daysRemaining !== 1 ? 's' : ''} restante${subscriptionInfo.daysRemaining !== 1 ? 's' : ''}`;
+        } else {
+            bannerClass = 'trial';
+            icon = '🎁';
+            if (subscriptionInfo.daysRemaining !== null) {
+                message = `Período de prueba: ${subscriptionInfo.daysRemaining} días restantes`;
+            } else {
+                message = 'Período de prueba activo';
+            }
+        }
+    } else {
+        bannerClass = 'active';
+        icon = '✓';
+        message = `Plan ${subscriptionInfo.plan}`;
+        if (subscriptionInfo.daysRemaining !== null) {
+            message += ` · ${subscriptionInfo.daysRemaining} días restantes`;
+        }
+    }
+
+    // Crear el banner
+    const banner = document.createElement('div');
+    banner.className = `subscription-banner ${bannerClass}`;
+    banner.innerHTML = `
+        <span class="badge-icon">${icon}</span>
+        <span>${message}</span>
+        <span class="plan-badge">${subscriptionInfo.plan}</span>
+    `;
+
+    // Insertar al inicio del body
+    document.body.insertBefore(banner, document.body.firstChild);
+    document.body.classList.add('has-subscription-banner');
+});
+</script>
+{% endif %}
+{% endblock %}

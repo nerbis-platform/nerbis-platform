@@ -1,0 +1,52 @@
+<!-- backend/notifications/templates/emails/payment_confirmation.html -->
+
+{% extends "emails/base.html" %}
+
+{% block title %}Pago Confirmado - {{ order.order_number }}{% endblock %}
+
+{% block content %}
+<h2>✅ ¡Pago Confirmado!</h2>
+
+<p>Hola {{ user.first_name }},</p>
+
+<p>Tu pago ha sido procesado exitosamente. Tu orden está confirmada y será procesada en breve.</p>
+
+<div class="info-box">
+    <p><strong>Número de Orden:</strong> {{ order.order_number }}</p>
+    <p><strong>Monto Pagado:</strong> €{{ order.total }}</p>
+    <p><strong>Fecha de Pago:</strong> {{ order.paid_at|date:"d/m/Y H:i" }}</p>
+    <p><strong>Método de Pago:</strong> Tarjeta de Crédito (Stripe)</p>
+</div>
+
+{% if order.service_items.all %}
+<div class="info-box" style="border-left-color: #10b981; background-color: #f0fdf4;">
+    <h4 style="color: #10b981; margin-top: 0;">📅 Tus Citas han sido Confirmadas</h4>
+    {% for item in order.service_items.all %}
+    <p>
+        <strong>{{ item.service_name }}</strong><br>
+        📅 {{ item.appointment_datetime|date:"d/m/Y H:i" }}<br>
+        👤 Con {{ item.staff_member_name }}
+    </p>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if order.product_items.all %}
+<p><strong>Envío:</strong> Tu pedido será enviado en las próximas 24-48 horas a la dirección:</p>
+<div class="info-box">
+    <p>
+        {{ order.shipping_name }}<br>
+        {{ order.shipping_address }}<br>
+        {{ order.shipping_postal_code }} {{ order.shipping_city }}
+    </p>
+</div>
+{% endif %}
+
+<p style="margin-top: 30px;">
+    <a href="{{ frontend_url }}/dashboard/orders/{{ order.id }}" class="button">Ver Detalles de la Orden</a>
+</p>
+
+<p>Recibirás un email adicional cuando tu pedido sea enviado (si aplicable).</p>
+
+<p>¡Gracias por confiar en nosotros!</p>
+{% endblock %}

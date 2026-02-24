@@ -1,0 +1,45 @@
+asgiref==3.8.1
+Django==5.1.7
+django-cors-headers==4.6.0
+djangorestframework==3.16.1
+pillow==12.0.0
+psycopg2-binary==2.9.11
+python-dotenv==1.2.1
+sqlparse==0.5.4
+dj-database-url==2.2.0
+
+# ===================================
+# AUTENTICACIÓN JWT
+# ===================================
+djangorestframework-simplejwt==5.5.1
+# ===================================
+# FILTROS Y DOCUMENTACIÓN
+# ===================================
+django-filter==24.3
+drf-spectacular==0.29.0
+# ===================================
+# PAGOS
+# ===================================
+stripe==14.1.0
+
+# ===================================
+# NOTIFICACIONES
+# ===================================
+# Emails
+django-templated-mail==1.1.1
+
+# WhatsApp/SMS
+twilio==9.0.4
+
+# Tareas programadas
+celery==5.3.4
+redis==5.0.1
+django-celery-beat==2.8.0
+django-unfold>=0.40.0
+drf-nested-routers==0.94.1
+
+# ===================================
+# INTELIGENCIA ARTIFICIAL
+# ===================================
+anthropic>=0.40.0
+requests>=2.31.0

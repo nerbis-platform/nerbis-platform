@@ -1,0 +1,102 @@
+<!-- backend/notifications/templates/emails/base.html -->
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GC Belleza y Estética{% endblock %}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 30px 20px;
+            color: #333;
+        }
+        .content h2 {
+            color: #667eea;
+            font-size: 20px;
+            margin-top: 0;
+        }
+        .content p {
+            line-height: 1.6;
+            margin: 15px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .info-box p {
+            margin: 5px 0;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ tenant_name|default:"GC Belleza y Estética" }}</h1>
+        </div>
+        
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+        
+        <div class="footer">
+            <p>{{ tenant_name|default:"GC Belleza y Estética" }}</p>
+            <p>{{ tenant_address|default:"Pedrezuela, Madrid, España" }}</p>
+            <p>
+                <a href="mailto:{{ tenant_email|default:'info@gcbellezayestetica.es' }}">{{ tenant_email|default:"info@gcbellezayestetica.es" }}</a> |
+                {{ tenant_phone|default:"+34 600 000 000" }}
+            </p>
+            <p style="margin-top: 15px;">
+                <a href="#">Facebook</a> | <a href="#">Instagram</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

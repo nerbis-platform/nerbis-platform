@@ -1,0 +1,42 @@
+<!-- backend/notifications/templates/emails/appointment_reminder.html -->
+
+{% extends "emails/base.html" %}
+
+{% block title %}Recordatorio de Cita{% endblock %}
+
+{% block content %}
+<h2>⏰ Recordatorio de tu Cita</h2>
+
+<p>Hola {{ user.first_name }},</p>
+
+<p>Este es un recordatorio de tu próxima cita:</p>
+
+<div class="info-box" style="border-left-color: #f59e0b; background-color: #fffbeb;">
+    <p><strong>Servicio:</strong> {{ appointment.service.name }}</p>
+    <p><strong>📅 Fecha:</strong> {{ appointment.start_datetime|date:"l, d de F de Y" }}</p>
+    <p><strong>🕐 Hora:</strong> {{ appointment.start_datetime|date:"H:i" }}</p>
+    <p><strong>👤 Con:</strong> {{ appointment.staff_member.full_name }}</p>
+</div>
+
+<p><strong>Ubicación:</strong></p>
+<p>
+    {{ tenant_name }}<br>
+    {{ tenant_address }}<br>
+    {{ tenant_city }}
+</p>
+
+<h3>Recuerda:</h3>
+<ul style="line-height: 1.8;">
+    <li>Llega <strong>10 minutos antes</strong></li>
+    <li>Trae ropa cómoda si es necesario</li>
+    <li>Si necesitas cancelar, hazlo con <strong>24 horas de anticipación</strong></li>
+</ul>
+
+<p style="margin-top: 30px;">
+    <a href="{{ frontend_url }}/dashboard/appointments/{{ appointment.id }}" class="button">Ver Detalles</a>
+</p>
+
+<p>Si necesitas reprogramar, puedes cancelar esta cita y crear una nueva desde tu panel.</p>
+
+<p>¡Te esperamos!</p>
+{% endblock %}
