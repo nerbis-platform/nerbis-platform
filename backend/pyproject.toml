@@ -1,12 +1,28 @@
-[tool.black]
+# Ruff — Linter + Formatter para Python (reemplaza flake8, black, isort)
+# Docs: https://docs.astral.sh/ruff/
+
+[tool.ruff]
 line-length = 120
+target-version = "py312"
 
-[tool.flake8]
-max-line-length = 120
-extend-ignore = ["E203", "W503"]
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes
+  "I",    # isort (orden de imports)
+  "B",    # flake8-bugbear
+  "UP",   # pyupgrade
+]
+ignore = [
+  "E501",  # line too long (lo maneja el formatter)
+  "B008",  # do not perform function calls in argument defaults (común en Django)
+  "B905",  # zip() without strict= (compatible con Python < 3.10)
+]
 
-[tool.pylint.format]
-max-line-length = 120
+[tool.ruff.lint.isort]
+known-first-party = ["config", "core", "ecommerce", "bookings", "services", "orders", "cart", "notifications", "subscriptions", "billing", "reviews", "coupons", "promotions", "websites", "middleware"]
 
-[tool.pycodestyle]
-max-line-length = 120
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
