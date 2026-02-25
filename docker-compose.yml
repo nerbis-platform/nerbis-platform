@@ -1,14 +1,15 @@
 # Archivo: docker-compose.yml
+# Las credenciales se leen de variables de entorno o del archivo .env
 
 services:
   # Base de datos PostgreSQL
   db:
     image: postgres:15
-    container_name: gravitifyprod_db_container
+    container_name: graviti_db
     environment:
-      POSTGRES_DB: gravprod_db
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: ${POSTGRES_DB:-graviti_db}
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
     ports:
       - "5432:5432"
     volumes:
@@ -17,14 +18,14 @@ services:
   # Redis (para caché y Celery)
   redis:
     image: redis:7-alpine
-    container_name: gravitifyprod_redis
+    container_name: graviti_redis
     ports:
       - "6379:6379"
 
   # Backend Django
   backend:
     build: ./backend
-    container_name: gravitifyprod_backend
+    container_name: graviti_backend
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
@@ -33,7 +34,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql://admin:admin123@db:5432/gravprod_db
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-graviti_db}
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       - db
@@ -42,14 +43,14 @@ services:
   # Celery Worker
   celery:
     build: ./backend
-    container_name: gravitifyprod_celery
+    container_name: graviti_celery
     command: celery -A config worker -l info
     volumes:
       - ./backend:/app
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql://admin:admin123@db:5432/gravprod_db
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-graviti_db}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
     depends_on:
@@ -60,14 +61,14 @@ services:
   # Celery Beat (Scheduler)
   celery-beat:
     build: ./backend
-    container_name: gravitifyprod_celery_beat
+    container_name: graviti_celery_beat
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     volumes:
       - ./backend:/app
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql://admin:admin123@db:5432/gravprod_db
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-graviti_db}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
     depends_on:

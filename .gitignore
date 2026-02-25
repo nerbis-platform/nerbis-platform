@@ -20,6 +20,7 @@ backend/media/
 backend/staticfiles/
 
 # Environment files with secrets
+.env
 backend/.env
 frontend/.env.local
 frontend/.env.network.local

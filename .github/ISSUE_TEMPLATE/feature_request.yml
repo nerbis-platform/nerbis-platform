@@ -1,0 +1,61 @@
+name: "Feature Request"
+description: "Proponer una nueva funcionalidad"
+labels: ["tipo: feature"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción de la feature
+      description: ¿Qué quieres que haga la plataforma?
+      placeholder: "Como usuario quiero poder..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criterios de aceptación
+      description: ¿Cómo sabemos que está terminada?
+      value: |
+        - [ ] Criterio 1
+        - [ ] Criterio 2
+        - [ ] Criterio 3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Módulo
+      options:
+        - Core / Auth
+        - E-commerce
+        - Bookings
+        - Services
+        - Orders / Pagos
+        - Cart
+        - Notifications
+        - Subscriptions
+        - Frontend
+        - Mobile
+        - Websites
+        - Nuevo módulo
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioridad
+      options:
+        - "P1: Importante para el negocio"
+        - "P2: Normal, planificar en sprint"
+        - "P3: Nice to have"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional
+      description: Mockups, referencias, o cualquier info extra

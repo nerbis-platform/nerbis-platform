@@ -19,12 +19,14 @@ Autor: Sistema Multi-Tenant Ecosistema Digital
 Fecha: Diciembre 2024
 """
 
+import os
+import datetime
+from decimal import Decimal
+
 from django.core.management.base import BaseCommand
 from django.db import connection, transaction
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
-from decimal import Decimal
-import datetime
 
 
 class Command(BaseCommand):
@@ -143,7 +145,7 @@ class Command(BaseCommand):
                 "first_name": "Administrador",
                 "last_name": "GC Belleza",
                 "phone": "+34 918 43 11 87",
-                "password": make_password("admin123"),  # ⚠️ Cambiar en producción
+                "password": make_password(os.environ.get("TENANT_ADMIN_PASSWORD", "changeme")),
                 "is_staff": True,
                 "is_superuser": True,
                 "is_active": True,
@@ -154,7 +156,7 @@ class Command(BaseCommand):
 
         if created:
             self.stdout.write(self.style.SUCCESS(f"  ✅ Usuario admin creado: {admin_user.email}"))
-            self.stdout.write(self.style.WARNING(f"  🔑 Contraseña: admin123 (CAMBIAR EN PRODUCCIÓN)"))
+            self.stdout.write(self.style.WARNING(f"  🔑 Contraseña: definida por TENANT_ADMIN_PASSWORD (CAMBIAR EN PRODUCCIÓN)"))
         else:
             self.stdout.write(self.style.WARNING(f"  ℹ️  Usuario admin ya existía"))
 
@@ -634,7 +636,7 @@ class Command(BaseCommand):
 
         self.stdout.write(f"\n👤 Usuario Admin:")
         self.stdout.write(f"   - Email: {admin_user.email}")
-        self.stdout.write(self.style.WARNING(f"   - Password: admin123"))
+        self.stdout.write(self.style.WARNING(f"   - Password: (definida por TENANT_ADMIN_PASSWORD)"))
 
         self.stdout.write(f"\n📊 Datos creados:")
         self.stdout.write(f"   - Categorías de Servicios: {len(categories)}")
@@ -677,7 +679,7 @@ class Command(BaseCommand):
 
         self.stdout.write(f"\n👤 Usuario Admin:")
         self.stdout.write(f"   - Email: {admin_user.email}")
-        self.stdout.write(self.style.WARNING(f"   - Password: admin123"))
+        self.stdout.write(self.style.WARNING(f"   - Password: (definida por TENANT_ADMIN_PASSWORD)"))
 
         self.stdout.write(f"\n📊 Datos creados:")
         self.stdout.write(f"   - Categorías de Productos: {len(categories)}")
