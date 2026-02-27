@@ -709,6 +709,165 @@ class ChatView(APIView):
 
 
 # ===================================
+# SEO AI SUGGESTIONS
+# ===================================
+
+class SuggestSeoView(APIView):
+    """
+    POST /api/websites/suggest-seo/
+
+    Genera sugerencias de título y descripción SEO usando IA,
+    basándose en las keywords que el usuario ingresó.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        tenant = self._get_tenant(request)
+        if not tenant:
+            return Response(
+                {"error": "Usuario no asociado a un tenant"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            config = WebsiteConfig.objects.get(tenant=tenant)
+        except WebsiteConfig.DoesNotExist:
+            return Response(
+                {"error": "No tienes un sitio web configurado"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        keywords = request.data.get('keywords', [])
+        business_name = request.data.get('business_name', '')
+        current_title = request.data.get('current_title', '')
+        current_description = request.data.get('current_description', '')
+
+        if not keywords and not business_name:
+            return Response(
+                {"error": "Agrega al menos una palabra clave o el nombre de tu negocio"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check usage limit
+        ai_service = AIService(tenant=tenant, website_config=config)
+        can_generate, used, limit = ai_service.check_usage_limit(tenant)
+
+        if not can_generate:
+            return Response({
+                "error": "Has alcanzado el límite de generaciones con IA este mes",
+                "used": used,
+                "limit": limit,
+            }, status=status.HTTP_402_PAYMENT_REQUIRED)
+
+        # Generate suggestions
+        suggestions, tokens_in, tokens_out = ai_service.suggest_seo(
+            keywords=keywords,
+            business_name=business_name,
+            current_title=current_title,
+            current_description=current_description,
+        )
+
+        # Log generation
+        ai_service.log_generation(
+            generation_type='seo_suggest',
+            tokens_input=tokens_in,
+            tokens_output=tokens_out,
+            is_successful=True,
+        )
+
+        return Response({
+            "title": suggestions.get('title', ''),
+            "description": suggestions.get('description', ''),
+            "extra_keywords": suggestions.get('extra_keywords', []),
+        })
+
+    def _get_tenant(self, request):
+        if not hasattr(request.user, 'tenant') or not request.user.tenant:
+            return None
+        return request.user.tenant
+
+
+# ===================================
+# UPLOAD DE MEDIA
+# ===================================
+
+
+class UploadWebsiteMediaView(APIView):
+    """
+    POST /api/websites/upload-media/
+
+    Sube una imagen para el website builder (OG image, favicon, etc).
+    Devuelve la URL absoluta del archivo subido.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+    ALLOWED_IMAGE_TYPES = {
+        'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+        'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon',
+    }
+
+    def post(self, request):
+        import os
+        import uuid
+        from django.core.files.storage import default_storage
+
+        tenant = self._get_tenant(request)
+        if not tenant:
+            return Response(
+                {"error": "Usuario no asociado a un tenant"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return Response(
+                {"error": "No se envió ningún archivo"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validar tamaño
+        if uploaded_file.size > self.MAX_FILE_SIZE:
+            return Response(
+                {"error": "La imagen es muy grande. El máximo es 5MB."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validar tipo
+        content_type = uploaded_file.content_type
+        if content_type not in self.ALLOWED_IMAGE_TYPES:
+            return Response(
+                {"error": "Formato no soportado. Usa JPG, PNG, WebP, GIF o SVG."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        purpose = request.data.get('purpose', 'general')
+        if purpose not in ('og_image', 'favicon', 'general'):
+            purpose = 'general'
+
+        # Generar nombre seguro
+        ext = os.path.splitext(uploaded_file.name)[1].lower() or '.png'
+        filename = f"{purpose}_{uuid.uuid4().hex[:8]}{ext}"
+        path = f"websites/{tenant.slug}/{filename}"
+
+        # Guardar archivo
+        saved_path = default_storage.save(path, uploaded_file)
+        file_url = request.build_absolute_uri(f"/media/{saved_path}")
+
+        return Response({
+            "url": file_url,
+            "path": saved_path,
+        }, status=status.HTTP_201_CREATED)
+
+    def _get_tenant(self, request):
+        if not hasattr(request.user, 'tenant') or not request.user.tenant:
+            return None
+        return request.user.tenant
+
+
+# ===================================
 # PUBLICACIÓN
 # ===================================
 
@@ -885,16 +1044,39 @@ class PreviewRenderView(APIView):
             'has_services': tenant.has_services,
         }
 
+        tenant_info = {
+            'name': tenant.name,
+            'email': tenant.email or '',
+            'phone': tenant.phone or '',
+            'address': tenant.address or '',
+            'city': tenant.city or '',
+            'state': getattr(tenant, 'state', '') or '',
+            'country': tenant.country or 'Colombia',
+        }
+
+        # Badge: visible siempre en trial; suscriptos pueden ocultarlo desde Ajustes
+        show_badge = True
+        try:
+            if tenant.subscription.status != 'trial':
+                show_badge = seo.get('show_gravitify_badge', True)
+        except Exception:
+            pass
+
+        # Badge logo URL (static file, cacheable por el browser)
+        from django.templatetags.static import static as _static
+        badge_logo_url = request.build_absolute_uri(_static('images/gravitify-badge.png'))
+
         html = self._render_html(
             theme, content, seo, active_sections,
             tenant_name, industry, structure, media, base_url,
-            tenant_modules,
+            tenant_modules, is_preview=True, tenant_info=tenant_info,
+            show_badge=show_badge, badge_logo_url=badge_logo_url,
         )
 
         from django.http import HttpResponse
         return HttpResponse(html, content_type='text/html; charset=utf-8')
 
-    def _render_html(self, theme, content, seo, sections, tenant_name, industry='generic', structure=None, media=None, base_url='', tenant_modules=None):
+    def _render_html(self, theme, content, seo, sections, tenant_name, industry='generic', structure=None, media=None, base_url='', tenant_modules=None, is_preview=False, tenant_info=None, show_badge=True, badge_logo_url=None):
         media = media or {}
         self._base_url = base_url  # URL pública del tenant para CTAs
         self._tenant_modules = tenant_modules or {}
@@ -1000,7 +1182,7 @@ class PreviewRenderView(APIView):
 
         # Build footer HTML (now with social links)
         contact_data = content.get('contact', {})
-        footer_html = self._render_footer(logo_text, contact_data, nav_sections, primary, social_links)
+        footer_html = self._render_footer(logo_text, contact_data, nav_sections, primary, social_links, show_badge=show_badge, badge_logo_url=badge_logo_url)
 
         border_radius = '12px' if style in ('modern', 'clean') else '4px' if style == 'elegant' else '8px'
 
@@ -1041,23 +1223,71 @@ class PreviewRenderView(APIView):
             head_extra += self._render_schema_jsonld(schema_business_type, meta_title, meta_description, content, media, base_url)
 
         # ─── Analytics & Tracking Scripts ─────────────────
+        has_analytics = bool(ga_id or gtm_id or fb_pixel_id or hotjar_id)
+        consent_gated = cookie_enabled and has_analytics
+
         analytics_head = ''
         analytics_body_start = ''
-        # Google Analytics
-        if ga_id:
-            analytics_head += f'<script async src="https://www.googletagmanager.com/gtag/js?id={self._esc(ga_id)}"></script>\n'
-            analytics_head += f'<script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments)}}gtag("js",new Date());gtag("config","{self._esc(ga_id)}");</script>\n'
-        # Google Tag Manager
-        if gtm_id:
-            analytics_head += f"""<script>(function(w,d,s,l,i){{w[l]=w[l]||[];w[l].push({{"gtm.start":new Date().getTime(),event:"gtm.js"}});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src="https://www.googletagmanager.com/gtm.js?id="+i+dl;f.parentNode.insertBefore(j,f)}})(window,document,"script","dataLayer","{self._esc(gtm_id)}");</script>\n"""
-            analytics_body_start = f'<noscript><iframe src="https://www.googletagmanager.com/ns.html?id={self._esc(gtm_id)}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>\n'
-        # Facebook Pixel
-        if fb_pixel_id:
-            analytics_head += f"""<script>!function(f,b,e,v,n,t,s){{if(f.fbq)return;n=f.fbq=function(){{n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)}};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");fbq("init","{self._esc(fb_pixel_id)}");fbq("track","PageView");</script>\n"""
-        # Hotjar
-        if hotjar_id:
-            analytics_head += f"""<script>(function(h,o,t,j,a,r){{h.hj=h.hj||function(){{(h.hj.q=h.hj.q||[]).push(arguments)}};h._hjSettings={{hjid:{self._esc(hotjar_id)},hjsv:6}};a=o.getElementsByTagName("head")[0];r=o.createElement("script");r.async=1;r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;a.appendChild(r)}})(window,document,"https://static.hotjar.com/c/hotjar-",".js?sv=");</script>\n"""
-        # Custom head code (trusted: comes from tenant owner)
+
+        if consent_gated:
+            # Cookie banner activo: envolver analytics en función que solo
+            # se ejecuta cuando el usuario acepta las cookies
+            analytics_js_parts = []
+            if ga_id:
+                analytics_js_parts.append(
+                    f"var gs=document.createElement('script');gs.async=true;"
+                    f"gs.src='https://www.googletagmanager.com/gtag/js?id={self._esc(ga_id)}';"
+                    f"document.head.appendChild(gs);"
+                    f"window.dataLayer=window.dataLayer||[];"
+                    f"function gtag(){{dataLayer.push(arguments)}}"
+                    f"gtag('js',new Date());gtag('config','{self._esc(ga_id)}');"
+                )
+            if gtm_id:
+                analytics_js_parts.append(
+                    f"(function(w,d,s,l,i){{w[l]=w[l]||[];w[l].push({{'gtm.start':"
+                    f"new Date().getTime(),event:'gtm.js'}});var f=d.getElementsByTagName(s)[0],"
+                    f"j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';"
+                    f"j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;"
+                    f"f.parentNode.insertBefore(j,f)}})(window,document,'script','dataLayer',"
+                    f"'{self._esc(gtm_id)}');"
+                )
+            if fb_pixel_id:
+                analytics_js_parts.append(
+                    f"!function(f,b,e,v,n,t,s){{if(f.fbq)return;n=f.fbq=function()"
+                    f"{{n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)}};"
+                    f"if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];"
+                    f"t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];"
+                    f"s.parentNode.insertBefore(t,s)}}(window,document,'script',"
+                    f"'https://connect.facebook.net/en_US/fbevents.js');"
+                    f"fbq('init','{self._esc(fb_pixel_id)}');fbq('track','PageView');"
+                )
+            if hotjar_id:
+                analytics_js_parts.append(
+                    f"(function(h,o,t,j,a,r){{h.hj=h.hj||function()"
+                    f"{{(h.hj.q=h.hj.q||[]).push(arguments)}};"
+                    f"h._hjSettings={{hjid:{self._esc(hotjar_id)},hjsv:6}};"
+                    f"a=o.getElementsByTagName('head')[0];r=o.createElement('script');"
+                    f"r.async=1;r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;"
+                    f"a.appendChild(r)}})(window,document,"
+                    f"'https://static.hotjar.com/c/hotjar-','.js?sv=');"
+                )
+            analytics_fn_body = '\n'.join(analytics_js_parts)
+            analytics_head = f"""<script>function __loadAnalytics(){{if(window.__analyticsLoaded)return;window.__analyticsLoaded=true;{analytics_fn_body}}}</script>\n"""
+            # GTM noscript no se renderiza si depende de consentimiento
+        else:
+            # Sin banner de cookies o sin analytics: cargar directamente
+            if ga_id:
+                analytics_head += f'<script async src="https://www.googletagmanager.com/gtag/js?id={self._esc(ga_id)}"></script>\n'
+                analytics_head += f'<script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments)}}gtag("js",new Date());gtag("config","{self._esc(ga_id)}");</script>\n'
+            if gtm_id:
+                analytics_head += f"""<script>(function(w,d,s,l,i){{w[l]=w[l]||[];w[l].push({{"gtm.start":new Date().getTime(),event:"gtm.js"}});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src="https://www.googletagmanager.com/gtm.js?id="+i+dl;f.parentNode.insertBefore(j,f)}})(window,document,"script","dataLayer","{self._esc(gtm_id)}");</script>\n"""
+                analytics_body_start = f'<noscript><iframe src="https://www.googletagmanager.com/ns.html?id={self._esc(gtm_id)}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>\n'
+            if fb_pixel_id:
+                analytics_head += f"""<script>!function(f,b,e,v,n,t,s){{if(f.fbq)return;n=f.fbq=function(){{n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)}};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");fbq("init","{self._esc(fb_pixel_id)}");fbq("track","PageView");</script>\n"""
+            if hotjar_id:
+                analytics_head += f"""<script>(function(h,o,t,j,a,r){{h.hj=h.hj||function(){{(h.hj.q=h.hj.q||[]).push(arguments)}};h._hjSettings={{hjid:{self._esc(hotjar_id)},hjsv:6}};a=o.getElementsByTagName("head")[0];r=o.createElement("script");r.async=1;r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;a.appendChild(r)}})(window,document,"https://static.hotjar.com/c/hotjar-",".js?sv=");</script>\n"""
+
+        # Custom head code siempre se carga (responsabilidad del tenant)
         if custom_head_code:
             analytics_head += custom_head_code + '\n'
         ga_script = analytics_head
@@ -1067,6 +1297,7 @@ class PreviewRenderView(APIView):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="GRAVITIFY — gravitify.co">
     <title>{self._esc(meta_title)}</title>
 {head_extra}    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family={font_heading.replace(' ', '+')}:wght@400;600;700&family={font_body.replace(' ', '+')}:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -2069,7 +2300,7 @@ class PreviewRenderView(APIView):
             padding: 56px 24px 36px;
         }}
         .site-footer .container {{
-            display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 40px;
+            display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px;
         }}
         .site-footer .footer-brand {{
             font-family: var(--font-heading);
@@ -2107,8 +2338,14 @@ class PreviewRenderView(APIView):
             grid-column: 1 / -1;
             border-top: 1px solid rgba(255,255,255,.06);
             padding-top: 24px; margin-top: 12px;
-            text-align: center; font-size: .78rem; color: #475569;
+            display: flex; align-items: center; justify-content: center;
+            gap: 16px; flex-wrap: wrap;
+            font-size: .78rem; color: #475569;
         }}
+        .site-footer .footer-bottom a {{
+            color: inherit; text-decoration: none; opacity: .7;
+        }}
+        .site-footer .footer-bottom a:hover {{ opacity: 1; }}
         @media (max-width: 768px) {{
             .hero h1 {{ font-size: 2.2rem; }}
             .hero {{ padding: 120px 20px 90px; }}
@@ -2125,6 +2362,19 @@ class PreviewRenderView(APIView):
         @keyframes pw-fade-up {{ from {{ opacity:0; transform:translateY(32px); }} to {{ opacity:1; transform:translateY(0); }} }}
         @keyframes pw-fade-in {{ from {{ opacity:0; }} to {{ opacity:1; }} }}
         @keyframes pw-scale-in {{ from {{ opacity:0; transform:scale(.92); }} to {{ opacity:1; transform:scale(1); }} }}
+        @keyframes g-pendulum {{
+          0%   {{ transform: rotate(0deg); }}
+          6%   {{ transform: rotate(-18deg); }}
+          15%  {{ transform: rotate(-18deg); }}
+          35%  {{ transform: rotate(0deg); }}
+          42%  {{ transform: rotate(0deg); }}
+          48%  {{ transform: rotate(18deg); }}
+          57%  {{ transform: rotate(18deg); }}
+          77%  {{ transform: rotate(0deg); }}
+          100% {{ transform: rotate(0deg); }}
+        }}
+        .g-pendulum {{ animation: g-pendulum 4.3s cubic-bezier(0.22,1,0.36,1) infinite; will-change: transform; }}
+        @media (prefers-reduced-motion: reduce) {{ .g-pendulum {{ animation: none; }} }}
         @keyframes pw-slide-left {{ from {{ opacity:0; transform:translateX(-40px); }} to {{ opacity:1; transform:translateX(0); }} }}
         @keyframes pw-slide-right {{ from {{ opacity:0; transform:translateX(40px); }} to {{ opacity:1; transform:translateX(0); }} }}
         @keyframes pw-blur-in {{ from {{ opacity:0; filter:blur(8px); }} to {{ opacity:1; filter:blur(0); }} }}
@@ -2380,7 +2630,8 @@ class PreviewRenderView(APIView):
         }}, {{ passive: true }});
     }})();
 </script>
-{self._render_cookie_banner(cookie_enabled, cookie_position, cookie_text, cookie_accept, cookie_decline, cookie_privacy_url, primary) if cookie_enabled else ''}
+{self._render_privacy_modal(tenant_info or {}, seo)}
+{self._render_cookie_banner(cookie_enabled, cookie_position, cookie_text, cookie_accept, cookie_decline, primary, is_preview=is_preview) if cookie_enabled else ''}
 {self._render_whatsapp_button(whatsapp_float_enabled, whatsapp_float_number, whatsapp_float_message, whatsapp_float_position) if whatsapp_float_enabled else ''}
 {custom_body_code if custom_body_code else ''}
 </body>
@@ -2515,36 +2766,198 @@ class PreviewRenderView(APIView):
         .footer-social-link:hover { color: var(--primary); box-shadow: var(--glow-sm); }
         """
 
+    # ─── Privacy Policy Modal ────────────────────────────────────
+    def _render_privacy_modal(self, tenant_info, seo):
+        from django.utils.timezone import now as _now
+        name     = self._esc(tenant_info.get('name', ''))
+        email    = self._esc(tenant_info.get('email', ''))
+        phone    = self._esc(tenant_info.get('phone', ''))
+        address  = self._esc(tenant_info.get('address', ''))
+        city     = self._esc(tenant_info.get('city', ''))
+        country  = tenant_info.get('country', 'Colombia')
+        year     = _now().year
+
+        is_eu = country in ('España', 'Francia', 'Alemania', 'Italia', 'Portugal', 'Reino Unido')
+        co_law = '<li>Ley 1581 de 2012 y Decreto 1377 de 2013 (Colombia)</li>' if not is_eu else ''
+        eu_law = ('<li>Reglamento General de Proteccion de Datos - RGPD/GDPR (UE 2016/679)</li>'
+                  '<li>Ley Organica 3/2018, LOPDGDD (Espana)</li>') if is_eu else ''
+        authority = (
+            'Agencia Espanola de Proteccion de Datos (AEPD) - www.aepd.es'
+            if is_eu else
+            'Superintendencia de Industria y Comercio (SIC) - www.sic.gov.co'
+        )
+        rights_items = (
+            '<li><strong>Acceso</strong>: conocer que datos tenemos sobre ti.</li>'
+            '<li><strong>Rectificacion</strong>: corregir datos inexactos.</li>'
+            '<li><strong>Supresion</strong>: solicitar la eliminacion de tus datos.</li>'
+            '<li><strong>Portabilidad</strong>: recibir tus datos en formato digital.</li>'
+            '<li><strong>Oposicion / Limitacion</strong>: oponerte a ciertos usos de tus datos.</li>'
+        )
+
+        contact_parts = []
+        if name:    contact_parts.append('<strong>' + name + '</strong>')
+        if address: contact_parts.append(address)
+        if city:    contact_parts.append(city)
+        if email:   contact_parts.append('<a href="mailto:' + email + '" style="color:var(--primary)">' + email + '</a>')
+        if phone:   contact_parts.append(phone)
+        contact_html = ' &middot; '.join(contact_parts) if contact_parts else '(informacion de contacto no disponible)'
+
+        html_parts = [
+            '<!-- Privacy Policy Modal -->',
+            '<div id="privacy-modal" style="display:none;position:fixed;inset:0;z-index:10000;'
+            'background:rgba(0,0,0,.5);backdrop-filter:blur(4px);padding:16px;overflow-y:auto;'
+            'font-family:var(--font-body);">',
+            '  <div style="max-width:680px;margin:32px auto;background:#fff;border-radius:20px;'
+            'box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;">',
+            # Header
+            '    <div style="display:flex;align-items:center;justify-content:space-between;'
+            'padding:20px 24px;border-bottom:1px solid #f3f4f6;'
+            'background:color-mix(in srgb, var(--primary), #fff 94%);">',
+            '      <div style="display:flex;align-items:center;gap:10px;">',
+            '        <div style="width:32px;height:32px;border-radius:50%;'
+            'background:color-mix(in srgb, var(--primary), transparent 80%);'
+            'display:flex;align-items:center;justify-content:center;">',
+            '          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" '
+            'stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6'
+            'a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0'
+            'C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>',
+            '        </div>',
+            '        <span style="font-weight:700;font-size:1rem;color:#1f2937;">Politica de Privacidad</span>',
+            '      </div>',
+            '      <button onclick="closePrivacyPolicy()" style="width:32px;height:32px;border-radius:50%;'
+            'border:1px solid #e5e7eb;background:#fff;cursor:pointer;display:flex;align-items:center;'
+            'justify-content:center;font-size:1.1rem;color:#6b7280;line-height:1;" '
+            'aria-label="Cerrar">&times;</button>',
+            '    </div>',
+            # Body
+            '    <div style="padding:24px;font-size:.85rem;line-height:1.7;color:#374151;'
+            'overflow-y:auto;max-height:70vh;">',
+            '      <p style="color:#6b7280;font-size:.78rem;margin:0 0 20px;">Ultima actualizacion: '
+            + str(year) + ' &nbsp;&middot;&nbsp; ' + self._esc(country) + '</p>',
+            '      <h3 style="font-size:.95rem;font-weight:700;color:#1f2937;margin:0 0 8px;">1. Quien es el responsable?</h3>',
+            '      <p style="margin:0 0 16px;">' + contact_html + '</p>',
+            '      <h3 style="font-size:.95rem;font-weight:700;color:#1f2937;margin:0 0 8px;">2. Marco legal aplicable</h3>',
+            '      <ul style="margin:0 0 16px;padding-left:20px;">' + co_law + eu_law + '</ul>',
+            '      <h3 style="font-size:.95rem;font-weight:700;color:#1f2937;margin:0 0 8px;">3. Datos que recopilamos</h3>',
+            '      <ul style="margin:0 0 16px;padding-left:20px;">',
+            '        <li><strong>Datos de contacto:</strong> nombre, correo y telefono cuando te registras o nos contactas.</li>',
+            '        <li><strong>Datos de navegacion:</strong> paginas visitadas y dispositivo (solo si aceptas las cookies de analisis).</li>',
+            '        <li><strong>Datos de transaccion:</strong> pedidos, citas y pagos cuando usas nuestros servicios.</li>',
+            '      </ul>',
+            '      <h3 style="font-size:.95rem;font-weight:700;color:#1f2937;margin:0 0 8px;">4. Para que usamos tus datos?</h3>',
+            '      <ul style="margin:0 0 16px;padding-left:20px;">',
+            '        <li>Gestionar tu cuenta, pedidos y citas.</li>',
+            '        <li>Enviarte confirmaciones relacionadas con tu compra.</li>',
+            '        <li>Mejorar nuestros servicios (solo con tu consentimiento).</li>',
+            '        <li>Cumplir con obligaciones legales y fiscales.</li>',
+            '      </ul>',
+            '      <h3 style="font-size:.95rem;font-weight:700;color:#1f2937;margin:0 0 8px;">5. Cookies</h3>',
+            '      <ul style="margin:0 0 16px;padding-left:20px;">',
+            '        <li><strong>Esenciales:</strong> imprescindibles para el funcionamiento del sitio. No requieren consentimiento.</li>',
+            '        <li><strong>Analisis:</strong> miden el trafico y mejoran la experiencia. Solo se activan si las aceptas.</li>',
+            '      </ul>',
+            '      <h3 style="font-size:.95rem;font-weight:700;color:#1f2937;margin:0 0 8px;">6. Tus derechos</h3>',
+            '      <p style="margin:0 0 8px;">Puedes ejercer en cualquier momento:</p>',
+            '      <ul style="margin:0 0 8px;padding-left:20px;">' + rights_items + '</ul>',
+            '      <p style="margin:0 0 8px;">Escribenos a <a href="mailto:' + email + '" style="color:var(--primary)">' + email + '</a>. Respondemos en un maximo de 15 dias habiles.</p>',
+            '      <p style="margin:0 0 16px;">Autoridad competente: ' + authority + '</p>',
+            '      <h3 style="font-size:.95rem;font-weight:700;color:#1f2937;margin:0 0 8px;">7. Conservacion de datos</h3>',
+            '      <p style="margin:0 0 16px;">Conservamos tus datos mientras mantengas una relacion activa o durante el tiempo que exija la ley.</p>',
+            '      <h3 style="font-size:.95rem;font-weight:700;color:#1f2937;margin:0 0 8px;">8. Cambios en esta politica</h3>',
+            '      <p style="margin:0 0 16px;">Podemos actualizar esta politica ocasionalmente. Te notificaremos de cambios significativos.</p>',
+            '      <div style="margin-top:20px;padding:14px 16px;border-radius:10px;background:#f9fafb;border:1px solid #f3f4f6;">',
+            '        <p style="margin:0;font-size:.75rem;color:#9ca3af;line-height:1.5;">',
+            '          Esta politica es una base de referencia. Te recomendamos revisarla con un profesional legal si tu negocio maneja datos de forma especial.',
+            '        </p>',
+            '      </div>',
+            '    </div>',
+            # Footer
+            '    <div style="padding:16px 24px;border-top:1px solid #f3f4f6;text-align:center;">',
+            '      <button onclick="closePrivacyPolicy()" style="padding:10px 28px;border-radius:10px;'
+            'border:none;background:var(--primary);color:#fff;font-weight:600;font-size:.85rem;'
+            'cursor:pointer;font-family:inherit;">Entendido</button>',
+            '    </div>',
+            '  </div>',
+            '</div>',
+            '<script>',
+            'function openPrivacyPolicy(){var m=document.getElementById("privacy-modal");if(m){m.style.display="block";document.body.style.overflow="hidden";}}',
+            'function closePrivacyPolicy(){var m=document.getElementById("privacy-modal");if(m){m.style.display="none";document.body.style.overflow="";}}',
+            '(function(){var m=document.getElementById("privacy-modal");if(m)m.addEventListener("click",function(e){if(e.target===this)closePrivacyPolicy();});})();',
+            '</script>',
+        ]
+        return '\n'.join(html_parts)
+
     # ─── Cookie Consent Banner ──────────────────────────────────
-    def _render_cookie_banner(self, enabled, position, text, accept_label, decline_label, privacy_url, primary):
+    def _render_cookie_banner(self, enabled, position, text, accept_label, decline_label, primary, is_preview=False):
         if not enabled:
             return ''
-        # Position CSS
-        pos_css = {
-            'bottom-bar': 'bottom:0;left:0;right:0;',
-            'bottom-left': 'bottom:24px;left:24px;max-width:420px;border-radius:12px;',
-            'bottom-right': 'bottom:24px;right:24px;max-width:420px;border-radius:12px;',
-        }.get(position, 'bottom:0;left:0;right:0;')
 
-        privacy_link = ''
-        if privacy_url:
-            privacy_link = f' <a href="{self._esc(privacy_url)}" target="_blank" rel="noopener" style="color:{primary};text-decoration:underline;">Política de privacidad</a>'
+        # Link que abre el modal de política de privacidad (siempre disponible)
+        privacy_link = ' <a href="#" onclick="openPrivacyPolicy();return false;" style="color:var(--primary);text-decoration:none;font-weight:500;">Política de privacidad</a>'
 
-        return f"""<div id="cookie-banner" style="position:fixed;{pos_css}z-index:9999;background:#fff;box-shadow:0 -4px 24px rgba(0,0,0,.1);padding:16px 24px;display:none;align-items:center;gap:16px;font-family:var(--font-body);font-size:.9rem;color:#374151;">
-    <p style="flex:1;margin:0;">{self._esc(text)}{privacy_link}</p>
-    <div style="display:flex;gap:8px;flex-shrink:0;">
-        <button onclick="acceptCookies()" style="padding:8px 20px;border-radius:8px;border:none;background:{primary};color:#fff;font-weight:600;cursor:pointer;font-size:.85rem;">{self._esc(accept_label)}</button>
-        <button onclick="declineCookies()" style="padding:8px 20px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#374151;font-weight:500;cursor:pointer;font-size:.85rem;">{self._esc(decline_label)}</button>
+        # Shield icon SVG con color del tenant (usa CSS var para actualizaciones en tiempo real)
+        shield_icon = '<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:color-mix(in srgb, var(--primary), transparent 88%);flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></div>'
+
+        return f"""<div id="cookie-banner" style="position:fixed;bottom:0;left:0;right:0;z-index:9999;display:none;padding:16px;font-family:var(--font-body);">
+    <div style="max-width:460px;margin:0 auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 8px 32px rgba(0,0,0,.12);border:1px solid #e5e7eb;">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+            {shield_icon}
+            <div style="flex:1;min-width:0;">
+                <p style="margin:0 0 4px;font-size:.82rem;font-weight:600;color:#1f2937;">
+                    Tu privacidad es importante
+                </p>
+                <p style="margin:0;font-size:.75rem;line-height:1.5;color:#6b7280;">
+                    {self._esc(text)}{privacy_link}
+                </p>
+            </div>
+        </div>
+        <div style="margin:12px 0 0;padding:10px 12px;border-radius:8px;background:#f9fafb;border:1px solid #f3f4f6;">
+            <p style="margin:0;font-size:.68rem;line-height:1.6;color:#9ca3af;">
+                <strong style="color:#6b7280;">Esenciales:</strong> necesarias para que el sitio funcione (sesión, carrito, preferencias).
+                <strong style="color:#6b7280;margin-left:4px;">Análisis:</strong> nos ayudan a entender cómo usas el sitio para mejorarlo.
+            </p>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+            <button onclick="declineCookies()" style="flex:1;height:36px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#6b7280;font-weight:500;cursor:pointer;font-size:.78rem;font-family:inherit;transition:all .15s ease;"
+                onmouseover="this.style.background='#f9fafb';"
+                onmouseout="this.style.background='#fff';">
+                {self._esc(decline_label)}
+            </button>
+            <button onclick="acceptCookies()" style="flex:1;height:36px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;font-size:.78rem;font-family:inherit;transition:all .15s ease;"
+                onmouseover="this.style.opacity='0.85';"
+                onmouseout="this.style.opacity='1';">
+                {self._esc(accept_label)}
+            </button>
+        </div>
     </div>
 </div>
 <script>
 (function(){{
     var banner=document.getElementById('cookie-banner');
     if(!banner)return;
+    var isPreview={'true' if is_preview else 'false'};
+    if(isPreview){{
+        banner.style.display='block';
+        window.acceptCookies=function(){{banner.style.display='none';}};
+        window.declineCookies=function(){{banner.style.display='none';}};
+        return;
+    }}
     var choice=localStorage.getItem('cookie-consent');
-    if(!choice){{banner.style.display='flex';}}
-    window.acceptCookies=function(){{localStorage.setItem('cookie-consent','accepted');banner.style.display='none';}};
-    window.declineCookies=function(){{localStorage.setItem('cookie-consent','declined');banner.style.display='none';}};
+    if(choice==='accepted'){{
+        if(typeof __loadAnalytics==='function')__loadAnalytics();
+    }}else if(!choice){{
+        banner.style.display='block';
+    }}
+    window.acceptCookies=function(){{
+        localStorage.setItem('cookie-consent','accepted');
+        if(typeof __loadAnalytics==='function')__loadAnalytics();
+        banner.style.display='none';
+    }};
+    window.declineCookies=function(){{
+        localStorage.setItem('cookie-consent','declined');
+        banner.style.display='none';
+    }};
 }})();
 </script>"""
 
@@ -2664,7 +3077,7 @@ class PreviewRenderView(APIView):
 </header>
 """
 
-    def _render_footer(self, logo_text, contact_data, nav_sections, primary, social_links=None):
+    def _render_footer(self, logo_text, contact_data, nav_sections, primary, social_links=None, show_badge=True, badge_logo_url=None):
         social_links = social_links or {}
 
         # Nav links
@@ -2704,6 +3117,20 @@ class PreviewRenderView(APIView):
 
         esc_name = self._esc(logo_text)
 
+        # Badge "Hecho con GRAVITIFY" — isotipo embebido como data URI + animación pendulo
+        _b64 = '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'
+        if show_badge:
+            badge_html = '''<div style="text-align:center;padding:4px 24px 8px;">
+        <a href="https://gravitify.co" target="_blank" rel="noopener nofollow"
+           style="display:inline-flex;align-items:center;gap:5px;color:rgba(255,255,255,0.45);text-decoration:none;font-size:.68rem;opacity:.45;transition:all .25s ease;letter-spacing:.01em;"
+           onmouseover="this.style.opacity=\'1\';this.style.color=\'rgba(255,255,255,0.9)\';this.style.fontSize=\'.72rem\';this.style.letterSpacing=\'.04em\';"
+           onmouseout="this.style.opacity=\'.45\';this.style.color=\'rgba(255,255,255,0.45)\';this.style.fontSize=\'.68rem\';this.style.letterSpacing=\'.01em\';">
+            Hecho con GRAVITIFY
+        </a>
+    </div>'''
+        else:
+            badge_html = ''
+
         return f"""<footer class="site-footer">
     <div class="container">
         <div>
@@ -2719,10 +3146,17 @@ class PreviewRenderView(APIView):
             <h4>Contacto</h4>
             <ul>{contact_items}</ul>
         </div>
+        <div>
+            <h4>Legal</h4>
+            <ul>
+                <li><a href="#" onclick="openPrivacyPolicy();return false;">Política de privacidad</a></li>
+            </ul>
+        </div>
         <div class="footer-bottom">
             &copy; 2026 {esc_name}. Todos los derechos reservados.
         </div>
     </div>
+    {badge_html}
 </footer>
 """
 

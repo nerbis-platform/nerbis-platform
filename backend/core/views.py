@@ -1523,7 +1523,16 @@ def get_tenant_config(request):
         },
         'pages': _get_enabled_pages(tenant),
         'theme': _get_tenant_theme(tenant),
+        'subscription': _get_tenant_subscription_features(tenant),
     })
+
+
+def _get_tenant_subscription_features(tenant):
+    """Devuelve features de la suscripción relevantes para el frontend."""
+    try:
+        return {'is_subscribed': tenant.subscription.status != 'trial'}
+    except Exception:
+        return {'is_subscribed': False}
 
 
 def _get_tenant_theme(tenant):

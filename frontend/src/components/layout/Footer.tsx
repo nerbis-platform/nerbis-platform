@@ -22,7 +22,7 @@ function FooterPageLink({ page, href, label }: { page: string; href: string; lab
 }
 
 export function Footer() {
-  const footerLogoUrl = process.env.NEXT_PUBLIC_FOOTER_LOGO_URL || '/gravitify-logo.png';
+  const footerLogoUrl = process.env.NEXT_PUBLIC_FOOTER_LOGO_URL || '/gravitify-logo.svg';
   const footerBrand = process.env.NEXT_PUBLIC_FOOTER_COPYRIGHT || 'GRAVITIFY';
   const contact = useTenantContact();
 

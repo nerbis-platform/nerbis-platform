@@ -9,6 +9,8 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+.cursor/
+.cursorrules
 
 # Node modules (root + frontend)
 node_modules/

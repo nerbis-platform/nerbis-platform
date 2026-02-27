@@ -15,6 +15,8 @@ from .views import (
     OnboardingStatusView,
     GenerateContentView,
     ChatView,
+    SuggestSeoView,
+    UploadWebsiteMediaView,
     PublishWebsiteView,
     PreviewWebsiteView,
     PreviewRenderView,
@@ -42,6 +44,12 @@ urlpatterns = [
 
     # Chat
     path('chat/', ChatView.as_view(), name='chat'),
+
+    # SEO AI Suggestions
+    path('suggest-seo/', SuggestSeoView.as_view(), name='suggest-seo'),
+
+    # Media Upload
+    path('upload-media/', UploadWebsiteMediaView.as_view(), name='upload-media'),
 
     # Publish & Preview
     path('publish/', PublishWebsiteView.as_view(), name='publish-website'),

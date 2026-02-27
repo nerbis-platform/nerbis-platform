@@ -423,7 +423,7 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             is_active=True
         ).select_related('module').first()
         if not web_sm:
-            limit = 5
+            limit = 10
         else:
             limit = web_sm.module.get_ai_limit_for_subscription(subscription)
 
@@ -501,6 +501,107 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             self.website_config.save(update_fields=['ai_generations_count', 'last_generation_at'])
 
         return log
+
+    # ===================================
+    # SEO AI Suggestions
+    # ===================================
+
+    def suggest_seo(
+        self,
+        keywords: List[str],
+        business_name: str = "",
+        business_description: str = "",
+        current_title: str = "",
+        current_description: str = "",
+    ) -> Tuple[Dict, int, int]:
+        """
+        Genera sugerencias SEO optimizadas basadas en las keywords del usuario.
+
+        Args:
+            keywords: Lista de palabras clave del negocio
+            business_name: Nombre del negocio
+            business_description: Descripción breve
+            current_title: Título actual (para mejorar)
+            current_description: Descripción actual (para mejorar)
+
+        Returns:
+            Tuple de (suggestions_dict, tokens_input, tokens_output)
+        """
+        if not self.client:
+            return self._mock_seo_suggestions(keywords, business_name), 0, 0
+
+        keywords_str = ", ".join(keywords) if keywords else "negocio"
+
+        system_prompt = """Eres un experto en SEO para negocios pequeños y medianos.
+Tu trabajo es generar un título y descripción optimizados para Google.
+
+## Reglas
+1. El TÍTULO debe tener entre 30 y 60 caracteres — obligatorio
+2. La DESCRIPCIÓN debe tener entre 120 y 155 caracteres — obligatorio
+3. Usa las palabras clave como CONTEXTO para entender el negocio, NO las copies literalmente
+4. El título debe empezar con el nombre del negocio, seguido de un guion y una frase que describa lo que hacen
+5. Escribe en español, tono profesional pero cercano
+6. El título debe ser atractivo para que la gente haga clic en Google
+7. La descripción debe explicar qué ofrece el negocio y motivar a visitar el sitio
+8. Sugiere 3-5 keywords adicionales relevantes que el usuario no haya pensado
+9. NUNCA uses palabras genéricas como "Mi Negocio", "Tu empresa", "Servicios" solas
+10. NO uses emojis
+11. Si el negocio ya tiene un título actual, mejóralo conservando su esencia
+
+## Formato de Respuesta — JSON estricto
+{
+    "title": "Título SEO optimizado (30-60 chars)",
+    "description": "Meta descripción optimizada (120-155 chars)",
+    "extra_keywords": ["keyword1", "keyword2", "keyword3"]
+}"""
+
+        user_prompt = f"""Genera título y descripción SEO para este negocio:
+
+- Nombre del negocio: {business_name or 'No especificado'}
+- Palabras clave que describen el negocio: {keywords_str}
+{f'- Título actual (mejóralo conservando su esencia): {current_title}' if current_title else ''}
+{f'- Descripción actual (mejórala): {current_description}' if current_description else ''}
+
+Responde SOLO con el JSON, sin explicaciones."""
+
+        try:
+            response = self.client.messages.create(
+                model=settings.ANTHROPIC_MODEL,
+                max_tokens=512,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}]
+            )
+
+            response_text = response.content[0].text
+            tokens_input = response.usage.input_tokens
+            tokens_output = response.usage.output_tokens
+
+            # Parse JSON
+            json_text = response_text.strip()
+            if json_text.startswith('```json'):
+                json_text = json_text[7:]
+            if json_text.startswith('```'):
+                json_text = json_text[3:]
+            if json_text.endswith('```'):
+                json_text = json_text[:-3]
+
+            result = json.loads(json_text.strip())
+            return result, tokens_input, tokens_output
+
+        except Exception as e:
+            logger.error(f"Error generando sugerencias SEO: {e}")
+            return self._mock_seo_suggestions(keywords, business_name), 0, 0
+
+    def _mock_seo_suggestions(self, keywords: List[str], business_name: str) -> Dict:
+        """Sugerencias SEO mock cuando no hay API key."""
+        kw_str = ", ".join(keywords[:3]) if keywords else ""
+        name = business_name or "Tu Negocio"
+        subtitle = f" - Especialistas en {kw_str}" if kw_str else ""
+        return {
+            "title": f"{name}{subtitle}"[:60],
+            "description": f"Conoce {name}: ofrecemos {kw_str or 'soluciones'} con calidad y atención personalizada. Visítanos y descubre todo lo que tenemos para ti.",
+            "extra_keywords": ["calidad", "confianza", "profesional"],
+        }
 
     # ===================================
     # MÉTODOS MOCK (para desarrollo sin API)

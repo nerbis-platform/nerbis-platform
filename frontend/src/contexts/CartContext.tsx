@@ -3,6 +3,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import { Cart, CartItem, AppliedCoupon } from '@/types';
 import * as cartApi from '@/lib/api/cart';
 import * as couponsApi from '@/lib/api/coupons';
@@ -203,32 +204,60 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
 
+      const failedItems: string[] = [];
+      const syncedItemIds: string[] = [];
+
       // Procesar cada item del carrito local
       for (const item of localCart.items) {
         try {
           if (item.item_type === 'product') {
-            // Agregar producto al carrito del servidor
             await cartApi.addProductToCart(item.item_id, item.quantity);
+            syncedItemIds.push(item.id);
           } else if (item.item_type === 'service' && item.appointment_data) {
-            // Para servicios: crear la cita real y agregarla al carrito
             const appointment = await createAppointment({
               service: item.item_id,
               staff_member: item.appointment_data.staff_member_id,
               start_datetime: item.appointment_data.start_datetime,
               notes: item.appointment_data.notes,
             });
-
-            // Agregar servicio con la cita al carrito del servidor
             await cartApi.addServiceToCart(item.item_id, appointment.id);
+            syncedItemIds.push(item.id);
           }
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Error syncing item to server:', error);
-          // Continuar con otros items aunque uno falle
+          const status = (error as { status?: number })?.status ||
+            (error as { response?: { status?: number } })?.response?.status;
+
+          if (status === 400 || status === 404) {
+            // Item inválido (producto/servicio/staff ya no existe) → remover del local
+            syncedItemIds.push(item.id); // marcar para limpiar
+            failedItems.push(item.item_data.name);
+          }
+          // Si es otro error (500, network), dejar el item en local para reintentar después
         }
       }
 
-      // Limpiar carrito local después de sincronizar
-      localCartStorage.clearLocalCart();
+      // Limpiar solo los items procesados (sincronizados + inválidos)
+      if (syncedItemIds.length > 0) {
+        for (const id of syncedItemIds) {
+          localCartStorage.removeLocalCartItem(id);
+        }
+      }
+
+      // Si no quedan items locales, limpiar el carrito local completo
+      const remaining = localCartStorage.getLocalCart();
+      if (remaining.items.length === 0) {
+        localCartStorage.clearLocalCart();
+      }
+
+      // Notificar al usuario si hubo items inválidos
+      if (failedItems.length > 0) {
+        toast.error(
+          failedItems.length === 1
+            ? `"${failedItems[0]}" ya no está disponible y fue removido del carrito.`
+            : `${failedItems.length} productos ya no están disponibles y fueron removidos del carrito.`
+        );
+      }
 
       // Intentar aplicar cupón pendiente si existe
       if (pendingCoupon) {
@@ -236,7 +265,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           await couponsApi.applyCoupon(pendingCoupon.code);
         } catch (error) {
           console.error('Error applying pending coupon:', error);
-          // No es crítico si falla - el usuario puede aplicarlo manualmente
         }
       }
 

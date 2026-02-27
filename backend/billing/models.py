@@ -290,7 +290,7 @@ class Module(models.Model):
     )
     trial_included_ai_requests = models.PositiveIntegerField(
         'Generaciones IA en trial',
-        default=5,
+        default=10,
         help_text="Generaciones de IA incluidas durante el período de prueba"
     )
 
