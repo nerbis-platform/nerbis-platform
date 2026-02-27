@@ -34,6 +34,8 @@ import {
   removeSection,
   updateThemeData,
   updateSectionVariant,
+  suggestSeo,
+  uploadWebsiteMedia,
 } from '@/lib/api/websites';
 import type { WebsiteConfig, ChatResponse } from '@/types';
 
@@ -41,7 +43,8 @@ import LivePreview from '@/components/website-builder/LivePreview';
 import DesignPanel from '@/components/website-builder/DesignPanel';
 import ContentPanel from '@/components/website-builder/ContentPanel';
 import SectionManager from '@/components/website-builder/SectionManager';
-import SettingsPanel, { type SiteSettings } from '@/components/website-builder/SettingsPanel';
+import SettingsPanel, { type SiteSettings, type SeoSuggestion } from '@/components/website-builder/SettingsPanel';
+import { useTenantContact, useTenant } from '@/contexts/TenantContext';
 
 // ─── Types ───────────────────────────────────────────────────
 interface SectionContent {
@@ -106,6 +109,9 @@ export default function EditorPage() {
   const searchParams = useSearchParams();
   const isNavBack = searchParams.get('nav') === '1';
   const queryClient = useQueryClient();
+  const tenantContact = useTenantContact();
+  const tenantData = useTenant();
+  const hasWhiteLabel = tenantData?.subscription?.is_subscribed ?? false;
 
   // State
   const [activeTab, setActiveTab] = useState<ActiveTab>('design');
@@ -214,7 +220,6 @@ export default function EditorPage() {
         cookie_banner_text: (seo.cookie_banner_text as string) || 'Este sitio usa cookies para mejorar tu experiencia.',
         cookie_accept_label: (seo.cookie_accept_label as string) || 'Aceptar',
         cookie_decline_label: (seo.cookie_decline_label as string) || 'Rechazar',
-        cookie_privacy_url: (seo.cookie_privacy_url as string) || '',
         // Noindex
         hide_from_search: !!seo.hide_from_search,
         // Verification
@@ -355,7 +360,6 @@ export default function EditorPage() {
         cookie_banner_text: s.cookie_banner_text || '',
         cookie_accept_label: s.cookie_accept_label || '',
         cookie_decline_label: s.cookie_decline_label || '',
-        cookie_privacy_url: s.cookie_privacy_url || '',
         // Noindex
         hide_from_search: !!s.hide_from_search,
         // Verification
@@ -442,6 +446,26 @@ export default function EditorPage() {
       settingsMutation.mutate(localSettings);
     }
   }, [localSettings, settingsMutation]);
+
+  const handleSuggestSeo = useCallback(async (
+    keywords: string[],
+    businessName: string,
+    currentTitle: string,
+    currentDesc: string,
+  ): Promise<SeoSuggestion> => {
+    // Enrich business name with tagline from hero section
+    const contentData = config?.content_data as Record<string, { subtitle?: string }> | undefined;
+    const tagline = contentData?.hero?.subtitle || '';
+    const enrichedName = tagline ? `${businessName} — ${tagline}` : businessName;
+    return suggestSeo(keywords, enrichedName, currentTitle, currentDesc);
+  }, [config?.content_data]);
+
+  const handleUploadMedia = useCallback(async (
+    file: File,
+    purpose: 'og_image' | 'favicon' | 'general',
+  ) => {
+    return uploadWebsiteMedia(file, purpose);
+  }, []);
 
   const handleSectionClick = useCallback(
     (sectionId: string) => {
@@ -738,9 +762,15 @@ export default function EditorPage() {
             {activeTab === 'settings' && localSettings && (
               <SettingsPanel
                 settings={localSettings}
-                siteName={(config.template as { name?: string })?.name || ''}
+                siteName={tenantName}
                 siteUrl={config.public_url ? config.public_url.replace('https://', '') : undefined}
+                isPublished={config.is_published}
+                tenantPhone={tenantContact?.phone}
+                tenantCountry={tenantContact?.country}
+                hasWhiteLabel={hasWhiteLabel}
                 onChange={handleSettingsChange}
+                onSuggestSeo={handleSuggestSeo}
+                onUploadMedia={handleUploadMedia}
               />
             )}
           </div>
@@ -991,9 +1021,15 @@ export default function EditorPage() {
               {activeTab === 'settings' && localSettings && (
                 <SettingsPanel
                   settings={localSettings}
-                  siteName={(config.template as { name?: string })?.name || ''}
+                  siteName={tenantName}
                   siteUrl={config.public_url ? config.public_url.replace('https://', '') : undefined}
+                  isPublished={config.is_published}
+                  tenantPhone={tenantContact?.phone}
+                  tenantCountry={tenantContact?.country}
+                  hasWhiteLabel={hasWhiteLabel}
                   onChange={handleSettingsChange}
+                  onSuggestSeo={handleSuggestSeo}
+                  onUploadMedia={handleUploadMedia}
                 />
               )}
             </div>
