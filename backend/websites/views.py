@@ -3375,8 +3375,14 @@ class PreviewRenderView(APIView):
         # Logo: mode-aware rendering
         header_data = header_data or {}
         logo_mode = header_data.get('logo_mode', 'image' if logo_url else 'text')
-        logo_scale = int(header_data.get('logo_scale', 100))
-        logo_padding = int(header_data.get('logo_padding', 0))
+        try:
+            logo_scale = int(header_data.get('logo_scale', 100))
+        except (ValueError, TypeError):
+            logo_scale = 100
+        try:
+            logo_padding = int(header_data.get('logo_padding', 0))
+        except (ValueError, TypeError):
+            logo_padding = 0
         logo_height = round(36 * logo_scale / 100)
         padding_style = f'padding:{logo_padding}px;' if logo_padding > 0 else ''
         font_scale = round(1.25 * logo_scale / 100, 2)
