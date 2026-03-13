@@ -22,8 +22,8 @@ function FooterPageLink({ page, href, label }: { page: string; href: string; lab
 }
 
 export function Footer() {
-  const footerLogoUrl = process.env.NEXT_PUBLIC_FOOTER_LOGO_URL || '/gravitify-logo.svg';
-  const footerBrand = process.env.NEXT_PUBLIC_FOOTER_COPYRIGHT || 'GRAVITIFY';
+  const footerLogoUrl = process.env.NEXT_PUBLIC_FOOTER_LOGO_URL || '/nerbis-logo.svg';
+  const footerBrand = process.env.NEXT_PUBLIC_FOOTER_COPYRIGHT || 'NERBIS';
   const contact = useTenantContact();
 
   return (
@@ -109,17 +109,17 @@ export function Footer() {
       </div>
     </footer>
 
-    {/* Sección GRAVITIFY - Cielo estrellado */}
+    {/* Sección NERBIS - Cielo estrellado */}
     <style dangerouslySetInnerHTML={{ __html: `
-      @keyframes gravitify-twinkle-1 {
+      @keyframes nerbis-twinkle-1 {
         0%, 100% { opacity: 0.1; }
         50% { opacity: 1; }
       }
-      @keyframes gravitify-twinkle-2 {
+      @keyframes nerbis-twinkle-2 {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.4; }
       }
-      @keyframes gravitify-twinkle-3 {
+      @keyframes nerbis-twinkle-3 {
         0%, 100% { opacity: 0.9; }
         40% { opacity: 1; }
         70% { opacity: 0.3; }
@@ -140,7 +140,7 @@ export function Footer() {
           position: 'absolute',
           inset: 0,
           pointerEvents: 'none',
-          animation: 'gravitify-twinkle-1 3s ease-in-out infinite',
+          animation: 'nerbis-twinkle-1 3s ease-in-out infinite',
           backgroundImage: [
             'radial-gradient(1px 1px at 2% 12%, #fff 0%, transparent 80%)',
             'radial-gradient(1px 1px at 5% 55%, #fff 0%, transparent 80%)',
@@ -184,7 +184,7 @@ export function Footer() {
           position: 'absolute',
           inset: 0,
           pointerEvents: 'none',
-          animation: 'gravitify-twinkle-2 4s ease-in-out infinite',
+          animation: 'nerbis-twinkle-2 4s ease-in-out infinite',
           backgroundImage: [
             'radial-gradient(1px 1px at 1% 40%, #fff 0%, transparent 80%)',
             'radial-gradient(1.2px 1.2px at 4% 75%, #fff 0%, transparent 80%)',
@@ -228,7 +228,7 @@ export function Footer() {
           position: 'absolute',
           inset: 0,
           pointerEvents: 'none',
-          animation: 'gravitify-twinkle-3 5s ease-in-out infinite',
+          animation: 'nerbis-twinkle-3 5s ease-in-out infinite',
           backgroundImage: [
             'radial-gradient(1px 1px at 3% 35%, #fff 0%, transparent 80%)',
             'radial-gradient(1px 1px at 8% 60%, #fff 0%, transparent 80%)',
@@ -267,14 +267,14 @@ export function Footer() {
       {/* Contenido */}
       <div className="relative z-10 flex flex-col items-center gap-2">
         <a
-          href="https://graviti.com"
+          href="https://nerbis.com"
           target="_blank"
           rel="noreferrer"
           className="inline-flex flex-col items-center gap-2 group"
         >
           <Image
             src={footerLogoUrl}
-            alt="Logo GRAVITIFY"
+            alt="Logo NERBIS"
             width={36}
             height={36}
             className="h-9 w-9 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] group-hover:drop-shadow-[0_0_16px_rgba(255,255,255,0.6)] transition-all"

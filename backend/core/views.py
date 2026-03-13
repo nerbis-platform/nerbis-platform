@@ -234,7 +234,7 @@ class TenantRegisterView(generics.CreateAPIView):
                     "refresh": str(refresh),
                     "access": str(refresh.access_token),
                 },
-                "message": "Negocio creado exitosamente. Bienvenido a GRAVITIFY!",
+                "message": "Negocio creado exitosamente. Bienvenido a NERBIS!",
             },
             status=status.HTTP_201_CREATED,
         )
@@ -346,11 +346,11 @@ class LoginView(APIView):
 
 class PlatformLoginView(APIView):
     """
-    POST /api/public/platform-login/ - Login desde la plataforma GRAVITIFY
+    POST /api/public/platform-login/ - Login desde la plataforma NERBIS
 
     A diferencia del LoginView normal (que requiere tenant context del middleware),
     este endpoint busca al usuario por email en TODOS los tenants.
-    Está diseñado para el formulario de login de la plataforma (gravitify.com),
+    Está diseñado para el formulario de login de la plataforma (nerbis.com),
     donde el usuario no tiene un subdominio de tenant.
     """
 

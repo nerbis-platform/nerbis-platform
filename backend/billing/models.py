@@ -1,6 +1,6 @@
 # backend/billing/models.py
 """
-Sistema de Billing Modular para GRAVITIFY.
+Sistema de Billing Modular para NERBIS.
 
 Modelo de precios modular:
 1. Precio base por web estática
@@ -112,9 +112,9 @@ class PricingConfig(models.Model):
 
 class Module(models.Model):
     """
-    Servicios/Módulos de GRAVITIFY.
+    Servicios/Módulos de NERBIS.
 
-    Cada módulo representa un producto de GRAVITIFY:
+    Cada módulo representa un producto de NERBIS:
     - Web (base, requerido)
     - Shop (ecommerce)
     - Bookings (reservas)
@@ -476,7 +476,7 @@ class Subscription(models.Model):
     has_white_label = models.BooleanField(
         'Sin branding (White Label)',
         default=False,
-        help_text="Sin branding de GRAVITIFY"
+        help_text="Sin branding de NERBIS"
     )
 
     # Fechas

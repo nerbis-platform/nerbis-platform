@@ -1,8 +1,8 @@
 {
-  "name": "eco-graviti",
+  "name": "nerbis",
   "version": "0.1.0",
   "private": true,
-  "description": "Herramientas de desarrollo para ECO-GRAVITI (monorepo root)",
+  "description": "Herramientas de desarrollo para NERBIS (monorepo root)",
   "scripts": {
     "prepare": "husky"
   },

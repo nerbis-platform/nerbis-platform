@@ -6,7 +6,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from unfold.admin import TabularInline, StackedInline
 from .models import ProductCategory, Product, ProductImage, Inventory
-from core.admin_site import gravitify_admin_site
+from core.admin_site import nerbis_admin_site
 from core.admin import ShopModuleAdmin
 from core.widgets import ImagePreviewWidget
 
@@ -33,7 +33,7 @@ class ProductImageForm(forms.ModelForm):
         }
 
 
-@admin.register(ProductCategory, site=gravitify_admin_site)
+@admin.register(ProductCategory, site=nerbis_admin_site)
 class ProductCategoryAdmin(ShopModuleAdmin):
     """
     Admin para categorías de productos.
@@ -120,7 +120,7 @@ class InventoryInline(StackedInline):
     readonly_fields = ["total_sold"]
 
 
-@admin.register(Product, site=gravitify_admin_site)
+@admin.register(Product, site=nerbis_admin_site)
 class ProductAdmin(ShopModuleAdmin):
     """
     Admin para productos.
@@ -227,7 +227,7 @@ class ProductAdmin(ShopModuleAdmin):
         formset.save_m2m()
 
 
-@admin.register(ProductImage, site=gravitify_admin_site)
+@admin.register(ProductImage, site=nerbis_admin_site)
 class ProductImageAdmin(ShopModuleAdmin):
     """
     Admin para imágenes de productos.
@@ -251,7 +251,7 @@ class ProductImageAdmin(ShopModuleAdmin):
     image_preview.short_description = "Preview"
 
 
-@admin.register(Inventory, site=gravitify_admin_site)
+@admin.register(Inventory, site=nerbis_admin_site)
 class InventoryAdmin(ShopModuleAdmin):
     """
     Admin para inventario.

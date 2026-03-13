@@ -22,6 +22,7 @@ import { getOnboardingStatus, saveOnboardingResponses, getWebsiteTemplate } from
 import { OnboardingQuestion, QuestionSection } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import LogoOptimizer from '@/components/website-builder/LogoOptimizer';
 
 // ─── Section config ───────────────────────────────────────────
 
@@ -126,6 +127,15 @@ function ImageUploadField({
           </div>
         )}
       </label>
+
+      {/* Logo optimizer — fuera del label para que los clics no abran file picker */}
+      {preview && (
+        <LogoOptimizer
+          imageDataUrl={preview}
+          onApply={(newDataUrl) => onChange(newDataUrl)}
+          onColorsExtracted={onColorsExtracted}
+        />
+      )}
     </div>
   );
 }

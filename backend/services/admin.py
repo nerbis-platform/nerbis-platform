@@ -5,7 +5,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from .models import ServiceCategory, Service, StaffMember
-from core.admin_site import gravitify_admin_site
+from core.admin_site import nerbis_admin_site
 from core.admin import BookingsModuleAdmin
 from core.widgets import ImagePreviewWidget
 
@@ -43,7 +43,7 @@ class StaffMemberForm(forms.ModelForm):
         }
 
 
-@admin.register(ServiceCategory, site=gravitify_admin_site)
+@admin.register(ServiceCategory, site=nerbis_admin_site)
 class ServiceCategoryAdmin(BookingsModuleAdmin):
     """Admin para categorías de servicios"""
 
@@ -96,7 +96,7 @@ class ServiceCategoryAdmin(BookingsModuleAdmin):
     services_count.short_description = "Servicios"
 
 
-@admin.register(Service, site=gravitify_admin_site)
+@admin.register(Service, site=nerbis_admin_site)
 class ServiceAdmin(BookingsModuleAdmin):
     """Admin para servicios"""
 
@@ -180,7 +180,7 @@ class ServiceAdmin(BookingsModuleAdmin):
     image_preview.short_description = "Imagen"
 
 
-@admin.register(StaffMember, site=gravitify_admin_site)
+@admin.register(StaffMember, site=nerbis_admin_site)
 class StaffMemberAdmin(BookingsModuleAdmin):
     """Admin para miembros del staff"""
 

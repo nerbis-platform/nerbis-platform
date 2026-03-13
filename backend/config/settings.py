@@ -39,7 +39,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Producción: agrega via variable de entorno
-# Ejemplo: CSRF_TRUSTED_ORIGINS=https://api.graviti.co,https://app.graviti.co
+# Ejemplo: CSRF_TRUSTED_ORIGINS=https://api.nerbis.com,https://app.nerbis.com
 _csrf_env = os.getenv("CSRF_TRUSTED_ORIGINS", "")
 if _csrf_env:
     CSRF_TRUSTED_ORIGINS += [o.strip() for o in _csrf_env.split(",") if o.strip()]
@@ -212,7 +212,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 # Producción: agrega via variable de entorno
-# Ejemplo: CORS_ALLOWED_ORIGINS=https://app.graviti.co,https://graviti.co
+# Ejemplo: CORS_ALLOWED_ORIGINS=https://app.nerbis.com,https://nerbis.com
 _cors_env = os.getenv("CORS_ALLOWED_ORIGINS", "")
 if _cors_env:
     CORS_ALLOWED_ORIGINS += [o.strip() for o in _cors_env.split(",") if o.strip()]
@@ -336,8 +336,8 @@ from datetime import timedelta
 
 SIMPLE_JWT = {
     # Tiempo de vida de los tokens
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=3),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     # Rotación de tokens
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -371,13 +371,13 @@ EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@graviti.com")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@nerbis.comm")
 
 # URL base del frontend (para links en emails)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 # Dominio base de la plataforma (para subdominios de tenants/websites)
-PLATFORM_BASE_DOMAIN = os.getenv("PLATFORM_BASE_DOMAIN", "graviti.co")
+PLATFORM_BASE_DOMAIN = os.getenv("PLATFORM_BASE_DOMAIN", "nerbis.com")
 
 
 # ===================================

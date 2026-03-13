@@ -1,4 +1,4 @@
-# Plan de Pruebas QA - ECO-GRAVITIFY API
+# Plan de Pruebas QA - NERBISFY API
 
 **Versión:** 1.0
 **Fecha:** 2025-12-29
@@ -996,4 +996,4 @@ SECRET_KEY=tu-secret-key
 
 ---
 
-*Documento generado automáticamente - ECO-GRAVITIFY v1.0*
+*Documento generado automáticamente - NERBISFY v1.0*

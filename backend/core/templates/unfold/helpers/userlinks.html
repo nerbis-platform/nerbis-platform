@@ -27,7 +27,7 @@
                     <img src="{{ request.user.tenant.logo.url }}" alt="{{ request.user.tenant.name }}" class="h-8 w-auto object-contain">
                 </div>
                 {% else %}
-                <!-- Logo por defecto de GRAVITIFY -->
+                <!-- Logo por defecto de NERBIS -->
                 <div class="flex items-center justify-center rounded-full select-none shadow-sm overflow-hidden border border-base-300 dark:border-base-600"
                      style="width: 44px; height: 44px; background: url('{% static 'branding/Isotipo_color.png' %}') center/70% no-repeat #e0e7ff;">
                 </div>
@@ -64,7 +64,7 @@
                     </span>
                 {% elif request.user.is_superuser %}
                     <span class="text-[11px] leading-tight flex items-center gap-1 justify-end">
-                        <span class="text-primary-500 dark:text-primary-400 font-medium">GRAVITIFY</span>
+                        <span class="text-primary-500 dark:text-primary-400 font-medium">NERBIS</span>
                         <span class="inline-flex items-center px-1 py-px rounded text-[7px] font-bold uppercase text-white"
                               style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);">
                             Super

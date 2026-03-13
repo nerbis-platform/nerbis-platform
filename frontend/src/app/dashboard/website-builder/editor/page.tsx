@@ -14,12 +14,16 @@ import {
   Loader2,
   Palette,
   FileText,
-  Eye,
   ArrowLeft,
   Settings,
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  Undo2,
+  Redo2,
+  Cloud,
+  CloudOff,
+  AlertCircle,
 } from 'lucide-react';
 import {
   getWebsiteConfig,
@@ -32,19 +36,23 @@ import {
   reorderSections,
   addSection,
   removeSection,
+  duplicateSection,
   updateThemeData,
   updateSectionVariant,
   suggestSeo,
   uploadWebsiteMedia,
 } from '@/lib/api/websites';
-import type { WebsiteConfig, ChatResponse } from '@/types';
+import type { WebsiteConfig, ChatResponse, PagesData, SitePage } from '@/types';
+import { useAutoSave, type AutoSaveStatus } from '@/hooks/useAutoSave';
 
 import LivePreview from '@/components/website-builder/LivePreview';
 import DesignPanel from '@/components/website-builder/DesignPanel';
 import ContentPanel from '@/components/website-builder/ContentPanel';
 import SectionManager from '@/components/website-builder/SectionManager';
+import PageManager from '@/components/website-builder/PageManager';
 import SettingsPanel, { type SiteSettings, type SeoSuggestion } from '@/components/website-builder/SettingsPanel';
 import { useTenantContact, useTenant } from '@/contexts/TenantContext';
+
 
 // ─── Types ───────────────────────────────────────────────────
 interface SectionContent {
@@ -116,18 +124,44 @@ export default function EditorPage() {
   // State
   const [activeTab, setActiveTab] = useState<ActiveTab>('design');
   const [activeSection, setActiveSection] = useState<string>('');
-  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [activePage, setActivePage] = useState<string>('home');
   const [chatMessage, setChatMessage] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
   const [localTheme, setLocalTheme] = useState<ThemeData | null>(null);
   const [localSettings, setLocalSettings] = useState<SiteSettings | null>(null);
-  const savedSettingsRef = useRef<SiteSettings | null>(null);
+  const [savedSettings, setSavedSettings] = useState<SiteSettings | null>(null);
+  const [savedTheme, setSavedTheme] = useState<ThemeData | null>(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [contentOverrides, setContentOverrides] = useState<Record<string, Record<string, unknown>>>({});
+  const [hasUnsavedContent, setHasUnsavedContent] = useState(false);
+  const contentSaveRef = useRef<(() => void) | null>(null);
+  const contentSetRef = useRef<((c: SectionContent) => void) | null>(null);
+
+  // ─── Global Undo / Redo ─────────────────────────────────
+  type HistoryEntry =
+    | { type: 'theme'; before: ThemeData; after: ThemeData }
+    | { type: 'content'; section: string; before: SectionContent; after: SectionContent }
+    | { type: 'settings'; before: SiteSettings; after: SiteSettings };
+
+  const globalHistoryRef = useRef<HistoryEntry[]>([]);
+  const globalPointerRef = useRef(-1);
+  const globalUndoingRef = useRef(false);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  // Track previous states for computing "before" snapshots
+  const prevThemeRef = useRef<ThemeData | null>(null);
+  const prevSettingsRef = useRef<SiteSettings | null>(null);
+  const prevContentRef = useRef<SectionContent | null>(null);
+
+  // Content debounce (groups rapid keystrokes into single undo entry)
+  const contentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentBeforeRef = useRef<SectionContent | null>(null); // "before" state for debounced batch
 
   // ─── Queries ─────────────────────────────────────────────
   const { data: statusData, isLoading: statusLoading } = useQuery({
@@ -152,8 +186,8 @@ export default function EditorPage() {
     isLoading: previewLoading,
     refetch: refetchPreview,
   } = useQuery({
-    queryKey: ['previewRender'],
-    queryFn: getPreviewRenderHtml,
+    queryKey: ['previewRender', activePage],
+    queryFn: () => getPreviewRenderHtml(activePage),
     enabled: !!config,
   });
 
@@ -191,6 +225,7 @@ export default function EditorPage() {
         ...(config.theme_data as unknown as ThemeData),
       };
       setLocalTheme(merged);
+      setSavedTheme(merged);
     }
   }, [config, localTheme]);
 
@@ -240,7 +275,7 @@ export default function EditorPage() {
         schema_business_type: (seo.schema_business_type as string) || 'LocalBusiness',
       };
       setLocalSettings(initial);
-      savedSettingsRef.current = initial;
+      setSavedSettings(initial);
     }
   }, [config, localSettings]);
 
@@ -265,16 +300,75 @@ export default function EditorPage() {
   }, [chatMessages]);
 
   // ─── Mutations ───────────────────────────────────────────
+  const isAutoSaveRef = useRef(false);
+
   const saveMutation = useMutation({
-    mutationFn: async ({ sectionKey, content }: { sectionKey: string; content: SectionContent }) => {
+    mutationFn: async ({ sectionKey, content, mediaUpdates, seoUpdates }: {
+      sectionKey: string;
+      content: SectionContent;
+      mediaUpdates?: Record<string, unknown>;
+      seoUpdates?: Record<string, unknown>;
+    }) => {
       if (!config) throw new Error('No config');
-      const updatedContent = { ...config.content_data, [sectionKey]: content };
-      return updateWebsiteConfig(config.id, { content_data: updatedContent } as Partial<WebsiteConfig>);
+
+      const updates: Record<string, unknown> = {};
+
+      // Always update content_data
+      updates.content_data = { ...config.content_data, [sectionKey]: content };
+
+      // If pages_data exists, also update the right location there
+      const currentPagesData = (config.pages_data as PagesData) || null;
+      if (currentPagesData) {
+        // Header and footer are always global, even if not listed in global.sections
+        const isGlobal = sectionKey === 'header' || sectionKey === 'footer'
+          || currentPagesData.global?.sections?.includes(sectionKey);
+        if (isGlobal) {
+          const globalSections = currentPagesData.global?.sections || [];
+          const updatedSections = globalSections.includes(sectionKey)
+            ? globalSections
+            : [...globalSections, sectionKey];
+          updates.pages_data = {
+            ...currentPagesData,
+            global: {
+              ...currentPagesData.global,
+              sections: updatedSections,
+              content: { ...(currentPagesData.global?.content || {}), [sectionKey]: content },
+            },
+          };
+        } else {
+          updates.pages_data = {
+            ...currentPagesData,
+            pages: currentPagesData.pages.map(p =>
+              p.id === activePage && p.sections.includes(sectionKey)
+                ? { ...p, content: { ...(p.content || {}), [sectionKey]: content } }
+                : p
+            ),
+          };
+        }
+      }
+
+      // Include media_data updates (e.g., logo_url from header editor)
+      if (mediaUpdates && Object.keys(mediaUpdates).length > 0) {
+        updates.media_data = { ...(config.media_data || {}), ...mediaUpdates };
+      }
+
+      // Include seo_data updates (e.g., social_links from footer editor)
+      if (seoUpdates && Object.keys(seoUpdates).length > 0) {
+        updates.seo_data = { ...(config.seo_data || {}), ...seoUpdates };
+      }
+
+      return updateWebsiteConfig(config.id, updates as Partial<WebsiteConfig>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
-      setEditingSection(null);
+      setContentOverrides({});
       refetchPreview();
+    },
+    onError: (err) => {
+      console.error('Save failed:', err);
+      if (!isAutoSaveRef.current) {
+        toast.error('Error al guardar los cambios');
+      }
     },
   });
 
@@ -285,6 +379,7 @@ export default function EditorPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
+      setSavedTheme(localTheme);
       refetchPreview();
     },
   });
@@ -298,7 +393,8 @@ export default function EditorPage() {
   });
 
   const addSectionMutation = useMutation({
-    mutationFn: (sectionId: string) => addSection(sectionId),
+    mutationFn: ({ sectionId, initialContent, variant }: { sectionId: string; initialContent?: Record<string, unknown>; variant?: string }) =>
+      addSection(sectionId, initialContent, variant),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
       refetchPreview();
@@ -310,6 +406,15 @@ export default function EditorPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
       refetchPreview();
+    },
+  });
+
+  const duplicateSectionMutation = useMutation({
+    mutationFn: (sectionId: string) => duplicateSection(sectionId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
+      refetchPreview();
+      setActiveSection(data.new_section_id);
     },
   });
 
@@ -392,16 +497,25 @@ export default function EditorPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
       refetchPreview();
-      savedSettingsRef.current = localSettings;
-      toast.success('Ajustes guardados correctamente');
+      setSavedSettings(localSettings);
+      if (!isAutoSaveRef.current) {
+        toast.success('Ajustes guardados correctamente');
+      }
+      isAutoSaveRef.current = false;
     },
   });
 
   // Unsaved settings indicator
   const hasUnsavedSettings = useMemo(() => {
-    if (!localSettings || !savedSettingsRef.current) return false;
-    return JSON.stringify(localSettings) !== JSON.stringify(savedSettingsRef.current);
-  }, [localSettings]);
+    if (!localSettings || !savedSettings) return false;
+    return JSON.stringify(localSettings) !== JSON.stringify(savedSettings);
+  }, [localSettings, savedSettings]);
+
+  // Unsaved theme indicator
+  const hasUnsavedTheme = useMemo(() => {
+    if (!localTheme || !savedTheme) return false;
+    return JSON.stringify(localTheme) !== JSON.stringify(savedTheme);
+  }, [localTheme, savedTheme]);
 
   const publishMutation = useMutation({
     mutationFn: () => publishWebsite(),
@@ -426,6 +540,20 @@ export default function EditorPage() {
 
   const handleThemeChange = useCallback(
     (theme: ThemeData) => {
+      if (!globalUndoingRef.current && prevThemeRef.current) {
+        const before = structuredClone(prevThemeRef.current);
+        const after = structuredClone(theme);
+        if (JSON.stringify(before) !== JSON.stringify(after)) {
+          const stack = globalHistoryRef.current.slice(0, globalPointerRef.current + 1);
+          stack.push({ type: 'theme', before, after });
+          if (stack.length > 50) stack.shift();
+          globalHistoryRef.current = stack;
+          globalPointerRef.current = stack.length - 1;
+          setCanUndo(true);
+          setCanRedo(false);
+        }
+      }
+      prevThemeRef.current = structuredClone(theme);
       setLocalTheme(theme);
     },
     []
@@ -433,19 +561,100 @@ export default function EditorPage() {
 
   const handleThemeSave = useCallback(() => {
     if (localTheme) {
-      themeMutation.mutate(localTheme);
+      return new Promise<void>((resolve, reject) => {
+        themeMutation.mutate(localTheme, {
+          onSuccess: () => resolve(),
+          onError: (err) => reject(err),
+        });
+      });
     }
+    return Promise.resolve();
   }, [localTheme, themeMutation]);
 
   const handleSettingsChange = useCallback((s: SiteSettings) => {
+    if (!globalUndoingRef.current && prevSettingsRef.current) {
+      const before = structuredClone(prevSettingsRef.current);
+      const after = structuredClone(s);
+      if (JSON.stringify(before) !== JSON.stringify(after)) {
+        const stack = globalHistoryRef.current.slice(0, globalPointerRef.current + 1);
+        stack.push({ type: 'settings', before, after });
+        if (stack.length > 50) stack.shift();
+        globalHistoryRef.current = stack;
+        globalPointerRef.current = stack.length - 1;
+        setCanUndo(true);
+        setCanRedo(false);
+      }
+    }
+    prevSettingsRef.current = structuredClone(s);
     setLocalSettings(s);
   }, []);
 
   const handleSettingsSave = useCallback(() => {
     if (localSettings) {
-      settingsMutation.mutate(localSettings);
+      return new Promise<void>((resolve, reject) => {
+        settingsMutation.mutate(localSettings, {
+          onSuccess: () => resolve(),
+          onError: (err) => reject(err),
+        });
+      });
     }
+    return Promise.resolve();
   }, [localSettings, settingsMutation]);
+
+  // ─── Auto-save ──────────────────────────────────────────
+  const handleContentAutoSave = useCallback(async () => {
+    isAutoSaveRef.current = true;
+    contentSaveRef.current?.();
+  }, []);
+
+  const handleThemeAutoSave = useCallback(async () => {
+    isAutoSaveRef.current = true;
+    await handleThemeSave();
+  }, [handleThemeSave]);
+
+  const handleSettingsAutoSave = useCallback(async () => {
+    isAutoSaveRef.current = true;
+    await handleSettingsSave();
+  }, [handleSettingsSave]);
+
+  const contentAutoSave = useAutoSave({ onSave: handleContentAutoSave, hasChanges: hasUnsavedContent });
+  const themeAutoSave = useAutoSave({ onSave: handleThemeAutoSave, hasChanges: hasUnsavedTheme });
+  const settingsAutoSave = useAutoSave({ onSave: handleSettingsAutoSave, hasChanges: hasUnsavedSettings });
+
+  // Composite auto-save status (worst of the three)
+  const compositeAutoSaveStatus: AutoSaveStatus = (() => {
+    const statuses = [contentAutoSave.status, themeAutoSave.status, settingsAutoSave.status];
+    if (statuses.includes('error')) return 'error';
+    if (statuses.includes('saving')) return 'saving';
+    if (statuses.includes('unsaved')) return 'unsaved';
+    if (statuses.includes('saved')) return 'saved';
+    return 'idle';
+  })();
+
+  const handleSaveAllNow = useCallback(() => {
+    if (hasUnsavedContent) contentSaveRef.current?.();
+    if (hasUnsavedTheme) handleThemeSave();
+    if (hasUnsavedSettings) handleSettingsSave();
+  }, [hasUnsavedContent, hasUnsavedTheme, hasUnsavedSettings, handleThemeSave, handleSettingsSave]);
+
+  // Show a one-time toast the first time auto-save triggers
+  const autoSaveToastShown = useRef(false);
+  useEffect(() => {
+    if (compositeAutoSaveStatus === 'saving' && !autoSaveToastShown.current) {
+      autoSaveToastShown.current = true;
+      toast('Los cambios se guardan automaticamente', {
+        icon: <Cloud className="h-4 w-4 text-emerald-500" />,
+        duration: 4000,
+      });
+    }
+  }, [compositeAutoSaveStatus]);
+
+  const handleFieldChange = useCallback((sectionKey: string, field: string, value: unknown) => {
+    setContentOverrides(prev => ({
+      ...prev,
+      [sectionKey]: { ...(prev[sectionKey] || {}), [field]: value },
+    }));
+  }, []);
 
   const handleSuggestSeo = useCallback(async (
     keywords: string[],
@@ -475,6 +684,209 @@ export default function EditorPage() {
     },
     []
   );
+
+  const handleAddPage = useCallback(
+    (newPage: SitePage) => {
+      if (!config) return;
+      const currentPages = (config.pages_data as PagesData) || { global: { sections: [], content: {} }, pages: [] };
+      const updatedPagesData: PagesData = {
+        ...currentPages,
+        pages: [...(currentPages.pages || []), newPage],
+      };
+      updateWebsiteConfig(config.id, { pages_data: updatedPagesData } as Partial<WebsiteConfig>)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
+          setActivePage(newPage.id);
+        })
+        .catch(() => toast.error('Error al agregar la página'));
+    },
+    [config, queryClient]
+  );
+
+  const handleRemovePage = useCallback(
+    (pageId: string) => {
+      if (!config) return;
+      const currentPages = (config.pages_data as PagesData) || { global: { sections: [], content: {} }, pages: [] };
+      const updatedPagesData: PagesData = {
+        ...currentPages,
+        pages: (currentPages.pages || []).filter((p) => p.id !== pageId),
+      };
+      updateWebsiteConfig(config.id, { pages_data: updatedPagesData } as Partial<WebsiteConfig>)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
+          if (activePage === pageId) setActivePage('home');
+        })
+        .catch(() => toast.error('Error al eliminar la página'));
+    },
+    [config, activePage, queryClient]
+  );
+
+  const handleUpdatePages = useCallback(
+    (updatedPagesData: PagesData) => {
+      if (!config) return;
+      updateWebsiteConfig(config.id, { pages_data: updatedPagesData } as Partial<WebsiteConfig>)
+        .then(() => queryClient.invalidateQueries({ queryKey: ['websiteConfig'] }))
+        .catch(() => toast.error('Error al actualizar páginas'));
+    },
+    [config, queryClient]
+  );
+
+  // ─── Global Undo / Redo ─────────────────────────────────
+
+  // Initialize "previous" refs once data loads (prevents init from being treated as change)
+  const prevThemeInitRef = useRef(false);
+  useEffect(() => {
+    if (localTheme && !prevThemeInitRef.current) {
+      prevThemeInitRef.current = true;
+      prevThemeRef.current = structuredClone(localTheme);
+    }
+  }, [localTheme]);
+
+  const prevSettingsInitRef = useRef(false);
+  useEffect(() => {
+    if (localSettings && !prevSettingsInitRef.current) {
+      prevSettingsInitRef.current = true;
+      prevSettingsRef.current = structuredClone(localSettings);
+    }
+  }, [localSettings]);
+
+  // Initialize prevContentRef when section changes
+  useEffect(() => {
+    const initialContent = config?.content_data?.[activeSection] || {};
+    prevContentRef.current = structuredClone(initialContent) as SectionContent;
+    contentBeforeRef.current = null;
+    if (contentDebounceRef.current) {
+      clearTimeout(contentDebounceRef.current);
+      contentDebounceRef.current = null;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection]);
+
+  // Flush pending content change → push to global history
+  const flushContentDebounce = useCallback(() => {
+    if (contentDebounceRef.current) {
+      clearTimeout(contentDebounceRef.current);
+      contentDebounceRef.current = null;
+    }
+    const before = contentBeforeRef.current;
+    const after = prevContentRef.current;
+    if (!before || !after) return;
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
+    const stack = globalHistoryRef.current.slice(0, globalPointerRef.current + 1);
+    stack.push({ type: 'content', section: activeSection, before: structuredClone(before), after: structuredClone(after) });
+    if (stack.length > 50) stack.shift();
+    globalHistoryRef.current = stack;
+    globalPointerRef.current = stack.length - 1;
+    setCanUndo(true);
+    setCanRedo(false);
+    contentBeforeRef.current = null;
+  }, [activeSection]);
+
+  // Called by ContentPanel on every content change
+  const handleContentChange = useCallback((content: SectionContent) => {
+    if (globalUndoingRef.current) {
+      globalUndoingRef.current = false;
+      return;
+    }
+    // Capture "before" state at start of debounce batch
+    if (!contentBeforeRef.current) {
+      contentBeforeRef.current = prevContentRef.current ? structuredClone(prevContentRef.current) : structuredClone(content);
+    }
+    prevContentRef.current = structuredClone(content);
+    if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current);
+    contentDebounceRef.current = setTimeout(() => flushContentDebounce(), 500);
+  }, [flushContentDebounce]);
+
+  // Global undo
+  const globalUndo = useCallback(() => {
+    // Flush any pending content debounce first
+    flushContentDebounce();
+    if (globalPointerRef.current < 0) return;
+    const entry = globalHistoryRef.current[globalPointerRef.current];
+    globalPointerRef.current -= 1;
+    globalUndoingRef.current = true;
+
+    switch (entry.type) {
+      case 'theme':
+        prevThemeRef.current = structuredClone(entry.before);
+        setLocalTheme(structuredClone(entry.before));
+        break;
+      case 'content': {
+        const restored = structuredClone(entry.before);
+        prevContentRef.current = restored;
+        // If same section, apply directly; otherwise switch section
+        if (entry.section === activeSection) {
+          contentSetRef.current?.(restored);
+        } else {
+          setActiveTab('content');
+          setActiveSection(entry.section);
+          // Queue apply for after section switch
+          setTimeout(() => { contentSetRef.current?.(restored); }, 50);
+        }
+        setContentOverrides(prev => ({ ...prev, [entry.section]: restored as Record<string, unknown> }));
+        break;
+      }
+      case 'settings':
+        prevSettingsRef.current = structuredClone(entry.before);
+        setLocalSettings(structuredClone(entry.before));
+        break;
+    }
+    globalUndoingRef.current = false;
+    setCanUndo(globalPointerRef.current >= 0);
+    setCanRedo(true);
+  }, [activeSection, flushContentDebounce]);
+
+  // Global redo
+  const globalRedo = useCallback(() => {
+    if (globalPointerRef.current >= globalHistoryRef.current.length - 1) return;
+    globalPointerRef.current += 1;
+    const entry = globalHistoryRef.current[globalPointerRef.current];
+    globalUndoingRef.current = true;
+
+    switch (entry.type) {
+      case 'theme':
+        prevThemeRef.current = structuredClone(entry.after);
+        setLocalTheme(structuredClone(entry.after));
+        break;
+      case 'content': {
+        const restored = structuredClone(entry.after);
+        prevContentRef.current = restored;
+        if (entry.section === activeSection) {
+          contentSetRef.current?.(restored);
+        } else {
+          setActiveTab('content');
+          setActiveSection(entry.section);
+          setTimeout(() => { contentSetRef.current?.(restored); }, 50);
+        }
+        setContentOverrides(prev => ({ ...prev, [entry.section]: restored as Record<string, unknown> }));
+        break;
+      }
+      case 'settings':
+        prevSettingsRef.current = structuredClone(entry.after);
+        setLocalSettings(structuredClone(entry.after));
+        break;
+    }
+    globalUndoingRef.current = false;
+    setCanUndo(true);
+    setCanRedo(globalPointerRef.current < globalHistoryRef.current.length - 1);
+  }, [activeSection]);
+
+  // Global keyboard shortcuts: Ctrl+Z / Ctrl+Shift+Z / Ctrl+S
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) globalRedo();
+        else globalUndo();
+      } else if (e.key === 's') {
+        e.preventDefault();
+        handleSaveAllNow();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [globalUndo, globalRedo, handleSaveAllNow]);
 
   // ─── Loading state ───────────────────────────────────────
   if (statusLoading || configLoading || !config?.content_data) {
@@ -538,19 +950,57 @@ export default function EditorPage() {
   }
 
   // ─── Data ────────────────────────────────────────────────
+  const templateIndustry = config.template_industry || 'generic';
   const contentData = config.content_data as Record<string, SectionContent>;
   const sectionOrder = (contentData._section_order as unknown as string[]) || [];
   const sections = sectionOrder.length > 0
     ? sectionOrder.filter((s) => s in contentData)
     : Object.keys(contentData).filter((k) => k !== '_section_order');
 
+  const rawPagesData = (config.pages_data as PagesData) || null;
+
+  // Normalize pagesData: ensure global.sections always includes header/footer
+  const pagesData = (() => {
+    if (!rawPagesData) return null;
+    const globalSections = rawPagesData.global?.sections || [];
+    const needsHeader = !globalSections.includes('header');
+    const needsFooter = !globalSections.includes('footer');
+    if (!needsHeader && !needsFooter) return rawPagesData;
+    return {
+      ...rawPagesData,
+      global: {
+        ...rawPagesData.global,
+        sections: [
+          ...(needsHeader ? ['header'] : []),
+          ...globalSections,
+          ...(needsFooter ? ['footer'] : []),
+        ],
+      },
+    };
+  })();
+
   const structure = (config.template as { structure_schema?: { sections: { id: string; name: string; required: boolean }[] } })?.structure_schema;
   const allSections = structure?.sections || [];
 
-  const currentContent = activeSection ? contentData[activeSection] : null;
+  // Resolve content for active section: look in pages_data first, then content_data fallback
+  const currentContent: SectionContent | null = (() => {
+    if (!activeSection) return null;
+    if (pagesData) {
+      const globalContent = pagesData.global?.content?.[activeSection];
+      if (globalContent) return globalContent as SectionContent;
+      const page = pagesData.pages?.find((p) => p.id === activePage);
+      const pageContent = page?.content?.[activeSection];
+      if (pageContent) return pageContent as SectionContent;
+    }
+    // Fallback to content_data; for header/footer always return at least {}
+    const fallback = contentData[activeSection];
+    if (fallback) return fallback;
+    if (activeSection === 'header' || activeSection === 'footer') return {} as SectionContent;
+    return null;
+  })();
   const currentTheme = localTheme || DEFAULT_THEME;
   // Reset target: the theme the user saved (onboarding/server), falling back to template default
-  const savedTheme: ThemeData = {
+  const defaultThemeFromServer: ThemeData = {
     ...DEFAULT_THEME,
     ...((config.template as { default_theme?: ThemeData })?.default_theme || {}),
     ...((config.theme_data as unknown as ThemeData) || {}),
@@ -598,54 +1048,53 @@ export default function EditorPage() {
           </div>
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2">
-          {/* Save theme button (only in design tab) */}
-          {activeTab === 'design' && localTheme && (
-            <button
-              type="button"
-              onClick={handleThemeSave}
-              disabled={themeMutation.isPending}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-md text-[0.78rem] font-medium border border-[#95D0C9] text-[#1C3B57] hover:bg-[#E2F3F1] transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {themeMutation.isPending ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Check className="h-3 w-3" />
-              )}
-              <span className="hidden sm:inline">Guardar diseño</span>
-            </button>
-          )}
-
-          {/* Save settings button (only in settings tab) */}
-          {activeTab === 'settings' && localSettings && (
-            <button
-              type="button"
-              onClick={handleSettingsSave}
-              disabled={settingsMutation.isPending}
-              className="relative flex items-center gap-1.5 h-8 px-3 rounded-md text-[0.78rem] font-medium border border-[#95D0C9] text-[#1C3B57] hover:bg-[#E2F3F1] transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {hasUnsavedSettings && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#95D0C9] rounded-full animate-pulse" />
-              )}
-              {settingsMutation.isPending ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Check className="h-3 w-3" />
-              )}
-              <span className="hidden sm:inline">Guardar ajustes</span>
-            </button>
-          )}
+        {/* Right: Auto-save indicator + Actions */}
+        <div className="flex items-center gap-3">
+          {/* Auto-save status */}
+          <div className="flex items-center gap-1.5 text-[0.72rem] transition-opacity duration-300" style={{ opacity: compositeAutoSaveStatus === 'idle' ? 0 : 1 }}>
+            {compositeAutoSaveStatus === 'saving' && (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                <span className="text-gray-400 hidden sm:inline">Guardando...</span>
+              </>
+            )}
+            {compositeAutoSaveStatus === 'saved' && (
+              <>
+                <Cloud className="h-3 w-3 text-emerald-500" />
+                <span className="text-emerald-600 hidden sm:inline">Guardado</span>
+              </>
+            )}
+            {compositeAutoSaveStatus === 'unsaved' && (
+              <>
+                <CloudOff className="h-3 w-3 text-gray-400" />
+                <span className="text-gray-400 hidden sm:inline">Sin guardar</span>
+              </>
+            )}
+            {compositeAutoSaveStatus === 'error' && (
+              <button
+                type="button"
+                onClick={handleSaveAllNow}
+                className="flex items-center gap-1 text-red-500 hover:text-red-600 cursor-pointer"
+              >
+                <AlertCircle className="h-3 w-3" />
+                <span className="hidden sm:inline">Error</span>
+                <span className="underline hidden sm:inline">Reintentar</span>
+              </button>
+            )}
+          </div>
 
           {/* Publish button */}
           <button
             type="button"
             onClick={() => setShowPublishDialog(true)}
-            className="flex items-center gap-1.5 h-8 px-4 rounded-md text-white text-[0.78rem] font-medium hover:opacity-90 transition-opacity cursor-pointer"
+            className="relative flex items-center gap-1.5 h-8 px-4 rounded-md text-white text-[0.78rem] font-medium hover:opacity-90 transition-opacity cursor-pointer"
             style={{ background: '#1C3B57' }}
           >
             <Globe className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Publicar</span>
+            {config.has_unpublished_changes && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-white" />
+            )}
           </button>
         </div>
       </div>
@@ -656,25 +1105,34 @@ export default function EditorPage() {
         {/* ─── Icon Rail (56px) ─────────────────────────────────── */}
         <div className="w-14 shrink-0 bg-white border-r border-gray-100 flex-col items-center py-3 hidden md:flex">
           <div className="flex flex-col items-center gap-1">
-            {railItems.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => {
-                  setActiveTab(id);
-                  if (panelCollapsed) setPanelCollapsed(false);
-                }}
-                title={label}
-                className={`flex flex-col items-center justify-center w-12 h-12 rounded-lg transition-colors cursor-pointer ${
-                  activeTab === id && !panelCollapsed
-                    ? 'bg-[#E2F3F1] text-[#1C3B57]'
-                    : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="text-[0.55rem] font-medium mt-0.5 leading-none truncate w-full text-center">{label}</span>
-              </button>
-            ))}
+            {railItems.map(({ id, label, icon: Icon }) => {
+              const hasChanges =
+                (id === 'design' && hasUnsavedTheme) ||
+                (id === 'content' && hasUnsavedContent) ||
+                (id === 'settings' && hasUnsavedSettings);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(id);
+                    if (panelCollapsed) setPanelCollapsed(false);
+                  }}
+                  title={hasChanges ? `${label} — cambios sin guardar` : label}
+                  className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-lg transition-colors cursor-pointer ${
+                    activeTab === id && !panelCollapsed
+                      ? 'bg-[#E2F3F1] text-[#1C3B57]'
+                      : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="text-[0.55rem] font-medium mt-0.5 leading-none truncate w-full text-center">{label}</span>
+                  {hasChanges && (
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -684,66 +1142,106 @@ export default function EditorPage() {
             panelCollapsed ? 'w-0 border-r-0' : 'w-[340px]'
           }`}
         >
-          {/* Panel header with tab name + collapse */}
+          {/* Panel header with tab name + undo/redo + collapse */}
           <div className="w-[340px] flex items-center justify-between px-4 py-2.5 border-b border-gray-100 shrink-0">
             <span className="text-[0.75rem] font-semibold text-[#1C3B57] uppercase tracking-wider">
               {railItems.find((r) => r.id === activeTab)?.label}
             </span>
-            <button
-              type="button"
-              onClick={() => setPanelCollapsed(true)}
-              title="Ocultar panel"
-              className="p-1 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors cursor-pointer"
-            >
-              <PanelLeftClose className="h-3.5 w-3.5" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              {/* Undo / Redo — global, always visible */}
+              <button
+                type="button"
+                onClick={globalUndo}
+                disabled={!canUndo}
+                title="Deshacer (Ctrl+Z)"
+                className="p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-default text-gray-400 hover:text-[#1C3B57] hover:bg-[#E2F3F1]/40"
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={globalRedo}
+                disabled={!canRedo}
+                title="Rehacer (Ctrl+Shift+Z)"
+                className="p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-default text-gray-400 hover:text-[#1C3B57] hover:bg-[#E2F3F1]/40"
+              >
+                <Redo2 className="h-3.5 w-3.5" />
+              </button>
+              <div className="w-px h-4 bg-gray-200 mx-1" />
+              <button
+                type="button"
+                onClick={() => setPanelCollapsed(true)}
+                title="Ocultar panel"
+                className="p-1 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                <PanelLeftClose className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           <div className="w-[340px] flex-1 overflow-y-auto p-4">
             {/* ─── Content Tab ──────────────────────── */}
             {activeTab === 'content' && (
               <>
-                <SectionManager
-                  sections={sections}
-                  allSections={allSections}
-                  activeSection={activeSection}
-                  onSelectSection={(id) => {
-                    setActiveSection(id);
-                    setEditingSection(null);
-                  }}
-                  onReorder={(order) => reorderMutation.mutate(order)}
-                  onAdd={(id) => addSectionMutation.mutate(id)}
-                  onRemove={(id) => removeSectionMutation.mutate(id)}
-                />
-
-                <hr className="my-4 border-gray-100" />
-
-                {currentContent ? (
-                  <ContentPanel
-                    sectionKey={activeSection}
-                    content={currentContent}
-                    isEditing={editingSection === activeSection}
-                    isSaving={saveMutation.isPending}
-                    onStartEdit={() => setEditingSection(activeSection)}
-                    onSaveEdit={(content) => {
-                      saveMutation.mutate({ sectionKey: activeSection, content });
+                {pagesData ? (
+                  <PageManager
+                    pagesData={pagesData}
+                    activePage={activePage}
+                    activeSection={activeSection}
+                    allSections={allSections}
+                    editorContent={currentContent ? (
+                      <ContentPanel
+                        sectionKey={activeSection}
+                        content={currentContent}
+                        onSaveEdit={(content, mediaUpdates, seoUpdates) => {
+                          saveMutation.mutate({ sectionKey: activeSection, content, mediaUpdates, seoUpdates });
+                        }}
+                        onVariantChange={(variant) => {
+                          variantMutation.mutate({ sectionId: activeSection, variant });
+                        }}
+                        isVariantLoading={variantMutation.isPending}
+                        onUploadMedia={(file) => uploadWebsiteMedia(file, 'general')}
+                        onFieldChange={handleFieldChange}
+                        onDirtyChange={setHasUnsavedContent}
+                        onContentChange={handleContentChange}
+                        saveRef={contentSaveRef}
+                        contentSetRef={contentSetRef}
+                        mediaData={config.media_data as Record<string, unknown>}
+                        seoData={config.seo_data as Record<string, unknown>}
+                        contactContent={contentData.contact}
+                        availableNavSections={sections.filter(s => !['hero', 'header', 'footer'].includes(s))}
+                        onNavigateToSection={(id) => { setActiveSection(id); }}
+                        contactWhatsapp={contentData.contact?.whatsapp ? String(contentData.contact.whatsapp) : undefined}
+                        industry={templateIndustry}
+                      />
+                    ) : undefined}
+                    onSelectPage={(id) => {
+                      setActivePage(id);
+                      setActiveSection('');
                     }}
-                    onCancelEdit={() => setEditingSection(null)}
-                    onVariantChange={(variant) => {
-                      variantMutation.mutate({ sectionId: activeSection, variant });
+                    onSelectSection={(id) => {
+                      setActiveSection(id);
                     }}
-                    isVariantLoading={variantMutation.isPending}
+                    onAddPage={handleAddPage}
+                    onRemovePage={handleRemovePage}
+                    onUpdatePages={handleUpdatePages}
+                    onAddSectionWithContent={(sectionId, content, variant) =>
+                      addSectionMutation.mutate({ sectionId, initialContent: content, variant })
+                    }
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Eye className="h-8 w-8 text-gray-300 mb-3" />
-                    <p className="text-[0.85rem] text-gray-500 font-medium mb-1">
-                      Selecciona una sección
-                    </p>
-                    <p className="text-[0.75rem] text-gray-400">
-                      Haz clic en una sección de arriba o en el preview para editarla
-                    </p>
-                  </div>
+                  <SectionManager
+                    sections={sections}
+                    allSections={allSections}
+                    activeSection={activeSection}
+                    onSelectSection={(id) => {
+                      setActiveSection(id);
+                    }}
+                    onReorder={(order) => reorderMutation.mutate(order)}
+                    onAdd={(id, content, variant) => addSectionMutation.mutate({ sectionId: id, initialContent: content, variant })}
+                    onRemove={(id) => removeSectionMutation.mutate(id)}
+                    onDuplicate={(id) => duplicateSectionMutation.mutate(id)}
+                  />
                 )}
               </>
             )}
@@ -752,7 +1250,7 @@ export default function EditorPage() {
             {activeTab === 'design' && (
               <DesignPanel
                 themeData={currentTheme}
-                defaultTheme={savedTheme}
+                defaultTheme={defaultThemeFromServer}
                 onChange={handleThemeChange}
                 isSaving={themeMutation.isPending}
               />
@@ -774,6 +1272,8 @@ export default function EditorPage() {
               />
             )}
           </div>
+
+          {/* Auto-save indicator moved to top bar */}
         </div>
 
         {/* ─── Live Preview (flex-1, maximized) ─────────────────── */}
@@ -781,9 +1281,11 @@ export default function EditorPage() {
           <LivePreview
             htmlContent={previewHtml || null}
             isLoading={previewLoading}
+            activeSection={activeSection}
             onSectionClick={handleSectionClick}
             onRefresh={() => refetchPreview()}
             themeOverrides={localTheme || undefined}
+            contentOverrides={contentOverrides}
             siteName={localSettings?.meta_title || tenantName}
             faviconUrl={localSettings?.favicon_url || ''}
             siteUrl={config.public_url ? config.public_url.replace('https://', '') : ''}
@@ -919,24 +1421,37 @@ export default function EditorPage() {
       {/* ─── Mobile: bottom tab bar ────────────────────────────── */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 z-30">
         <div className="flex gap-1">
-          {railItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                setActiveTab(id);
-                setMobileDrawerOpen(true);
-              }}
-              className={`flex-1 flex flex-col items-center justify-center h-12 rounded-xl transition-all cursor-pointer ${
-                activeTab === id && mobileDrawerOpen
-                  ? 'bg-[#1C3B57] text-white'
-                  : 'bg-white text-gray-500'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              <span className="text-[0.55rem] font-medium mt-0.5">{label}</span>
-            </button>
-          ))}
+          {railItems.map(({ id, label, icon: Icon }) => {
+            const hasChanges =
+              (id === 'design' && hasUnsavedTheme) ||
+              (id === 'content' && hasUnsavedContent) ||
+              (id === 'settings' && hasUnsavedSettings);
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(id);
+                  setMobileDrawerOpen(true);
+                }}
+                className={`relative flex-1 flex flex-col items-center justify-center h-12 rounded-xl transition-all cursor-pointer ${
+                  activeTab === id && mobileDrawerOpen
+                    ? 'bg-[#1C3B57] text-white'
+                    : 'bg-white text-gray-500'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="text-[0.55rem] font-medium mt-0.5">{label}</span>
+                {hasChanges && (
+                  <span className={`absolute top-1 right-3 w-2 h-2 rounded-full ring-2 ${
+                    activeTab === id && mobileDrawerOpen
+                      ? 'bg-amber-300 ring-[#1C3B57]'
+                      : 'bg-amber-400 ring-white'
+                  }`} />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -947,64 +1462,106 @@ export default function EditorPage() {
             className="absolute inset-0 bg-black/30"
             onClick={() => setMobileDrawerOpen(false)}
           />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto">
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] flex flex-col">
             {/* Drawer header */}
-            <div className="sticky top-0 bg-white border-b border-gray-100 p-3 flex items-center justify-between rounded-t-2xl z-10">
+            <div className="bg-white border-b border-gray-100 p-3 flex items-center justify-between rounded-t-2xl z-10 shrink-0">
               <span className="text-[0.85rem] font-semibold text-[#1C3B57]">
                 {railItems.find((r) => r.id === activeTab)?.label}
               </span>
-              <button
-                type="button"
-                onClick={() => setMobileDrawerOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-gray-100 cursor-pointer"
-              >
-                <X className="h-4 w-4 text-gray-500" />
-              </button>
+              <div className="flex items-center gap-0.5">
+                {/* Undo / Redo — global */}
+                <button
+                  type="button"
+                  onClick={globalUndo}
+                  disabled={!canUndo}
+                  title="Deshacer"
+                  className="p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-default text-gray-400 hover:text-[#1C3B57] hover:bg-[#E2F3F1]/40"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={globalRedo}
+                  disabled={!canRedo}
+                  title="Rehacer"
+                  className="p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-default text-gray-400 hover:text-[#1C3B57] hover:bg-[#E2F3F1]/40"
+                >
+                  <Redo2 className="h-3.5 w-3.5" />
+                </button>
+                <div className="w-px h-4 bg-gray-200 mx-1" />
+                <button
+                  type="button"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 cursor-pointer"
+                >
+                  <X className="h-4 w-4 text-gray-500" />
+                </button>
+              </div>
             </div>
 
             {/* Drawer content */}
-            <div className="p-4">
+            <div className="p-4 flex-1 overflow-y-auto">
               {activeTab === 'content' && (
                 <>
-                  <SectionManager
-                    sections={sections}
-                    allSections={allSections}
-                    activeSection={activeSection}
-                    onSelectSection={(id) => {
-                      setActiveSection(id);
-                      setEditingSection(null);
-                    }}
-                    onReorder={(order) => reorderMutation.mutate(order)}
-                    onAdd={(id) => addSectionMutation.mutate(id)}
-                    onRemove={(id) => removeSectionMutation.mutate(id)}
-                  />
-                  <hr className="my-4 border-gray-100" />
-                  {currentContent ? (
-                    <ContentPanel
-                      sectionKey={activeSection}
-                      content={currentContent}
-                      isEditing={editingSection === activeSection}
-                      isSaving={saveMutation.isPending}
-                      onStartEdit={() => setEditingSection(activeSection)}
-                      onSaveEdit={(content) => {
-                        saveMutation.mutate({ sectionKey: activeSection, content });
+                  {pagesData ? (
+                    <PageManager
+                      pagesData={pagesData}
+                      activePage={activePage}
+                      activeSection={activeSection}
+                      allSections={allSections}
+                      editorContent={currentContent ? (
+                        <ContentPanel
+                          sectionKey={activeSection}
+                          content={currentContent}
+                          onSaveEdit={(content, mediaUpdates, seoUpdates) => {
+                            saveMutation.mutate({ sectionKey: activeSection, content, mediaUpdates, seoUpdates });
+                          }}
+                          onVariantChange={(variant) => {
+                            variantMutation.mutate({ sectionId: activeSection, variant });
+                          }}
+                          isVariantLoading={variantMutation.isPending}
+                          onUploadMedia={(file) => uploadWebsiteMedia(file, 'general')}
+                          onFieldChange={handleFieldChange}
+                          onDirtyChange={setHasUnsavedContent}
+                          onContentChange={handleContentChange}
+                          saveRef={contentSaveRef}
+                          contentSetRef={contentSetRef}
+                          mediaData={config.media_data as Record<string, unknown>}
+                          seoData={config.seo_data as Record<string, unknown>}
+                          contactContent={contentData.contact}
+                          availableNavSections={sections.filter(s => !['hero', 'header', 'footer'].includes(s))}
+                          onNavigateToSection={(id) => { setActiveSection(id); }}
+                          contactWhatsapp={contentData.contact?.whatsapp ? String(contentData.contact.whatsapp) : undefined}
+                          industry={templateIndustry}
+                        />
+                      ) : undefined}
+                      onSelectPage={(id) => {
+                        setActivePage(id);
+                        setActiveSection('');
                       }}
-                      onCancelEdit={() => setEditingSection(null)}
-                      onVariantChange={(variant) => {
-                        variantMutation.mutate({ sectionId: activeSection, variant });
+                      onSelectSection={(id) => {
+                        setActiveSection(id);
                       }}
-                      isVariantLoading={variantMutation.isPending}
+                      onAddPage={handleAddPage}
+                      onRemovePage={handleRemovePage}
+                      onUpdatePages={handleUpdatePages}
+                      onAddSectionWithContent={(sectionId, content, variant) =>
+                        addSectionMutation.mutate({ sectionId, initialContent: content, variant })
+                      }
                     />
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <Eye className="h-8 w-8 text-gray-300 mb-3" />
-                      <p className="text-[0.85rem] text-gray-500 font-medium mb-1">
-                        Selecciona una sección
-                      </p>
-                      <p className="text-[0.75rem] text-gray-400">
-                        Toca una sección de arriba para editarla
-                      </p>
-                    </div>
+                    <SectionManager
+                      sections={sections}
+                      allSections={allSections}
+                      activeSection={activeSection}
+                      onSelectSection={(id) => {
+                        setActiveSection(id);
+                      }}
+                      onReorder={(order) => reorderMutation.mutate(order)}
+                      onAdd={(id, content, variant) => addSectionMutation.mutate({ sectionId: id, initialContent: content, variant })}
+                      onRemove={(id) => removeSectionMutation.mutate(id)}
+                      onDuplicate={(id) => duplicateSectionMutation.mutate(id)}
+                    />
                   )}
                 </>
               )}
@@ -1012,7 +1569,7 @@ export default function EditorPage() {
               {activeTab === 'design' && (
                 <DesignPanel
                   themeData={currentTheme}
-                  defaultTheme={savedTheme}
+                  defaultTheme={defaultThemeFromServer}
                   onChange={handleThemeChange}
                   isSaving={themeMutation.isPending}
                 />
@@ -1033,6 +1590,8 @@ export default function EditorPage() {
                 />
               )}
             </div>
+
+            {/* Auto-save indicator moved to top bar */}
           </div>
         </div>
       )}
@@ -1048,9 +1607,16 @@ export default function EditorPage() {
             <h3 className="text-[1.1rem] font-semibold text-[#1C3B57] mb-2">
               Publicar tu sitio web
             </h3>
-            <p className="text-[0.82rem] text-gray-500 mb-6">
+            <p className="text-[0.82rem] text-gray-500 mb-4">
               Tu sitio web será visible públicamente. Podrás seguir editándolo después de publicar.
             </p>
+
+            {config.has_unpublished_changes && config.is_published && (
+              <div className="flex items-center gap-2 justify-center mb-4 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-[0.78rem]">
+                <Cloud className="h-3.5 w-3.5 shrink-0" />
+                <span>Hay cambios pendientes de publicar</span>
+              </div>
+            )}
 
             <div className="flex items-center gap-3 justify-center">
               <button
@@ -1062,7 +1628,12 @@ export default function EditorPage() {
               </button>
               <button
                 type="button"
-                onClick={() => { setShowPublishDialog(false); publishMutation.mutate(); }}
+                onClick={async () => {
+                  // Save any unsaved changes first, then publish
+                  handleSaveAllNow();
+                  setShowPublishDialog(false);
+                  publishMutation.mutate();
+                }}
                 disabled={publishMutation.isPending}
                 className="flex items-center gap-2 h-10 px-5 rounded-lg text-white text-[0.82rem] font-medium hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
                 style={{ background: '#1C3B57' }}

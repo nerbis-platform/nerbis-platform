@@ -5,11 +5,11 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from unfold.admin import TabularInline
 from .models import MarketplaceCategory, MarketplacePlan, MarketplaceContract
-from core.admin_site import gravitify_admin_site
+from core.admin_site import nerbis_admin_site
 from core.admin import ServicesModuleAdmin
 
 
-@admin.register(MarketplaceCategory, site=gravitify_admin_site)
+@admin.register(MarketplaceCategory, site=nerbis_admin_site)
 class MarketplaceCategoryAdmin(ServicesModuleAdmin):
     """Admin para categorías de servicios vendibles"""
 
@@ -100,7 +100,7 @@ class MarketplaceCategoryAdmin(ServicesModuleAdmin):
     is_active_badge.short_description = "Estado"
 
 
-@admin.register(MarketplacePlan, site=gravitify_admin_site)
+@admin.register(MarketplacePlan, site=nerbis_admin_site)
 class MarketplacePlanAdmin(ServicesModuleAdmin):
     """Admin para planes de servicios vendibles"""
 
@@ -234,7 +234,7 @@ class MarketplacePlanAdmin(ServicesModuleAdmin):
     is_active_badge.short_description = "Estado"
 
 
-@admin.register(MarketplaceContract, site=gravitify_admin_site)
+@admin.register(MarketplaceContract, site=nerbis_admin_site)
 class MarketplaceContractAdmin(ServicesModuleAdmin):
     """Admin para contratos de servicios"""
 

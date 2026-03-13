@@ -10,8 +10,8 @@ import { useEffect, useState } from 'react';
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 // Keys del cookie consent (deben coincidir con PlatformCookieConsent.tsx)
-const PLATFORM_CONSENT_KEY = 'gravitify-cookie-consent';
-const PLATFORM_PREFERENCES_KEY = 'gravitify-cookie-preferences';
+const PLATFORM_CONSENT_KEY = 'nerbis-cookie-consent';
+const PLATFORM_PREFERENCES_KEY = 'nerbis-cookie-preferences';
 
 function hasPerformanceConsent(): boolean {
   if (typeof window === 'undefined') return false;

@@ -10,7 +10,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin, TabularInline, StackedInline
 from unfold.decorators import display
-from core.admin_site import gravitify_admin_site
+from core.admin_site import nerbis_admin_site
 from .models import (
     WebsiteTemplate, OnboardingQuestion, WebsiteConfig,
     OnboardingResponse, AIGenerationLog, ChatMessage
@@ -30,7 +30,7 @@ class OnboardingQuestionInline(TabularInline):
     ordering = ['section', 'sort_order']
 
 
-@admin.register(WebsiteTemplate, site=gravitify_admin_site)
+@admin.register(WebsiteTemplate, site=nerbis_admin_site)
 class WebsiteTemplateAdmin(ModelAdmin):
     """Admin para gestionar templates de sitios web."""
 
@@ -90,7 +90,7 @@ class WebsiteTemplateAdmin(ModelAdmin):
 # PREGUNTAS DE ONBOARDING
 # ===================================
 
-@admin.register(OnboardingQuestion, site=gravitify_admin_site)
+@admin.register(OnboardingQuestion, site=nerbis_admin_site)
 class OnboardingQuestionAdmin(ModelAdmin):
     """Admin para gestionar preguntas de onboarding."""
 
@@ -193,7 +193,7 @@ class ChatMessageInline(TabularInline):
         return False
 
 
-@admin.register(WebsiteConfig, site=gravitify_admin_site)
+@admin.register(WebsiteConfig, site=nerbis_admin_site)
 class WebsiteConfigAdmin(ModelAdmin):
     """Admin para gestionar configuraciones de sitios web de tenants."""
 
@@ -326,7 +326,7 @@ class WebsiteConfigAdmin(ModelAdmin):
 # REGISTRO DE GENERACIONES IA
 # ===================================
 
-@admin.register(AIGenerationLog, site=gravitify_admin_site)
+@admin.register(AIGenerationLog, site=nerbis_admin_site)
 class AIGenerationLogAdmin(ModelAdmin):
     """Admin para ver registros de generación de IA."""
 
@@ -445,7 +445,7 @@ class AIGenerationLogAdmin(ModelAdmin):
 # RESPUESTAS DE ONBOARDING
 # ===================================
 
-@admin.register(OnboardingResponse, site=gravitify_admin_site)
+@admin.register(OnboardingResponse, site=nerbis_admin_site)
 class OnboardingResponseAdmin(ModelAdmin):
     """Admin para consultar respuestas de onboarding de tenants."""
 
@@ -522,7 +522,7 @@ class OnboardingResponseAdmin(ModelAdmin):
 # HISTORIAL DE CHAT CON IA
 # ===================================
 
-@admin.register(ChatMessage, site=gravitify_admin_site)
+@admin.register(ChatMessage, site=nerbis_admin_site)
 class ChatMessageAdmin(ModelAdmin):
     """Admin para ver historial de conversaciones con IA."""
 

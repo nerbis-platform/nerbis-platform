@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 from unfold.admin import TabularInline
 from unfold.decorators import display
-from core.admin_site import gravitify_admin_site
+from core.admin_site import nerbis_admin_site
 from core.admin import MarketingModuleAdmin
 from .models import Coupon, CouponUsage
 
@@ -20,7 +20,7 @@ class CouponUsageInline(TabularInline):
         return False
 
 
-@admin.register(Coupon, site=gravitify_admin_site)
+@admin.register(Coupon, site=nerbis_admin_site)
 class CouponAdmin(MarketingModuleAdmin):
     list_display = [
         'code',
@@ -104,7 +104,7 @@ class CouponAdmin(MarketingModuleAdmin):
         return f"{obj.times_used}/∞"
 
 
-@admin.register(CouponUsage, site=gravitify_admin_site)
+@admin.register(CouponUsage, site=nerbis_admin_site)
 class CouponUsageAdmin(MarketingModuleAdmin):
     list_display = ['coupon', 'user', 'discount_applied', 'order', 'used_at']
     list_filter = ['used_at', 'coupon']

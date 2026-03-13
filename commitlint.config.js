@@ -1,4 +1,4 @@
-// Configuración de Conventional Commits para ECO-GRAVITI
+// Configuración de Conventional Commits para NERBIS
 // Docs: https://commitlint.js.org/
 module.exports = {
   extends: ['@commitlint/config-conventional'],

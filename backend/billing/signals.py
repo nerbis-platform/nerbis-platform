@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 def create_subscription_on_tenant_create(sender, instance, created, **kwargs):
     """
     Crea automáticamente una suscripción cuando se crea un nuevo tenant.
-    La suscripción inicia en estado 'trial' con GRAVITI Web incluido.
+    La suscripción inicia en estado 'trial' con NERBIS Web incluido.
     """
     if created:
         from .models import Subscription, PricingConfig
@@ -64,7 +64,7 @@ def create_subscription_on_tenant_create(sender, instance, created, **kwargs):
 @receiver(post_save, sender='billing.Subscription')
 def add_base_module_on_subscription_create(sender, instance, created, **kwargs):
     """
-    Agrega automáticamente el módulo base (GRAVITI Web) al crear una suscripción.
+    Agrega automáticamente el módulo base (NERBIS Web) al crear una suscripción.
     Esto asegura que todo cliente nuevo tenga el servicio base incluido.
     """
     if created:

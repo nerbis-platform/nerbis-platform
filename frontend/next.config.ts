@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
       // Producción: descomentar y usar tu dominio real
       // {
       //   protocol: "https",
-      //   hostname: "api.graviti.co",
+      //   hostname: "api.nerbis.com",
       //   pathname: "/media/**",
       // },
     ],

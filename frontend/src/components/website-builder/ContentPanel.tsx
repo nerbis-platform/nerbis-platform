@@ -1,18 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Check,
   ChevronDown,
   ChevronRight,
-  Pencil,
-  Save,
-  X,
-  Loader2,
+  MapPin,
   Plus,
   Trash2,
 } from 'lucide-react';
 import VariantSwitcher from './VariantSwitcher';
+import ImagePicker from './ImagePicker';
+import RichTextField from './RichTextField';
+import HeaderEditor from './HeaderEditor';
+import FooterEditor from './FooterEditor';
+import SubComponentToggle from './SubComponentToggle';
 
 // ─── Types ───────────────────────────────────────────────────
 interface SectionContent {
@@ -34,128 +36,96 @@ interface SectionContent {
 interface ContentPanelProps {
   sectionKey: string;
   content: SectionContent;
-  isEditing: boolean;
-  isSaving: boolean;
-  onStartEdit: () => void;
-  onSaveEdit: (content: SectionContent) => void;
-  onCancelEdit: () => void;
+  onSaveEdit: (content: SectionContent, mediaUpdates?: Record<string, unknown>, seoUpdates?: Record<string, unknown>) => void;
   onVariantChange?: (variant: string) => void;
   isVariantLoading?: boolean;
+  onUploadMedia?: (file: File) => Promise<{ url: string }>;
+  onFieldChange?: (sectionKey: string, field: string, value: unknown) => void;
+  onDirtyChange?: (dirty: boolean) => void;
+  onContentChange?: (content: SectionContent) => void;
+  saveRef?: React.RefObject<(() => void) | null>;
+  contentSetRef?: React.RefObject<((content: SectionContent) => void) | null>;
+  // Header/Footer specific
+  mediaData?: Record<string, unknown>;
+  seoData?: Record<string, unknown>;
+  contactContent?: SectionContent;
+  availableNavSections?: string[];
+  onNavigateToSection?: (sectionId: string) => void;
+  contactWhatsapp?: string;
+  industry?: string;
 }
-
-const SECTION_LABELS: Record<string, string> = {
-  header: 'Encabezado / Menú',
-  hero: 'Inicio',
-  about: 'Sobre nosotros',
-  services: 'Servicios',
-  products: 'Productos',
-  contact: 'Contacto',
-  testimonials: 'Testimonios',
-  gallery: 'Galería',
-  pricing: 'Precios',
-  faq: 'Preguntas frecuentes',
-  footer: 'Pie de página',
-  team: 'Equipo',
-  blog: 'Blog',
-};
-
-const SECTION_ICONS: Record<string, string> = {
-  header: '🧭',
-  hero: '🏠',
-  about: '📖',
-  services: '⚙️',
-  products: '🛍️',
-  contact: '📞',
-  testimonials: '⭐',
-  gallery: '🖼️',
-  pricing: '💰',
-  faq: '❓',
-  footer: '📋',
-  team: '👥',
-  blog: '✍️',
-};
 
 // ─── Main component ──────────────────────────────────────────
 export default function ContentPanel({
   sectionKey,
   content,
-  isEditing,
-  isSaving,
-  onStartEdit,
   onSaveEdit,
-  onCancelEdit,
   onVariantChange,
   isVariantLoading,
+  onUploadMedia,
+  onFieldChange,
+  onDirtyChange,
+  onContentChange,
+  saveRef,
+  contentSetRef,
+  mediaData,
+  seoData,
+  contactContent,
+  availableNavSections,
+  onNavigateToSection,
+  contactWhatsapp,
+  industry,
 }: ContentPanelProps) {
   const [editedContent, setEditedContent] = useState<SectionContent>(content);
+  const [pendingMediaUpdates, setPendingMediaUpdates] = useState<Record<string, unknown>>({});
+  const [pendingSeoUpdates, setPendingSeoUpdates] = useState<Record<string, unknown>>({});
 
-  // Reset edited content when section changes or editing starts
-  const handleStartEdit = () => {
+  // Sync edited content when section changes or saved content updates
+  // Use JSON key to avoid resetting on every render (content is a new object ref each time)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const contentKey = JSON.stringify(content);
+  useEffect(() => {
     setEditedContent({ ...content });
-    onStartEdit();
-  };
+    setPendingMediaUpdates({});
+    setPendingSeoUpdates({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionKey, contentKey]);
+
+  // Notify parent of content changes (for undo/redo tracking)
+  useEffect(() => {
+    onContentChange?.(editedContent);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editedContent]);
 
   const handleSave = () => {
-    onSaveEdit(editedContent);
+    onSaveEdit(editedContent, pendingMediaUpdates, pendingSeoUpdates);
+    setPendingMediaUpdates({});
+    setPendingSeoUpdates({});
   };
 
-  const handleCancel = () => {
-    setEditedContent({ ...content });
-    onCancelEdit();
-  };
+  // Expose save and setEditedContent to parent via refs
+  useEffect(() => {
+    if (saveRef) {
+      (saveRef as React.MutableRefObject<(() => void) | null>).current = handleSave;
+    }
+    if (contentSetRef) {
+      (contentSetRef as React.MutableRefObject<((c: SectionContent) => void) | null>).current = setEditedContent;
+    }
+  });
 
-  const displayContent = isEditing ? editedContent : content;
+  // Detect unsaved changes and notify parent
+  const hasChanges = useMemo(() => {
+    if (Object.keys(pendingMediaUpdates).length > 0) return true;
+    if (Object.keys(pendingSeoUpdates).length > 0) return true;
+    return JSON.stringify(editedContent) !== JSON.stringify(content);
+  }, [editedContent, content, pendingMediaUpdates, pendingSeoUpdates]);
+
+  useEffect(() => {
+    onDirtyChange?.(hasChanges);
+  }, [hasChanges, onDirtyChange]);
 
   return (
-    <div className="space-y-4">
-      {/* Section header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xl">{SECTION_ICONS[sectionKey] || '📄'}</span>
-          <h2 className="text-[1rem] font-semibold text-[#1C3B57]">
-            {SECTION_LABELS[sectionKey] || sectionKey}
-          </h2>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {isEditing ? (
-            <>
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[0.75rem] text-gray-500 hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                <X className="h-3.5 w-3.5" />
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex items-center gap-1.5 h-8 px-4 rounded-lg text-[0.75rem] text-white font-medium hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
-                style={{ background: '#1C3B57' }}
-              >
-                {isSaving ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Save className="h-3.5 w-3.5" />
-                )}
-                Guardar
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={handleStartEdit}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[0.75rem] text-gray-500 border border-gray-200 hover:border-gray-300 hover:text-gray-700 transition-all cursor-pointer"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Editar
-            </button>
-          )}
-        </div>
-      </div>
-
+    <div className="mt-1.5 space-y-3">
       {/* Variant switcher */}
       {onVariantChange && (
         <VariantSwitcher
@@ -168,13 +138,76 @@ export default function ContentPanel({
       )}
 
       {/* Section fields */}
-      <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-5">
-        <SectionFields
-          sectionKey={sectionKey}
-          content={displayContent}
-          isEditing={isEditing}
-          onChange={(updated) => setEditedContent(updated)}
-        />
+      <div className="space-y-4">
+        {sectionKey === 'header' ? (
+          <HeaderEditor
+            content={editedContent}
+            logoUrl={mediaData?.logo_url ? String(mediaData.logo_url) : ''}
+            onChange={(updated) => setEditedContent(updated)}
+            onLogoUrlChange={(url) => setPendingMediaUpdates((prev) => ({ ...prev, logo_url: url || '' }))}
+            onUploadMedia={onUploadMedia || (async () => ({ url: '' }))}
+            availableNavSections={availableNavSections || []}
+            contactWhatsapp={contactWhatsapp}
+            industry={industry}
+            contactContent={contactContent}
+            socialLinks={(seoData?.social_links as Record<string, string>) || {}}
+          />
+        ) : sectionKey === 'footer' ? (
+          <FooterEditor
+            content={editedContent}
+            contactContent={contactContent || {}}
+            socialLinks={(seoData?.social_links as Record<string, string>) || {}}
+            onChange={(updated) => setEditedContent(updated)}
+            onSocialLinksChange={(links) => setPendingSeoUpdates((prev) => ({ ...prev, social_links: links }))}
+            onNavigateToSection={onNavigateToSection}
+          />
+        ) : (
+          <>
+            <SectionFields
+              sectionKey={sectionKey}
+              content={editedContent}
+              onChange={(updated) => setEditedContent(updated)}
+              onUploadMedia={onUploadMedia}
+              onFieldChange={onFieldChange}
+            />
+            {sectionKey === 'contact' && (
+              <div className="pt-2">
+                <p className="text-[0.68rem] font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  Componentes opcionales
+                </p>
+                <SubComponentToggle
+                  label="Mapa de ubicación"
+                  description="Mapa de Google embebido con tu dirección"
+                  icon={MapPin}
+                  enabled={!!editedContent.map_enabled}
+                  onToggle={(v) => setEditedContent({ ...editedContent, map_enabled: v })}
+                >
+                  <div>
+                    <label className="text-[0.72rem] font-medium text-gray-400 uppercase tracking-wide">
+                      Dirección para el mapa
+                    </label>
+                    <input
+                      type="text"
+                      value={String(editedContent.map_address || '')}
+                      onChange={(e) => setEditedContent({ ...editedContent, map_address: e.target.value })}
+                      placeholder="Calle 123, Ciudad, País"
+                      className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors"
+                    />
+                    {editedContent.address && !editedContent.map_address && (
+                      <button
+                        type="button"
+                        onClick={() => setEditedContent({ ...editedContent, map_address: String(editedContent.address) })}
+                        className="mt-1.5 text-[0.72rem] text-[#1C3B57] font-medium hover:underline cursor-pointer"
+                      >
+                        Usar dirección de contacto: {String(editedContent.address)}
+                      </button>
+                    )}
+                  </div>
+                </SubComponentToggle>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -184,16 +217,19 @@ export default function ContentPanel({
 function SectionFields({
   sectionKey,
   content,
-  isEditing,
   onChange,
+  onUploadMedia,
+  onFieldChange,
 }: {
   sectionKey: string;
   content: SectionContent;
-  isEditing: boolean;
   onChange: (updated: SectionContent) => void;
+  onUploadMedia?: (file: File) => Promise<{ url: string }>;
+  onFieldChange?: (sectionKey: string, field: string, value: unknown) => void;
 }) {
   const updateField = (field: string, value: unknown) => {
     onChange({ ...content, [field]: value });
+    onFieldChange?.(sectionKey, field, value);
   };
 
   const updateHighlight = (index: number, value: string) => {
@@ -233,35 +269,40 @@ function SectionFields({
   };
 
   const textFields = getTextFields(sectionKey, content);
+  const imageFields = getSectionImageFields(sectionKey, content);
 
   return (
     <div className="space-y-5">
+      {/* Image fields */}
+      {onUploadMedia && imageFields.map(({ key, label }) => (
+        <ImagePicker
+          key={key}
+          currentUrl={content[key] ? String(content[key]) : undefined}
+          label={label}
+          onUpload={onUploadMedia}
+          onChange={(url) => updateField(key, url || '')}
+        />
+      ))}
+
       {/* Simple text fields */}
       {textFields.map(({ key, label, value, multiline }) => (
         <div key={key}>
           <label className="text-[0.72rem] font-medium text-gray-400 uppercase tracking-wide">
             {label}
           </label>
-          {isEditing ? (
-            multiline ? (
-              <textarea
-                value={String(value || '')}
-                onChange={(e) => updateField(key, e.target.value)}
-                rows={3}
-                className="w-full mt-1.5 px-3 py-2.5 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 resize-none transition-colors"
-              />
-            ) : (
-              <input
-                type="text"
-                value={String(value || '')}
-                onChange={(e) => updateField(key, e.target.value)}
-                className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors"
-              />
-            )
+          {multiline ? (
+            <RichTextField
+              value={String(value || '')}
+              onChange={(v) => updateField(key, v)}
+              rows={3}
+            />
           ) : (
-            <p className="text-[0.88rem] text-gray-700 mt-1.5 leading-relaxed">
-              {value ? String(value) : <span className="text-gray-300 italic">Sin contenido</span>}
-            </p>
+            <input
+              type="text"
+              value={String(value || '')}
+              onChange={(e) => updateField(key, e.target.value)}
+              className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors"
+            />
           )}
         </div>
       ))}
@@ -278,37 +319,29 @@ function SectionFields({
                 <div className="w-5 h-5 rounded-full bg-[#E2F3F1] flex items-center justify-center shrink-0 mt-0.5">
                   <Check className="h-3 w-3 text-[#1C3B57]" />
                 </div>
-                {isEditing ? (
-                  <>
-                    <input
-                      type="text"
-                      value={h}
-                      onChange={(e) => updateHighlight(i, e.target.value)}
-                      className="flex-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] transition-colors"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeHighlight(i)}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </>
-                ) : (
-                  <p className="text-[0.85rem] text-gray-700">{h}</p>
-                )}
+                <input
+                  type="text"
+                  value={h}
+                  onChange={(e) => updateHighlight(i, e.target.value)}
+                  className="flex-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeHighlight(i)}
+                  className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             ))}
-            {isEditing && (
-              <button
-                type="button"
-                onClick={addHighlight}
-                className="flex items-center gap-1.5 text-[0.78rem] text-[#1C3B57] font-medium hover:underline cursor-pointer mt-1"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Agregar punto
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={addHighlight}
+              className="flex items-center gap-1.5 text-[0.78rem] text-[#1C3B57] font-medium hover:underline cursor-pointer mt-1"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Agregar punto
+            </button>
           </div>
         </div>
       )}
@@ -326,22 +359,20 @@ function SectionFields({
                 sectionKey={sectionKey}
                 item={item}
                 index={i}
-                isEditing={isEditing}
                 onUpdate={(field, value) => updateItem(i, field, value)}
                 onRemove={() => removeItem(i)}
+                onUploadMedia={onUploadMedia}
               />
             ))}
           </div>
-          {isEditing && (
-            <button
-              type="button"
-              onClick={addItem}
-              className="flex items-center gap-1.5 mt-3 text-[0.78rem] text-[#1C3B57] font-medium hover:underline cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Agregar {getItemSingular(sectionKey)}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={addItem}
+            className="flex items-center gap-1.5 mt-3 text-[0.78rem] text-[#1C3B57] font-medium hover:underline cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Agregar {getItemSingular(sectionKey)}
+          </button>
         </div>
       )}
     </div>
@@ -353,20 +384,21 @@ function ItemCard({
   sectionKey,
   item,
   index,
-  isEditing,
   onUpdate,
   onRemove,
+  onUploadMedia,
 }: {
   sectionKey: string;
   item: Record<string, unknown>;
   index: number;
-  isEditing: boolean;
   onUpdate: (field: string, value: string) => void;
   onRemove: () => void;
+  onUploadMedia?: (file: File) => Promise<{ url: string }>;
 }) {
   const [expanded, setExpanded] = useState(index < 3);
 
   const fields = getItemFields(sectionKey, item);
+  const itemImage = getItemImageField(sectionKey, item);
   const title = String(item.name || item.question || item.title || `Elemento ${index + 1}`);
 
   return (
@@ -377,51 +409,63 @@ function ItemCard({
           onClick={() => setExpanded(!expanded)}
           className="flex-1 flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors cursor-pointer"
         >
-          <span className="text-[0.85rem] font-medium text-gray-700">{title}</span>
+          <div className="flex items-center gap-2.5">
+            {itemImage && typeof item[itemImage.key] === 'string' && item[itemImage.key] ? (
+              <img
+                src={item[itemImage.key] as string}
+                alt=""
+                className="w-8 h-8 rounded-md object-cover border border-gray-100"
+              />
+            ) : null}
+            <span className="text-[0.85rem] font-medium text-gray-700">{title}</span>
+          </div>
           {expanded ? (
             <ChevronDown className="h-4 w-4 text-gray-400" />
           ) : (
             <ChevronRight className="h-4 w-4 text-gray-400" />
           )}
         </button>
-        {isEditing && (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="p-2 mr-2 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onRemove}
+          className="p-2 mr-2 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       {expanded && (
         <div className="px-4 pb-4 space-y-3 border-t border-gray-50 pt-3">
+          {/* Item image picker */}
+          {onUploadMedia && itemImage && (
+            <ImagePicker
+              currentUrl={item[itemImage.key] ? String(item[itemImage.key]) : undefined}
+              label={itemImage.label}
+              compact
+              onUpload={onUploadMedia}
+              onChange={(url) => onUpdate(itemImage.key, url || '')}
+            />
+          )}
+
           {fields.map(({ key, label, multiline }) => (
             <div key={key}>
               <label className="text-[0.68rem] font-medium text-gray-400 uppercase tracking-wide">
                 {label}
               </label>
-              {isEditing ? (
-                multiline ? (
-                  <textarea
-                    value={String(item[key] || '')}
-                    onChange={(e) => onUpdate(key, e.target.value)}
-                    rows={2}
-                    className="w-full mt-1 px-2.5 py-2 rounded-lg border border-gray-200 text-[0.82rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] resize-none transition-colors"
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    value={String(item[key] || '')}
-                    onChange={(e) => onUpdate(key, e.target.value)}
-                    className="w-full mt-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.82rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] transition-colors"
-                  />
-                )
+              {multiline ? (
+                <RichTextField
+                  value={String(item[key] || '')}
+                  onChange={(v) => onUpdate(key, v)}
+                  rows={2}
+                  compact
+                />
               ) : (
-                <p className="text-[0.82rem] text-gray-600 mt-1 leading-relaxed">
-                  {item[key] ? String(item[key]) : <span className="text-gray-300 italic">&mdash;</span>}
-                </p>
+                <input
+                  type="text"
+                  value={String(item[key] || '')}
+                  onChange={(e) => onUpdate(key, e.target.value)}
+                  className="w-full mt-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.82rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                />
               )}
             </div>
           ))}
@@ -540,4 +584,74 @@ function getItemFields(sectionKey: string, item: Record<string, unknown>) {
   }
 
   return fields;
+}
+
+// ─── Image field helpers ────────────────────────────────────
+
+const IMAGE_FIELD_LABELS: Record<string, string> = {
+  image: 'Imagen',
+  _image: 'Imagen',
+  background_image: 'Imagen de fondo',
+  bg_image: 'Imagen de fondo',
+  cover_image: 'Portada',
+  photo: 'Foto',
+  avatar: 'Avatar',
+};
+
+function getSectionImageFields(
+  sectionKey: string,
+  content: SectionContent
+): { key: string; label: string }[] {
+  const fields: { key: string; label: string }[] = [];
+  const found = new Set<string>();
+
+  // Detect existing image-like fields in content
+  for (const key of Object.keys(content)) {
+    if (key.startsWith('_') && key !== '_image') continue;
+    if (key in IMAGE_FIELD_LABELS || key.endsWith('_image')) {
+      const val = content[key];
+      if (typeof val === 'string' || val === null || val === undefined) {
+        found.add(key);
+        fields.push({
+          key,
+          label: IMAGE_FIELD_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        });
+      }
+    }
+  }
+
+  // For sections that should always have an image picker
+  const defaultImageSections: Record<string, string> = {
+    hero: 'Imagen principal',
+    about: 'Imagen',
+  };
+  if (sectionKey in defaultImageSections && !found.has('image')) {
+    fields.unshift({ key: 'image', label: defaultImageSections[sectionKey] });
+  }
+
+  return fields;
+}
+
+function getItemImageField(
+  sectionKey: string,
+  item: Record<string, unknown>
+): { key: string; label: string } | null {
+  // Check if item already has an image-like field
+  const imageKeys = ['image', 'photo', 'avatar', 'picture', 'thumbnail'];
+  for (const key of imageKeys) {
+    if (key in item) {
+      return { key, label: IMAGE_FIELD_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1) };
+    }
+  }
+
+  // For known sections, offer image upload even if field doesn't exist yet
+  const sectionDefaults: Record<string, { key: string; label: string }> = {
+    services: { key: 'image', label: 'Imagen' },
+    products: { key: 'image', label: 'Imagen' },
+    team: { key: 'photo', label: 'Foto' },
+    testimonials: { key: 'avatar', label: 'Avatar' },
+    gallery: { key: 'image', label: 'Imagen' },
+  };
+
+  return sectionDefaults[sectionKey] || null;
 }

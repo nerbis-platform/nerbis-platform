@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from django.utils import timezone
 from unfold.admin import TabularInline
 from core.admin import MarketingModuleAdmin
-from core.admin_site import gravitify_admin_site
+from core.admin_site import nerbis_admin_site
 from .models import Promotion, PromotionItem
 
 
@@ -24,7 +24,7 @@ class PromotionItemInline(TabularInline):
         return qs
 
 
-@admin.register(Promotion, site=gravitify_admin_site)
+@admin.register(Promotion, site=nerbis_admin_site)
 class PromotionAdmin(MarketingModuleAdmin):
     """
     Panel de administración para Promociones.

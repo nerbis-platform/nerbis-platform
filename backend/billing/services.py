@@ -1,6 +1,6 @@
 # backend/billing/services.py
 """
-Servicios de billing para GRAVITIFY.
+Servicios de billing para NERBIS.
 
 Este módulo contiene la lógica de negocio para:
 - Tracking de uso (citas, SMS, etc.)

@@ -20,9 +20,11 @@ interface ThemeOverrides {
 interface LivePreviewProps {
   htmlContent: string | null;
   isLoading?: boolean;
+  activeSection?: string;
   onSectionClick?: (sectionId: string) => void;
   onRefresh?: () => void;
   themeOverrides?: ThemeOverrides;
+  contentOverrides?: Record<string, Record<string, unknown>>;
   siteName?: string;
   faviconUrl?: string;
   siteUrl?: string;
@@ -587,7 +589,143 @@ function applyColorModeOverrides(doc: Document, colorMode: string) {
       hr { border-color: rgba(255,255,255,0.06) !important; }
     `;
   } else {
-    el.textContent = '';
+    // Light mode: must override any dark styles baked into backend-rendered HTML
+    el.textContent = `
+      /* ── Base ── */
+      body {
+        background: #ffffff !important;
+        color: #1f2937 !important;
+      }
+
+      /* ── Sections ── */
+      .section { background-color: transparent !important; }
+      .section:nth-child(even) { background: rgba(0,0,0,0.01) !important; }
+      .section-subtitle { color: #6b7280 !important; }
+
+      /* ── Cards ── */
+      .card, .bento-item, .faq-item, .testimonial-card, .pricing-card, .contact-card {
+        background: #ffffff !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border-color: #e5e7eb !important;
+      }
+      .card:hover, .bento-item:hover, .testimonial-card:hover, .pricing-card:hover {
+        border-color: #d1d5db !important;
+        box-shadow: var(--shadow-md) !important;
+      }
+      .card h3, .faq-item h3, .testimonial-card h3, .bento-item h3, .pricing-card h3 {
+        color: #111827 !important;
+      }
+      .card p, .card span, .faq-item p, .testimonial-card p, .bento-item p, .pricing-card p {
+        color: #6b7280 !important;
+      }
+      .card .card-icon {
+        background: #f3f4f6 !important;
+        border: 1px solid #e5e7eb !important;
+      }
+      .card .card-price {
+        background: #f9fafb !important;
+      }
+
+      /* ── Pricing recommended ── */
+      .pricing-card--recommended {
+        border-color: var(--primary) !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+      }
+
+      /* ── Stats ── */
+      .stat-number { color: #111827 !important; }
+      .stat-label { color: #9ca3af !important; }
+
+      /* ── Header ── */
+      .site-header {
+        background: rgba(255,255,255,0.85) !important;
+        border-color: #e5e7eb !important;
+        backdrop-filter: blur(20px) saturate(1.4) !important;
+        -webkit-backdrop-filter: blur(20px) saturate(1.4) !important;
+      }
+      .site-header.scrolled {
+        background: rgba(255,255,255,0.96) !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+      }
+      .site-header nav a { color: #4b5563 !important; }
+      .site-header nav a:hover { color: #111827 !important; }
+      .logo { color: #111827 !important; }
+
+      /* ── FAQ ── */
+      .faq-trigger { color: #111827 !important; }
+      .faq-answer { color: #6b7280 !important; }
+
+      /* ── Testimonials ── */
+      .author-name { color: #111827 !important; }
+      .author-role { color: #9ca3af !important; }
+
+      /* ── Generic text ── */
+      h1, h2, h3, h4, h5, h6 { color: #111827 !important; }
+      .section-title { color: #111827 !important; }
+      .section-label { color: var(--secondary) !important; }
+
+      /* ── Hero ── */
+      .hero--centered {
+        background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary), #000 30%)) !important;
+      }
+      .hero--centered h1, .hero--centered p { color: #fff !important; }
+      .hero--split { background: #ffffff !important; }
+      .hero--split h1 { color: #111827 !important; }
+      .hero--split p { color: #6b7280 !important; }
+      .hero--bold { color: #111827 !important; }
+
+      /* ── Highlights ── */
+      .highlight {
+        background: #f9fafb !important;
+        border-color: #e5e7eb !important;
+      }
+      .highlight span { color: #374151 !important; }
+
+      /* ── Overlap cards ── */
+      .overlap-card {
+        background: #ffffff !important;
+        border-color: #e5e7eb !important;
+      }
+
+      /* ── Services lists ── */
+      .svc-list-item { border-color: #e5e7eb !important; }
+      .svc-featured-main { background: #ffffff !important; border-color: #e5e7eb !important; }
+      .svc-featured-small { background: #f9fafb !important; border-color: #e5e7eb !important; }
+      .svc-icon-box { background: #f3f4f6 !important; }
+
+      /* ── Products ── */
+      .catalog-item { background: #ffffff !important; border-color: #e5e7eb !important; }
+      .masonry-item { background: #ffffff !important; border-color: #e5e7eb !important; }
+      .price-table-row { border-color: #e5e7eb !important; }
+      .pricing-table { border-color: #e5e7eb !important; }
+      .pricing-table th { background: #f9fafb !important; color: #111827 !important; border-color: #e5e7eb !important; }
+      .pricing-table td { border-color: #e5e7eb !important; color: #6b7280 !important; }
+
+      /* ── Forms / inputs ── */
+      input, textarea, select {
+        background-color: #ffffff !important;
+        border-color: #d1d5db !important;
+        color: #1f2937 !important;
+      }
+
+      /* ── Buttons ── */
+      .btn-outline { border-color: #d1d5db !important; color: #374151 !important; }
+      .btn-outline:hover { background: #f3f4f6 !important; border-color: #9ca3af !important; }
+
+      /* ── Footer ── */
+      .site-footer { background: #f9fafb !important; border-top: 1px solid #e5e7eb !important; }
+      .site-footer h4 { color: #374151 !important; }
+      .site-footer a { color: #6b7280 !important; }
+      .site-footer a:hover { color: var(--primary) !important; }
+      .footer-brand { color: #111827 !important; }
+      .footer-bottom { border-color: #e5e7eb !important; color: #9ca3af !important; }
+      .footer-social-link { color: #6b7280 !important; border-color: #e5e7eb !important; }
+      .footer-social-link:hover { color: var(--primary) !important; }
+
+      /* ── Misc ── */
+      hr { border-color: #e5e7eb !important; }
+    `;
   }
 }
 
@@ -602,12 +740,53 @@ function loadGoogleFont(doc: Document, fontName: string) {
   doc.head.appendChild(link);
 }
 
+// Map section/field to CSS selectors for direct DOM manipulation
+function getFieldSelectors(section: string, field: string): string[] {
+  if (section === 'hero') {
+    switch (field) {
+      case 'title': return ['h1'];
+      case 'subtitle': return ['.hero-subtitle', 'p:first-of-type'];
+      case 'cta_text': return ['.btn-primary', '.btn:first-of-type'];
+      default: return [];
+    }
+  }
+
+  if (section === 'header') {
+    switch (field) {
+      case 'logo_text': return ['.logo', '.logo-text'];
+      case 'cta_text': return ['.header-cta'];
+      default: return [];
+    }
+  }
+
+  if (section === 'footer') {
+    switch (field) {
+      case 'brand_name': return ['.footer-brand'];
+      default: return [];
+    }
+  }
+
+  // Generic section selectors
+  switch (field) {
+    case 'title': return ['.section-title', 'h2:first-of-type'];
+    case 'subtitle': return ['.section-subtitle'];
+    case 'content': return ['.about-text', '.section-content'];
+    case 'cta_text': return ['.btn-primary', '.btn:first-of-type'];
+    case 'phone': return ['.contact-phone a', 'a[href^="tel:"]'];
+    case 'email': return ['.contact-email a', 'a[href^="mailto:"]'];
+    case 'address': return ['.contact-address'];
+    default: return [];
+  }
+}
+
 export default function LivePreview({
   htmlContent,
   isLoading,
+  activeSection,
   onSectionClick,
   onRefresh,
   themeOverrides,
+  contentOverrides,
   siteName,
   faviconUrl,
   siteUrl,
@@ -639,6 +818,12 @@ export default function LivePreview({
     if (!doc?.documentElement) return;
 
     const root = doc.documentElement;
+
+    // Reset inline styles to avoid stale values from previous theme (e.g. dark→light undo)
+    doc.body.style.background = '';
+    doc.body.style.backgroundColor = '';
+    doc.body.style.backgroundAttachment = '';
+
     if (overrides.primary_color) root.style.setProperty('--primary', overrides.primary_color);
     if (overrides.secondary_color) root.style.setProperty('--secondary', overrides.secondary_color);
 
@@ -700,14 +885,157 @@ export default function LivePreview({
     applyThemeToIframe();
   }, [themeOverrides, applyThemeToIframe]);
 
+  // ─── Live content overrides (direct DOM manipulation) ────
+  const contentOverridesRef = useRef(contentOverrides);
+  contentOverridesRef.current = contentOverrides;
+
+  const applyContentToIframe = useCallback(() => {
+    const overrides = contentOverridesRef.current;
+    if (!overrides || !iframeRef.current) return;
+    const doc = iframeRef.current.contentDocument;
+    if (!doc) return;
+
+    for (const [section, fields] of Object.entries(overrides)) {
+      const sectionEl = doc.querySelector(`[data-section="${section}"]`);
+      if (!sectionEl) continue;
+
+      for (const [field, value] of Object.entries(fields)) {
+        const selectors = getFieldSelectors(section, field);
+        for (const sel of selectors) {
+          const el = sectionEl.querySelector(sel);
+          if (el) {
+            el.textContent = String(value || '');
+            break;
+          }
+        }
+      }
+    }
+  }, []);
+
+  // Apply content overrides when they change
+  useEffect(() => {
+    applyContentToIframe();
+  }, [contentOverrides, applyContentToIframe]);
+
+  // Inject a script to intercept all link clicks inside the iframe (prevent navigation)
+  const injectLinkInterceptor = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const doc = iframe.contentDocument;
+    if (!doc) return;
+
+    const scriptId = 'gv-link-interceptor';
+    if (doc.getElementById(scriptId)) return;
+
+    const script = doc.createElement('script');
+    script.id = scriptId;
+    script.textContent = `
+      document.addEventListener('click', function(e) {
+        var link = e.target.closest('a');
+        if (link) {
+          e.preventDefault();
+          e.stopPropagation();
+          // If clicked inside a section, notify parent for section selection
+          var section = e.target.closest('[data-section]');
+          if (section) {
+            window.parent.postMessage({ type: 'section-click', sectionId: section.dataset.section }, '*');
+          }
+        }
+      }, true);
+      // Also block form submissions
+      document.addEventListener('submit', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }, true);
+    `;
+    doc.body.appendChild(script);
+  }, []);
+
   // Re-apply when iframe loads (srcDoc is async)
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
-    const onLoad = () => applyThemeToIframe();
+    const onLoad = () => {
+      applyThemeToIframe();
+      applyContentToIframe();
+      injectLinkInterceptor();
+    };
     iframe.addEventListener('load', onLoad);
     return () => iframe.removeEventListener('load', onLoad);
-  }, [applyThemeToIframe, htmlContent]);
+  }, [applyThemeToIframe, applyContentToIframe, injectLinkInterceptor, htmlContent]);
+
+  // ─── Scroll to & highlight active section in iframe ────
+  const activeSectionRef = useRef(activeSection);
+  activeSectionRef.current = activeSection;
+
+  const applyActiveSectionHighlight = useCallback(() => {
+    if (!iframeRef.current) return;
+    const doc = iframeRef.current.contentDocument;
+    if (!doc) return;
+
+    // Inject highlight styles once
+    const styleId = 'active-section-highlight';
+    let styleEl = doc.getElementById(styleId) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = doc.createElement('style');
+      styleEl.id = styleId;
+      doc.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `
+      [data-section].gv-section-active {
+        outline: 2px solid #95D0C9 !important;
+        outline-offset: -2px;
+        transition: outline-color 0.3s ease;
+      }
+      [data-section].gv-section-active::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(149, 208, 201, 0.06);
+        pointer-events: none;
+        border-radius: inherit;
+        animation: gvHighlightFade 1.5s ease-out forwards;
+      }
+      @keyframes gvHighlightFade {
+        0% { background: rgba(149, 208, 201, 0.12); }
+        100% { background: rgba(149, 208, 201, 0.03); }
+      }
+    `;
+
+    // Remove previous highlight
+    doc.querySelectorAll('[data-section].gv-section-active').forEach(el => {
+      el.classList.remove('gv-section-active');
+    });
+
+    const sectionId = activeSectionRef.current;
+    if (!sectionId) return;
+
+    const target = doc.querySelector(`[data-section="${sectionId}"]`) as HTMLElement | null;
+    if (!target) return;
+
+    // Ensure section is position:relative for the ::after pseudo-element
+    if (getComputedStyle(target).position === 'static') {
+      target.style.position = 'relative';
+    }
+
+    target.classList.add('gv-section-active');
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
+
+  useEffect(() => {
+    applyActiveSectionHighlight();
+  }, [activeSection, applyActiveSectionHighlight]);
+
+  // Also apply on iframe load
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const onLoad = () => {
+      applyActiveSectionHighlight();
+    };
+    iframe.addEventListener('load', onLoad);
+    return () => iframe.removeEventListener('load', onLoad);
+  }, [applyActiveSectionHighlight, htmlContent]);
 
   // Escape to exit fullscreen
   useEffect(() => {

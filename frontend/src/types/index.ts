@@ -611,11 +611,30 @@ export interface OnboardingResponse {
   updated_at: string;
 }
 
+export interface SitePage {
+  id: string;
+  slug: string;
+  name: string;
+  order: number;
+  sections: string[];
+  content: Record<string, unknown>;
+  seo: Record<string, unknown>;
+}
+
+export interface PagesData {
+  global: {
+    sections: string[];
+    content: Record<string, unknown>;
+  };
+  pages: SitePage[];
+}
+
 export interface WebsiteConfig {
   id: number;
   tenant: number;
   template: number;
   template_name: string;
+  template_industry?: string;
   status: WebsiteStatus;
   status_display: string;
   subdomain?: string;
@@ -624,12 +643,14 @@ export interface WebsiteConfig {
   theme_data: Record<string, unknown>;
   media_data: Record<string, unknown>;
   seo_data: Record<string, unknown>;
+  pages_data: PagesData;
   ai_generations_count: number;
   remaining_generations: number;
   last_generation_at?: string;
   published_at?: string;
   public_url: string;
   is_published: boolean;
+  has_unpublished_changes: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -1,5 +1,5 @@
 // src/components/auth/PlatformCookieConsent.tsx
-// Cookie consent banner para la plataforma GRAVITIFY (páginas de auth)
+// Cookie consent banner para la plataforma NERBIS (páginas de auth)
 // Independiente del cookie consent de cada tenant
 
 'use client';
@@ -23,8 +23,8 @@ interface CookiePreferences {
 }
 
 // Keys independientes de las del tenant
-const PLATFORM_CONSENT_KEY = 'gravitify-cookie-consent';
-const PLATFORM_PREFERENCES_KEY = 'gravitify-cookie-preferences';
+const PLATFORM_CONSENT_KEY = 'nerbis-cookie-consent';
+const PLATFORM_PREFERENCES_KEY = 'nerbis-cookie-preferences';
 
 export function PlatformCookieConsent() {
   const [showBanner, setShowBanner] = useState(false);
@@ -71,7 +71,7 @@ export function PlatformCookieConsent() {
 
   return (
     <>
-      {/* Banner — estilo GRAVITIFY */}
+      {/* Banner — estilo NERBIS */}
       <div
         className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-500"
         style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif" }}
@@ -83,7 +83,7 @@ export function PlatformCookieConsent() {
             </div>
             <div className="flex-1">
               <p className="text-[0.82rem] font-semibold text-white mb-1">
-                Tu privacidad en GRAVITIFY
+                Tu privacidad en NERBIS
               </p>
               <p className="text-[0.75rem] leading-relaxed text-white/60">
                 Usamos cookies esenciales para que la plataforma funcione correctamente.
@@ -125,7 +125,7 @@ export function PlatformCookieConsent() {
               Configuración de cookies
             </DialogTitle>
             <DialogDescription className="text-white/50">
-              Personaliza qué cookies deseas permitir en la plataforma GRAVITIFY.
+              Personaliza qué cookies deseas permitir en la plataforma NERBIS.
             </DialogDescription>
           </DialogHeader>
 

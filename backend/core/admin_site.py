@@ -1,11 +1,11 @@
 # backend/core/admin_site.py
 """
-AdminSite personalizado para GRAVITIFY con autenticación multi-tenant.
+AdminSite personalizado para NERBIS con autenticación multi-tenant.
 
 Este módulo define un AdminSite personalizado que:
 1. Usa un formulario de login con campo 'Cliente' (tenant)
 2. Permite que admins de diferentes tenants accedan con el mismo email
-3. Mantiene el branding de GRAVITIFY
+3. Mantiene el branding de NERBIS
 4. Usa Unfold para UI moderna
 5. Proporciona endpoints de API para el dashboard (activity logs)
 """
@@ -23,9 +23,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class GravitifyAdminSite(UnfoldAdminSite):
+class NerbisAdminSite(UnfoldAdminSite):
     """
-    AdminSite personalizado para GRAVITIFY.
+    AdminSite personalizado para NERBIS.
 
     Características:
     - Formulario de login con campo tenant
@@ -35,8 +35,8 @@ class GravitifyAdminSite(UnfoldAdminSite):
     """
 
     # Branding
-    site_header = "GRAVITIFY Administration"
-    site_title = "GRAVITIFY Admin"
+    site_header = "NERBIS Administration"
+    site_title = "NERBIS Admin"
     index_title = "Panel de Administración"
 
     # Formulario de login personalizado
@@ -426,4 +426,4 @@ class GravitifyAdminSite(UnfoldAdminSite):
 
 
 # Instancia del admin site personalizado
-gravitify_admin_site = GravitifyAdminSite(name='admin')
+nerbis_admin_site = NerbisAdminSite(name='admin')

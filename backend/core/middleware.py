@@ -20,7 +20,7 @@ class TimezoneMiddleware:
     - Usuarios de tenant: ven la hora según el timezone configurado en su tenant
 
     Esto asegura que:
-    - El equipo GRAVITIFY (superusers) siempre trabaja en horario Colombia
+    - El equipo NERBIS (superusers) siempre trabaja en horario Colombia
     - Cada tenant ve su propia hora local según su configuración
     """
 

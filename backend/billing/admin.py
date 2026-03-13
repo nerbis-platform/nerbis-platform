@@ -14,7 +14,7 @@ from django.utils.safestring import mark_safe
 from django.utils import timezone
 from unfold.admin import ModelAdmin, TabularInline
 from unfold.decorators import display
-from core.admin_site import gravitify_admin_site
+from core.admin_site import nerbis_admin_site
 from .models import (
     PricingConfig, Module, Subscription, SubscriptionModule,
     UsageRecord, Invoice, InvoiceLineItem, Plan
@@ -25,7 +25,7 @@ from .models import (
 # CONFIGURACIÓN DE PRECIOS (Singleton)
 # ===================================
 
-@admin.register(PricingConfig, site=gravitify_admin_site)
+@admin.register(PricingConfig, site=nerbis_admin_site)
 class PricingConfigAdmin(ModelAdmin):
     """Admin para configuración global del sistema (solo trial)."""
 
@@ -49,9 +49,9 @@ class PricingConfigAdmin(ModelAdmin):
 # SERVICIOS/MÓDULOS (PRECIOS)
 # ===================================
 
-@admin.register(Module, site=gravitify_admin_site)
+@admin.register(Module, site=nerbis_admin_site)
 class ModuleAdmin(ModelAdmin):
-    """Admin para gestionar los servicios/módulos de GRAVITIFY y sus precios."""
+    """Admin para gestionar los servicios/módulos de NERBIS y sus precios."""
 
     list_display = [
         'display_module',
@@ -291,7 +291,7 @@ class InvoiceInline(TabularInline):
         return False
 
 
-@admin.register(Subscription, site=gravitify_admin_site)
+@admin.register(Subscription, site=nerbis_admin_site)
 class SubscriptionAdmin(ModelAdmin):
     """Admin para gestionar suscripciones de tenants."""
 
@@ -453,7 +453,7 @@ class SubscriptionAdmin(ModelAdmin):
 # USO Y FACTURACIÓN
 # ===================================
 
-@admin.register(UsageRecord, site=gravitify_admin_site)
+@admin.register(UsageRecord, site=nerbis_admin_site)
 class UsageRecordAdmin(ModelAdmin):
     """Admin para ver registros de uso."""
 
@@ -500,7 +500,7 @@ class InvoiceLineItemInline(TabularInline):
     fields = ['line_type', 'description', 'quantity', 'unit_price', 'total']
 
 
-@admin.register(Invoice, site=gravitify_admin_site)
+@admin.register(Invoice, site=nerbis_admin_site)
 class InvoiceAdmin(ModelAdmin):
     """Admin para gestionar facturas."""
 
@@ -615,7 +615,7 @@ class InvoiceAdmin(ModelAdmin):
 # PLAN (DEPRECATED)
 # ===================================
 
-@admin.register(Plan, site=gravitify_admin_site)
+@admin.register(Plan, site=nerbis_admin_site)
 class PlanAdmin(ModelAdmin):
     """[DEPRECATED] Admin para planes fijos - Solo para migración."""
 

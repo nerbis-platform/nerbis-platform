@@ -272,8 +272,8 @@ export default function SetupPage() {
           <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Image
-                src="/Isotipo_color_GRAVITIFY.png"
-                alt="Gravitify"
+                src="/Isotipo_color_NERBIS.png"
+                alt="Nerbis"
                 width={36}
                 height={36}
                 className="g-pendulum"
@@ -282,7 +282,7 @@ export default function SetupPage() {
                 className="text-[0.85rem] font-semibold tracking-wide"
                 style={{ color: '#1C3B57' }}
               >
-                GRAVITIFY
+                NERBIS
               </span>
             </div>
             <span className="text-[0.72rem] text-gray-400 font-medium tracking-wide">

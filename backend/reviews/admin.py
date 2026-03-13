@@ -3,7 +3,7 @@
 from django.utils.html import format_html
 from unfold.admin import TabularInline
 from core.admin import MarketingModuleAdmin
-from core.admin_site import gravitify_admin_site
+from core.admin_site import nerbis_admin_site
 from .models import Review, ReviewImage, ReviewHelpful
 
 
@@ -205,6 +205,6 @@ class ReviewHelpfulAdmin(MarketingModuleAdmin):
 
 
 # Registrar en el admin site personalizado
-gravitify_admin_site.register(Review, ReviewAdmin)
-gravitify_admin_site.register(ReviewImage, ReviewImageAdmin)
-gravitify_admin_site.register(ReviewHelpful, ReviewHelpfulAdmin)
+nerbis_admin_site.register(Review, ReviewAdmin)
+nerbis_admin_site.register(ReviewImage, ReviewImageAdmin)
+nerbis_admin_site.register(ReviewHelpful, ReviewHelpfulAdmin)

@@ -233,7 +233,7 @@ def send_welcome_email(user_id):
 
         send_email(
             user=user,
-            subject=f"Bienvenido a {user.tenant.name if user.tenant else 'GRAVITIFY'}",
+            subject=f"Bienvenido a {user.tenant.name if user.tenant else 'NERBIS'}",
             template_name="welcome",
             context={"metadata": {"user_id": user.id}},
         )

@@ -3,7 +3,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import Cart, CartItem
-from core.admin_site import gravitify_admin_site
+from core.admin_site import nerbis_admin_site
 from core.admin import ShopModuleAdmin
 
 
@@ -16,7 +16,7 @@ class CartItemInline(admin.TabularInline):
     fields = ["item_type", "item", "quantity", "unit_price", "total_price"]
 
 
-@admin.register(Cart, site=gravitify_admin_site)
+@admin.register(Cart, site=nerbis_admin_site)
 class CartAdmin(ShopModuleAdmin):
     """Admin para carritos"""
 
@@ -66,7 +66,7 @@ class CartAdmin(ShopModuleAdmin):
     total_display.short_description = "Total"
 
 
-@admin.register(CartItem, site=gravitify_admin_site)
+@admin.register(CartItem, site=nerbis_admin_site)
 class CartItemAdmin(ShopModuleAdmin):
     """Admin para items del carrito"""
 

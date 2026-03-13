@@ -13,7 +13,7 @@ export default function HomePage() {
             <path d="M16 16h6M16 16v6" stroke="#60a5fa" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
         </div>
-        <span className="text-white text-2xl font-bold tracking-tight">GRAVITIFY</span>
+        <span className="text-white text-2xl font-bold tracking-tight">NERBIS</span>
       </div>
 
       {/* Headline */}
@@ -41,7 +41,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <p className="mt-16 text-slate-500 text-sm">
-        © {new Date().getFullYear()} GRAVITIFY — Todos los derechos reservados
+        © {new Date().getFullYear()} NERBIS — Todos los derechos reservados
       </p>
     </div>
   );

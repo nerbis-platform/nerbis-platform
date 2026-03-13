@@ -14,7 +14,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: process.env.NEXT_PUBLIC_APP_NAME || 'GRAVITIFY',
+  title: process.env.NEXT_PUBLIC_APP_NAME || 'NERBIS',
   description: process.env.NEXT_PUBLIC_APP_DESCRIPTION || 'Plataforma SaaS multi-tenant',
 };
 

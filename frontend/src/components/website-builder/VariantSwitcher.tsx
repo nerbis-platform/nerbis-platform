@@ -17,7 +17,7 @@ interface VariantSwitcherProps {
   isLoading?: boolean;
 }
 
-const SECTION_VARIANTS: Record<string, VariantOption[]> = {
+export const SECTION_VARIANTS: Record<string, VariantOption[]> = {
   hero: [
     { id: 'centered', label: 'Centrado', description: 'Texto centrado con gradiente', icon: 'centered' },
     { id: 'split-image', label: 'Dividido', description: 'Texto + imagen lado a lado', icon: 'split' },
@@ -80,7 +80,7 @@ const SECTION_VARIANTS: Record<string, VariantOption[]> = {
   ],
 };
 
-function LayoutIcon({ type, isActive }: { type: string; isActive: boolean }) {
+export function LayoutIcon({ type, isActive }: { type: string; isActive: boolean }) {
   const stroke = isActive ? '#1C3B57' : '#9ca3af';
   const fill = isActive ? '#E2F3F1' : '#f3f4f6';
 

@@ -4,10 +4,12 @@ import { useState } from 'react';
 import {
   DndContext,
   closestCenter,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
+  type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
 import {
@@ -18,7 +20,9 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Plus, Trash2, X } from 'lucide-react';
+import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
+import { Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
+import SectionLibrary from './SectionLibrary';
 
 interface SectionInfo {
   id: string;
@@ -32,12 +36,13 @@ interface SectionManagerProps {
   activeSection: string;
   onSelectSection: (sectionId: string) => void;
   onReorder: (newOrder: string[]) => void;
-  onAdd: (sectionId: string) => void;
+  onAdd: (sectionId: string, initialContent?: Record<string, unknown>, variant?: string) => void;
   onRemove: (sectionId: string) => void;
+  onDuplicate?: (sectionId: string) => void;
 }
 
 const SECTION_LABELS: Record<string, string> = {
-  header: 'Menú / Nav',
+  header: 'Menú principal',
   hero: 'Inicio',
   about: 'Sobre nosotros',
   services: 'Servicios',
@@ -76,8 +81,10 @@ export default function SectionManager({
   onReorder,
   onAdd,
   onRemove,
+  onDuplicate,
 }: SectionManagerProps) {
-  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -88,8 +95,13 @@ export default function SectionManager({
     })
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveId(null);
     if (over && active.id !== over.id) {
       const oldIndex = sections.indexOf(String(active.id));
       const newIndex = sections.indexOf(String(over.id));
@@ -110,7 +122,13 @@ export default function SectionManager({
         Secciones
       </p>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
         <SortableContext items={sections} strategy={verticalListSortingStrategy}>
           <div className="space-y-1">
             {sections.map((id) => (
@@ -119,55 +137,55 @@ export default function SectionManager({
                 id={id}
                 isActive={activeSection === id}
                 isRequired={requiredMap.get(id) ?? false}
+                isDragTarget={activeId !== null && activeId !== id}
                 onClick={() => onSelectSection(id)}
                 onRemove={() => onRemove(id)}
+                onDuplicate={onDuplicate ? () => onDuplicate(id) : undefined}
               />
             ))}
           </div>
         </SortableContext>
+
+        <DragOverlay dropAnimation={{
+          duration: 200,
+          easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+        }}>
+          {activeId ? (
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-white rounded-xl shadow-lg border-2 border-[#95D0C9] scale-[1.02]">
+              <GripVertical className="h-3.5 w-3.5 text-[#95D0C9]" />
+              <span className="text-base">{SECTION_ICONS[activeId] || '📄'}</span>
+              <span className="text-[0.82rem] font-medium text-[#1C3B57]">
+                {SECTION_LABELS[activeId] || activeId}
+              </span>
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {/* Add section button */}
       {availableToAdd.length > 0 && (
-        <div className="relative mt-3">
+        <div className="mt-3">
           <button
             type="button"
-            onClick={() => setShowAddMenu(!showAddMenu)}
+            onClick={() => setShowLibrary(true)}
             className="w-full flex items-center justify-center gap-1.5 h-9 rounded-lg border border-dashed border-gray-300 text-[0.78rem] text-gray-500 font-medium hover:border-[#95D0C9] hover:text-[#1C3B57] transition-colors cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
             Agregar sección
           </button>
-
-          {showAddMenu && (
-            <div className="absolute top-11 left-0 right-0 z-20 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-                <p className="text-[0.72rem] font-medium text-gray-500">Secciones disponibles</p>
-                <button
-                  type="button"
-                  onClick={() => setShowAddMenu(false)}
-                  className="p-0.5 rounded hover:bg-gray-100 cursor-pointer"
-                >
-                  <X className="h-3.5 w-3.5 text-gray-400" />
-                </button>
-              </div>
-              {availableToAdd.map((section) => (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() => {
-                    onAdd(section.id);
-                    setShowAddMenu(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[0.82rem] text-gray-600 hover:bg-[#E2F3F1]/50 transition-colors cursor-pointer"
-                >
-                  <span className="text-base">{SECTION_ICONS[section.id] || '📄'}</span>
-                  {SECTION_LABELS[section.id] || section.name}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
+      )}
+
+      {/* Section Library Modal */}
+      {showLibrary && (
+        <SectionLibrary
+          availableSections={availableToAdd}
+          onAdd={(id, content, variant) => {
+            onAdd(id, content, variant);
+            setShowLibrary(false);
+          }}
+          onClose={() => setShowLibrary(false)}
+        />
       )}
     </div>
   );
@@ -178,14 +196,18 @@ function SortableSection({
   id,
   isActive,
   isRequired,
+  isDragTarget,
   onClick,
   onRemove,
+  onDuplicate,
 }: {
   id: string;
   isActive: boolean;
   isRequired: boolean;
+  isDragTarget: boolean;
   onClick: () => void;
   onRemove: () => void;
+  onDuplicate?: () => void;
 }) {
   const {
     attributes,
@@ -194,29 +216,44 @@ function SortableSection({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+    isOver,
+  } = useSortable({
+    id,
+    transition: {
+      duration: 200,
+      easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+    },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    zIndex: isDragging ? 10 : 'auto' as number | string,
-    opacity: isDragging ? 0.8 : 1,
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center rounded-lg transition-all ${
-        isActive
-          ? 'bg-[#E2F3F1] text-[#1C3B57]'
-          : 'text-gray-500 hover:bg-gray-50'
-      } ${isDragging ? 'shadow-md' : ''}`}
+      className={`group relative flex items-center rounded-lg transition-all duration-200 ${
+        isDragging
+          ? 'opacity-40 bg-[#E2F3F1]/50 border border-dashed border-[#95D0C9] rounded-lg'
+          : isActive
+            ? 'bg-[#E2F3F1] text-[#1C3B57]'
+            : 'text-gray-500 hover:bg-gray-50'
+      }`}
     >
+      {/* Drop indicator line */}
+      {isOver && isDragTarget && (
+        <div className="absolute -top-0.75 left-2 right-2 h-0.5 bg-[#95D0C9] rounded-full z-10">
+          <div className="absolute -left-1 -top-0.75 w-2 h-2 rounded-full bg-[#95D0C9]" />
+          <div className="absolute -right-1 -top-0.75 w-2 h-2 rounded-full bg-[#95D0C9]" />
+        </div>
+      )}
+
       {/* Drag handle */}
       <button
         type="button"
-        className="p-2 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+        className="p-2 cursor-grab active:cursor-grabbing text-gray-400 hover:text-[#95D0C9] transition-colors"
         {...attributes}
         {...listeners}
       >
@@ -235,15 +272,30 @@ function SortableSection({
         {SECTION_LABELS[id] || id}
       </button>
 
-      {/* Delete button (only for non-required sections) */}
-      {!isRequired && (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="p-1.5 mr-1 rounded-md text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
+      {/* Action buttons */}
+      {!isDragging && (
+        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-all">
+          {onDuplicate && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+              className="p-1.5 rounded-md text-gray-400 hover:text-[#1C3B57] hover:bg-[#E2F3F1] transition-all cursor-pointer"
+              title="Duplicar sección"
+            >
+              <Copy className="h-3 w-3" />
+            </button>
+          )}
+          {!isRequired && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onRemove(); }}
+              className="p-1.5 mr-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
+              title="Eliminar sección"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

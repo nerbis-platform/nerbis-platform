@@ -15,7 +15,7 @@ class TenantMiddleware(MiddlewareMixin):
 
     Métodos de detección (en orden de prioridad):
     1. Header HTTP: X-Tenant-Slug
-    2. Subdominio: mi-negocio.graviti.co
+    2. Subdominio: mi-negocio.nerbis.com
     3. URL parameter: ?tenant=gc-belleza (solo en desarrollo)
 
     Una vez detectado, el tenant se guarda en:
@@ -89,7 +89,7 @@ class TenantMiddleware(MiddlewareMixin):
         Extraer tenant del subdominio.
 
         Ejemplos:
-        - mi-negocio.graviti.co → "mi-negocio"
+        - mi-negocio.nerbis.com → "mi-negocio"
         - localhost:8000 → None
         - 127.0.0.1:8000 → None
         """
@@ -110,7 +110,7 @@ class TenantMiddleware(MiddlewareMixin):
         # Extraer subdominio
         parts = host.split(".")
 
-        # Si tiene subdominio (ej: mi-negocio.graviti.co)
+        # Si tiene subdominio (ej: mi-negocio.nerbis.com)
         if len(parts) > 2:
             return parts[0]
 

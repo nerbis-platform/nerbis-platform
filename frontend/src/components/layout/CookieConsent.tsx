@@ -26,7 +26,7 @@ interface CookiePreferences {
   marketing: boolean;
 }
 
-// Keys con prefijo "tenant-" para no colisionar con las de la plataforma GRAVITIFY
+// Keys con prefijo "tenant-" para no colisionar con las de la plataforma NERBIS
 const TENANT_CONSENT_KEY = 'tenant-cookie-consent';
 const TENANT_PREFERENCES_KEY = 'tenant-cookie-preferences';
 

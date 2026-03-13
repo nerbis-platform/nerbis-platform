@@ -700,12 +700,12 @@ export default function AuthSplitScreen({ initialMode = 'register', redirectTo =
 
             {/* Logo */}
             <div className="relative flex items-center gap-3.5 mb-16 lg:mb-20">
-              <Image src="/Isotipo_color_GRAVITIFY.png" alt="GRAVITIFY" width={34} height={34} className="brightness-0 invert g-pendulum" />
+              <Image src="/Isotipo_color_NERBIS.png" alt="NERBIS" width={34} height={34} className="brightness-0 invert g-pendulum" />
               <span
                 className="text-[1.15rem] tracking-[0.18em] text-white"
                 style={{ fontFamily: 'var(--font-nunito), sans-serif', fontWeight: 800 }}
               >
-                GRAVITIFY
+                NERBIS
               </span>
             </div>
 
@@ -821,12 +821,12 @@ export default function AuthSplitScreen({ initialMode = 'register', redirectTo =
               }}
             />
             <div className="relative flex items-center gap-3 mb-8">
-              <Image src="/Isotipo_color_GRAVITIFY.png" alt="GRAVITIFY" width={30} height={30} className="brightness-0 invert g-pendulum" />
+              <Image src="/Isotipo_color_NERBIS.png" alt="NERBIS" width={30} height={30} className="brightness-0 invert g-pendulum" />
               <span
                 className="text-[1.05rem] tracking-[0.18em] text-white"
                 style={{ fontFamily: 'var(--font-nunito), sans-serif', fontWeight: 800 }}
               >
-                GRAVITIFY
+                NERBIS
               </span>
             </div>
             <div className="relative">

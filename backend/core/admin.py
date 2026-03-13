@@ -37,7 +37,7 @@ class CustomUserCreationForm(UnfoldUserCreationForm):
         if commit:
             user.save()
         return user
-from .admin_site import gravitify_admin_site
+from .admin_site import nerbis_admin_site
 from .widgets import GeographyCascadeWidget, ImagePreviewWidget
 from .geography import get_state_choices, get_city_choices
 from unfold.widgets import UnfoldAdminSelectWidget
@@ -434,8 +434,8 @@ class ServicesModuleAdmin(TenantFilteredAdmin):
         return super().has_delete_permission(request, obj)
 
 
-# Registrar en el admin site personalizado de GRAVITIFY
-@admin.register(Tenant, site=gravitify_admin_site)
+# Registrar en el admin site personalizado de NERBIS
+@admin.register(Tenant, site=nerbis_admin_site)
 class TenantAdmin(UnfoldModelAdmin):
     """
     Panel de administración para Tenants.
@@ -785,7 +785,7 @@ class TenantAdmin(UnfoldModelAdmin):
     subscription_info.short_description = "Estado de Suscripción"
 
 
-@admin.register(TenantConfig, site=gravitify_admin_site)
+@admin.register(TenantConfig, site=nerbis_admin_site)
 class TenantConfigAdmin(UnfoldModelAdmin):
     """
     Panel "Mi Negocio" para que el admin del tenant edite
@@ -902,7 +902,7 @@ class TenantWebsiteForm(forms.ModelForm):
         }
 
 
-@admin.register(TenantWebsite, site=gravitify_admin_site)
+@admin.register(TenantWebsite, site=nerbis_admin_site)
 class TenantWebsiteAdmin(UnfoldModelAdmin):
     """
     Panel "Mi Sitio Web" para que el admin del tenant configure
@@ -981,7 +981,7 @@ class TenantWebsiteAdmin(UnfoldModelAdmin):
     )
 
 
-@admin.register(User, site=gravitify_admin_site)
+@admin.register(User, site=nerbis_admin_site)
 class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
     """
     Panel de administración para Users.
@@ -1415,7 +1415,7 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
     assigned_services_display.short_description = "Servicios que puedo realizar"
 
 
-@admin.register(Banner, site=gravitify_admin_site)
+@admin.register(Banner, site=nerbis_admin_site)
 class BannerAdmin(TenantFilteredAdmin):
     """
     Panel de administración para Banners Promocionales.

@@ -114,11 +114,11 @@ export default function WebsiteBuilderLayout({
       {/* Header — misma identidad que Setup */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          {/* Logo + GRAVITIFY — misma posición que Setup */}
+          {/* Logo + NERBIS — misma posición que Setup */}
           <div className="flex items-center gap-2">
             <Image
-              src="/Isotipo_color_GRAVITIFY.png"
-              alt="Gravitify"
+              src="/Isotipo_color_NERBIS.png"
+              alt="Nerbis"
               width={36}
               height={36}
               className="g-pendulum"
@@ -127,7 +127,7 @@ export default function WebsiteBuilderLayout({
               className="text-[0.85rem] font-semibold tracking-wide"
               style={{ color: '#1C3B57' }}
             >
-              GRAVITIFY
+              NERBIS
             </span>
           </div>
 

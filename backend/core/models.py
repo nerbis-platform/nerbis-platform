@@ -52,7 +52,7 @@ class TenantAwareModel(models.Model):
 
 class Tenant(models.Model):
     """
-    Modelo para los clientes de la plataforma GRAVITIFY.
+    Modelo para los clientes de la plataforma NERBIS.
     Cada tenant representa un negocio diferente.
 
     Ejemplos:

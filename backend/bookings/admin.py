@@ -5,11 +5,11 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from .models import BusinessHours, TimeOff, Appointment
-from core.admin_site import gravitify_admin_site
+from core.admin_site import nerbis_admin_site
 from core.admin import BookingsModuleAdmin
 
 
-@admin.register(BusinessHours, site=gravitify_admin_site)
+@admin.register(BusinessHours, site=nerbis_admin_site)
 class BusinessHoursAdmin(BookingsModuleAdmin):
     """Admin para horarios de negocio"""
 
@@ -52,7 +52,7 @@ class BusinessHoursAdmin(BookingsModuleAdmin):
     is_open_badge.short_description = "Estado"
 
 
-@admin.register(TimeOff, site=gravitify_admin_site)
+@admin.register(TimeOff, site=nerbis_admin_site)
 class TimeOffAdmin(BookingsModuleAdmin):
     """Admin para tiempos libres"""
 
@@ -95,7 +95,7 @@ class TimeOffAdmin(BookingsModuleAdmin):
     duration_display.short_description = "Duración"
 
 
-@admin.register(Appointment, site=gravitify_admin_site)
+@admin.register(Appointment, site=nerbis_admin_site)
 class AppointmentAdmin(BookingsModuleAdmin):
     """Admin para citas"""
 

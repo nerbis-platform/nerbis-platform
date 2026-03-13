@@ -46,7 +46,7 @@ function UnsplashAttribution({ image, className = 'hero-attribution' }: { image?
   if (!image?.photographer) return null;
   return (
     <span className={className}>
-      Foto: <a href={`${image.photographer_url}?utm_source=gravitify&utm_medium=referral`} target="_blank" rel="noopener noreferrer">{image.photographer}</a> / <a href="https://unsplash.com?utm_source=gravitify&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a>
+      Foto: <a href={`${image.photographer_url}?utm_source=nerbis&utm_medium=referral`} target="_blank" rel="noopener noreferrer">{image.photographer}</a> / <a href="https://unsplash.com?utm_source=nerbis&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a>
     </span>
   );
 }

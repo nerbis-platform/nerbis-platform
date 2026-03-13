@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Palette, Type, Layout, Check, ChevronDown, RotateCcw, Undo2, Redo2, Maximize, MousePointerClick, Zap, Wand2, Layers, Sun, Moon } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Palette, Type, Layout, Check, ChevronDown, RotateCcw, Maximize, MousePointerClick, Zap, Wand2, Layers, Sun, Moon } from 'lucide-react';
 
 interface ThemeData {
   primary_color: string;
@@ -442,81 +442,13 @@ function FontDropdown({
   );
 }
 
-// ─── Theme History Hook (undo/redo, 30 steps) ────────────────
-const MAX_HISTORY = 30;
-
-function useThemeHistory(initial: ThemeData, onApply: (theme: ThemeData) => void) {
-  const historyRef = useRef<ThemeData[]>([initial]);
-  const pointerRef = useRef(0);
-  const isUndoRedoRef = useRef(false);
-
-  // Sync initial value when it changes externally (first load)
-  const lastInitialRef = useRef(initial);
-  if (
-    !isUndoRedoRef.current &&
-    JSON.stringify(initial) !== JSON.stringify(lastInitialRef.current) &&
-    JSON.stringify(initial) !== JSON.stringify(historyRef.current[pointerRef.current])
-  ) {
-    // New change from user interaction — push to history
-    const next = historyRef.current.slice(0, pointerRef.current + 1);
-    next.push({ ...initial });
-    if (next.length > MAX_HISTORY) next.shift();
-    historyRef.current = next;
-    pointerRef.current = next.length - 1;
-    lastInitialRef.current = initial;
-  }
-  isUndoRedoRef.current = false;
-
-  const canUndo = pointerRef.current > 0;
-  const canRedo = pointerRef.current < historyRef.current.length - 1;
-
-  const undo = useCallback(() => {
-    if (pointerRef.current > 0) {
-      pointerRef.current -= 1;
-      isUndoRedoRef.current = true;
-      const state = { ...historyRef.current[pointerRef.current] };
-      lastInitialRef.current = state;
-      onApply(state);
-    }
-  }, [onApply]);
-
-  const redo = useCallback(() => {
-    if (pointerRef.current < historyRef.current.length - 1) {
-      pointerRef.current += 1;
-      isUndoRedoRef.current = true;
-      const state = { ...historyRef.current[pointerRef.current] };
-      lastInitialRef.current = state;
-      onApply(state);
-    }
-  }, [onApply]);
-
-  return { canUndo, canRedo, undo, redo, steps: pointerRef.current };
-}
-
 // ─── Main Component ───────────────────────────────────────────
 export default function DesignPanel({ themeData, defaultTheme, onChange, isSaving }: DesignPanelProps) {
-  const { canUndo, canRedo, undo, redo, steps } = useThemeHistory(themeData, onChange);
   const [customFonts, setCustomFonts] = useState(false);
   const [showCustomBg, setShowCustomBg] = useState(false);
   const [customGradient, setCustomGradient] = useState({ from: '#3b82f6', to: '#8b5cf6' });
   const [openSection, setOpenSection] = useState<string>('colors');
   const toggle = (id: string) => setOpenSection(prev => prev === id ? '' : id);
-
-  // Keyboard shortcuts: Ctrl+Z / Ctrl+Shift+Z
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          redo();
-        } else {
-          undo();
-        }
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [undo, redo]);
 
   const updateTheme = (key: keyof ThemeData, value: string) => {
     onChange({ ...themeData, [key]: value });
@@ -528,33 +460,8 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
 
   return (
     <div className="space-y-1.5 bg-gray-50/80 rounded-2xl p-2">
-      {/* ─── Undo / Redo bar ──────────────────────────────────── */}
-      <div className="flex items-center justify-between px-2 py-1.5 bg-white rounded-xl ring-1 ring-gray-100 shadow-sm">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={undo}
-            disabled={!canUndo}
-            title="Deshacer (Ctrl+Z)"
-            className="p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-default text-gray-400 hover:text-[#1C3B57] hover:bg-[#E2F3F1]/40"
-          >
-            <Undo2 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={redo}
-            disabled={!canRedo}
-            title="Rehacer (Ctrl+Shift+Z)"
-            className="p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-default text-gray-400 hover:text-[#1C3B57] hover:bg-[#E2F3F1]/40"
-          >
-            <Redo2 className="h-3.5 w-3.5" />
-          </button>
-          {steps > 0 && (
-            <span className="text-[0.6rem] text-[#95D0C9] font-medium ml-1">
-              {steps} {steps === 1 ? 'cambio' : 'cambios'}
-            </span>
-          )}
-        </div>
+      {/* ─── Restore defaults bar ─────────────────────────────── */}
+      <div className="flex items-center justify-end px-2 py-1.5">
         <button
           type="button"
           onClick={resetToDefault}

@@ -1,4 +1,4 @@
-# 🚀 Guía de Deployment - GRAVITIFY
+# 🚀 Guía de Deployment - NERBIS
 
 ## Enfoque Simple: Desarrollo vs Producción
 
@@ -46,17 +46,17 @@ CORS_ALLOWED_ORIGINS = ['http://localhost:3000']
 
 ### Arquitectura:
 ```
-Frontend: https://app.graviti.co    (Vercel/Netlify)
-Backend:  https://api.graviti.co    (Railway/Render)
-Admin:    https://admin.graviti.co  (mismo backend)
+Frontend: https://app.nerbis.com    (Vercel/Netlify)
+Backend:  https://api.nerbis.com    (Railway/Render)
+Admin:    https://admin.nerbis.com  (mismo backend)
 ```
 
 ### Configuración Frontend:
 
 ```bash
 # frontend/.env.production
-NEXT_PUBLIC_API_URL=https://api.graviti.co
-NEXT_PUBLIC_APP_URL=https://app.graviti.co
+NEXT_PUBLIC_API_URL=https://api.nerbis.com
+NEXT_PUBLIC_APP_URL=https://app.nerbis.com
 NEXT_PUBLIC_STRIPE_PUBLIC_KEY=pk_live_XXXXX
 ```
 
@@ -67,9 +67,9 @@ NEXT_PUBLIC_STRIPE_PUBLIC_KEY=pk_live_XXXXX
 SECRET_KEY=tu-secret-key-super-seguro-aqui
 DATABASE_URL=postgresql://usuario:password@host:5432/db
 DEBUG=False
-ALLOWED_HOSTS=api.graviti.co,admin.graviti.co
-CORS_ALLOWED_ORIGINS=https://app.graviti.co,https://graviti.co
-CSRF_TRUSTED_ORIGINS=https://api.graviti.co,https://admin.graviti.co
+ALLOWED_HOSTS=api.nerbis.com,admin.nerbis.com
+CORS_ALLOWED_ORIGINS=https://app.nerbis.com,https://nerbis.com
+CSRF_TRUSTED_ORIGINS=https://api.nerbis.com,https://admin.nerbis.com
 ```
 
 **En producción, settings.py lee de variables de entorno:**
@@ -97,7 +97,7 @@ docker-compose up
 npm run build
 
 # Backend
-docker build -t gravitify-backend .
+docker build -t nerbis-backend .
 ```
 
 ### Deploy:
