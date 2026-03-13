@@ -3123,7 +3123,8 @@ class PreviewRenderView(APIView):
         # Shield icon SVG con color del tenant (usa CSS var para actualizaciones en tiempo real)
         shield_icon = '<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:color-mix(in srgb, var(--primary), transparent 88%);flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></div>'
 
-        return f"""<div id="cookie-banner" style="position:fixed;bottom:0;left:0;right:0;z-index:9999;display:none;padding:16px;font-family:var(--font-body);">
+        pos_style = 'top:0;' if position == 'top' else 'bottom:0;'
+        return f"""<div id="cookie-banner" style="position:fixed;{pos_style}left:0;right:0;z-index:9999;display:none;padding:16px;font-family:var(--font-body);">
     <div style="max-width:460px;margin:0 auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 8px 32px rgba(0,0,0,.12);border:1px solid #e5e7eb;">
         <div style="display:flex;align-items:flex-start;gap:12px;">
             {shield_icon}
@@ -3341,6 +3342,16 @@ class PreviewRenderView(APIView):
         nav_html = ''
         page_slugs = getattr(self, '_page_slugs', {})
 
+        def _safe_slug_href(sid):
+            """Get href from page_slugs with sanitization, or fallback to SECTION_PAGE_MAP."""
+            if page_slugs and sid in page_slugs:
+                slug = page_slugs[sid]
+                # Only allow relative paths and anchors — block javascript: and data:
+                if slug and not slug.lstrip().lower().startswith(('javascript:', 'data:')):
+                    return self._esc(slug)
+            page = self.SECTION_PAGE_MAP.get(sid)
+            return self._tenant_url(page) if page else f'#{self._esc(sid)}'
+
         if custom_nav_items:
             # Navegación personalizada desde content_data['header']['nav_items']
             for item in custom_nav_items:
@@ -3348,21 +3359,13 @@ class PreviewRenderView(APIView):
                     continue
                 sid = item.get('id', '')
                 label = item.get('label', self.SECTION_NAV_LABELS.get(sid, sid.replace('_', ' ').title()))
-                if page_slugs and sid in page_slugs:
-                    href = page_slugs[sid]
-                else:
-                    page = self.SECTION_PAGE_MAP.get(sid)
-                    href = self._tenant_url(page) if page else f'#{sid}'
+                href = _safe_slug_href(sid)
                 nav_html += f'<a href="{href}">{self._esc(label)}</a>\n'
         else:
             # Fallback: auto-generar desde secciones activas
             for sid in nav_sections:
                 label = self.SECTION_NAV_LABELS.get(sid, sid.replace('_', ' ').title())
-                if page_slugs and sid in page_slugs:
-                    href = page_slugs[sid]
-                else:
-                    page = self.SECTION_PAGE_MAP.get(sid)
-                    href = self._tenant_url(page) if page else f'#{sid}'
+                href = _safe_slug_href(sid)
                 nav_html += f'<a href="{href}">{self._esc(label)}</a>\n'
 
         cta_html = ''
@@ -3482,7 +3485,8 @@ class PreviewRenderView(APIView):
 
         # Footer editable fields (con defaults para backward compat)
         footer_desc = footer_data.get('description', 'Visítanos y descubre todo lo que tenemos para ofrecerte.')
-        footer_copyright = footer_data.get('copyright_text', f'2026 {logo_text}. Todos los derechos reservados.')
+        from datetime import date
+        footer_copyright = footer_data.get('copyright_text', f'{date.today().year} {logo_text}. Todos los derechos reservados.')
         footer_privacy = footer_data.get('privacy_label', 'Política de privacidad')
 
         # Newsletter form (visual only)
@@ -5189,7 +5193,13 @@ class DuplicateSectionView(APIView):
 
         # Generar id único para la copia
         import copy
-        base_id = section_id.split('_')[0] if '_' in section_id else section_id
+        import re
+        # Derive base type: use existing _type, or strip trailing _N suffix
+        section_data = content[section_id]
+        if isinstance(section_data, dict) and '_type' in section_data:
+            base_id = section_data['_type']
+        else:
+            base_id = re.sub(r'_\d+$', '', section_id)
         counter = 2
         new_id = f"{base_id}_{counter}"
         while new_id in content:
