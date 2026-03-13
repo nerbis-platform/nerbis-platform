@@ -799,6 +799,8 @@ export default function LivePreview({
   // Listen for postMessage from the iframe (section clicks)
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
+      // Only accept messages from same origin (srcdoc iframes)
+      if (e.origin !== window.location.origin && e.origin !== 'null') return;
       if (e.data?.type === 'section-click' && e.data.sectionId && onSectionClick) {
         onSectionClick(e.data.sectionId);
       }

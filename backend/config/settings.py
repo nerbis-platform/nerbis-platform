@@ -44,6 +44,9 @@ _csrf_env = os.getenv("CSRF_TRUSTED_ORIGINS", "")
 if _csrf_env:
     CSRF_TRUSTED_ORIGINS += [o.strip() for o in _csrf_env.split(",") if o.strip()]
 
+# Google Maps API Key (for website builder map embeds)
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
+
 # Session Configuration
 SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Guardar sesiones en DB
 SESSION_COOKIE_AGE = 86400 * 7  # 7 días

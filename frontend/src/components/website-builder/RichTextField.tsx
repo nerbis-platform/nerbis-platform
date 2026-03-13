@@ -1,7 +1,37 @@
 'use client';
 
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { Bold, Italic, Link2, RemoveFormatting } from 'lucide-react';
+
+const ALLOWED_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'A', 'BR', 'P', 'SPAN']);
+
+function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  // Remove dangerous elements
+  doc.querySelectorAll('script, style, iframe, object, embed, form, input, textarea, select, button')
+    .forEach(el => el.remove());
+  // Remove event handler attributes and dangerous attrs
+  doc.querySelectorAll('*').forEach(el => {
+    for (const attr of Array.from(el.attributes)) {
+      if (attr.name.startsWith('on') || attr.name === 'srcdoc') {
+        el.removeAttribute(attr.name);
+      }
+    }
+    // For links, only allow safe href (no javascript:)
+    if (el.tagName === 'A') {
+      const href = el.getAttribute('href') || '';
+      if (href.replace(/\s/g, '').toLowerCase().startsWith('javascript:')) {
+        el.removeAttribute('href');
+      }
+    }
+    // Remove tags not in allowlist but keep their text content
+    if (!ALLOWED_TAGS.has(el.tagName)) {
+      el.replaceWith(document.createTextNode(el.textContent || ''));
+    }
+  });
+  return doc.body.innerHTML;
+}
 
 interface RichTextFieldProps {
   value: string;
@@ -23,21 +53,23 @@ export default function RichTextField({
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
   const isInternalUpdate = useRef(false);
 
+  const sanitizedValue = useMemo(() => sanitizeHtml(value), [value]);
+
   // Sync external value → editor (only when value changes externally)
   useEffect(() => {
     if (isInternalUpdate.current) {
       isInternalUpdate.current = false;
       return;
     }
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value || '';
+    if (editorRef.current && editorRef.current.innerHTML !== sanitizedValue) {
+      editorRef.current.innerHTML = sanitizedValue;
     }
-  }, [value]);
+  }, [sanitizedValue]);
 
   const emitChange = useCallback(() => {
     if (editorRef.current) {
       isInternalUpdate.current = true;
-      onChange(editorRef.current.innerHTML);
+      onChange(sanitizeHtml(editorRef.current.innerHTML));
     }
   }, [onChange]);
 

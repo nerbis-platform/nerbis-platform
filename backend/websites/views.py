@@ -12,6 +12,7 @@ Endpoints para:
 
 import logging
 import random
+from django.conf import settings as django_settings
 from django.db import models, transaction
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -838,6 +839,34 @@ class UploadWebsiteMediaView(APIView):
         'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon',
     }
 
+    ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.ico'}
+    # Magic bytes for image format detection
+    _MAGIC_BYTES = {
+        b'\xff\xd8\xff': '.jpg',
+        b'\x89PNG': '.png',
+        b'RIFF': '.webp',  # WebP starts with RIFF....WEBP
+        b'GIF8': '.gif',
+        b'\x00\x00\x01\x00': '.ico',
+        b'\x00\x00\x02\x00': '.ico',
+    }
+
+    def _detect_image_type(self, uploaded_file):
+        """Detect image type from file content (magic bytes), not client headers."""
+        uploaded_file.seek(0)
+        header = uploaded_file.read(12)
+        uploaded_file.seek(0)
+
+        # Check SVG (text-based)
+        if header.lstrip(b'\xef\xbb\xbf').lstrip()[:5] in (b'<?xml', b'<svg '):
+            return '.svg'
+        # WebP: RIFF....WEBP
+        if header[:4] == b'RIFF' and header[8:12] == b'WEBP':
+            return '.webp'
+        for magic, ext in self._MAGIC_BYTES.items():
+            if magic != b'RIFF' and header[:len(magic)] == magic:
+                return ext
+        return None
+
     def post(self, request):
         import os
         import uuid
@@ -864,9 +893,9 @@ class UploadWebsiteMediaView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validar tipo
-        content_type = uploaded_file.content_type
-        if content_type not in self.ALLOWED_IMAGE_TYPES:
+        # Validar tipo real del archivo (magic bytes, no content_type del cliente)
+        detected_ext = self._detect_image_type(uploaded_file)
+        if not detected_ext or detected_ext not in self.ALLOWED_EXTENSIONS:
             return Response(
                 {"error": "Formato no soportado. Usa JPG, PNG, WebP, GIF o SVG."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -876,8 +905,8 @@ class UploadWebsiteMediaView(APIView):
         if purpose not in ('og_image', 'favicon', 'general'):
             purpose = 'general'
 
-        # Generar nombre seguro
-        ext = os.path.splitext(uploaded_file.name)[1].lower() or '.png'
+        # Generar nombre seguro con extensión detectada (no la del cliente)
+        ext = detected_ext
         filename = f"{purpose}_{uuid.uuid4().hex[:8]}{ext}"
         path = f"websites/{tenant.slug}/{filename}"
 
@@ -4740,8 +4769,11 @@ class PreviewRenderView(APIView):
         if not address:
             return ''
         encoded = urllib.parse.quote(address)
+        maps_key = getattr(django_settings, 'GOOGLE_MAPS_API_KEY', '')
+        if not maps_key:
+            return ''
         return f'''<div class="contact-map" style="margin-top:2.5rem;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);">
-    <iframe src="https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q={encoded}"
+    <iframe src="https://www.google.com/maps/embed/v1/place?key={maps_key}&q={encoded}"
         width="100%" height="300" style="border:0;display:block;" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
 </div>'''
 
