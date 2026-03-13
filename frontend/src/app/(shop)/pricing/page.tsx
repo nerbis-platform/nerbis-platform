@@ -4,6 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { getServices } from '@/lib/api/services';
+import type { Service } from '@/types';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -61,7 +62,7 @@ export default function PricingPage() {
               </div>
             ) : services.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-                {services.map((service: { id: string; name: string; description?: string; price?: number; duration?: number; is_featured?: boolean }) => (
+                {services.map((service: Service) => (
                   <Card key={service.id} className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
