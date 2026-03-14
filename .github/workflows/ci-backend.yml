@@ -74,4 +74,4 @@ jobs:
           PLATFORM_BASE_DOMAIN: localhost
         run: |
           cd backend
-          python manage.py test --verbosity=2 --no-input
+          python -m pytest -v
