@@ -121,19 +121,21 @@ def api_client(tenant_context):
 
 
 @pytest.fixture()
-def auth_admin_client(api_client, admin_user):
-    """APIClient autenticado como admin con JWT."""
-    token = _make_jwt(admin_user)
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-    return api_client
+def auth_admin_client(tenant_context, admin_user):
+    """APIClient autenticado como admin con JWT (instancia independiente)."""
+    client = APIClient()
+    client.defaults["HTTP_X_TENANT_SLUG"] = tenant_context.slug
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {_make_jwt(admin_user)}")
+    return client
 
 
 @pytest.fixture()
-def auth_customer_client(api_client, customer_user):
-    """APIClient autenticado como customer con JWT."""
-    token = _make_jwt(customer_user)
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-    return api_client
+def auth_customer_client(tenant_context, customer_user):
+    """APIClient autenticado como customer con JWT (instancia independiente)."""
+    client = APIClient()
+    client.defaults["HTTP_X_TENANT_SLUG"] = tenant_context.slug
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {_make_jwt(customer_user)}")
+    return client
 
 
 # ===================================
