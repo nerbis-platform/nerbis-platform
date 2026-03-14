@@ -1,4 +1,3 @@
-from django.core.cache import caches
 from django.test import RequestFactory, TestCase
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -65,8 +64,6 @@ class TenantAwareTestCase(TestCase):
         self.client.defaults["HTTP_X_TENANT_SLUG"] = self.tenant.slug
         set_current_tenant(self.tenant)
         self.factory = RequestFactory()
-        # Limpiar cache de throttling para evitar 429 entre tests
-        caches["throttle"].clear()
 
     def tearDown(self):
         """Limpiar el contexto de tenant."""
