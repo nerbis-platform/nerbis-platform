@@ -85,7 +85,7 @@ class TenantIsolationTest(TenantAwareTestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_tenant_cannot_see_other_tenant_users(self):
-        """Un tenant no puede listar usuarios de otro tenant."""
+        """El manager de User filtra por tenant — no se ven usuarios de otro tenant."""
         tenant_2, admin_2 = self.create_second_tenant()
 
         # Crear un customer en tenant 2
@@ -97,15 +97,12 @@ class TenantIsolationTest(TenantAwareTestCase):
             role="customer",
         )
 
-        # Autenticar como admin del tenant 1
-        self.authenticate_as_admin()
-
-        # Obtener /api/auth/me/ — debe retornar datos del tenant 1
-        response = self.client.get(reverse("core:current_user"))
-        data = response.json()
-        self.assertEqual(data["user"]["email"], "admin@test.com")
-        if data.get("tenant"):
-            self.assertEqual(data["tenant"]["slug"], "test-tenant")
+        # Con el contexto de tenant 1, el manager filtrado no debe retornar usuarios de tenant 2
+        tenant_1_emails = list(User.objects.for_tenant(self.tenant).values_list("email", flat=True))
+        self.assertIn("admin@test.com", tenant_1_emails)
+        self.assertIn("customer@test.com", tenant_1_emails)
+        self.assertNotIn("customer@other.com", tenant_1_emails)
+        self.assertNotIn("admin@other.com", tenant_1_emails)
 
     def test_banners_isolated_between_tenants(self):
         """Los banners de un tenant no se mezclan con los de otro."""
@@ -130,10 +127,8 @@ class TenantIsolationTest(TenantAwareTestCase):
         # Request con tenant 1 — solo debe ver su banner
         response = self.client.get(reverse("core:active_banners"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = response.json().get("results", response.json())
-        # Si es paginado, extraer los resultados
-        if isinstance(results, dict) and "results" in results:
-            results = results["results"]
+        payload = response.json()
+        results = payload["results"] if isinstance(payload, dict) and "results" in payload else payload
         banner_names = [b["name"] for b in results]
         self.assertIn("Banner T1", banner_names)
         self.assertNotIn("Banner T2", banner_names)
