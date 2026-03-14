@@ -1407,9 +1407,9 @@ def get_tenant_config(request):
     tenant = getattr(request, "tenant", None)
 
     if not tenant:
-        # Si no hay tenant en el request (puede pasar en desarrollo)
-        # intentar obtenerlo desde el slug en los headers o query params
-        tenant_slug = request.headers.get("X-Tenant-Slug") or request.GET.get("tenant_slug")
+        # Fallback: intentar obtener tenant desde el header X-Tenant-Slug
+        # No se acepta query param para evitar tenant spoofing (ver issue #17)
+        tenant_slug = request.headers.get("X-Tenant-Slug")
         if tenant_slug:
             try:
                 tenant = Tenant.objects.get(slug=tenant_slug)
@@ -1520,7 +1520,9 @@ def get_tenant_website_content(request):
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
-        tenant_slug = request.headers.get("X-Tenant-Slug") or request.GET.get("tenant_slug")
+        # Fallback: intentar obtener tenant desde el header X-Tenant-Slug
+        # No se acepta query param para evitar tenant spoofing (ver issue #17)
+        tenant_slug = request.headers.get("X-Tenant-Slug")
         if tenant_slug:
             try:
                 tenant = Tenant.objects.get(slug=tenant_slug)
