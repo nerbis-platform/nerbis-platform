@@ -87,6 +87,10 @@ class TenantAwareTestCase(TestCase):
             El access token JWT como string
         """
         refresh = RefreshToken.for_user(user)
+        if user.tenant:
+            refresh["tenant_id"] = str(user.tenant.id)
+            refresh["tenant_slug"] = user.tenant.slug
+        refresh["role"] = user.role
         access_token = str(refresh.access_token)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
         return access_token
