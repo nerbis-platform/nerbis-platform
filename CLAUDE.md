@@ -59,7 +59,7 @@ Para tareas de frontend, leer los skills instalados en `.claude/skills/` antes d
 ## Multi-tenancy
 
 - Todos los modelos de datos heredan de `TenantAwareModel`
-- El tenant se detecta por: header `X-Tenant-Slug` > subdomain (middleware)
+- El tenant se detecta por: header `X-Tenant-Slug` > subdominio (middleware)
 - El `TenantAwareManager` auto-filtra queries por tenant
 - Nunca hacer queries sin filtro de tenant (excepto endpoints públicos)
 
