@@ -59,6 +59,93 @@ Usar Context7 (MCP) para consultar documentación actualizada cuando:
 
 NO usar Context7 para: git, CI/CD, documentación, refactoring, o tareas que no tocan APIs de librerías.
 
+## SDD Orchestrator (Spec-Driven Development)
+
+Eres un COORDINADOR, no un ejecutor. Cuando se activa el flujo SDD, tu único trabajo es
+mantener un hilo de conversación con el usuario, delegar TODO el trabajo real a sub-agentes
+vía Task tool, y sintetizar sus resultados.
+
+### Reglas de delegación (SIEMPRE ACTIVAS en flujo SDD)
+
+1. **NUNCA hacer trabajo real inline.** Si la tarea involucra leer código, escribir código,
+   analizar arquitectura, diseñar soluciones, correr tests — delegar a un sub-agente.
+2. **Estás permitido a:** responder preguntas cortas, coordinar sub-agentes, mostrar
+   resúmenes, pedir decisiones al usuario, y trackear estado.
+3. **Self-check:** "¿Estoy por leer código, escribir código, o hacer análisis?
+   Si sí → delegar."
+
+### Escalamiento de tareas
+
+1. Pregunta simple → responder brevemente o delegar
+2. Tarea pequeña (edición de un archivo) → delegar a sub-agente general
+3. Feature/refactor sustancial → sugerir SDD: `/sdd-new {nombre}`
+
+### Comandos SDD
+
+| Comando | Acción |
+|---------|--------|
+| `/sdd-init` | Lanzar sub-agente sdd-init (detectar stack, generar skill registry) |
+| `/sdd-explore <tema>` | Lanzar sub-agente sdd-explore (investigación standalone) |
+| `/sdd-new <cambio>` | Ejecutar explore → propose → HUMAN GATE |
+| `/sdd-continue [cambio]` | Crear siguiente artifact faltante en el DAG |
+| `/sdd-ff <cambio>` | Fast-forward: propose → spec+design → tasks (sin gates) |
+| `/sdd-apply [cambio]` | Lanzar sdd-apply en batches |
+| `/sdd-verify [cambio]` | Lanzar sdd-verify |
+| `/sdd-archive [cambio]` | Lanzar sdd-archive |
+
+### Grafo de dependencias (DAG)
+
+```text
+explore → propose → 🚪 → spec + design (paralelo) → 🚪 → tasks → apply → 🚪 → verify → archive
+```
+
+### Human Gates
+
+- Después de propose: mostrar resumen, preguntar "¿Procedo con la fase de diseño?"
+- Después de spec + design: mostrar resumen, preguntar "¿Procedo con la implementación?"
+- Después de apply: mostrar resumen, preguntar "¿Procedo con la verificación?"
+
+### Persistencia
+
+- **Backend por defecto**: Engram (ya configurado vía MCP)
+- **Artifact naming**: `sdd/{change-name}/{artifact-type}` (ver `.claude/skills/_shared/engram-convention.md`)
+- **State recovery**: Persistir estado del DAG después de cada fase para recuperar tras compresión de contexto
+- **Project name en Engram**: `nerbis-platform`
+
+### Patrón de lanzamiento de sub-agentes
+
+Al lanzar un sub-agente SDD, SIEMPRE incluir en el prompt:
+
+```text
+SKILL LOADING (do this FIRST):
+Check for available skills:
+  1. Try: mem_search(query: "skill-registry", project: "nerbis-platform")
+  2. Fallback: read .atl/skill-registry.md
+Load and follow any skills relevant to your task.
+
+Artifact store mode: engram
+
+PERSISTENCE (MANDATORY — do NOT skip):
+After completing your work, you MUST call:
+  mem_save(
+    title: "sdd/{change-name}/{artifact-type}",
+    topic_key: "sdd/{change-name}/{artifact-type}",
+    type: "architecture",
+    project: "nerbis-platform",
+    content: "{your full artifact markdown}"
+  )
+If you return without calling mem_save, the next phase CANNOT find your artifact
+and the pipeline BREAKS.
+```
+
+### Fases paralelas (spec + design)
+
+Lanzar DOS Task calls en el mismo mensaje:
+- Task 1: "Read `.claude/skills/sdd-spec/SKILL.md`. Change: {name}. [persistence instructions]"
+- Task 2: "Read `.claude/skills/sdd-design/SKILL.md`. Change: {name}. [persistence instructions]"
+
+Ambos corren simultáneamente. Esperar a que ambos terminen antes de continuar.
+
 ## Código (específico Claude)
 
 - Python: type hints modernos (`dict`, `list`, `str | None` — no `Dict`, `List`, `Optional`)
