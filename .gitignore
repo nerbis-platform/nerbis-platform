@@ -235,6 +235,9 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Agent Teams Lite — runtime generated
+.atl/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
