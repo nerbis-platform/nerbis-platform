@@ -50,6 +50,15 @@ Leer los skills relevantes en `.claude/skills/` antes de actuar:
 **Backend:**
 - `.claude/skills/multi-tenancy` — patrones multi-tenant (modelos, views, serializers, permisos, tests)
 
+## Context7 — Documentación en tiempo real
+
+Usar Context7 (MCP) para consultar documentación actualizada cuando:
+- Implementes componentes con Next.js 16, React 19, TailwindCSS 4 o shadcn/ui
+- Uses APIs específicas de Django 5 o DRF
+- No estés seguro si una API cambió entre versiones
+
+NO usar Context7 para: git, CI/CD, documentación, refactoring, o tareas que no tocan APIs de librerías.
+
 ## Código (específico Claude)
 
 - Python: type hints modernos (`dict`, `list`, `str | None` — no `Dict`, `List`, `Optional`)
