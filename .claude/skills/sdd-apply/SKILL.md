@@ -41,12 +41,12 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
   8. `mem_get_observation(id: {tasks_id})` → full tasks
 
   **Mark tasks complete** (update the tasks artifact as you go):
-  ```
+  ```text
   mem_update(id: {tasks-observation-id}, content: "{updated tasks with [x] marks}")
   ```
 
   **Save progress artifact**:
-  ```
+  ```text
   mem_save(
     title: "sdd/{change-name}/apply-progress",
     topic_key: "sdd/{change-name}/apply-progress",
@@ -85,7 +85,7 @@ Before writing ANY code:
 
 ### Step 3: Implement Tasks
 
-```
+```text
 FOR EACH TASK:
 ├── Read the task description
 ├── Read relevant spec scenarios (acceptance criteria)
@@ -180,4 +180,4 @@ If mode is `engram`:
 - NEVER implement tasks that weren't assigned to you
 - If you discover the design is wrong, NOTE IT — don't silently deviate
 - If a task is blocked, STOP and report back
-- Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `next_recommended`, `risks`
+- After the summary above, ALWAYS append a structured envelope: `{ status, executive_summary, artifacts: [{name, store, ref}], next_recommended: [...], risks: [...] }`

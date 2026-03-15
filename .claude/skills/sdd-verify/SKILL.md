@@ -42,7 +42,7 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
   8. `mem_get_observation(id: {tasks_id})` → full tasks
 
   **Save your artifact**:
-  ```
+  ```text
   mem_save(
     title: "sdd/{change-name}/verify-report",
     topic_key: "sdd/{change-name}/verify-report",
@@ -69,7 +69,7 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
 ### Step 2: Check Completeness
 
 Verify ALL tasks are done:
-```
+```text
 Read tasks
 ├── Count total tasks
 ├── Count completed tasks [x]
@@ -80,7 +80,7 @@ Read tasks
 ### Step 3: Check Correctness (Static Specs Match)
 
 For EACH spec requirement and scenario, search the codebase for structural evidence:
-```
+```text
 FOR EACH REQUIREMENT:
 ├── Search codebase for implementation evidence
 ├── For each SCENARIO:
@@ -94,7 +94,7 @@ FOR EACH REQUIREMENT:
 ### Step 4: Check Coherence (Design Match)
 
 Verify design decisions were followed:
-```
+```text
 FOR EACH DECISION:
 ├── Was the chosen approach actually used?
 ├── Were rejected alternatives accidentally implemented?
@@ -149,7 +149,7 @@ Capture exit codes, errors, and results for each.
 
 Cross-reference EVERY spec scenario against test results:
 
-```
+```text
 FOR EACH REQUIREMENT:
   FOR EACH SCENARIO:
   ├── Find tests that cover this scenario
@@ -167,7 +167,7 @@ FOR EACH REQUIREMENT:
 **This step is MANDATORY — do NOT skip it.**
 
 If mode is `engram`:
-```
+```text
 mem_save(
   title: "sdd/{change-name}/verify-report",
   topic_key: "sdd/{change-name}/verify-report",
@@ -232,4 +232,4 @@ If mode is `hybrid`: also call `mem_save` as above (write to BOTH backends).
 - ALWAYS check for hardcoded credentials
 - DO NOT fix any issues — only report them
 - CRITICAL issues = must fix before archive
-- Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `next_recommended`, `risks`
+- After the summary above, ALWAYS append a structured envelope: `{ status, executive_summary, artifacts: [{name, store, ref}], next_recommended: [...], risks: [...] }`

@@ -85,13 +85,13 @@ Read the convention files listed above for project-specific patterns and rules. 
 
 Create the `.atl/` directory in the project root if it doesn't exist, then write:
 
-```
+```text
 .atl/skill-registry.md
 ```
 
 #### B. If engram is available, also save to engram (cross-session bonus):
 
-```
+```text
 mem_save(
   title: "skill-registry",
   topic_key: "skill-registry",

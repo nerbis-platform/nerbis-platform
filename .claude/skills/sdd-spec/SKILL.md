@@ -36,7 +36,7 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
   **DO NOT use search previews as source material.**
 
   **Save your artifact**:
-  ```
+  ```text
   mem_save(
     title: "sdd/{change-name}/spec",
     topic_key: "sdd/{change-name}/spec",
@@ -130,7 +130,7 @@ When the change touches frontend code, specs SHOULD include:
 **This step is MANDATORY — do NOT skip it.**
 
 If mode is `engram`:
-```
+```text
 mem_save(
   title: "sdd/{change-name}/spec",
   topic_key: "sdd/{change-name}/spec",
@@ -177,7 +177,7 @@ Ready for design (sdd-design). If design already exists, ready for tasks (sdd-ta
 - Keep scenarios TESTABLE — someone should be able to write an automated test from each one
 - DO NOT include implementation details — specs describe WHAT, not HOW
 - ALWAYS include tenant isolation requirements when touching backend models/views
-- Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `next_recommended`, `risks`
+- After the summary above, ALWAYS append a structured envelope: `{ status, executive_summary, artifacts: [{name, store, ref}], next_recommended: [...], risks: [...] }`
 
 ## RFC 2119 Keywords Quick Reference
 

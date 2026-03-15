@@ -38,7 +38,7 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
   6. `mem_get_observation(id: {design_id})` → full design (REQUIRED)
 
   **Save your artifact**:
-  ```
+  ```text
   mem_save(
     title: "sdd/{change-name}/tasks",
     topic_key: "sdd/{change-name}/tasks",
@@ -90,16 +90,21 @@ From the design document, identify:
 - [ ] 2.1 {Concrete action}
 - [ ] 2.2 {Concrete action}
 
-## Phase 3: {Phase Name} (e.g., Testing)
+## Phase 3: {Phase Name} (e.g., Integration)
 
-- [ ] 3.1 {Write tests for ...}
-- [ ] 3.2 {Verify integration between ...}
+- [ ] 3.1 {Connect backend + frontend}
+- [ ] 3.2 {Wire routes, API calls, context}
 
-## Phase 4: Cleanup & Lint
+## Phase 4: {Phase Name} (e.g., Testing)
 
-- [ ] 4.1 Run `ruff check backend/` and fix issues
-- [ ] 4.2 Run `cd frontend && npm run lint` and fix issues
-- [ ] 4.3 {Update docs/comments if needed}
+- [ ] 4.1 {Write tests for ...}
+- [ ] 4.2 {Verify integration between ...}
+
+## Phase 5: Cleanup & Lint
+
+- [ ] 5.1 Run `ruff check backend/` and fix issues
+- [ ] 5.2 Run `cd frontend && npm run lint` and fix issues
+- [ ] 5.3 {Update docs/comments if needed}
 ```
 
 ### Task Writing Rules
@@ -115,7 +120,7 @@ Each task MUST be:
 
 ### Phase Organization (NERBIS convention)
 
-```
+```text
 Phase 1: Foundation
   └─ Models (TenantAwareModel), migrations, config
   └─ Things other tasks depend on
@@ -143,7 +148,7 @@ Phase 5: Cleanup & Lint
 **This step is MANDATORY — do NOT skip it.**
 
 If mode is `engram`:
-```
+```text
 mem_save(
   title: "sdd/{change-name}/tasks",
   topic_key: "sdd/{change-name}/tasks",
@@ -190,4 +195,4 @@ Ready for implementation (sdd-apply).
 - NEVER include vague tasks like "implement feature"
 - ALWAYS include lint/cleanup phase with `ruff check backend/` and `npm run lint`
 - NEVER include tasks that modify existing Django migrations
-- Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `next_recommended`, `risks`
+- After the summary above, ALWAYS append a structured envelope: `{ status, executive_summary, artifacts: [{name, store, ref}], next_recommended: [...], risks: [...] }`

@@ -36,7 +36,7 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
   4. If spec found: `mem_get_observation(id: {spec_id})` → full spec content
 
   **Save your artifact**:
-  ```
+  ```text
   mem_save(
     title: "sdd/{change-name}/design",
     topic_key: "sdd/{change-name}/design",
@@ -149,7 +149,7 @@ Before designing, read the actual code that will be affected:
 **This step is MANDATORY — do NOT skip it.**
 
 If mode is `engram`:
-```
+```text
 mem_save(
   title: "sdd/{change-name}/design",
   topic_key: "sdd/{change-name}/design",
@@ -195,4 +195,4 @@ Ready for tasks (sdd-tasks).
 - Frontend components should be Server Components by default
 - Reference `docs/SDD.md` for architectural context
 - If you have open questions that BLOCK the design, say so clearly
-- Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `next_recommended`, `risks`
+- After the summary above, ALWAYS append a structured envelope: `{ status, executive_summary, artifacts: [{name, store, ref}], next_recommended: [...], risks: [...] }`

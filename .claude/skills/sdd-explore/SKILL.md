@@ -32,7 +32,7 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
 
   **Save your artifact**:
   - If tied to a named change:
-    ```
+    ```text
     mem_save(
       title: "sdd/{change-name}/explore",
       topic_key: "sdd/{change-name}/explore",
@@ -42,7 +42,7 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
     )
     ```
   - If standalone (no change name):
-    ```
+    ```text
     mem_save(
       title: "sdd/explore/{topic-slug}",
       topic_key: "sdd/explore/{topic-slug}",
@@ -82,7 +82,7 @@ Read relevant code to understand:
 - Existing behavior that relates to the request
 - Potential constraints or risks
 
-```
+```text
 INVESTIGATE:
 ├── Read entry points and key files
 ├── Search for related functionality
@@ -115,7 +115,7 @@ If there are multiple approaches, compare them:
 **This step is MANDATORY when tied to a named change — do NOT skip it.**
 
 If mode is `engram` and this exploration is tied to a change:
-```
+```text
 mem_save(
   title: "sdd/{change-name}/explore",
   topic_key: "sdd/{change-name}/explore",
@@ -178,4 +178,4 @@ Return your analysis using this format:
 - If you can't find enough information, say so clearly
 - If the request is too vague to explore, say what clarification is needed
 - ALWAYS check multi-tenancy impact when the change touches backend code
-- Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `next_recommended`, `risks`
+- After the summary above, ALWAYS append a structured envelope: `{ status, executive_summary, artifacts: [{name, store, ref}], next_recommended: [...], risks: [...] }`

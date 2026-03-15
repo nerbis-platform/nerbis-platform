@@ -40,7 +40,7 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
   **Record all observation IDs** — include them in the archive report for full traceability.
 
   **Save your artifact**:
-  ```
+  ```text
   mem_save(
     title: "sdd/{change-name}/archive-report",
     topic_key: "sdd/{change-name}/archive-report",
@@ -82,7 +82,7 @@ Before archiving, check the verification report verdict:
 
 ### Step 4: Move to Archive (openspec/hybrid only)
 
-```
+```text
 openspec/changes/{change-name}/
   → openspec/changes/archive/YYYY-MM-DD-{change-name}/
 ```
@@ -92,7 +92,7 @@ openspec/changes/{change-name}/
 1. **Update `docs/SDD.md`** if the change introduced architectural modifications (new models, new API endpoints, new frontend routes). Suggest specific sections to update.
 
 2. **Suggest PR creation** to `develop` branch:
-   ```
+   ```text
    Recommend: Create PR with title following conventional commits
    Branch: feature/{change-name} or fix/{change-name}
    Target: develop
@@ -100,7 +100,7 @@ openspec/changes/{change-name}/
    ```
 
 3. **Save learnings to Engram** if any discoveries/patterns were found during the SDD cycle:
-   ```
+   ```text
    mem_save(title: "{learning}", type: "discovery", project: "nerbis-platform", content: "...")
    ```
 
@@ -109,7 +109,7 @@ openspec/changes/{change-name}/
 **This step is MANDATORY — do NOT skip it.**
 
 If mode is `engram`:
-```
+```text
 mem_save(
   title: "sdd/{change-name}/archive-report",
   topic_key: "sdd/{change-name}/archive-report",
@@ -155,4 +155,4 @@ Ready for the next change.
 - The archive is an AUDIT TRAIL — never delete or modify archived changes
 - ALWAYS suggest SDD.md updates for architectural changes
 - ALWAYS suggest PR creation to develop
-- Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `next_recommended`, `risks`
+- After the summary above, ALWAYS append a structured envelope: `{ status, executive_summary, artifacts: [{name, store, ref}], next_recommended: [...], risks: [...] }`

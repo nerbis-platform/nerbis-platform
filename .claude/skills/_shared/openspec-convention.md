@@ -2,7 +2,7 @@
 
 ## Directory Structure
 
-```
+```text
 openspec/
 ├── config.yaml              <- Project-specific SDD config
 ├── specs/                   <- Source of truth (main specs)
@@ -42,7 +42,7 @@ openspec/
 
 Each skill reads its dependencies from the filesystem:
 
-```
+```text
 Proposal:  openspec/changes/{change-name}/proposal.md
 Specs:     openspec/changes/{change-name}/specs/  (all domain subdirectories)
 Design:    openspec/changes/{change-name}/design.md
@@ -106,7 +106,7 @@ rules:
 ## Archive Structure
 
 When archiving, the change folder moves to:
-```
+```text
 openspec/changes/archive/YYYY-MM-DD-{change-name}/
 ```
 

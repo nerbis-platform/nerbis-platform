@@ -33,7 +33,7 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
   4. If found: `mem_get_observation(id: {id})` → full project context
 
   **Save your artifact**:
-  ```
+  ```text
   mem_save(
     title: "sdd/{change-name}/proposal",
     topic_key: "sdd/{change-name}/proposal",
@@ -62,7 +62,7 @@ From the registry, identify and read any skills whose triggers match your task. 
 ### Step 2: Create Change Directory (openspec/hybrid only)
 
 **IF mode is `openspec` or `hybrid`:** create the change folder:
-```
+```text
 openspec/changes/{change-name}/
 └── proposal.md
 ```
@@ -143,7 +143,7 @@ openspec/changes/{change-name}/
 **This step is MANDATORY — do NOT skip it.**
 
 If mode is `engram`:
-```
+```text
 mem_save(
   title: "sdd/{change-name}/proposal",
   topic_key: "sdd/{change-name}/proposal",
@@ -185,4 +185,4 @@ Ready for specs (sdd-spec) and design (sdd-design) — these can run in parallel
 - Use concrete file paths in "Affected Areas" when possible
 - ALWAYS include "Multi-Tenancy Impact" section when backend code is in scope
 - ALWAYS include "Module Impact" section when tenant feature flags might be affected
-- Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `next_recommended`, `risks`
+- After the summary above, ALWAYS append a structured envelope: `{ status, executive_summary, artifacts: [{name, store, ref}], next_recommended: [...], risks: [...] }`

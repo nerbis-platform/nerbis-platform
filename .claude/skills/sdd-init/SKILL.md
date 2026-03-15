@@ -21,7 +21,7 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
   Do NOT create `openspec/` directory.
 
   **Save project context**:
-  ```
+  ```text
   mem_save(
     title: "sdd-init/nerbis-platform",
     topic_key: "sdd-init/nerbis-platform",
@@ -64,7 +64,7 @@ Read the project to understand:
 
 If mode resolves to `openspec`, create this directory structure:
 
-```
+```text
 openspec/
 ├── config.yaml
 ├── specs/
@@ -90,7 +90,7 @@ Follow the same logic as `.claude/skills/skill-registry/SKILL.md`:
 **This step is MANDATORY — do NOT skip it.**
 
 If mode is `engram`:
-```
+```text
 mem_save(
   title: "sdd-init/nerbis-platform",
   topic_key: "sdd-init/nerbis-platform",
@@ -102,7 +102,7 @@ mem_save(
 
 ### Step 6: Return Summary
 
-```
+```markdown
 ## SDD Initialized
 
 **Project**: nerbis-platform
@@ -130,4 +130,4 @@ Ready for /sdd-explore <topic> or /sdd-new <change-name>.
 - ALWAYS detect the real tech stack, don't guess
 - If the project already has an `openspec/` directory, report what exists
 - Keep context CONCISE — no more than 10 lines
-- Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `next_recommended`, `risks`
+- After the summary above, ALWAYS append a structured envelope: `{ status, executive_summary, artifacts: [{name, store, ref}], next_recommended: [...], risks: [...] }`

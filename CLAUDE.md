@@ -95,7 +95,7 @@ vía Task tool, y sintetizar sus resultados.
 
 ### Grafo de dependencias (DAG)
 
-```
+```text
 explore → propose → 🚪 → spec + design (paralelo) → 🚪 → tasks → apply → 🚪 → verify → archive
 ```
 
@@ -116,7 +116,7 @@ explore → propose → 🚪 → spec + design (paralelo) → 🚪 → tasks →
 
 Al lanzar un sub-agente SDD, SIEMPRE incluir en el prompt:
 
-```
+```text
 SKILL LOADING (do this FIRST):
 Check for available skills:
   1. Try: mem_search(query: "skill-registry", project: "nerbis-platform")
