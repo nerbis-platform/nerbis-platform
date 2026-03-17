@@ -170,7 +170,7 @@ function InfoContent({ mode, step, forgotStep, contentVisible }: InfoContentProp
               <br />
               <span style={{ fontWeight: 600 }}>segura</span>
               <br />
-              <span className="text-[#95D0C9]" style={{ fontWeight: 600 }}>con nosotros.</span>
+              <span className="text-[#0D9488]" style={{ fontWeight: 600 }}>con nosotros.</span>
             </>
           ),
           subtitle: (
@@ -189,7 +189,7 @@ function InfoContent({ mode, step, forgotStep, contentVisible }: InfoContentProp
               <br />
               <span style={{ fontWeight: 600 }}>contraseña</span>
               <br />
-              <span className="text-[#95D0C9]" style={{ fontWeight: 600 }}>segura.</span>
+              <span className="text-[#0D9488]" style={{ fontWeight: 600 }}>segura.</span>
             </>
           ),
           subtitle: (
@@ -208,7 +208,7 @@ function InfoContent({ mode, step, forgotStep, contentVisible }: InfoContentProp
               <br />
               <span style={{ fontWeight: 600 }}>actualizada</span>
               <br />
-              <span className="text-[#95D0C9]" style={{ fontWeight: 600 }}>exitosamente.</span>
+              <span className="text-[#0D9488]" style={{ fontWeight: 600 }}>exitosamente.</span>
             </>
           ),
           subtitle: (
@@ -231,7 +231,7 @@ function InfoContent({ mode, step, forgotStep, contentVisible }: InfoContentProp
             <br />
             <span style={{ fontWeight: 600 }}>de vuelta.</span>
             <br />
-            <span className="text-[#95D0C9]" style={{ fontWeight: 600 }}>Tu negocio te espera.</span>
+            <span className="text-[#0D9488]" style={{ fontWeight: 600 }}>Tu negocio te espera.</span>
           </>
         ),
         subtitle: (
@@ -252,7 +252,7 @@ function InfoContent({ mode, step, forgotStep, contentVisible }: InfoContentProp
             <br />
             <span style={{ fontWeight: 600 }}>Solo falta</span>
             <br />
-            <span className="text-[#95D0C9]" style={{ fontWeight: 600 }}>tu cuenta.</span>
+            <span className="text-[#0D9488]" style={{ fontWeight: 600 }}>tu cuenta.</span>
           </>
         ),
         subtitle: (
@@ -272,7 +272,7 @@ function InfoContent({ mode, step, forgotStep, contentVisible }: InfoContentProp
           <br />
           <span style={{ fontWeight: 600 }}>Tu sitio web.</span>
           <br />
-          <span className="text-[#95D0C9]" style={{ fontWeight: 600 }}>En minutos.</span>
+          <span className="text-[#0D9488]" style={{ fontWeight: 600 }}>En minutos.</span>
         </>
       ),
       subtitle: (
@@ -694,7 +694,7 @@ export default function AuthSplitScreen({ initialMode = 'register', redirectTo =
             <div
               className="absolute inset-0 pointer-events-none"
               style={{
-                background: 'radial-gradient(ellipse at 20% 80%, rgba(149, 208, 201, 0.15) 0%, transparent 60%)',
+                background: 'radial-gradient(ellipse at 20% 80%, rgba(13, 148, 136, 0.15) 0%, transparent 60%)',
               }}
             />
 
@@ -817,7 +817,7 @@ export default function AuthSplitScreen({ initialMode = 'register', redirectTo =
             <div
               className="absolute inset-0 pointer-events-none"
               style={{
-                background: 'radial-gradient(ellipse at 20% 80%, rgba(149, 208, 201, 0.15) 0%, transparent 60%)',
+                background: 'radial-gradient(ellipse at 20% 80%, rgba(13, 148, 136, 0.15) 0%, transparent 60%)',
               }}
             />
             <div className="relative flex items-center gap-3 mb-8">
@@ -1160,7 +1160,7 @@ function RegisterFormPanel({
                                         onSelect={() => { setPhoneCountry(c.value); setPhoneCodeOpen(false); }}
                                         className="text-sm"
                                       >
-                                        <Check className={`mr-2 h-3.5 w-3.5 ${phoneCountry === c.value ? 'opacity-100 text-[#95D0C9]' : 'opacity-0'}`} />
+                                        <Check className={`mr-2 h-3.5 w-3.5 ${phoneCountry === c.value ? 'opacity-100 text-[#0D9488]' : 'opacity-0'}`} />
                                         <span className="text-base leading-none mr-2">{c.flag}</span>
                                         <span className="flex-1">{c.label}</span>
                                         <span className="text-gray-400 ml-auto">{c.code}</span>
@@ -1224,7 +1224,7 @@ function RegisterFormPanel({
                       {pwd.length > 0 && (
                         <div className="flex gap-3 mt-2">
                           {rules.map((r) => (
-                            <span key={r.label} className={`text-[0.65rem] transition-colors ${r.met ? 'text-[#95D0C9]' : 'text-gray-300'}`}>
+                            <span key={r.label} className={`text-[0.65rem] transition-colors ${r.met ? 'text-[#0D9488]' : 'text-gray-300'}`}>
                               {r.met ? '✓' : '○'} {r.label}
                             </span>
                           ))}
@@ -1261,7 +1261,7 @@ function RegisterFormPanel({
                       </div>
                     </FormControl>
                     {field.value && (
-                      <p className={`text-[0.65rem] mt-1 transition-colors ${passwordsMatch ? 'text-[#95D0C9]' : 'text-amber-600'}`}>
+                      <p className={`text-[0.65rem] mt-1 transition-colors ${passwordsMatch ? 'text-[#0D9488]' : 'text-amber-600'}`}>
                         {passwordsMatch ? '✓ Las contraseñas coinciden' : 'Las contraseñas no coinciden'}
                       </p>
                     )}
@@ -1391,7 +1391,7 @@ function LoginFormPanel({
                   <button
                     type="button"
                     onClick={onForgotPassword}
-                    className="text-[0.72rem] text-[#95D0C9] hover:text-[#7abfb7] transition-colors cursor-pointer"
+                    className="text-[0.72rem] text-[#0D9488] hover:text-[#0F766E] transition-colors cursor-pointer"
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
@@ -1614,7 +1614,7 @@ function ForgotPasswordFormPanel({
                             value={digit}
                             onChange={(e) => onOtpChange(index, e.target.value.replace(/\D/g, ''))}
                             onKeyDown={(e) => onOtpKeyDown(index, e)}
-                            className="w-full h-12 text-center text-lg font-semibold bg-white border border-gray-200 rounded-lg focus:border-[#95D0C9] focus:ring-0 focus:outline-none transition-colors text-[#1C3B57]"
+                            className="w-full h-12 text-center text-lg font-semibold bg-white border border-gray-200 rounded-lg focus:border-[#0D9488] focus:ring-0 focus:outline-none transition-colors text-[#1C3B57]"
                             disabled={isLoading}
                           />
                         ))}
@@ -1730,7 +1730,7 @@ function ForgotPasswordFormPanel({
               type="button"
               onClick={onResendCode}
               disabled={isResending}
-              className="text-[0.78rem] text-[#95D0C9] hover:text-[#7abfb7] transition-colors disabled:opacity-50 cursor-pointer"
+              className="text-[0.78rem] text-[#0D9488] hover:text-[#0F766E] transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isResending ? 'Reenviando...' : '¿No recibiste el código? Reenviar'}
             </button>

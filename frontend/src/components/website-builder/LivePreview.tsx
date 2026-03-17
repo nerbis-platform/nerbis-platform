@@ -985,7 +985,7 @@ export default function LivePreview({
     }
     styleEl.textContent = `
       [data-section].gv-section-active {
-        outline: 2px solid #95D0C9 !important;
+        outline: 2px solid #0D9488 !important;
         outline-offset: -2px;
         transition: outline-color 0.3s ease;
       }
@@ -993,14 +993,14 @@ export default function LivePreview({
         content: '';
         position: absolute;
         inset: 0;
-        background: rgba(149, 208, 201, 0.06);
+        background: rgba(13, 148, 136, 0.06);
         pointer-events: none;
         border-radius: inherit;
         animation: gvHighlightFade 1.5s ease-out forwards;
       }
       @keyframes gvHighlightFade {
-        0% { background: rgba(149, 208, 201, 0.12); }
-        100% { background: rgba(149, 208, 201, 0.03); }
+        0% { background: rgba(13, 148, 136, 0.12); }
+        100% { background: rgba(13, 148, 136, 0.03); }
       }
     `;
 
@@ -1168,7 +1168,7 @@ export default function LivePreview({
           {isLoading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#13161b]/60 backdrop-blur-sm z-10">
               <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center mb-3">
-                <Loader2 className="h-5 w-5 text-[#95D0C9] animate-spin" />
+                <Loader2 className="h-5 w-5 text-[#0D9488] animate-spin" />
               </div>
               <p className="text-[0.72rem] text-gray-400">Actualizando preview...</p>
             </div>

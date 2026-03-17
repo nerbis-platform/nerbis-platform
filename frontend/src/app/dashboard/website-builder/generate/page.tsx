@@ -178,7 +178,7 @@ export default function GeneratePage() {
     return (
       <div className="flex flex-col items-center justify-center py-32">
         <div className="w-12 h-12 rounded-full bg-[#E2F3F1] flex items-center justify-center mb-4">
-          <Sparkles className="h-5 w-5 text-[#95D0C9] animate-pulse" />
+          <Sparkles className="h-5 w-5 text-[#0D9488] animate-pulse" />
         </div>
         <p className="text-[0.85rem] text-gray-400">Preparando la generación...</p>
       </div>
@@ -213,11 +213,11 @@ export default function GeneratePage() {
           {/* Animated icon */}
           <div className="relative mb-10">
             <div className="w-24 h-24 rounded-full bg-[#E2F3F1] flex items-center justify-center">
-              <Sparkles className="h-10 w-10 text-[#95D0C9] gentle-pulse" />
+              <Sparkles className="h-10 w-10 text-[#0D9488] gentle-pulse" />
             </div>
             {/* Orbiting dots */}
             <div className="absolute inset-0 animate-spin" style={{ animationDuration: '8s' }}>
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#95D0C9]/40" />
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#0D9488]/40" />
             </div>
             <div className="absolute inset-0 animate-spin" style={{ animationDuration: '12s', animationDirection: 'reverse' }}>
               <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-2 rounded-full bg-[#1C3B57]/20" />
@@ -233,7 +233,7 @@ export default function GeneratePage() {
             <br />
             <span style={{ fontWeight: 600 }}>
               tu{' '}
-              <span className="text-[#95D0C9]">sitio web</span>
+              <span className="text-[#0D9488]">sitio web</span>
             </span>
           </h1>
 
@@ -248,7 +248,7 @@ export default function GeneratePage() {
                 className="h-full rounded-full transition-all duration-500 ease-out"
                 style={{
                   width: `${progress}%`,
-                  background: 'linear-gradient(90deg, #95D0C9, #1C3B57)',
+                  background: 'linear-gradient(90deg, #0D9488, #1C3B57)',
                 }}
               />
             </div>
@@ -262,7 +262,7 @@ export default function GeneratePage() {
             key={currentStep}
             className="flex items-center gap-2.5 px-5 py-3 rounded-xl bg-white border border-gray-100 shadow-sm fade-up"
           >
-            <StepIcon className="h-4 w-4 text-[#95D0C9] shrink-0" />
+            <StepIcon className="h-4 w-4 text-[#0D9488] shrink-0" />
             <span className="text-[0.82rem] text-gray-500">
               {step.message}
             </span>
@@ -309,7 +309,7 @@ export default function GeneratePage() {
             <br />
             <span style={{ fontWeight: 600 }}>
               ha sido{' '}
-              <span className="text-[#95D0C9]">generado</span>
+              <span className="text-[#0D9488]">generado</span>
             </span>
           </h1>
 

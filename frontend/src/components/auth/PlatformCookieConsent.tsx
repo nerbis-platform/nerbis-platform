@@ -78,8 +78,8 @@ export function PlatformCookieConsent() {
       >
         <div className="mx-4 mb-4 max-w-lg rounded-2xl border border-white/10 bg-[#1C3B57] p-5 shadow-2xl sm:mx-auto">
           <div className="flex items-start gap-3.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#95D0C9]/15">
-              <Shield className="h-4.5 w-4.5 text-[#95D0C9]" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0D9488]/15">
+              <Shield className="h-4.5 w-4.5 text-[#0D9488]" />
             </div>
             <div className="flex-1">
               <p className="text-[0.82rem] font-semibold text-white mb-1">
@@ -108,7 +108,7 @@ export function PlatformCookieConsent() {
             </button>
             <button
               onClick={acceptAll}
-              className="flex-1 h-9 rounded-lg text-[0.78rem] font-medium text-[#1C3B57] bg-[#95D0C9] hover:bg-[#a8d9d3] transition-colors cursor-pointer"
+              className="flex-1 h-9 rounded-lg text-[0.78rem] font-medium text-[#1C3B57] bg-[#0D9488] hover:bg-[#14B8A6] transition-colors cursor-pointer"
             >
               Aceptar todas
             </button>
@@ -121,7 +121,7 @@ export function PlatformCookieConsent() {
         <DialogContent className="sm:max-w-md border-0 bg-[#1C3B57] text-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-white">
-              <Settings className="h-5 w-5 text-[#95D0C9]" />
+              <Settings className="h-5 w-5 text-[#0D9488]" />
               Configuración de cookies
             </DialogTitle>
             <DialogDescription className="text-white/50">
@@ -138,7 +138,7 @@ export function PlatformCookieConsent() {
                   Autenticación, sesión y seguridad. Siempre activas.
                 </p>
               </div>
-              <Switch checked={true} disabled className="data-[state=checked]:bg-[#95D0C9]" />
+              <Switch checked={true} disabled className="data-[state=checked]:bg-[#0D9488]" />
             </div>
 
             {/* Rendimiento */}
@@ -155,7 +155,7 @@ export function PlatformCookieConsent() {
                 onCheckedChange={(checked) =>
                   setPreferences((prev) => ({ ...prev, performance: checked }))
                 }
-                className="data-[state=checked]:bg-[#95D0C9]"
+                className="data-[state=checked]:bg-[#0D9488]"
               />
             </div>
 
@@ -173,7 +173,7 @@ export function PlatformCookieConsent() {
                 onCheckedChange={(checked) =>
                   setPreferences((prev) => ({ ...prev, functionality: checked }))
                 }
-                className="data-[state=checked]:bg-[#95D0C9]"
+                className="data-[state=checked]:bg-[#0D9488]"
               />
             </div>
           </div>
@@ -187,7 +187,7 @@ export function PlatformCookieConsent() {
             </button>
             <button
               onClick={() => saveConsent(preferences)}
-              className="flex-1 h-10 rounded-lg text-[0.82rem] font-medium text-[#1C3B57] bg-[#95D0C9] hover:bg-[#a8d9d3] transition-colors cursor-pointer"
+              className="flex-1 h-10 rounded-lg text-[0.82rem] font-medium text-[#1C3B57] bg-[#0D9488] hover:bg-[#14B8A6] transition-colors cursor-pointer"
             >
               Guardar preferencias
             </button>

@@ -213,7 +213,7 @@ export default function HeaderEditor({
     updateNavItems(navItems.map((n) => (n.id === id ? { ...n, label } : n)));
   };
 
-  const inputClass = 'w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors';
+  const inputClass = 'w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/30 transition-colors';
   const labelClass = 'text-[0.72rem] font-medium text-gray-400 uppercase tracking-wide';
 
   // Social links display
@@ -235,7 +235,7 @@ export default function HeaderEditor({
         {/* Preview + Upload */}
         {(logoMode === 'image' || logoMode === 'image_text') && !logoUrl ? (
           <div
-            className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-5 mb-3 cursor-pointer hover:border-[#95D0C9] hover:bg-[#E2F3F1]/20 transition-colors"
+            className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-5 mb-3 cursor-pointer hover:border-[#0D9488] hover:bg-[#E2F3F1]/20 transition-colors"
             onClick={() => !isUploading && fileInputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
@@ -245,7 +245,7 @@ export default function HeaderEditor({
             }}
           >
             {isUploading ? (
-              <Loader2 className="h-5 w-5 text-[#95D0C9] animate-spin mb-1.5" />
+              <Loader2 className="h-5 w-5 text-[#0D9488] animate-spin mb-1.5" />
             ) : (
               <div className="w-9 h-9 rounded-full bg-[#E2F3F1] flex items-center justify-center mb-1.5">
                 <Upload className="h-4 w-4 text-[#1C3B57]" />
@@ -331,7 +331,7 @@ export default function HeaderEditor({
                 onClick={() => updateField('logo_mode', value)}
                 className={`flex flex-col items-center gap-1 py-2.5 px-2 rounded-lg border text-[0.72rem] font-medium transition-all cursor-pointer ${
                   logoMode === value
-                    ? 'border-[#95D0C9] bg-[#E2F3F1] text-[#1C3B57]'
+                    ? 'border-[#0D9488] bg-[#E2F3F1] text-[#1C3B57]'
                     : 'border-gray-200 text-gray-500 hover:border-gray-300'
                 }`}
               >
@@ -413,7 +413,7 @@ export default function HeaderEditor({
             <button
               type="button"
               onClick={() => setShowAddMenu(!showAddMenu)}
-              className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border border-dashed border-gray-300 text-[0.75rem] text-gray-500 font-medium hover:border-[#95D0C9] hover:text-[#1C3B57] transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border border-dashed border-gray-300 text-[0.75rem] text-gray-500 font-medium hover:border-[#0D9488] hover:text-[#1C3B57] transition-colors cursor-pointer"
             >
               <Plus className="h-3 w-3" />
               Agregar link
@@ -506,7 +506,7 @@ export default function HeaderEditor({
                     type="text"
                     value={String(content.info_bar_bg || '#1C3B57')}
                     onChange={(e) => updateField('info_bar_bg', e.target.value)}
-                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-[0.78rem] text-gray-600 focus:outline-none focus:border-[#95D0C9]"
+                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-[0.78rem] text-gray-600 focus:outline-none focus:border-[#0D9488]"
                   />
                 </div>
               </div>
@@ -523,7 +523,7 @@ export default function HeaderEditor({
                     type="text"
                     value={String(content.info_bar_text_color || '#FFFFFF')}
                     onChange={(e) => updateField('info_bar_text_color', e.target.value)}
-                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-[0.78rem] text-gray-600 focus:outline-none focus:border-[#95D0C9]"
+                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-[0.78rem] text-gray-600 focus:outline-none focus:border-[#0D9488]"
                   />
                 </div>
               </div>
@@ -542,7 +542,7 @@ export default function HeaderEditor({
                     type="checkbox"
                     checked={content[key] !== false}
                     onChange={(e) => updateField(key, e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-[#1C3B57] focus:ring-[#95D0C9] cursor-pointer"
+                    className="w-4 h-4 rounded border-gray-300 text-[#1C3B57] focus:ring-[#0D9488] cursor-pointer"
                   />
                   <span className="text-[0.82rem] text-gray-600">{label}</span>
                   {value ? (
@@ -557,7 +557,7 @@ export default function HeaderEditor({
                   type="checkbox"
                   checked={content.info_bar_show_social !== false}
                   onChange={(e) => updateField('info_bar_show_social', e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-[#1C3B57] focus:ring-[#95D0C9] cursor-pointer"
+                  className="w-4 h-4 rounded border-gray-300 text-[#1C3B57] focus:ring-[#0D9488] cursor-pointer"
                 />
                 <span className="text-[0.82rem] text-gray-600">Redes sociales</span>
                 {!hasSocialLinks && (
@@ -605,7 +605,7 @@ export default function HeaderEditor({
                     type="text"
                     value={String(content.promo_bar_bg || '#1C3B57')}
                     onChange={(e) => updateField('promo_bar_bg', e.target.value)}
-                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-[0.78rem] text-gray-600 focus:outline-none focus:border-[#95D0C9]"
+                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-[0.78rem] text-gray-600 focus:outline-none focus:border-[#0D9488]"
                   />
                 </div>
               </div>
@@ -622,7 +622,7 @@ export default function HeaderEditor({
                     type="text"
                     value={String(content.promo_bar_text_color || '#FFFFFF')}
                     onChange={(e) => updateField('promo_bar_text_color', e.target.value)}
-                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-[0.78rem] text-gray-600 focus:outline-none focus:border-[#95D0C9]"
+                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-[0.78rem] text-gray-600 focus:outline-none focus:border-[#0D9488]"
                   />
                 </div>
               </div>
@@ -754,7 +754,7 @@ export default function HeaderEditor({
                     name="booking_dest"
                     checked={content.action_booking_use_system !== false}
                     onChange={() => updateField('action_booking_use_system', true)}
-                    className="w-4 h-4 text-[#1C3B57] focus:ring-[#95D0C9] cursor-pointer"
+                    className="w-4 h-4 text-[#1C3B57] focus:ring-[#0D9488] cursor-pointer"
                   />
                   <div>
                     <span className="text-[0.82rem] text-gray-700">Sistema de reservas integrado</span>
@@ -767,7 +767,7 @@ export default function HeaderEditor({
                     name="booking_dest"
                     checked={content.action_booking_use_system === false}
                     onChange={() => updateField('action_booking_use_system', false)}
-                    className="w-4 h-4 text-[#1C3B57] focus:ring-[#95D0C9] cursor-pointer"
+                    className="w-4 h-4 text-[#1C3B57] focus:ring-[#0D9488] cursor-pointer"
                   />
                   <span className="text-[0.82rem] text-gray-700">Link personalizado</span>
                 </label>
@@ -903,7 +903,7 @@ function SortableNavItem({
     >
       <button
         type="button"
-        className="p-1.5 cursor-grab active:cursor-grabbing text-gray-400 hover:text-[#95D0C9] transition-colors"
+        className="p-1.5 cursor-grab active:cursor-grabbing text-gray-400 hover:text-[#0D9488] transition-colors"
         {...attributes}
         {...listeners}
       >
@@ -916,7 +916,7 @@ function SortableNavItem({
         type="text"
         value={item.label}
         onChange={(e) => onUpdateLabel(e.target.value)}
-        className={`flex-1 h-8 px-2 rounded-md border border-transparent text-[0.82rem] focus:outline-none focus:border-[#95D0C9] transition-colors ${
+        className={`flex-1 h-8 px-2 rounded-md border border-transparent text-[0.82rem] focus:outline-none focus:border-[#0D9488] transition-colors ${
           item.visible ? 'text-gray-700' : 'text-gray-400'
         }`}
       />

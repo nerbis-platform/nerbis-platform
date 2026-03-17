@@ -170,7 +170,7 @@ export default function SectionLibrary({
                         key={variant.id}
                         type="button"
                         onClick={() => handleAddWithVariant(selectedSection, variant.id)}
-                        className="group relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-100 hover:border-[#95D0C9] hover:bg-[#E2F3F1]/20 transition-all cursor-pointer"
+                        className="group relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-100 hover:border-[#0D9488] hover:bg-[#E2F3F1]/20 transition-all cursor-pointer"
                       >
                         <LayoutIcon type={variant.icon} isActive={false} />
                         <div className="text-center">
@@ -204,7 +204,7 @@ export default function SectionLibrary({
                   <button
                     type="button"
                     onClick={() => handleAddBlank(selectedSection)}
-                    className="w-full flex items-center justify-center gap-2 h-9 rounded-lg border border-dashed border-gray-300 text-[0.75rem] text-gray-500 font-medium hover:border-[#95D0C9] hover:text-[#1C3B57] transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 h-9 rounded-lg border border-dashed border-gray-300 text-[0.75rem] text-gray-500 font-medium hover:border-[#0D9488] hover:text-[#1C3B57] transition-colors cursor-pointer"
                   >
                     <FileText className="h-3.5 w-3.5" />
                     Agregar sin contenido

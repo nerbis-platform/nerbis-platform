@@ -88,7 +88,7 @@ function ImageUploadField({
 
   return (
     <div className="space-y-3">
-      <label className="group block border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-[#95D0C9] transition-colors cursor-pointer">
+      <label className="group block border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-[#0D9488] transition-colors cursor-pointer">
         <input
           type="file"
           accept="image/png,image/jpeg,image/svg+xml,image/webp"
@@ -107,12 +107,12 @@ function ImageUploadField({
               className="max-h-20 max-w-50 object-contain"
             />
             {extracting ? (
-              <span className="text-[0.78rem] text-[#95D0C9] flex items-center gap-1.5">
+              <span className="text-[0.78rem] text-[#0D9488] flex items-center gap-1.5">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Extrayendo colores...
               </span>
             ) : (
-              <span className="text-[0.78rem] text-gray-400 group-hover:text-[#95D0C9]">
+              <span className="text-[0.78rem] text-gray-400 group-hover:text-[#0D9488]">
                 Cambiar imagen
               </span>
             )}
@@ -168,7 +168,7 @@ function QuestionField({
           placeholder={question.placeholder || ''}
           value={stringValue}
           onChange={(e) => onChange(e.target.value)}
-          className="h-11 border-gray-200 focus:border-[#95D0C9] focus:ring-[#95D0C9]/20 text-[0.88rem]"
+          className="h-11 border-gray-200 focus:border-[#0D9488] focus:ring-[#0D9488]/20 text-[0.88rem]"
         />
       );
 
@@ -180,7 +180,7 @@ function QuestionField({
           onChange={(e) => onChange(e.target.value)}
           rows={4}
           maxLength={question.max_length || undefined}
-          className="border-gray-200 focus:border-[#95D0C9] focus:ring-[#95D0C9]/20 text-[0.88rem] resize-none"
+          className="border-gray-200 focus:border-[#0D9488] focus:ring-[#0D9488]/20 text-[0.88rem] resize-none"
         />
       );
 
@@ -194,7 +194,7 @@ function QuestionField({
               onClick={() => onChange(option)}
               className={`text-left px-3.5 py-2.5 rounded-lg border text-[0.82rem] transition-all duration-150 cursor-pointer ${
                 stringValue === option
-                  ? 'border-[#95D0C9] bg-[#E2F3F1]/50 text-[#1C3B57] font-medium'
+                  ? 'border-[#0D9488] bg-[#E2F3F1]/50 text-[#1C3B57] font-medium'
                   : 'border-gray-200 text-gray-600 hover:border-gray-300'
               }`}
             >
@@ -202,7 +202,7 @@ function QuestionField({
                 <div
                   className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
                     stringValue === option
-                      ? 'border-[#95D0C9] bg-[#95D0C9]'
+                      ? 'border-[#0D9488] bg-[#0D9488]'
                       : 'border-gray-300'
                   }`}
                 >
@@ -235,7 +235,7 @@ function QuestionField({
                 }}
                 className={`text-left px-3.5 py-2.5 rounded-lg border text-[0.82rem] transition-all duration-150 cursor-pointer ${
                   isSelected
-                    ? 'border-[#95D0C9] bg-[#E2F3F1]/50 text-[#1C3B57] font-medium'
+                    ? 'border-[#0D9488] bg-[#E2F3F1]/50 text-[#1C3B57] font-medium'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300'
                 }`}
               >
@@ -243,7 +243,7 @@ function QuestionField({
                   <div
                     className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                       isSelected
-                        ? 'border-[#95D0C9] bg-[#95D0C9]'
+                        ? 'border-[#0D9488] bg-[#0D9488]'
                         : 'border-gray-300'
                     }`}
                   >
@@ -271,7 +271,7 @@ function QuestionField({
             placeholder="#000000"
             value={stringValue}
             onChange={(e) => onChange(e.target.value)}
-            className="h-11 border-gray-200 focus:border-[#95D0C9] focus:ring-[#95D0C9]/20 text-[0.88rem] font-mono max-w-35"
+            className="h-11 border-gray-200 focus:border-[#0D9488] focus:ring-[#0D9488]/20 text-[0.88rem] font-mono max-w-35"
           />
         </div>
       );
@@ -291,7 +291,7 @@ function QuestionField({
           placeholder={question.placeholder || ''}
           value={stringValue}
           onChange={(e) => onChange(e.target.value)}
-          className="h-11 border-gray-200 focus:border-[#95D0C9] focus:ring-[#95D0C9]/20 text-[0.88rem]"
+          className="h-11 border-gray-200 focus:border-[#0D9488] focus:ring-[#0D9488]/20 text-[0.88rem]"
         />
       );
   }
@@ -317,7 +317,7 @@ function QuestionBlock({
       <label className="block mb-1.5">
         <span className="text-[0.85rem] font-medium" style={{ color: '#1C3B57' }}>
           {question.question_text}
-          {question.is_required && <span className="text-[#95D0C9] ml-1">*</span>}
+          {question.is_required && <span className="text-[#0D9488] ml-1">*</span>}
         </span>
         {!compact && question.help_text && (
           <span className="block text-[0.72rem] text-gray-400/80 mt-0.5">{question.help_text}</span>
@@ -582,7 +582,7 @@ export default function OnboardingPage() {
   if (questionsBySection.length === 0) {
     return (
       <div className="text-center py-20">
-        <Sparkles className="h-8 w-8 text-[#95D0C9] mx-auto mb-4" />
+        <Sparkles className="h-8 w-8 text-[#0D9488] mx-auto mb-4" />
         <p className="text-gray-500">Cargando preguntas...</p>
       </div>
     );
@@ -609,7 +609,7 @@ export default function OnboardingPage() {
             <br />
             <span style={{ fontWeight: 600 }}>
               tu{' '}
-              <span className="text-[#95D0C9] border-b-2 border-[#95D0C9]/30">
+              <span className="text-[#0D9488] border-b-2 border-[#0D9488]/30">
                 negocio
               </span>
             </span>

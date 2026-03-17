@@ -150,7 +150,7 @@ export default function ImagePicker({
       ) : (
         <div
           className={`mt-1.5 rounded-xl border-2 border-dashed ${
-            dragOver ? 'border-[#95D0C9] bg-[#E2F3F1]/30' : 'border-gray-200 bg-gray-50/50'
+            dragOver ? 'border-[#0D9488] bg-[#E2F3F1]/30' : 'border-gray-200 bg-gray-50/50'
           } p-6 flex flex-col items-center justify-center transition-colors ${
             disabled ? 'opacity-50' : 'cursor-pointer'
           }`}
@@ -160,7 +160,7 @@ export default function ImagePicker({
           onDrop={!disabled ? handleDrop : undefined}
         >
           {uploading ? (
-            <Loader2 className="h-6 w-6 text-[#95D0C9] animate-spin mb-2" />
+            <Loader2 className="h-6 w-6 text-[#0D9488] animate-spin mb-2" />
           ) : (
             <div className="w-10 h-10 rounded-full bg-[#E2F3F1] flex items-center justify-center mb-2">
               <ImageIcon className="h-4 w-4 text-[#1C3B57]" />

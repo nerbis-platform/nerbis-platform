@@ -264,7 +264,7 @@ export default function PageManager({
                     }}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-[0.78rem] transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-[#E2F3F1] text-[#1C3B57] font-medium shadow-sm ring-1 ring-[#95D0C9]/30'
+                        ? 'bg-[#E2F3F1] text-[#1C3B57] font-medium shadow-sm ring-1 ring-[#0D9488]/30'
                         : 'bg-gray-50 text-gray-600 hover:bg-gray-100 font-medium'
                     }`}
                   >
@@ -286,7 +286,7 @@ export default function PageManager({
                       style={{ gridTemplateRows: isEditorOpen ? '1fr' : '0fr' }}
                     >
                       <div className="overflow-hidden min-h-0">
-                        <div className="mt-1 mb-1.5 ml-1 pl-3 border-l-2 border-[#95D0C9]/30">
+                        <div className="mt-1 mb-1.5 ml-1 pl-3 border-l-2 border-[#0D9488]/30">
                           {editorContent}
                         </div>
                       </div>
@@ -402,7 +402,7 @@ export default function PageManager({
                                       style={{ gridTemplateRows: isSectionEditorOpen ? '1fr' : '0fr' }}
                                     >
                                       <div className="overflow-hidden min-h-0">
-                                        <div className="mt-1 mb-1.5 ml-1 pl-3 border-l-2 border-[#95D0C9]/30">
+                                        <div className="mt-1 mb-1.5 ml-1 pl-3 border-l-2 border-[#0D9488]/30">
                                           {editorContent}
                                         </div>
                                       </div>
@@ -427,7 +427,7 @@ export default function PageManager({
                         <button
                           type="button"
                           onClick={() => setAddSectionForPage(page.id)}
-                          className="w-full flex items-center justify-center gap-1 h-7 rounded-lg border border-dashed border-gray-200 text-[0.7rem] text-gray-400 font-medium hover:border-[#95D0C9] hover:text-[#1C3B57] transition-colors cursor-pointer"
+                          className="w-full flex items-center justify-center gap-1 h-7 rounded-lg border border-dashed border-gray-200 text-[0.7rem] text-gray-400 font-medium hover:border-[#0D9488] hover:text-[#1C3B57] transition-colors cursor-pointer"
                         >
                           <Plus className="h-3 w-3" />
                           Agregar seccion
@@ -463,7 +463,7 @@ export default function PageManager({
                   if (e.key === 'Escape') { setShowAddPage(false); setNewPageName(''); }
                 }}
                 placeholder="Ej: Nosotros"
-                className="flex-1 h-8 text-[0.78rem] border border-gray-200 rounded-lg px-2.5 focus:outline-none focus:border-[#95D0C9]"
+                className="flex-1 h-8 text-[0.78rem] border border-gray-200 rounded-lg px-2.5 focus:outline-none focus:border-[#0D9488]"
               />
               <button
                 type="button"
@@ -484,7 +484,7 @@ export default function PageManager({
             <button
               type="button"
               onClick={() => setShowAddPage(true)}
-              className="mt-1.5 w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border border-dashed border-gray-200 text-[0.72rem] text-gray-400 font-medium hover:border-[#95D0C9] hover:text-[#1C3B57] transition-colors cursor-pointer"
+              className="mt-1.5 w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border border-dashed border-gray-200 text-[0.72rem] text-gray-400 font-medium hover:border-[#0D9488] hover:text-[#1C3B57] transition-colors cursor-pointer"
             >
               <Plus className="h-3 w-3" />
               Nueva pagina
@@ -534,7 +534,7 @@ function SortablePageSection({
       style={style}
       className={`group flex items-center rounded-lg transition-all ${
         isActive
-          ? 'bg-[#E2F3F1] text-[#1C3B57] shadow-sm ring-1 ring-[#95D0C9]/30'
+          ? 'bg-[#E2F3F1] text-[#1C3B57] shadow-sm ring-1 ring-[#0D9488]/30'
           : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
       } ${isDragging ? 'shadow-md' : ''}`}
     >

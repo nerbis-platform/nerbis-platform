@@ -1,7 +1,14 @@
 // src/app/(auth)/layout.tsx
 
-import { Nunito } from 'next/font/google';
+import { Inter, Nunito } from 'next/font/google';
 import { PlatformCookieConsent } from '@/components/auth/PlatformCookieConsent';
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 const nunito = Nunito({
   subsets: ['latin'],
@@ -16,7 +23,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className={nunito.variable}>
+    <div className={`${inter.variable} ${nunito.variable}`}>
       {children}
       <PlatformCookieConsent />
     </div>

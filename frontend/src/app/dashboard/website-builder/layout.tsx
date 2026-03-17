@@ -170,7 +170,7 @@ export default function WebsiteBuilderLayout({
                     className={cn(
                       'flex h-7 w-7 items-center justify-center rounded-full text-[0.7rem] font-semibold transition-all duration-300',
                       status === 'complete' && 'bg-[#1C3B57] text-white',
-                      status === 'current' && 'bg-[#95D0C9] text-white',
+                      status === 'current' && 'bg-[#0D9488] text-white',
                       status === 'upcoming' && 'bg-gray-100 text-gray-400'
                     )}
                   >

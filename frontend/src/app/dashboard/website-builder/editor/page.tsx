@@ -893,7 +893,7 @@ export default function EditorPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <div className="w-12 h-12 rounded-full bg-[#E2F3F1] flex items-center justify-center mb-4">
-          <Loader2 className="h-5 w-5 text-[#95D0C9] animate-spin" />
+          <Loader2 className="h-5 w-5 text-[#0D9488] animate-spin" />
         </div>
         <p className="text-[0.85rem] text-gray-400">Cargando editor...</p>
       </div>
@@ -916,7 +916,7 @@ export default function EditorPage() {
           <br />
           <span style={{ fontWeight: 600 }}>
             ha sido{' '}
-            <span className="text-[#95D0C9]">publicado</span>
+            <span className="text-[#0D9488]">publicado</span>
           </span>
         </h1>
 
@@ -1327,7 +1327,7 @@ export default function EditorPage() {
               {chatMessages.length === 0 && (
                 <div className="text-center py-6">
                   <div className="w-10 h-10 rounded-full bg-[#E2F3F1] flex items-center justify-center mx-auto mb-2">
-                    <MessageSquare className="h-4 w-4 text-[#95D0C9]" />
+                    <MessageSquare className="h-4 w-4 text-[#0D9488]" />
                   </div>
                   <p className="text-[0.78rem] text-gray-500 font-medium mb-1">
                     Chatea con la IA
@@ -1383,7 +1383,7 @@ export default function EditorPage() {
                   }}
                   placeholder={`Ej: "Cambia el título a algo más llamativo"`}
                   rows={1}
-                  className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-[0.82rem] text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors"
+                  className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-[0.82rem] text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/30 transition-colors"
                   style={{ maxHeight: '80px' }}
                 />
                 <button

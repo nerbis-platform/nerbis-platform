@@ -84,7 +84,7 @@ Do NOT return without saving what you learned.
 ```
 
 **SDD (with dependencies)**:
-```text
+```
 Artifact store mode: {artifact_store.mode}
 Read these artifacts before starting (two-step — search returns truncated previews):
   mem_search(query: "sdd/{change-name}/{type}", project: "nerbis-platform") → get ID
@@ -104,7 +104,7 @@ and the pipeline BREAKS.
 ```
 
 **SDD (no dependencies)**:
-```text
+```
 Artifact store mode: {artifact_store.mode}
 
 PERSISTENCE (MANDATORY — do NOT skip):

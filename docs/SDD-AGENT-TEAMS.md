@@ -26,7 +26,7 @@ conversación, pasan estas cosas:
 
 En vez de que un solo Claude haga todo:
 
-```
+```text
 SIN Agent Teams:
 Tú → Claude (hace TODO) → resultado
 
@@ -47,7 +47,7 @@ Le asignas roles especializados.
 
 ### 2.1 Componentes del sistema
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                    TÚ (desarrollador)                   │
 │              Apruebas en Human Gates (🚪)               │
@@ -82,7 +82,7 @@ Le asignas roles especializados.
 El pipeline es un grafo dirigido acíclico (DAG). Cada fase produce un
 artifact que la siguiente fase consume:
 
-```
+```text
 Fase 1 — Exploración:
   explore ──→ propose ──→ 🚪 HUMAN GATE (tú apruebas)
 
@@ -205,7 +205,7 @@ guarda su resultado en Engram, y termina.
 
 **Fases estándar del proyecto:**
 
-```
+```text
 Fase 1: Foundation     → Modelos, migraciones, config
 Fase 2: Core           → Serializers, views, componentes
 Fase 3: Integration    → Conectar backend + frontend
@@ -245,7 +245,7 @@ Fase 5: Cleanup & Lint → ruff check, npm run lint
 
 **Veredicto:** PASS, PASS_WITH_WARNINGS, o FAIL (con razones).
 
-**Artifact:** `sdd/{change-name}/verify`
+**Artifact:** `sdd/{change-name}/verify-report`
 
 ---
 
@@ -275,7 +275,7 @@ su Confluence/Notion compartido donde dejan sus documentos.
 
 ### 4.2 ¿Cómo lo usan los agentes?
 
-```
+```text
 Agente Explorer termina → guarda en Engram:
   sdd/product-search/explore = "El Header está en Header.tsx, no hay endpoint..."
 
@@ -291,7 +291,7 @@ Agente Proposer termina → guarda en Engram:
 
 Todos los artifacts siguen el patrón:
 
-```
+```text
 sdd/{nombre-del-cambio}/{tipo-de-artifact}
 ```
 
@@ -302,7 +302,7 @@ Ejemplos:
 - `sdd/product-search/design`
 - `sdd/product-search/tasks`
 - `sdd/product-search/apply-progress`
-- `sdd/product-search/verify`
+- `sdd/product-search/verify-report`
 - `sdd/product-search/archive`
 
 ### 4.4 ¿Qué pasa si la conversación se corta?
@@ -310,7 +310,7 @@ Ejemplos:
 Engram persiste entre sesiones. Si Claude pierde contexto o la conversación
 se reinicia, puedes decir:
 
-```
+```text
 /sdd-continue product-search
 ```
 
@@ -327,7 +327,7 @@ de la aplicación.
 ### Paso 1: Iniciar el cambio
 
 Tú escribes:
-```
+```text
 /sdd-new product-search
 ```
 
@@ -388,6 +388,7 @@ El orquestador lanza **DOS agentes al mismo tiempo**:
 > - Debounce de 300ms para no saturar el backend
 >
 > **Archivos:**
+>
 > | Archivo | Acción |
 > |---------|--------|
 > | `backend/products/views.py` | Modificar — agregar SearchView |
@@ -403,7 +404,7 @@ El orquestador lanza **DOS agentes al mismo tiempo**:
 
 El **Task Planner** desglosa:
 
-```
+```text
 Fase 1: Backend
   - [ ] 1.1 Crear SearchView en backend/products/views.py
         (ListView con filtro Q(name__icontains) | Q(description__icontains))
@@ -489,13 +490,13 @@ artifacts en Engram. No se interfieren.
 
 Cuando las features tocan el **mismo componente**:
 
-```
+```text
 ❌ Botón de carrito en Header  +  Botón de login en Header
    Ambos modifican Header.tsx → conflicto de merge garantizado
 ```
 
 En este caso, haz **un solo flujo SDD** que incluya ambas funcionalidades:
-```
+```text
 /sdd-new header-cart-and-login
 ```
 
@@ -526,7 +527,7 @@ En este caso, haz **un solo flujo SDD** que incluya ambas funcionalidades:
 
 ## 8. Estructura de archivos del sistema
 
-```
+```text
 .claude/skills/
 ├── _shared/                          # Convenciones compartidas
 │   ├── engram-convention.md          # Naming de artifacts en Engram

@@ -47,6 +47,21 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
   --animate-marquee: marquee 30s linear infinite;
+
+  /* ── Auth tokens exposed to Tailwind ─────────────── */
+  --color-auth-primary: var(--auth-primary);
+  --color-auth-primary-hover: var(--auth-primary-hover);
+  --color-auth-secondary: var(--auth-secondary);
+  --color-auth-accent: var(--auth-accent);
+  --color-auth-accent-light: var(--auth-accent-light);
+  --color-auth-bg: var(--auth-bg);
+  --color-auth-bg-input: var(--auth-bg-input);
+  --color-auth-text: var(--auth-text);
+  --color-auth-text-muted: var(--auth-text-muted);
+  --color-auth-text-label: var(--auth-text-label);
+  --color-auth-border: var(--auth-border);
+  --color-auth-error: var(--auth-error);
+  --color-auth-success: var(--auth-success);
 }
 
 :root {
@@ -86,7 +101,7 @@
   /* Bordes e inputs */
   --border: #E8E0DC;
   --input: #E8E0DC;
-  --ring: #95D0C9;
+  --ring: #0D9488;
 
   /* Charts - Paleta complementaria */
   --chart-1: #D4A5A5;
@@ -108,6 +123,58 @@
   /* Fuentes del tema (overrideadas por ThemeInjector cuando el tenant tiene fuentes custom) */
   --font-heading: 'Inter', sans-serif;
   --font-body: 'Inter', sans-serif;
+
+  /* ── Auth Design Tokens ────────────────────────────────────── */
+
+  /* Auth colors */
+  --auth-primary: #1C3B57;
+  --auth-primary-hover: #162f46;
+  --auth-accent: #0D9488;
+  --auth-accent-light: #0D9488;
+  --auth-secondary: #0D9488;
+  --auth-bg: #FAFAFA;
+  --auth-bg-input: #FFFFFF;
+  --auth-bg-dark: #1C3B57;
+  --auth-text: #111827;
+  --auth-text-muted: #9CA3AF;
+  --auth-text-label: #6B7280;
+  --auth-text-placeholder: #D1D5DB;
+  --auth-text-on-dark: #FFFFFF;
+  --auth-text-on-dark-muted: rgba(255, 255, 255, 0.7);
+  --auth-text-on-dark-subtle: rgba(255, 255, 255, 0.5);
+  --auth-border: #E5E7EB;
+  --auth-border-focus: #0D9488;
+  --auth-border-error: #DC2626;
+  --auth-error: #DC2626;
+  --auth-success: #059669;
+  --auth-warning: #D97706;
+
+  /* Auth gradient (brand panel) */
+  --auth-gradient-start: #1C3B57;
+  --auth-gradient-mid: #1a3450;
+  --auth-gradient-end: #265e6a;
+
+  /* Auth spacing */
+  --auth-form-gap: 1.25rem;
+  --auth-section-padding: 4rem;
+  --auth-input-height: 2.75rem;
+
+  /* Auth typography */
+  --auth-font-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  --auth-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  --auth-font-brand: var(--font-nunito), sans-serif;
+
+  /* Auth border radius */
+  --auth-radius-input: 0.5rem;
+  --auth-radius-button: 0.5rem;
+  --auth-radius-card: 0.75rem;
+
+  /* Auth animation */
+  --auth-duration-fast: 150ms;
+  --auth-duration-normal: 300ms;
+  --auth-duration-slow: 700ms;
+  --auth-easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --auth-easing-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
@@ -353,4 +420,50 @@
 
 .marquee-container:hover .marquee-track {
   animation-play-state: paused;
+}
+
+/* ── Auth: Reduced motion support ────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  [data-auth-animated] {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ── Auth: Logo pendulum animation ───────────────────────────── */
+@keyframes g-pendulum {
+  0%   { transform: rotate(0deg); }
+  6%   { transform: rotate(-18deg); }
+  15%  { transform: rotate(-18deg); }
+  35%  { transform: rotate(0deg); }
+  42%  { transform: rotate(0deg); }
+  48%  { transform: rotate(18deg); }
+  57%  { transform: rotate(18deg); }
+  77%  { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.g-pendulum {
+  animation: g-pendulum 4.3s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-pendulum { animation: none; }
+}
+
+/* ── Auth: Keyframes ─────────────────────────────────────────── */
+@keyframes fade-up-auth {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up-auth {
+  animation: fade-up-auth 0.3s ease-out forwards;
 }

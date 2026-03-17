@@ -172,10 +172,10 @@ function TemplateCard({
       onClick={() => onSelect(template)}
       className={`group bg-white rounded-xl border-2 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
         isSelected
-          ? 'border-[#95D0C9] ring-2 ring-[#95D0C9]/20'
+          ? 'border-[#0D9488] ring-2 ring-[#0D9488]/20'
           : template.is_premium
             ? 'border-amber-200 hover:border-amber-300'
-            : 'border-gray-100 hover:border-[#95D0C9]'
+            : 'border-gray-100 hover:border-[#0D9488]'
       }`}
     >
       {/* Preview */}
@@ -394,7 +394,7 @@ export default function WebsiteBuilderPage() {
             <br />
             <span style={{ fontWeight: 600 }}>
               para{' '}
-              <span className="text-[#95D0C9] border-b-2 border-[#95D0C9]/30">
+              <span className="text-[#0D9488] border-b-2 border-[#0D9488]/30">
                 {businessName}
               </span>
             </span>
@@ -415,7 +415,7 @@ export default function WebsiteBuilderPage() {
               value={selectedIndustry}
               onValueChange={(value) => setSelectedIndustry(value as WebsiteIndustry)}
             >
-              <SelectTrigger className="w-auto min-w-[220px] h-9 text-[0.85rem] font-medium border-[#95D0C9]/40 focus:border-[#95D0C9] bg-white">
+              <SelectTrigger className="w-auto min-w-[220px] h-9 text-[0.85rem] font-medium border-[#0D9488]/40 focus:border-[#0D9488] bg-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

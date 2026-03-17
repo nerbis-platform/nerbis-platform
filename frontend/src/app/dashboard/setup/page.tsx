@@ -313,7 +313,7 @@ export default function SetupPage() {
               <br />
               <span style={{ fontWeight: 600 }}>
                 para{' '}
-                <span style={{ color: '#95D0C9' }}>
+                <span style={{ color: '#0D9488' }}>
                   {tenant?.name || 'tu negocio'}
                 </span>
               </span>
@@ -322,7 +322,7 @@ export default function SetupPage() {
             <p className="text-[0.85rem] text-gray-400 leading-relaxed text-center">
               Activa solo lo que necesites — puedes cambiar después.
               <br />
-              <span className="text-[#95D0C9] font-medium">Todos los módulos incluyen 14 días gratis.</span>
+              <span className="text-[#0D9488] font-medium">Todos los módulos incluyen 14 días gratis.</span>
             </p>
           </div>
 
@@ -371,7 +371,7 @@ export default function SetupPage() {
                             {mod.label}
                           </p>
                           {mod.key === 'has_website' && websiteAutoSelected && (
-                            <span className="text-[0.58rem] font-medium text-[#95D0C9] uppercase tracking-wider">
+                            <span className="text-[0.58rem] font-medium text-[#0D9488] uppercase tracking-wider">
                               Requerido
                             </span>
                           )}
