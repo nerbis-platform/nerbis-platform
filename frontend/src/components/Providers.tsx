@@ -9,7 +9,7 @@ import { WebsiteContentProvider } from '@/contexts/WebsiteContentContext';
 import { ThemeSync } from '@/components/ThemeSync';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 import { useState } from 'react';
 
 /** Cart only loads when tenant is available (needs tenant for API calls) */
@@ -44,7 +44,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <AuthProvider>
             <CartProviderGuard>
               {children}
-              <Toaster position="top-right" richColors />
+              <Toaster position="top-right" />
             </CartProviderGuard>
           </AuthProvider>
         </WebsiteContentProvider>
