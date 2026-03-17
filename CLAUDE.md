@@ -50,6 +50,10 @@ Lee `docs/SDD.md` antes de cambios arquitectónicos.
 Al detectar que estás trabajando en un worktree con cambios frontend:
 1. Crear symlink de `node_modules` para no duplicar dependencias:
    ```bash
+   if [ -d "frontend/node_modules" ] && [ ! -L "frontend/node_modules" ]; then
+     echo "Error: frontend/node_modules existe como directorio. Elimínalo antes de continuar."
+     exit 1
+   fi
    ln -sfn "$(git rev-parse --show-toplevel)/../../../frontend/node_modules" frontend/node_modules
    ```
 2. Crear symlink de `.env.local` si existe en el repo principal:
