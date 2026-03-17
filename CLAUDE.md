@@ -50,11 +50,11 @@ Lee `docs/SDD.md` antes de cambios arquitectónicos.
 Al detectar que estás trabajando en un worktree con cambios frontend:
 1. Crear symlink de `node_modules` para no duplicar dependencias:
    ```bash
-   ln -s $(git rev-parse --show-toplevel)/../../../frontend/node_modules frontend/node_modules
+   ln -sfn $(git rev-parse --show-toplevel)/../../../frontend/node_modules frontend/node_modules
    ```
-2. Crear symlink de `.env.local` si existe:
+2. Crear symlink de `.env.local` si existe en el repo principal:
    ```bash
-   ln -s $(git rev-parse --show-toplevel)/../../../frontend/.env.local frontend/.env.local
+   [ -f $(git rev-parse --show-toplevel)/../../../frontend/.env.local ] && ln -sfn $(git rev-parse --show-toplevel)/../../../frontend/.env.local frontend/.env.local
    ```
 3. Levantar dev server en puerto alternativo (3001, 3002, etc.):
    ```bash
