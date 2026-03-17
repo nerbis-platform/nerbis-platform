@@ -74,7 +74,7 @@ Sub-agents launch with a fresh context and NO access to the orchestrator's instr
 When launching a sub-agent, the orchestrator MUST include persistence instructions in the prompt:
 
 **Non-SDD**:
-```
+```text
 PERSISTENCE (MANDATORY):
 If you make important discoveries, decisions, or fix bugs, you MUST save them
 to engram before returning:
@@ -135,7 +135,7 @@ The skill registry is a catalog of all available skills that sub-agents read bef
 
 **EVERY sub-agent MUST check the skill registry as its FIRST step**, before starting any work:
 
-```
+```text
 1. Try engram first: mem_search(query: "skill-registry", project: "nerbis-platform")
    → if found: mem_get_observation(id) → full registry
 2. If engram not available or not found: read .atl/skill-registry.md
@@ -150,7 +150,7 @@ The skill registry is a catalog of all available skills that sub-agents read bef
 ```
 
 The orchestrator MUST include this instruction in ALL sub-agent prompts:
-```
+```text
 SKILL LOADING (do this FIRST):
 Check for available skills:
   1. Try: mem_search(query: "skill-registry", project: "nerbis-platform")
