@@ -30,6 +30,7 @@ import { OtpInput } from './OtpInput';
 import { PasswordField } from './PasswordField';
 import { SubmitButton } from './SubmitButton';
 import type { ForgotStep } from './types';
+import { LABEL_CLASS, LABEL_STYLE } from './constants';
 
 // ─── Props ──────────────────────────────────────────────────────
 
@@ -146,13 +147,7 @@ export function ForgotPasswordForm({
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel
-                      className="text-[0.8125rem] font-normal"
-                      style={{
-                        color: 'var(--auth-text-muted)',
-                        fontFamily: 'var(--auth-font-body)',
-                      }}
-                    >
+                    <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                       Email
                     </FormLabel>
                     <FormControl>
@@ -242,13 +237,7 @@ export function ForgotPasswordForm({
                 name="code"
                 render={() => (
                   <FormItem>
-                    <FormLabel
-                      className="text-[0.8125rem] font-normal"
-                      style={{
-                        color: 'var(--auth-text-muted)',
-                        fontFamily: 'var(--auth-font-body)',
-                      }}
-                    >
+                    <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                       Código de verificación
                     </FormLabel>
                     <FormControl>

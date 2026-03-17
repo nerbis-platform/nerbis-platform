@@ -20,6 +20,7 @@ import { ApiError } from '@/lib/api/client';
 import { requestReactivationOTP } from '@/lib/api/auth';
 import { features } from '@/lib/features';
 import { loginSchema, type LoginFormValues } from './schemas';
+import { LABEL_CLASS, LABEL_STYLE } from './constants';
 import { useAuthForm } from './hooks/useAuthForm';
 import { PasswordField } from './PasswordField';
 import { SubmitButton } from './SubmitButton';
@@ -144,13 +145,7 @@ export function LoginForm({
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel
-                    className="text-[0.8125rem] font-normal"
-                    style={{
-                      color: 'var(--auth-text-muted)',
-                      fontFamily: 'var(--auth-font-body)',
-                    }}
-                  >
+                  <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                     Correo electrónico
                   </FormLabel>
                   <FormControl>
@@ -173,13 +168,7 @@ export function LoginForm({
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <FormLabel
-                  className="text-[0.8125rem] font-normal"
-                  style={{
-                    color: 'var(--auth-text-muted)',
-                    fontFamily: 'var(--auth-font-body)',
-                  }}
-                >
+                <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                   Contraseña
                 </FormLabel>
                 <button

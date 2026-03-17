@@ -1,5 +1,7 @@
 // src/components/auth/constants.ts
-// Static data extracted from AuthSplitScreen.tsx.
+// Static data and shared styles for auth components.
+
+import type React from 'react';
 
 export interface IndustryOption {
   value: string;
@@ -79,6 +81,13 @@ export const DEBOUNCE_DELAY_MS = 600;
 
 /** OTP code length */
 export const OTP_LENGTH = 6;
+
+/** Shared form label styling for all auth forms */
+export const LABEL_CLASS = 'text-[0.8125rem] font-normal';
+export const LABEL_STYLE: React.CSSProperties = {
+  color: 'var(--auth-text-muted)',
+  fontFamily: 'var(--auth-font-body)',
+};
 
 /** Auth gradient for the brand panel (dark side) */
 export const AUTH_GRADIENT =

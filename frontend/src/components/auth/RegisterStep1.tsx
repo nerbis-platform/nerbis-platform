@@ -22,7 +22,7 @@ import {
 import { ArrowRight } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { RegisterBusinessFormValues } from './schemas';
-import { countries, DEBOUNCE_DELAY_MS } from './constants';
+import { countries, DEBOUNCE_DELAY_MS, LABEL_CLASS, LABEL_STYLE } from './constants';
 import { StepIndicator } from './StepIndicator';
 
 // ─── Props ──────────────────────────────────────────────────────
@@ -122,13 +122,7 @@ export function RegisterStep1({
           name="business_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel
-                className="text-[0.8125rem] font-normal"
-                style={{
-                  color: 'var(--auth-text-muted)',
-                  fontFamily: 'var(--auth-font-body)',
-                }}
-              >
+              <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                 Nombre del negocio
               </FormLabel>
               <FormControl>
@@ -168,13 +162,7 @@ export function RegisterStep1({
           name="country"
           render={({ field }) => (
             <FormItem>
-              <FormLabel
-                className="text-[0.8125rem] font-normal"
-                style={{
-                  color: 'var(--auth-text-muted)',
-                  fontFamily: 'var(--auth-font-body)',
-                }}
-              >
+              <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                 País
               </FormLabel>
               <Select
