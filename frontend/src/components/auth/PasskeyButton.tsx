@@ -18,7 +18,7 @@ export function PasskeyButton({ onClick }: PasskeyButtonProps) {
     if (onClick) {
       onClick();
     } else {
-      toast('Estamos trabajando en esto', {
+      toast.info('Estamos trabajando en esto', {
         description: 'Pronto podrás iniciar sesión con huella o Face ID. Por ahora, usa tu email y contraseña.',
       });
     }

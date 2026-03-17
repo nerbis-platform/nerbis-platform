@@ -62,7 +62,7 @@ export function SocialLoginButtons({
   if (!features.socialLogin) return null;
 
   const comingSoon = (provider: string) => {
-    toast('Estamos trabajando en esto', {
+    toast.info('Estamos trabajando en esto', {
       description: `Pronto podrás acceder con ${provider}. Por ahora, usa tu email y contraseña.`,
     });
   };
