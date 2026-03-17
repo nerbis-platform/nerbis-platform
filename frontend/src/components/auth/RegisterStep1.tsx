@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import {
   FormControl,
@@ -23,6 +23,7 @@ import { ArrowRight } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { RegisterBusinessFormValues } from './schemas';
 import { countries, DEBOUNCE_DELAY_MS, LABEL_CLASS, LABEL_STYLE } from './constants';
+import { useDebounce } from './hooks';
 import { StepIndicator } from './StepIndicator';
 
 // ─── Props ──────────────────────────────────────────────────────
@@ -47,10 +48,12 @@ export function RegisterStep1({
   // Business name existence check
   const [businessNameExists, setBusinessNameExists] = useState(false);
   const [checkingName, setCheckingName] = useState(false);
-  const nameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const businessName = form.watch('business_name');
+  const debouncedName = useDebounce(businessName, DEBOUNCE_DELAY_MS);
 
   const checkBusinessName = useCallback(
-    async (name: string) => {
+    async (name: string, signal: AbortSignal) => {
       if (!name || name.trim().length < 2) {
         setBusinessNameExists(false);
         return;
@@ -59,35 +62,30 @@ export function RegisterStep1({
       try {
         const res = await fetch(
           `${API_URL}/api/public/check-business-name/?name=${encodeURIComponent(name.trim())}`,
+          { signal },
         );
         if (res.ok) {
           const data = await res.json();
-          setBusinessNameExists(data.exists);
+          if (!signal.aborted) setBusinessNameExists(data.exists);
         }
-      } catch {
-        /* silent */
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
       } finally {
-        setCheckingName(false);
+        if (!signal.aborted) setCheckingName(false);
       }
     },
     [API_URL],
   );
 
-  const businessName = form.watch('business_name');
   useEffect(() => {
-    if (nameCheckTimer.current) clearTimeout(nameCheckTimer.current);
-    if (!businessName || businessName.trim().length < 2) {
+    if (!debouncedName || debouncedName.trim().length < 2) {
       setBusinessNameExists(false);
       return;
     }
-    nameCheckTimer.current = setTimeout(
-      () => checkBusinessName(businessName),
-      DEBOUNCE_DELAY_MS,
-    );
-    return () => {
-      if (nameCheckTimer.current) clearTimeout(nameCheckTimer.current);
-    };
-  }, [businessName, checkBusinessName]);
+    const controller = new AbortController();
+    checkBusinessName(debouncedName, controller.signal);
+    return () => controller.abort();
+  }, [debouncedName, checkBusinessName]);
 
   return (
     <div data-auth-animated>
