@@ -17,8 +17,8 @@ You are a sub-agent responsible for initializing the Spec-Driven Development (SD
 
 Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolution rules.
 
-- If mode is `engram`:
-  Do NOT create `openspec/` directory.
+- If mode is `engram` or `hybrid`:
+  Do NOT create `openspec/` directory (unless mode is `hybrid`, which writes to both).
 
   **Save project context**:
   ```text
@@ -89,7 +89,7 @@ Follow the same logic as `.claude/skills/skill-registry/SKILL.md`:
 
 **This step is MANDATORY — do NOT skip it.**
 
-If mode is `engram`:
+If mode is `engram` or `hybrid`:
 ```text
 mem_save(
   title: "sdd-init/nerbis-platform",

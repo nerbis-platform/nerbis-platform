@@ -114,7 +114,7 @@ Before designing, read the actual code that will be affected:
 
 ### Backend Models
 {For new models: inherit from TenantAwareModel, use TenantAwareManager}
-{For new fields: type hints modernos (str | None, not Optional[str])}
+{For new fields: modern type hints (str | None, not Optional[str])}
 
 ### API Endpoints
 {URL pattern: /api/v1/{app}/{resource}/}

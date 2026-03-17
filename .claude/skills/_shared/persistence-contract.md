@@ -37,7 +37,7 @@ The orchestrator persists DAG state after each phase transition. This enables SD
 
 | Mode | Persist State | Recover State |
 |------|--------------|---------------|
-| `engram` | `mem_save(topic_key: "sdd/{change-name}/state")` | `mem_search("sdd/*/state")` → `mem_get_observation(id)` |
+| `engram` | `mem_save(topic_key: "sdd/{change-name}/state")` | `mem_search("sdd/{change-name}/state")` → `mem_get_observation(id)` |
 | `openspec` | Write `openspec/changes/{change-name}/state.yaml` | Read `openspec/changes/{change-name}/state.yaml` |
 | `hybrid` | Both: `mem_save` AND write `state.yaml` | Engram first; filesystem fallback |
 | `none` | Not possible — state lives only in context | Not possible — warn user |
@@ -49,7 +49,7 @@ The orchestrator persists DAG state after each phase transition. This enables SD
 - If mode is `openspec`, write files ONLY to the paths defined in `openspec-convention.md`.
 - If mode is `hybrid`, persist to BOTH Engram AND filesystem. Follow both conventions.
 - NEVER force `openspec/` creation unless the orchestrator explicitly passed `openspec` or `hybrid` mode.
-- If you are unsure which mode to use, default to `none`.
+- If you are unsure which mode to use, follow the default resolution at the top of this document (engram if available, else none).
 
 ## Sub-Agent Context Rules
 
@@ -74,7 +74,7 @@ Sub-agents launch with a fresh context and NO access to the orchestrator's instr
 When launching a sub-agent, the orchestrator MUST include persistence instructions in the prompt:
 
 **Non-SDD**:
-```
+```text
 PERSISTENCE (MANDATORY):
 If you make important discoveries, decisions, or fix bugs, you MUST save them
 to engram before returning:
@@ -84,8 +84,8 @@ Do NOT return without saving what you learned.
 ```
 
 **SDD (with dependencies)**:
-```
-Artifact store mode: engram
+```text
+Artifact store mode: {artifact_store.mode}
 Read these artifacts before starting (two-step — search returns truncated previews):
   mem_search(query: "sdd/{change-name}/{type}", project: "nerbis-platform") → get ID
   mem_get_observation(id: {id}) → full content (REQUIRED for SDD dependencies)
@@ -104,8 +104,8 @@ and the pipeline BREAKS.
 ```
 
 **SDD (no dependencies)**:
-```
-Artifact store mode: engram
+```text
+Artifact store mode: {artifact_store.mode}
 
 PERSISTENCE (MANDATORY — do NOT skip):
 After completing your work, you MUST call:
@@ -135,7 +135,7 @@ The skill registry is a catalog of all available skills that sub-agents read bef
 
 **EVERY sub-agent MUST check the skill registry as its FIRST step**, before starting any work:
 
-```
+```text
 1. Try engram first: mem_search(query: "skill-registry", project: "nerbis-platform")
    → if found: mem_get_observation(id) → full registry
 2. If engram not available or not found: read .atl/skill-registry.md
@@ -150,7 +150,7 @@ The skill registry is a catalog of all available skills that sub-agents read bef
 ```
 
 The orchestrator MUST include this instruction in ALL sub-agent prompts:
-```
+```text
 SKILL LOADING (do this FIRST):
 Check for available skills:
   1. Try: mem_search(query: "skill-registry", project: "nerbis-platform")
