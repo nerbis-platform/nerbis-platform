@@ -14,6 +14,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import type { PasswordFieldProps } from './types';
+import { LABEL_CLASS, LABEL_STYLE } from './constants';
 
 export function PasswordField({
   name,
@@ -32,12 +33,11 @@ export function PasswordField({
       name={name}
       render={({ field, fieldState }) => (
         <FormItem>
-          <FormLabel
-            className="text-[var(--auth-text)] text-[0.9375rem] font-normal"
-            style={{ fontFamily: 'var(--auth-font-body)' }}
-          >
-            {label}
-          </FormLabel>
+          {label && (
+            <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
+              {label}
+            </FormLabel>
+          )}
           <FormControl>
             <div className="relative" data-auth-animated>
               <Input

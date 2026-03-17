@@ -29,7 +29,7 @@ import {
 import { ArrowLeft, Check, ChevronsUpDown } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { RegisterBusinessFormValues } from './schemas';
-import { countries, DEBOUNCE_DELAY_MS } from './constants';
+import { countries, DEBOUNCE_DELAY_MS, LABEL_CLASS, LABEL_STYLE } from './constants';
 import { PasswordField } from './PasswordField';
 import { SubmitButton } from './SubmitButton';
 import { StepIndicator } from './StepIndicator';
@@ -147,13 +147,7 @@ export function RegisterStep2({
             name="first_name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel
-                  className="text-[0.9375rem] font-normal"
-                  style={{
-                    color: 'var(--auth-text)',
-                    fontFamily: 'var(--auth-font-body)',
-                  }}
-                >
+                <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                   Nombre
                 </FormLabel>
                 <FormControl>
@@ -176,13 +170,7 @@ export function RegisterStep2({
             name="last_name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel
-                  className="text-[0.9375rem] font-normal"
-                  style={{
-                    color: 'var(--auth-text)',
-                    fontFamily: 'var(--auth-font-body)',
-                  }}
-                >
+                <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                   Apellido
                 </FormLabel>
                 <FormControl>
@@ -208,13 +196,7 @@ export function RegisterStep2({
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel
-                className="text-[0.9375rem] font-normal"
-                style={{
-                  color: 'var(--auth-text)',
-                  fontFamily: 'var(--auth-font-body)',
-                }}
-              >
+              <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                 Email
               </FormLabel>
               <FormControl>
@@ -258,13 +240,7 @@ export function RegisterStep2({
           name="phone"
           render={({ field }) => (
             <FormItem>
-              <FormLabel
-                className="text-[0.9375rem] font-normal"
-                style={{
-                  color: 'var(--auth-text)',
-                  fontFamily: 'var(--auth-font-body)',
-                }}
-              >
+              <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                 Teléfono{' '}
                 <span
                   className="font-normal"

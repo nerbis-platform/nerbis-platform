@@ -20,6 +20,7 @@ import { ApiError } from '@/lib/api/client';
 import { requestReactivationOTP } from '@/lib/api/auth';
 import { features } from '@/lib/features';
 import { loginSchema, type LoginFormValues } from './schemas';
+import { LABEL_CLASS, LABEL_STYLE } from './constants';
 import { useAuthForm } from './hooks/useAuthForm';
 import { PasswordField } from './PasswordField';
 import { SubmitButton } from './SubmitButton';
@@ -144,13 +145,7 @@ export function LoginForm({
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel
-                    className="text-[0.9375rem] font-normal"
-                    style={{
-                      color: 'var(--auth-text)',
-                      fontFamily: 'var(--auth-font-body)',
-                    }}
-                  >
+                  <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                     Correo electrónico
                   </FormLabel>
                   <FormControl>
@@ -172,20 +167,14 @@ export function LoginForm({
             />
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <FormLabel
-                  className="text-[0.9375rem] font-normal"
-                  style={{
-                    color: 'var(--auth-text)',
-                    fontFamily: 'var(--auth-font-body)',
-                  }}
-                >
+              <div className="flex items-center justify-between mb-2">
+                <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
                   Contraseña
                 </FormLabel>
                 <button
                   type="button"
                   onClick={onForgotPassword}
-                  className="text-[0.75rem] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
+                  className="text-[0.75rem] leading-none transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
                   style={{ color: 'var(--auth-accent, #0D9488)' }}
                 >
                   ¿Olvidaste tu contraseña?
