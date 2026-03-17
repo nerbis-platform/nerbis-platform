@@ -83,8 +83,10 @@ to engram before returning:
 Do NOT return without saving what you learned.
 ```
 
-**SDD (with dependencies)**:
-```
+**SDD (with dependencies)** — the orchestrator MUST select the correct block based on `artifact_store.mode`:
+
+When mode is `engram` or `hybrid`:
+```text
 Artifact store mode: {artifact_store.mode}
 Read these artifacts before starting (two-step — search returns truncated previews):
   mem_search(query: "sdd/{change-name}/{type}", project: "nerbis-platform") → get ID
@@ -103,8 +105,30 @@ If you return without calling mem_save, the next phase CANNOT find your artifact
 and the pipeline BREAKS.
 ```
 
-**SDD (no dependencies)**:
+When mode is `openspec`:
+```text
+Artifact store mode: openspec
+Read these artifacts before starting:
+  Read file: openspec/changes/{change-name}/{type}.md
+
+PERSISTENCE (MANDATORY — do NOT skip):
+After completing your work, you MUST write your artifact to:
+  openspec/changes/{change-name}/{artifact-type}.md
+If you return without writing the file, the next phase CANNOT find your artifact
+and the pipeline BREAKS.
 ```
+
+When mode is `none`:
+```text
+Artifact store mode: none
+No persistence backend available. Return your full artifact inline in your response.
+The orchestrator will pass it to the next phase via prompt context.
+```
+
+**SDD (no dependencies)** — same mode branching applies:
+
+When mode is `engram` or `hybrid`:
+```text
 Artifact store mode: {artifact_store.mode}
 
 PERSISTENCE (MANDATORY — do NOT skip):
@@ -118,6 +142,23 @@ After completing your work, you MUST call:
   )
 If you return without calling mem_save, the next phase CANNOT find your artifact
 and the pipeline BREAKS.
+```
+
+When mode is `openspec`:
+```text
+Artifact store mode: openspec
+
+PERSISTENCE (MANDATORY — do NOT skip):
+After completing your work, you MUST write your artifact to:
+  openspec/changes/{change-name}/{artifact-type}.md
+If you return without writing the file, the next phase CANNOT find your artifact
+and the pipeline BREAKS.
+```
+
+When mode is `none`:
+```text
+Artifact store mode: none
+No persistence backend available. Return your full artifact inline in your response.
 ```
 
 ## Skill Registry
