@@ -16,6 +16,14 @@ Lee `docs/SDD.md` antes de cambios arquitectónicos.
 - Usar prefijos: `feature/*`, `fix/*`, `docs/*` según el tipo de cambio
 - Crear branch desde `develop` actualizado (`feature/*` o `fix/*` o `docs/*` → PR → `develop`)
 
+## Comunicación con el usuario
+
+- **SIEMPRE dar feedback** de lo que estás haciendo, por qué, y qué sigue
+- Explicar decisiones técnicas en lenguaje accesible antes de ejecutar
+- Después de cada acción significativa, confirmar qué se hizo y el resultado
+- Si algo falla o cambia el plan, explicar por qué y proponer alternativa
+- El usuario prefiere entender el "por qué" antes de ejecutar
+
 ## Antes de codear
 
 1. Leer `AGENTS.md` si es primera tarea de la sesión
@@ -43,12 +51,16 @@ Lee `docs/SDD.md` antes de cambios arquitectónicos.
 Leer los skills relevantes en `.claude/skills/` antes de actuar:
 
 **Frontend:**
+- `.claude/skills/frontend-design` — dirección estética premium, anti "AI slop" (oficial Anthropic)
 - `.claude/skills/web-design-guidelines` — diseño web, UI/UX, layouts, accesibilidad
 - `.claude/skills/shadcn` — uso correcto de shadcn/ui + Radix UI
 - `.claude/skills/vercel-react-best-practices` — patrones React 19 + Next.js performance
 
 **Backend:**
 - `.claude/skills/multi-tenancy` — patrones multi-tenant (modelos, views, serializers, permisos, tests)
+
+**Calidad:**
+- `.claude/skills/code-quality` — clean code, deuda técnica, SRP, DRY, naming, complejidad
 
 ## Context7 — Documentación en tiempo real
 
@@ -96,8 +108,36 @@ vía Task tool, y sintetizar sus resultados.
 ### Grafo de dependencias (DAG)
 
 ```text
-explore → propose → 🚪 → spec + design (paralelo) → 🚪 → tasks → apply → 🚪 → verify → archive
+[init + branch] → explore → propose → 🚪 → spec + design (paralelo) → 🚪 → tasks → apply → 🚪 → verify → archive → [PR]
 ```
+
+### Bootstrap automático (OBLIGATORIO en flujo SDD)
+
+Al iniciar `sdd-new` o `sdd-ff`, ANTES de lanzar cualquier sub-agente, ejecutar estos pasos automáticamente (NO preguntar, NO saltar):
+
+**Paso 1 — sdd-init (si no existe skill registry):**
+1. Verificar si `.atl/skill-registry.md` existe
+2. Si NO existe → lanzar `sdd-init` automáticamente (detecta stack, genera registry, persiste en Engram)
+3. Si SÍ existe → saltar (ya fue inicializado)
+
+**Paso 2 — Crear branch:**
+```bash
+git checkout develop && git pull origin develop
+git checkout -b feature/{change-name}
+```
+
+**Paso 3 — Si el usuario referencia un issue de GitHub:**
+1. Leer el issue completo (`gh issue view {N}` o MCP GitHub)
+2. Usar su contenido como intent del pipeline
+3. Branch: `feature/issue-{N}-{descripcion-corta}`
+4. Al crear PR: incluir `Closes #{N}` en el body
+
+Después de estos pasos, continuar con el pipeline (explore → propose → ...).
+
+Esto garantiza que:
+- Los agentes SIEMPRE tienen el skill registry disponible
+- El pipeline NUNCA toca el branch principal del desarrollador
+- Los issues de GitHub se vinculan automáticamente
 
 ### Human Gates
 

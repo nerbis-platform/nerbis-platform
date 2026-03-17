@@ -66,6 +66,8 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
 2. If engram not available or not found: read `.atl/skill-registry.md` from the project root
 3. If neither exists: proceed without skills (not an error)
 
+**ALWAYS load `code-quality` skill** (`.claude/skills/code-quality/SKILL.md`) — code quality audit is mandatory in every verification.
+
 ### Step 2: Check Completeness
 
 Verify ALL tasks are done:

@@ -74,6 +74,7 @@ From the registry, load skills matching your task:
 - Backend models/views → load `multi-tenancy` skill
 - Frontend components → load `shadcn`, `vercel-react-best-practices` skills
 - UI review → load `web-design-guidelines` skill
+- **ALWAYS load `code-quality` skill** — clean code compliance is mandatory for all implementations
 
 ### Step 2: Read Context
 
