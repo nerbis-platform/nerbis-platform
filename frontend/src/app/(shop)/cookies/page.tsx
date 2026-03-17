@@ -1,10 +1,11 @@
 // src/app/(shop)/cookies/page.tsx
 
+import type { Metadata } from 'next';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 
-export const metadata = {
-  title: 'Política de Cookies',
+export const metadata: Metadata = {
+  title: 'Política de cookies',
   description: 'Información sobre el uso de cookies en nuestro sitio web',
 };
 

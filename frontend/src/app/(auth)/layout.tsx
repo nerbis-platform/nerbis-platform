@@ -1,7 +1,16 @@
 // src/app/(auth)/layout.tsx
 
+import type { Metadata } from 'next';
 import { Inter, Nunito } from 'next/font/google';
 import { PlatformCookieConsent } from '@/components/auth/PlatformCookieConsent';
+
+export const metadata: Metadata = {
+  title: {
+    template: '%s | NERBIS',
+    default: 'Cuenta',
+  },
+  robots: { index: false },
+};
 
 const inter = Inter({
   subsets: ['latin'],

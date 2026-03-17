@@ -1,10 +1,11 @@
 // src/app/(shop)/terms/page.tsx
 
+import type { Metadata } from 'next';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 
-export const metadata = {
-  title: 'Términos y Condiciones',
+export const metadata: Metadata = {
+  title: 'Términos y condiciones',
   description: 'Términos, privacidad y responsabilidad del sitio web',
 };
 

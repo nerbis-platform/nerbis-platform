@@ -1,5 +1,6 @@
 // src/app/(shop)/contact/page.tsx
 
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   Mail,
@@ -22,8 +23,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 
-export const metadata = {
-  title: 'Contáctanos | Centro de Estética',
+export const metadata: Metadata = {
+  title: 'Contacto',
   description: 'Ponte en contacto con nosotros. Estamos aquí para ayudarte a lucir y sentirte mejor.',
 };
 

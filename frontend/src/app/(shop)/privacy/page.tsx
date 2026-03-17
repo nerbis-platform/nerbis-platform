@@ -1,10 +1,11 @@
 // src/app/(shop)/privacy/page.tsx
 
+import type { Metadata } from 'next';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 
-export const metadata = {
-  title: 'Política de Privacidad',
+export const metadata: Metadata = {
+  title: 'Política de privacidad',
   description: 'Información sobre el tratamiento de datos personales en España',
 };
 
