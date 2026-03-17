@@ -13,7 +13,9 @@
  */
 
 import sharp from 'sharp';
+import pngToIco from 'png-to-ico';
 import { join, dirname } from 'node:path';
+import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -24,11 +26,13 @@ const BRAND_BG = { r: 28, g: 59, b: 87, alpha: 1 }; // #1C3B57
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 
 async function generateFavicon() {
-  console.log('  -> favicon.ico (48x48 PNG)');
-  await sharp(SOURCE)
+  console.log('  -> favicon.ico (48x48 ICO)');
+  const pngBuffer = await sharp(SOURCE)
     .resize(48, 48, { fit: 'contain', background: TRANSPARENT })
     .png()
-    .toFile(join(APP_DIR, 'favicon.ico'));
+    .toBuffer();
+  const icoBuffer = await pngToIco([pngBuffer]);
+  await writeFile(join(APP_DIR, 'favicon.ico'), icoBuffer);
 }
 
 async function generateAppleIcon() {
