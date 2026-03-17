@@ -148,9 +148,9 @@ export function RegisterStep2({
             render={({ field }) => (
               <FormItem>
                 <FormLabel
-                  className="text-[0.9375rem] font-normal"
+                  className="text-[0.8125rem] font-normal"
                   style={{
-                    color: 'var(--auth-text)',
+                    color: 'var(--auth-text-muted)',
                     fontFamily: 'var(--auth-font-body)',
                   }}
                 >
@@ -177,9 +177,9 @@ export function RegisterStep2({
             render={({ field }) => (
               <FormItem>
                 <FormLabel
-                  className="text-[0.9375rem] font-normal"
+                  className="text-[0.8125rem] font-normal"
                   style={{
-                    color: 'var(--auth-text)',
+                    color: 'var(--auth-text-muted)',
                     fontFamily: 'var(--auth-font-body)',
                   }}
                 >
@@ -209,9 +209,9 @@ export function RegisterStep2({
           render={({ field }) => (
             <FormItem>
               <FormLabel
-                className="text-[0.9375rem] font-normal"
+                className="text-[0.8125rem] font-normal"
                 style={{
-                  color: 'var(--auth-text)',
+                  color: 'var(--auth-text-muted)',
                   fontFamily: 'var(--auth-font-body)',
                 }}
               >
@@ -259,9 +259,9 @@ export function RegisterStep2({
           render={({ field }) => (
             <FormItem>
               <FormLabel
-                className="text-[0.9375rem] font-normal"
+                className="text-[0.8125rem] font-normal"
                 style={{
-                  color: 'var(--auth-text)',
+                  color: 'var(--auth-text-muted)',
                   fontFamily: 'var(--auth-font-body)',
                 }}
               >

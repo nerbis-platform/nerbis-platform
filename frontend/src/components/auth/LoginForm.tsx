@@ -145,9 +145,9 @@ export function LoginForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel
-                    className="text-[0.9375rem] font-normal"
+                    className="text-[0.8125rem] font-normal"
                     style={{
-                      color: 'var(--auth-text)',
+                      color: 'var(--auth-text-muted)',
                       fontFamily: 'var(--auth-font-body)',
                     }}
                   >
@@ -172,11 +172,11 @@ export function LoginForm({
             />
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-2">
                 <FormLabel
-                  className="text-[0.9375rem] font-normal"
+                  className="text-[0.8125rem] font-normal"
                   style={{
-                    color: 'var(--auth-text)',
+                    color: 'var(--auth-text-muted)',
                     fontFamily: 'var(--auth-font-body)',
                   }}
                 >
@@ -185,7 +185,7 @@ export function LoginForm({
                 <button
                   type="button"
                   onClick={onForgotPassword}
-                  className="text-[0.75rem] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
+                  className="text-[0.75rem] leading-none transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
                   style={{ color: 'var(--auth-accent, #0D9488)' }}
                 >
                   ¿Olvidaste tu contraseña?

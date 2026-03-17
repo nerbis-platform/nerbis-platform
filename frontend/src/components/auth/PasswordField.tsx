@@ -32,12 +32,14 @@ export function PasswordField({
       name={name}
       render={({ field, fieldState }) => (
         <FormItem>
-          <FormLabel
-            className="text-[var(--auth-text)] text-[0.9375rem] font-normal"
-            style={{ fontFamily: 'var(--auth-font-body)' }}
-          >
-            {label}
-          </FormLabel>
+          {label && (
+            <FormLabel
+              className="text-[0.8125rem] font-normal"
+              style={{ color: 'var(--auth-text-muted)', fontFamily: 'var(--auth-font-body)' }}
+            >
+              {label}
+            </FormLabel>
+          )}
           <FormControl>
             <div className="relative" data-auth-animated>
               <Input
