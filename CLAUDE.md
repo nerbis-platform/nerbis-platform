@@ -46,6 +46,26 @@ Lee `docs/SDD.md` antes de cambios arquitectónicos.
 - Claude crea automáticamente `.claude/worktrees/nombre-feature` y el branch `worktree-nombre-feature`
 - `EnterWorktree` es una acción interna de permisos — no es un comando manual
 
+### Setup automático en worktrees (OBLIGATORIO)
+Al detectar que estás trabajando en un worktree con cambios frontend:
+1. Crear symlink de `node_modules` para no duplicar dependencias:
+   ```bash
+   if [ -d "frontend/node_modules" ] && [ ! -L "frontend/node_modules" ]; then
+     echo "Error: frontend/node_modules existe como directorio. Elimínalo antes de continuar."
+     exit 1
+   fi
+   ln -sfn "$(git rev-parse --show-toplevel)/../../../frontend/node_modules" frontend/node_modules
+   ```
+2. Crear symlink de `.env.local` si existe en el repo principal:
+   ```bash
+   [ -f "$(git rev-parse --show-toplevel)/../../../frontend/.env.local" ] && ln -sfn "$(git rev-parse --show-toplevel)/../../../frontend/.env.local" frontend/.env.local
+   ```
+3. Levantar dev server en puerto alternativo (3001, 3002, etc.):
+   ```bash
+   cd frontend && npm run dev -- --port 3001
+   ```
+4. Informar al usuario: "Preview disponible en http://localhost:3001"
+
 ## Skills
 
 Leer los skills relevantes en `.claude/skills/` antes de actuar:
