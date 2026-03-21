@@ -41,7 +41,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <p className="mt-16 text-slate-500 text-sm">
-        © {new Date().getFullYear()} NERBIS — Todos los derechos reservados
+        © {new Date().getFullYear()} <span className="font-bold">NERBIS</span> — Todos los derechos reservados
       </p>
     </div>
   );
