@@ -35,6 +35,7 @@ interface LoginFormComponentProps {
   onToggleMode: () => void;
   onForgotPassword: () => void;
   redirectTo?: string | null;
+  onSwitchToRegister?: (prefill: { email: string; first_name: string; last_name: string }) => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────
@@ -43,6 +44,7 @@ export function LoginForm({
   onToggleMode,
   onForgotPassword,
   redirectTo = null,
+  onSwitchToRegister,
 }: LoginFormComponentProps) {
   const router = useRouter();
   const { platformLogin } = useAuth();
@@ -132,7 +134,7 @@ export function LoginForm({
         {/* Social login buttons (feature flagged) */}
         {features.socialLogin && (
           <>
-            <SocialLoginButtons mode="login" />
+            <SocialLoginButtons mode="login" onSwitchToRegister={onSwitchToRegister} />
             <FormDivider text="o continúa con email" />
           </>
         )}

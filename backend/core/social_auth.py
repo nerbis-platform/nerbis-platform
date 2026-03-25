@@ -46,16 +46,53 @@ class SocialUserInfo:
 # ===================================
 
 
+def _verify_google_access_token(token: str) -> SocialUserInfo:
+    """Verificar Google access_token via userinfo endpoint."""
+    try:
+        resp = requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        userinfo = resp.json()
+    except requests.RequestException as e:
+        raise SocialAuthError(f"Error al verificar con Google: {e}")
+
+    email = userinfo.get("email")
+    if not email:
+        raise SocialAuthError("El token de Google no contiene email")
+
+    if not userinfo.get("email_verified", False):
+        raise SocialAuthError("El email de Google no está verificado")
+
+    return SocialUserInfo(
+        provider="google",
+        provider_uid=userinfo["sub"],
+        email=email.lower(),
+        first_name=userinfo.get("given_name", ""),
+        last_name=userinfo.get("family_name", ""),
+        avatar_url=userinfo.get("picture", ""),
+        extra_data={
+            "name": userinfo.get("name", ""),
+            "picture": userinfo.get("picture", ""),
+            "locale": userinfo.get("locale", ""),
+        },
+    )
+
+
 def verify_google_token(token: str) -> SocialUserInfo:
-    """Verificar Google id_token y extraer datos del usuario."""
+    """Verificar Google token (id_token o access_token)."""
     client_id = settings.GOOGLE_OAUTH_CLIENT_ID
     if not client_id:
         raise SocialAuthError("Google OAuth no está configurado")
 
+    # Intentar primero como id_token, si falla intentar como access_token
     try:
         idinfo = google_id_token.verify_oauth2_token(token, GoogleRequest(), client_id)
-    except ValueError as e:
-        raise SocialAuthError(f"Token de Google inválido: {e}")
+    except ValueError:
+        # No es un id_token válido — intentar como access_token
+        return _verify_google_access_token(token)
 
     email = idinfo.get("email")
     if not email:
@@ -220,9 +257,7 @@ def social_login_or_create(social_info: SocialUserInfo, tenant: Tenant) -> User:
     """
     Flujo principal de social auth:
     1. Si existe SocialAccount → retornar user
-    2. Si existe User con mismo email:
-       - Con password → raise LinkingRequired
-       - Guest → auto-vincular
+    2. Si existe User con mismo email → auto-vincular (el proveedor ya verificó la identidad)
     3. No existe → crear User + SocialAccount
     """
     # 1. Buscar SocialAccount existente
@@ -262,11 +297,7 @@ def social_login_or_create(social_info: SocialUserInfo, tenant: Tenant) -> User:
             )
             return existing_user
 
-        if existing_user.has_usable_password():
-            # Tiene password → requiere vinculación manual
-            raise LinkingRequired(email=social_info.email, provider=social_info.provider)
-
-        # Tiene unusable password (creado via otro social) → vincular
+        # Auto-vincular: el proveedor social ya verificó la identidad del usuario
         SocialAccount.objects.create(
             user=existing_user,
             tenant=tenant,

@@ -12,6 +12,7 @@ import type { SocialLoginButtonsProps } from './types';
 import type { SocialProvider } from '@/types';
 import { SocialLinkDialog } from './SocialLinkDialog';
 import { AxiosError } from 'axios';
+import { ApiError } from '@/lib/api/client';
 
 // ─── SVG Icons (inline to avoid extra dependencies) ─────────────
 
@@ -74,10 +75,11 @@ export function SocialLoginButtons({
   onGoogleClick,
   onAppleClick,
   onFacebookClick,
+  onSwitchToRegister,
 }: SocialLoginButtonsProps) {
   if (!features.socialLogin) return null;
 
-  return <SocialLoginButtonsInner mode={mode} onGoogleClick={onGoogleClick} onAppleClick={onAppleClick} onFacebookClick={onFacebookClick} />;
+  return <SocialLoginButtonsInner mode={mode} onGoogleClick={onGoogleClick} onAppleClick={onAppleClick} onFacebookClick={onFacebookClick} onSwitchToRegister={onSwitchToRegister} />;
 }
 
 /** Inner component — hooks are safe here because parent already checked feature flag. */
@@ -86,6 +88,7 @@ function SocialLoginButtonsInner({
   onGoogleClick,
   onAppleClick,
   onFacebookClick,
+  onSwitchToRegister,
 }: SocialLoginButtonsProps) {
   const { socialLogin } = useAuth();
   const [isLoading, setIsLoading] = useState<SocialProvider | null>(null);
@@ -96,16 +99,51 @@ function SocialLoginButtonsInner({
     email: '',
   });
 
-  const handleSocialError = useCallback((error: unknown, provider: string) => {
-    if (error instanceof AxiosError && error.response?.data?.code === 'LINKING_REQUIRED') {
-      // The linking dialog will be shown — don't toast
-      return;
+  const handleSocialError = useCallback((error: unknown, provider: string, token?: string) => {
+    // Extract code and data — works for both AxiosError and ApiError (from interceptor)
+    let code: string | undefined;
+    let data: Record<string, unknown> | undefined;
+    let message: string | undefined;
+
+    if (error instanceof AxiosError) {
+      code = error.response?.data?.code;
+      data = error.response?.data;
+      message = error.response?.data?.error || error.response?.data?.message;
+    } else if (error instanceof ApiError) {
+      const errorData = error.data as Record<string, unknown> | undefined;
+      code = errorData?.code as string | undefined;
+      data = errorData;
+      message = error.message;
     }
-    const message = error instanceof AxiosError
-      ? error.response?.data?.error || error.response?.data?.message
-      : null;
+
+    if (code) {
+      // Linking dialog handles this
+      if (code === 'LINKING_REQUIRED') return;
+      // No account found — switch to register with pre-filled data + social token
+      if (code === 'USER_NOT_FOUND') {
+        const suggested = data?.suggested_user as { email?: string; first_name?: string; last_name?: string } | undefined;
+        if (onSwitchToRegister && suggested) {
+          toast.info('No encontramos una cuenta con este email', {
+            description: 'Te llevamos al registro con tus datos pre-llenados.',
+          });
+          onSwitchToRegister({
+            email: suggested.email || '',
+            first_name: suggested.first_name || '',
+            last_name: suggested.last_name || '',
+            provider,
+            token,
+          });
+        } else {
+          toast.info('No encontramos una cuenta con este email', {
+            description: 'Regístrate primero para poder acceder con tu cuenta social.',
+          });
+        }
+        return;
+      }
+    }
+
     toast.error(message || `Error al iniciar sesión con ${provider}`);
-  }, []);
+  }, [onSwitchToRegister]);
 
   const handleSocialSuccess = useCallback(async (
     provider: SocialProvider,
@@ -116,18 +154,24 @@ function SocialLoginButtonsInner({
     try {
       await socialLogin(provider, token, extra);
     } catch (error) {
-      // Handle linking required
-      if (error instanceof AxiosError && error.response?.data?.code === 'LINKING_REQUIRED') {
+      // Handle linking required — check both AxiosError and ApiError
+      const errorData = error instanceof AxiosError
+        ? error.response?.data
+        : error instanceof ApiError
+          ? error.data as Record<string, unknown>
+          : undefined;
+
+      if (errorData && (errorData as Record<string, unknown>).code === 'LINKING_REQUIRED') {
         setLinkingState({
           open: true,
           provider,
           token,
-          email: error.response.data.email || '',
+          email: (errorData as Record<string, unknown>).email as string || '',
           extra,
         });
         return;
       }
-      handleSocialError(error, provider);
+      handleSocialError(error, provider, token);
     } finally {
       setIsLoading(null);
     }
@@ -268,28 +312,27 @@ function SocialLoginButtonsInner({
           <GoogleIcon />
           <span>{isLoading === 'google' ? '...' : 'Google'}</span>
         </button>
-        <div className="relative flex-1" title={!appleAvailable ? 'Próximamente' : undefined}>
-          <button
-            type="button"
-            onClick={appleAvailable ? handleApple : undefined}
-            disabled={!appleAvailable || isLoading !== null}
-            aria-label={appleAvailable ? `${actionLabel} con Apple` : 'Apple — Próximamente'}
-            className={btnClass}
-            style={{
-              color: 'var(--auth-text)',
-              fontFamily: 'var(--auth-font-body)',
-              ...(!appleAvailable ? { opacity: 0.4, cursor: 'default' } : {}),
-            }}
-          >
-            <AppleIcon />
-            <span>{isLoading === 'apple' ? '...' : 'Apple'}</span>
-          </button>
+        <button
+          type="button"
+          onClick={appleAvailable ? handleApple : undefined}
+          disabled={!appleAvailable || isLoading !== null}
+          aria-label={appleAvailable ? `${actionLabel} con Apple` : 'Apple — Próximamente'}
+          title={!appleAvailable ? 'Próximamente' : undefined}
+          className={`${btnClass} relative`}
+          style={{
+            color: 'var(--auth-text)',
+            fontFamily: 'var(--auth-font-body)',
+            ...(!appleAvailable ? { opacity: 0.45, cursor: 'default' } : {}),
+          }}
+        >
+          <AppleIcon />
+          <span>{isLoading === 'apple' ? '...' : 'Apple'}</span>
           {!appleAvailable && (
-            <span className="absolute -top-2 -right-1 rounded-full bg-[var(--auth-accent,#3B82F6)] px-1.5 py-0.5 text-[0.55rem] font-semibold leading-none text-white">
+            <span className="absolute -top-2.5 -right-2 rounded-full bg-[var(--auth-accent,#3B82F6)] px-1.5 py-0.5 text-[0.55rem] font-semibold leading-none text-white shadow-sm">
               Pronto
             </span>
           )}
-        </div>
+        </button>
         <button
           type="button"
           onClick={handleFacebook}

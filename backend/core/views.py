@@ -1808,6 +1808,11 @@ class PlatformSocialLoginView(APIView):
                 {
                     "error": "No se encontró una cuenta con este email. Regístrate primero.",
                     "code": "USER_NOT_FOUND",
+                    "suggested_user": {
+                        "email": social_info.email,
+                        "first_name": social_info.first_name,
+                        "last_name": social_info.last_name,
+                    },
                 },
                 status=status.HTTP_404_NOT_FOUND,
             )
@@ -1817,18 +1822,6 @@ class PlatformSocialLoginView(APIView):
                 .filter(email__iexact=social_info.email)
                 .order_by("-date_joined")
                 .first()
-            )
-
-        if user.has_usable_password():
-            return Response(
-                {
-                    "error": "Ya existe una cuenta con este email",
-                    "code": "LINKING_REQUIRED",
-                    "email": social_info.email,
-                    "provider": provider,
-                    "message": "Ya tienes una cuenta con contraseña. Inicia sesión con tu email y contraseña.",
-                },
-                status=status.HTTP_409_CONFLICT,
             )
 
         if not user.is_active:

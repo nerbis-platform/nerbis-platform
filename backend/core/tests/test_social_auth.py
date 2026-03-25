@@ -8,7 +8,7 @@ from django.test import override_settings
 from rest_framework import status
 
 from core.models import SocialAccount, User
-from core.social_auth import LinkingRequired, SocialAuthError, SocialUserInfo, social_login_or_create
+from core.social_auth import SocialAuthError, SocialUserInfo, social_login_or_create
 from core.test_base import TenantAwareTestCase
 
 SOCIAL_SETTINGS = {
@@ -73,15 +73,17 @@ class SocialLoginOrCreateTest(TenantAwareTestCase):
         # Solo 1 SocialAccount
         self.assertEqual(SocialAccount.objects.filter(tenant=self.tenant, provider="google").count(), 1)
 
-    def test_email_with_password_raises_linking_required(self):
-        """Si el email ya existe con password, raise LinkingRequired."""
+    def test_email_with_password_auto_links(self):
+        """Si el email ya existe con password, auto-vincula (el proveedor verificó la identidad)."""
         info = _make_google_info(email="admin@test.com")
 
-        with self.assertRaises(LinkingRequired) as ctx:
-            social_login_or_create(info, self.tenant)
+        user = social_login_or_create(info, self.tenant)
 
-        self.assertEqual(ctx.exception.email, "admin@test.com")
-        self.assertEqual(ctx.exception.provider, "google")
+        self.assertEqual(user.email, "admin@test.com")
+        self.assertTrue(user.has_usable_password())
+        self.assertTrue(SocialAccount.objects.filter(
+            user=user, tenant=self.tenant, provider="google"
+        ).exists())
 
     def test_guest_user_auto_link(self):
         """Guest user se vincula automáticamente."""
@@ -172,8 +174,8 @@ class SocialLoginViewTest(TenantAwareTestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     @patch("core.views.verify_social_token")
-    def test_linking_required_returns_409(self, mock_verify):
-        """Email con password existente retorna 409 LINKING_REQUIRED."""
+    def test_email_with_password_auto_links(self, mock_verify):
+        """Email con password existente se auto-vincula y retorna 200."""
         mock_verify.return_value = _make_google_info(email="admin@test.com")
 
         response = self.client.post(
@@ -182,9 +184,9 @@ class SocialLoginViewTest(TenantAwareTestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
-        self.assertEqual(response.data["code"], "LINKING_REQUIRED")
-        self.assertEqual(response.data["email"], "admin@test.com")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("tokens", response.data)
+        self.assertEqual(response.data["user"]["email"], "admin@test.com")
 
     def test_missing_token_returns_400(self):
         """Sin token retorna 400."""
@@ -309,8 +311,8 @@ class PlatformSocialLoginViewTest(TenantAwareTestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     @patch("core.views.verify_social_token")
-    def test_email_with_password_returns_409(self, mock_verify):
-        """Email con password en platform login retorna 409."""
+    def test_email_with_password_auto_links(self, mock_verify):
+        """Email con password en platform login se auto-vincula y retorna 200."""
         mock_verify.return_value = _make_google_info(email="admin@test.com")
 
         client = self.client.__class__()
@@ -320,5 +322,5 @@ class PlatformSocialLoginViewTest(TenantAwareTestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
-        self.assertEqual(response.data["code"], "LINKING_REQUIRED")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("tokens", response.data)

@@ -29,6 +29,7 @@ export default function AuthSplitScreenV2({
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [contentVisible, setContentVisible] = useState(true);
+  const [registerPrefill, setRegisterPrefill] = useState<{ email: string; first_name: string; last_name: string; provider?: string; token?: string } | null>(null);
   const formPanelRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
 
@@ -81,6 +82,11 @@ export default function AuthSplitScreenV2({
   const goToLogin = useCallback(() => switchMode('login'), [switchMode]);
   const goToRegister = useCallback(() => switchMode('register'), [switchMode]);
   const goToForgot = useCallback(() => switchMode('forgot'), [switchMode]);
+
+  const handleSwitchToRegister = useCallback((prefill: { email: string; first_name: string; last_name: string; provider?: string; token?: string }) => {
+    setRegisterPrefill(prefill);
+    switchMode('register');
+  }, [switchMode]);
 
   // ── Focus first input after mode switch animation
   useEffect(() => {
@@ -161,12 +167,14 @@ export default function AuthSplitScreenV2({
               onToggleMode={goToRegister}
               onForgotPassword={goToForgot}
               redirectTo={redirectTo}
+              onSwitchToRegister={handleSwitchToRegister}
             />
           )}
 
           {mode === 'register' && (
             <RegisterForm
               onToggleMode={goToLogin}
+              initialPrefill={registerPrefill}
             />
           )}
 

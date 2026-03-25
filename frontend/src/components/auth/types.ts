@@ -97,6 +97,7 @@ export interface SocialLoginButtonsProps {
   onGoogleClick?: () => void;
   onAppleClick?: () => void;
   onFacebookClick?: () => void;
+  onSwitchToRegister?: (prefill: { email: string; first_name: string; last_name: string; provider?: string; token?: string }) => void;
 }
 
 export interface FormDividerProps {

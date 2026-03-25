@@ -90,7 +90,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     token: string,
     extra?: { first_name?: string; last_name?: string }
   ) => {
-    const response = await authApi.platformSocialLogin(provider, token, extra);
+    // Detectar si estamos en un subdominio real de tenant (no localhost ni plataforma)
+    // Solo usar endpoint tenant-scoped cuando hay subdominio real (ej: pixel-sabana.nerbis.com)
+    // En localhost o dominio raíz → platform (cross-tenant, para dueños de negocio)
+    const host = window.location.host;
+    const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const baseDomain = process.env.NEXT_PUBLIC_PLATFORM_BASE_DOMAIN || 'nerbis.com';
+    const isSubdomain = !isLocalhost && host !== baseDomain && host.endsWith(`.${baseDomain}`);
+
+    const response = isSubdomain
+      ? await authApi.socialLogin(provider, token, extra)
+      : await authApi.platformSocialLogin(provider, token, extra);
+
     setUser(response.user);
     if (response.tenant) {
       setTenant(response.tenant);

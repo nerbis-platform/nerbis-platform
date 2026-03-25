@@ -3,12 +3,14 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form } from '@/components/ui/form';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { socialLogin as apiSocialLogin } from '@/lib/api/auth';
+import type { SocialProvider } from '@/types';
 import {
   registerBusinessSchema,
   type RegisterBusinessFormValues,
@@ -24,6 +26,8 @@ interface RegisterFormComponentProps {
   onToggleMode: () => void;
   /** Called when step changes (for brand panel content sync). */
   onStepChange?: (step: RegisterStep) => void;
+  /** Pre-fill data from social login (USER_NOT_FOUND flow). Includes provider/token to auto-link after registration. */
+  initialPrefill?: { email: string; first_name: string; last_name: string; provider?: string; token?: string } | null;
 }
 
 // ─── Component ──────────────────────────────────────────────────
@@ -31,6 +35,7 @@ interface RegisterFormComponentProps {
 export function RegisterForm({
   onToggleMode,
   onStepChange,
+  initialPrefill,
 }: RegisterFormComponentProps) {
   const { registerTenant } = useAuth();
 
@@ -52,6 +57,15 @@ export function RegisterForm({
       password2: '',
     },
   });
+
+  // ── Pre-fill from social login data
+  useEffect(() => {
+    if (initialPrefill) {
+      if (initialPrefill.email) form.setValue('email', initialPrefill.email);
+      if (initialPrefill.first_name) form.setValue('first_name', initialPrefill.first_name);
+      if (initialPrefill.last_name) form.setValue('last_name', initialPrefill.last_name);
+    }
+  }, [initialPrefill, form]);
 
   // ── Step navigation
   const handleNextStep = useCallback(async () => {
@@ -82,6 +96,17 @@ export function RegisterForm({
           last_name: data.last_name,
           phone: data.phone,
         });
+
+        // Si el registro viene desde social login, vincular la cuenta en segundo plano (no bloquea)
+        if (initialPrefill?.provider && initialPrefill?.token) {
+          apiSocialLogin(
+            initialPrefill.provider as SocialProvider,
+            initialPrefill.token,
+          ).catch(() => {
+            // Silenciar: token puede haber expirado, el usuario puede vincular después
+          });
+        }
+
         toast.success(result.message);
       } catch (error) {
         const message =
@@ -91,7 +116,7 @@ export function RegisterForm({
         setIsLoading(false);
       }
     },
-    [registerTenant],
+    [registerTenant, initialPrefill],
   );
 
   const handlePhoneCountryChange = useCallback(
