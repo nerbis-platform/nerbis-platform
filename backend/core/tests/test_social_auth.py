@@ -81,9 +81,7 @@ class SocialLoginOrCreateTest(TenantAwareTestCase):
 
         self.assertEqual(user.email, "admin@test.com")
         self.assertTrue(user.has_usable_password())
-        self.assertTrue(SocialAccount.objects.filter(
-            user=user, tenant=self.tenant, provider="google"
-        ).exists())
+        self.assertTrue(SocialAccount.objects.filter(user=user, tenant=self.tenant, provider="google").exists())
 
     def test_guest_user_auto_link(self):
         """Guest user se vincula automáticamente."""
