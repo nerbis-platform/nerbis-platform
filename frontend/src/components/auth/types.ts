@@ -92,11 +92,20 @@ export interface OtpInputProps {
   disabled?: boolean;
 }
 
+export interface AuthPrefill {
+  email: string;
+  first_name: string;
+  last_name: string;
+  provider?: string;
+  token?: string;
+}
+
 export interface SocialLoginButtonsProps {
   mode: 'login' | 'register';
   onGoogleClick?: () => void;
   onAppleClick?: () => void;
   onFacebookClick?: () => void;
+  onSwitchToRegister?: (prefill: AuthPrefill) => void;
 }
 
 export interface FormDividerProps {

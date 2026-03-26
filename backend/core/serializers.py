@@ -384,6 +384,24 @@ class TenantRegisterSerializer(serializers.Serializer):
         return user
 
 
+class SocialLoginSerializer(serializers.Serializer):
+    """Serializer para social login (Google, Apple, Facebook)."""
+
+    token = serializers.CharField(required=True, help_text="Token del proveedor (id_token o access_token)")
+    first_name = serializers.CharField(required=False, default="", help_text="Nombre (opcional, para Apple)")
+    last_name = serializers.CharField(required=False, default="", help_text="Apellido (opcional, para Apple)")
+
+
+class SocialLinkSerializer(serializers.Serializer):
+    """Serializer para vincular cuenta social a usuario existente con contraseña."""
+
+    provider = serializers.ChoiceField(choices=["google", "apple", "facebook"], required=True)
+    token = serializers.CharField(required=True, help_text="Token del proveedor")
+    password = serializers.CharField(required=True, write_only=True, help_text="Contraseña de la cuenta existente")
+    first_name = serializers.CharField(required=False, default="")
+    last_name = serializers.CharField(required=False, default="")
+
+
 class BannerSerializer(serializers.ModelSerializer):
     """Serializer para Banner (información pública)"""
 

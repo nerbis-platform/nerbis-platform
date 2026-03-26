@@ -13,6 +13,7 @@ from core.views import (
     CheckTenantEmailView,
     PlatformForgotPasswordView,
     PlatformLoginView,
+    PlatformSocialLoginView,
     PlatformVerifyResetOTPView,
     TenantRegisterView,
     subscription_expired_view,
@@ -53,6 +54,7 @@ urlpatterns = [
     path(
         "api/public/platform-verify-reset-otp/", PlatformVerifyResetOTPView.as_view(), name="platform-verify-reset-otp"
     ),
+    path("api/public/platform-social-login/", PlatformSocialLoginView.as_view(), name="platform-social-login"),
     # Webhooks (sin middleware de tenant)
     path("api/webhooks/stripe/", stripe_webhook, name="stripe-webhook"),
     # Documentación

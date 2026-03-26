@@ -2,6 +2,7 @@
 
 import logging
 
+from django.db import transaction
 from django.shortcuts import render
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
@@ -13,20 +14,30 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Banner, OTPToken, PasswordSetToken, Tenant, User
+from .models import Banner, OTPToken, PasswordSetToken, SocialAccount, Tenant, User
 from .serializers import (
     BannerSerializer,
     ChangePasswordSerializer,
     LoginSerializer,
     RegisterSerializer,
     SetPasswordSerializer,
+    SocialLinkSerializer,
+    SocialLoginSerializer,
     TenantRegisterSerializer,
     TenantSerializer,
     UpdateProfileSerializer,
     UserSerializer,
     UserSessionSerializer,
 )
-from .throttles import LoginThrottle, OTPRequestThrottle, OTPVerifyThrottle, PasswordResetThrottle, RegisterThrottle
+from .social_auth import LinkingRequired, SocialAuthError, social_login_or_create, verify_social_token
+from .throttles import (
+    LoginThrottle,
+    OTPRequestThrottle,
+    OTPVerifyThrottle,
+    PasswordResetThrottle,
+    RegisterThrottle,
+    SocialLoginThrottle,
+)
 
 logger = logging.getLogger(__name__)
 from django.db.models import Q
@@ -1569,3 +1580,274 @@ def get_tenant_website_content(request):
         response_data["template_slug"] = config.template.slug
 
     return Response(response_data)
+
+
+# ===================================
+# SOCIAL AUTH VIEWS
+# ===================================
+
+
+def _build_social_auth_response(user, tenant_obj):
+    """Helper: genera la respuesta JWT estándar para social auth."""
+    refresh = RefreshToken.for_user(user)
+    refresh["tenant_id"] = str(user.tenant.id)
+    refresh["tenant_slug"] = user.tenant.slug
+    refresh["role"] = user.role
+
+    return {
+        "user": UserSessionSerializer(user).data,
+        "tenant": TenantSerializer(tenant_obj).data,
+        "tokens": {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        },
+    }
+
+
+class SocialLoginView(APIView):
+    """
+    POST /api/auth/social/<provider>/ — Social login dentro de un tenant.
+
+    Verifica el token del proveedor, crea o vincula usuario, retorna JWT.
+    Requiere tenant context (header X-Tenant-Slug).
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [SocialLoginThrottle]
+
+    @extend_schema(
+        request=SocialLoginSerializer,
+        responses={
+            200: OpenApiResponse(description="Login exitoso con JWT"),
+            401: OpenApiResponse(description="Token inválido"),
+            409: OpenApiResponse(description="Email ya registrado con contraseña — requiere vinculación"),
+        },
+        parameters=[
+            OpenApiParameter(name="provider", location="path", type=str, enum=["google", "apple", "facebook"]),
+        ],
+    )
+    def post(self, request, provider):
+        serializer = SocialLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        token = serializer.validated_data["token"]
+        first_name = serializer.validated_data.get("first_name", "")
+        last_name = serializer.validated_data.get("last_name", "")
+
+        tenant = request.tenant
+
+        # Verificar token con el proveedor
+        try:
+            social_info = verify_social_token(provider, token, first_name=first_name, last_name=last_name)
+        except SocialAuthError as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Login o crear usuario
+        try:
+            user = social_login_or_create(social_info, tenant)
+        except LinkingRequired as e:
+            return Response(
+                {
+                    "error": "Ya existe una cuenta con este email",
+                    "code": "LINKING_REQUIRED",
+                    "email": e.email,
+                    "provider": e.provider,
+                    "message": "Ya tienes una cuenta con contraseña. Ingresa tu contraseña para vincular tu cuenta social.",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if not user.is_active:
+            return Response(
+                {"error": "Tu cuenta está desactivada", "code": "ACCOUNT_INACTIVE"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return Response(_build_social_auth_response(user, tenant))
+
+
+class SocialLinkView(APIView):
+    """
+    POST /api/auth/social/link/ — Vincular cuenta social a usuario existente.
+
+    Cuando el social login retorna LINKING_REQUIRED (409), el frontend
+    envía la contraseña del usuario para confirmar la vinculación.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [SocialLoginThrottle]
+
+    @extend_schema(
+        request=SocialLinkSerializer,
+        responses={
+            200: OpenApiResponse(description="Vinculación exitosa con JWT"),
+            401: OpenApiResponse(description="Credenciales inválidas"),
+        },
+    )
+    def post(self, request):
+        serializer = SocialLinkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        provider = serializer.validated_data["provider"]
+        token = serializer.validated_data["token"]
+        password = serializer.validated_data["password"]
+        first_name = serializer.validated_data.get("first_name", "")
+        last_name = serializer.validated_data.get("last_name", "")
+
+        tenant = request.tenant
+
+        # Verificar token
+        try:
+            social_info = verify_social_token(provider, token, first_name=first_name, last_name=last_name)
+        except SocialAuthError as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Buscar usuario por email
+        try:
+            user = User.objects.get(email__iexact=social_info.email, tenant=tenant)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Verificar contraseña
+        if not user.check_password(password):
+            return Response({"error": "Contraseña incorrecta"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not user.is_active:
+            return Response(
+                {"error": "Tu cuenta está desactivada", "code": "ACCOUNT_INACTIVE"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Crear SocialAccount (o actualizar si ya existe para otro provider_uid)
+        SocialAccount.objects.update_or_create(
+            tenant=tenant,
+            provider=social_info.provider,
+            provider_uid=social_info.provider_uid,
+            defaults={
+                "user": user,
+                "email": social_info.email,
+                "extra_data": social_info.extra_data,
+            },
+        )
+
+        return Response(_build_social_auth_response(user, tenant))
+
+
+class PlatformSocialLoginView(APIView):
+    """
+    POST /api/public/platform-social-login/ — Social login cross-tenant.
+
+    Mismo flujo que SocialLoginView pero busca en TODOS los tenants.
+    Si el usuario existe en múltiples tenants, usa el más reciente.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [SocialLoginThrottle]
+
+    @extend_schema(
+        request=inline_serializer(
+            name="PlatformSocialLoginRequest",
+            fields={
+                "provider": drf_serializers.ChoiceField(choices=["google", "apple", "facebook"]),
+                "token": drf_serializers.CharField(),
+                "first_name": drf_serializers.CharField(required=False),
+                "last_name": drf_serializers.CharField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(description="Login exitoso"),
+            401: OpenApiResponse(description="Token inválido"),
+        },
+    )
+    def post(self, request):
+        provider = request.data.get("provider")
+        token = request.data.get("token")
+        first_name = request.data.get("first_name", "")
+        last_name = request.data.get("last_name", "")
+
+        if not provider or not token:
+            return Response({"error": "provider y token son requeridos"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if provider not in ("google", "apple", "facebook"):
+            return Response({"error": "Proveedor no soportado"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar token
+        try:
+            social_info = verify_social_token(provider, token, first_name=first_name, last_name=last_name)
+        except SocialAuthError as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Buscar SocialAccount existente en cualquier tenant
+        social_account = (
+            SocialAccount.objects.select_related("user", "user__tenant")
+            .filter(provider=social_info.provider, provider_uid=social_info.provider_uid)
+            .first()
+        )
+
+        if social_account:
+            user = social_account.user
+            if not user.is_active:
+                return Response(
+                    {"error": "Tu cuenta está desactivada", "code": "ACCOUNT_INACTIVE"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if not user.tenant.is_active:
+                return Response(
+                    {"error": "El negocio asociado a esta cuenta no está activo."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            return Response(_build_social_auth_response(user, user.tenant))
+
+        # Buscar por email en cualquier tenant
+        try:
+            user = User.objects.select_related("tenant").get(email__iexact=social_info.email)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "error": "No se encontró una cuenta con este email. Regístrate primero.",
+                    "code": "USER_NOT_FOUND",
+                    "suggested_user": {
+                        "email": social_info.email,
+                        "first_name": social_info.first_name,
+                        "last_name": social_info.last_name,
+                    },
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except User.MultipleObjectsReturned:
+            user = (
+                User.objects.select_related("tenant")
+                .filter(email__iexact=social_info.email)
+                .order_by("-date_joined")
+                .first()
+            )
+
+        if not user.is_active:
+            return Response(
+                {"error": "Tu cuenta está desactivada", "code": "ACCOUNT_INACTIVE"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not user.tenant.is_active:
+            return Response(
+                {"error": "El negocio asociado a esta cuenta no está activo."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Vincular automáticamente (get_or_create para manejar concurrencia)
+        with transaction.atomic():
+            SocialAccount.objects.get_or_create(
+                tenant=user.tenant,
+                provider=social_info.provider,
+                provider_uid=social_info.provider_uid,
+                defaults={
+                    "user": user,
+                    "email": social_info.email,
+                    "extra_data": social_info.extra_data,
+                },
+            )
+
+        return Response(_build_social_auth_response(user, user.tenant))

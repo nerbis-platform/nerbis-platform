@@ -696,6 +696,79 @@ class User(AbstractUser):
         return self.role == "customer"
 
 
+class SocialAccount(models.Model):
+    """
+    Cuenta social vinculada a un usuario dentro de un tenant.
+
+    Permite login via Google, Apple o Facebook.
+    Un usuario puede tener múltiples cuentas sociales (una por provider).
+    """
+
+    PROVIDER_CHOICES = [
+        ("google", "Google"),
+        ("apple", "Apple"),
+        ("facebook", "Facebook"),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="social_accounts",
+        verbose_name="Usuario",
+    )
+
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="social_accounts",
+        verbose_name="Tenant",
+    )
+
+    provider = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        verbose_name="Proveedor",
+    )
+
+    provider_uid = models.CharField(
+        max_length=255,
+        verbose_name="ID del proveedor",
+        help_text="ID único del usuario en el proveedor (sub/id)",
+    )
+
+    email = models.EmailField(
+        verbose_name="Email del proveedor",
+        help_text="Email asociado en la cuenta social",
+    )
+
+    extra_data = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Datos adicionales",
+        help_text="Nombre, avatar, etc. del proveedor",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+
+    class Meta:
+        verbose_name = "Cuenta Social"
+        verbose_name_plural = "Cuentas Sociales"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "provider", "provider_uid"],
+                name="unique_social_account_per_tenant",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "provider", "email"]),
+        ]
+
+    def __str__(self):
+        return f"{self.provider} - {self.email} ({self.user.get_full_name()})"
+
+
 class Banner(TenantAwareModel):
     """
     Banner promocional configurable desde el admin.

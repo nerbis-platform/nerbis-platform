@@ -326,6 +326,7 @@ REST_FRAMEWORK = {
         "otp_request": "3/min",  # Solicitar OTP: 3 por minuto por IP
         "otp_verify": "5/min",  # Verificar OTP: 5 por minuto por IP
         "password_reset": "3/min",  # Reset password: 3 por minuto por IP
+        "social_login": "5/min",  # Social login: 5 por minuto por IP
     },
 }
 
@@ -462,6 +463,15 @@ ANTHROPIC_PRICE_OUTPUT = os.getenv("ANTHROPIC_PRICE_OUTPUT", "1.25")  # USD por 
 # UNSPLASH (Stock images para Website Builder)
 # ===================================
 UNSPLASH_ACCESS_KEY = os.getenv("UNSPLASH_ACCESS_KEY", "")
+
+# ===================================
+# OAUTH / SOCIAL AUTH
+# ===================================
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID", "")
+APPLE_TEAM_ID = os.getenv("APPLE_TEAM_ID", "")
+FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", "")
+FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", "")
 
 # ===================================
 # FRONTEND URL

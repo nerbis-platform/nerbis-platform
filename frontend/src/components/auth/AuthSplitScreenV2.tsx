@@ -11,7 +11,7 @@ import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { useReducedMotion } from './hooks';
-import type { AuthMode } from './types';
+import type { AuthMode, AuthPrefill } from './types';
 
 // ─── Props ──────────────────────────────────────────────────────
 
@@ -29,6 +29,7 @@ export default function AuthSplitScreenV2({
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [contentVisible, setContentVisible] = useState(true);
+  const [registerPrefill, setRegisterPrefill] = useState<AuthPrefill | null>(null);
   const formPanelRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
 
@@ -78,9 +79,14 @@ export default function AuthSplitScreenV2({
   );
 
   // ── Navigation callbacks
-  const goToLogin = useCallback(() => switchMode('login'), [switchMode]);
+  const goToLogin = useCallback(() => { setRegisterPrefill(null); switchMode('login'); }, [switchMode]);
   const goToRegister = useCallback(() => switchMode('register'), [switchMode]);
   const goToForgot = useCallback(() => switchMode('forgot'), [switchMode]);
+
+  const handleSwitchToRegister = useCallback((prefill: AuthPrefill) => {
+    setRegisterPrefill(prefill);
+    switchMode('register');
+  }, [switchMode]);
 
   // ── Focus first input after mode switch animation
   useEffect(() => {
@@ -161,12 +167,14 @@ export default function AuthSplitScreenV2({
               onToggleMode={goToRegister}
               onForgotPassword={goToForgot}
               redirectTo={redirectTo}
+              onSwitchToRegister={handleSwitchToRegister}
             />
           )}
 
           {mode === 'register' && (
             <RegisterForm
               onToggleMode={goToLogin}
+              initialPrefill={registerPrefill}
             />
           )}
 

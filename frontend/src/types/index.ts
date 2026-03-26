@@ -63,7 +63,11 @@ export interface User {
   role_display: string;
   is_active: boolean;
   date_joined: string;
+  auth_provider?: string;
+  has_password?: boolean;
 }
+
+export type SocialProvider = 'google' | 'apple' | 'facebook';
 
 // ===================================
 // AUTH

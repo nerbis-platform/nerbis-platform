@@ -3,7 +3,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { User, RegisterData, RegisterTenantData, Tenant } from '@/types';
+import { User, RegisterData, RegisterTenantData, Tenant, SocialProvider } from '@/types';
 import * as authApi from '@/lib/api/auth';
 import { useRouter } from 'next/navigation';
 
@@ -20,6 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   platformLogin: (credentials: { email: string; password: string }, redirectTo?: string) => Promise<void>;
+  socialLogin: (provider: SocialProvider, token: string, extra?: { first_name?: string; last_name?: string }) => Promise<void>;
   register: (data: RegisterData, redirectTo?: string) => Promise<{ message: string }>;
   registerTenant: (data: RegisterTenantData) => Promise<{ message: string }>;
   logout: (redirectTo?: string) => Promise<void>;
@@ -63,25 +64,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
+  // Redirigir según estado del tenant después de autenticarse
+  const redirectAfterLogin = (tenant: Tenant | null, customRedirect?: string) => {
+    if (customRedirect) {
+      router.push(customRedirect);
+    } else if (tenant && !tenant.modules_configured) {
+      router.push('/dashboard/setup');
+    } else if (tenant?.has_website && tenant.website_status !== 'published') {
+      router.push('/dashboard/website-builder');
+    } else {
+      router.push('/dashboard');
+    }
+  };
+
   const platformLogin = async (credentials: { email: string; password: string }, redirectTo?: string) => {
     const response = await authApi.platformLogin(credentials);
     setUser(response.user);
     if (response.tenant) {
       setTenant(response.tenant);
     }
-    // Redirigir según estado del tenant
-    if (redirectTo) {
-      router.push(redirectTo);
-    } else if (response.tenant && !response.tenant.modules_configured) {
-      router.push('/dashboard/setup');
-    } else if (
-      response.tenant?.has_website &&
-      response.tenant.website_status !== 'published'
-    ) {
-      router.push('/dashboard/website-builder');
-    } else {
-      router.push('/dashboard');
+    redirectAfterLogin(response.tenant ?? null, redirectTo);
+  };
+
+  const socialLogin = async (
+    provider: SocialProvider,
+    token: string,
+    extra?: { first_name?: string; last_name?: string }
+  ) => {
+    // Detección de contexto:
+    // - localhost:3000, 127.0.0.1 → platform (login de dueño de negocio, cross-tenant)
+    // - nerbis.com (dominio raíz) → platform
+    // - pixel-sabana.nerbis.com (subdominio) → tenant-scoped (login de cliente, puede auto-crear)
+    const host = window.location.host;
+    const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const baseDomain = process.env.NEXT_PUBLIC_PLATFORM_BASE_DOMAIN || 'nerbis.com';
+    const isSubdomain = !isLocalhost && host !== baseDomain && host.endsWith(`.${baseDomain}`);
+
+    const response = isSubdomain
+      ? await authApi.socialLogin(provider, token, extra)
+      : await authApi.platformSocialLogin(provider, token, extra);
+
+    setUser(response.user);
+    if (response.tenant) {
+      setTenant(response.tenant);
     }
+    redirectAfterLogin(response.tenant ?? null);
   };
 
   const register = async (data: RegisterData, redirectTo?: string) => {
@@ -117,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user,
     isLoading,
     platformLogin,
+    socialLogin,
     register,
     registerTenant,
     logout,

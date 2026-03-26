@@ -29,6 +29,7 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
     "otp_request": None,
     "otp_verify": None,
     "password_reset": None,
+    "social_login": None,
 }
 
 # ===================================

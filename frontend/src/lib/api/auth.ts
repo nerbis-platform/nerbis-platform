@@ -1,7 +1,7 @@
 // src/lib/api/auth.ts
 
 import { apiClient } from './client';
-import { AuthResponse, LoginCredentials, RegisterData, RegisterTenantData, User, Tenant } from '@/types';
+import { AuthResponse, LoginCredentials, RegisterData, RegisterTenantData, User, Tenant, SocialProvider } from '@/types';
 
 /**
  * Platform Login (cross-tenant — busca al usuario en todos los tenants)
@@ -131,6 +131,110 @@ export async function configureModules(modules: ModuleSelection & SetupProfileDa
   }
 
   return data;
+}
+
+// ===================================
+// Social Auth
+// ===================================
+
+/**
+ * Social Login (tenant-scoped — requiere X-Tenant-Slug)
+ */
+export async function socialLogin(
+  provider: SocialProvider,
+  token: string,
+  extra?: { first_name?: string; last_name?: string }
+): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>(`/auth/social/${provider}/`, {
+    token,
+    ...extra,
+  });
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('access_token', data.tokens.access);
+    localStorage.setItem('refresh_token', data.tokens.refresh);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    if (data.tenant) {
+      localStorage.setItem('tenant', JSON.stringify(data.tenant));
+      const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `tenant-slug=${data.tenant.slug}; path=/; SameSite=Lax${secure}`;
+    }
+  }
+
+  return data;
+}
+
+/**
+ * Social Link — vincular cuenta social a usuario existente con contraseña
+ */
+export async function socialLinkAccount(
+  provider: SocialProvider,
+  token: string,
+  password: string,
+  extra?: { first_name?: string; last_name?: string }
+): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>('/auth/social/link/', {
+    provider,
+    token,
+    password,
+    ...extra,
+  });
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('access_token', data.tokens.access);
+    localStorage.setItem('refresh_token', data.tokens.refresh);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    if (data.tenant) {
+      localStorage.setItem('tenant', JSON.stringify(data.tenant));
+      const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `tenant-slug=${data.tenant.slug}; path=/; SameSite=Lax${secure}`;
+    }
+  }
+
+  return data;
+}
+
+/**
+ * Platform Social Login (cross-tenant — busca en todos los tenants)
+ */
+export async function platformSocialLogin(
+  provider: SocialProvider,
+  token: string,
+  extra?: { first_name?: string; last_name?: string }
+): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>('/public/platform-social-login/', {
+    provider,
+    token,
+    ...extra,
+  });
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('access_token', data.tokens.access);
+    localStorage.setItem('refresh_token', data.tokens.refresh);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    if (data.tenant) {
+      localStorage.setItem('tenant', JSON.stringify(data.tenant));
+      const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `tenant-slug=${data.tenant.slug}; path=/; SameSite=Lax${secure}`;
+    }
+  }
+
+  return data;
+}
+
+/**
+ * Social Link (solo vincula, no toca tokens/localStorage).
+ * Usado post-registro para vincular la cuenta social sin re-autenticar.
+ */
+export async function socialLinkOnly(
+  provider: SocialProvider,
+  token: string,
+  extra?: { first_name?: string; last_name?: string }
+): Promise<void> {
+  await apiClient.post(`/auth/social/${provider}/`, {
+    token,
+    ...extra,
+  });
 }
 
 // reactivateAccount() fue eliminada — usamos flujo OTP (requestReactivationOTP + verifyReactivationOTP)

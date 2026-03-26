@@ -3,12 +3,14 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form } from '@/components/ui/form';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { socialLinkOnly } from '@/lib/api/auth';
+import type { SocialProvider } from '@/types';
 import {
   registerBusinessSchema,
   type RegisterBusinessFormValues,
@@ -16,7 +18,7 @@ import {
 import { DEFAULT_PHONE_COUNTRY } from './constants';
 import { RegisterStep1 } from './RegisterStep1';
 import { RegisterStep2 } from './RegisterStep2';
-import type { RegisterStep } from './types';
+import type { AuthPrefill, RegisterStep } from './types';
 
 // ─── Props ──────────────────────────────────────────────────────
 
@@ -24,6 +26,8 @@ interface RegisterFormComponentProps {
   onToggleMode: () => void;
   /** Called when step changes (for brand panel content sync). */
   onStepChange?: (step: RegisterStep) => void;
+  /** Pre-fill data from social login (USER_NOT_FOUND flow). Includes provider/token to auto-link after registration. */
+  initialPrefill?: AuthPrefill | null;
 }
 
 // ─── Component ──────────────────────────────────────────────────
@@ -31,6 +35,7 @@ interface RegisterFormComponentProps {
 export function RegisterForm({
   onToggleMode,
   onStepChange,
+  initialPrefill,
 }: RegisterFormComponentProps) {
   const { registerTenant } = useAuth();
 
@@ -52,6 +57,16 @@ export function RegisterForm({
       password2: '',
     },
   });
+
+  // ── Pre-fill from social login data
+  const { setValue } = form;
+  useEffect(() => {
+    if (initialPrefill) {
+      if (initialPrefill.email) setValue('email', initialPrefill.email);
+      if (initialPrefill.first_name) setValue('first_name', initialPrefill.first_name);
+      if (initialPrefill.last_name) setValue('last_name', initialPrefill.last_name);
+    }
+  }, [initialPrefill, setValue]);
 
   // ── Step navigation
   const handleNextStep = useCallback(async () => {
@@ -82,6 +97,23 @@ export function RegisterForm({
           last_name: data.last_name,
           phone: data.phone,
         });
+
+        // Si el registro viene desde social login, vincular sin tocar tokens (no bloquea)
+        const VALID_PROVIDERS: SocialProvider[] = ['google', 'apple', 'facebook'];
+        const provider = initialPrefill?.provider;
+        if (
+          provider &&
+          VALID_PROVIDERS.includes(provider as SocialProvider) &&
+          initialPrefill?.token
+        ) {
+          socialLinkOnly(
+            provider as SocialProvider,
+            initialPrefill.token,
+          ).catch(() => {
+            toast.info('No se pudo vincular tu cuenta social automáticamente. Puedes hacerlo después desde tu perfil.');
+          });
+        }
+
         toast.success(result.message);
       } catch (error) {
         const message =
@@ -91,7 +123,7 @@ export function RegisterForm({
         setIsLoading(false);
       }
     },
-    [registerTenant],
+    [registerTenant, initialPrefill],
   );
 
   const handlePhoneCountryChange = useCallback(

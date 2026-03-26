@@ -28,6 +28,7 @@ import { SocialLoginButtons } from './SocialLoginButtons';
 import { FormDivider } from './FormDivider';
 import { PasskeyButton } from './PasskeyButton';
 import { ReactivateDialog } from './ReactivateDialog';
+import type { AuthPrefill } from './types';
 
 // ─── Props ──────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ interface LoginFormComponentProps {
   onToggleMode: () => void;
   onForgotPassword: () => void;
   redirectTo?: string | null;
+  onSwitchToRegister?: (prefill: AuthPrefill) => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────
@@ -43,6 +45,7 @@ export function LoginForm({
   onToggleMode,
   onForgotPassword,
   redirectTo = null,
+  onSwitchToRegister,
 }: LoginFormComponentProps) {
   const router = useRouter();
   const { platformLogin } = useAuth();
@@ -132,7 +135,7 @@ export function LoginForm({
         {/* Social login buttons (feature flagged) */}
         {features.socialLogin && (
           <>
-            <SocialLoginButtons mode="login" />
+            <SocialLoginButtons mode="login" onSwitchToRegister={onSwitchToRegister} />
             <FormDivider text="o continúa con email" />
           </>
         )}

@@ -4,8 +4,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from core.context import set_current_tenant
 from core.models import Banner, User
-
-from .test_base import TenantAwareTestCase
+from core.test_base import TenantAwareTestCase
 
 
 class LoginSuccessTest(TenantAwareTestCase):
