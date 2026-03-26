@@ -2,6 +2,7 @@
 
 import logging
 
+from django.db import transaction
 from django.shortcuts import render
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
@@ -1837,8 +1838,6 @@ class PlatformSocialLoginView(APIView):
             )
 
         # Vincular automáticamente (get_or_create para manejar concurrencia)
-        from django.db import transaction
-
         with transaction.atomic():
             SocialAccount.objects.get_or_create(
                 tenant=user.tenant,
