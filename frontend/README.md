@@ -42,5 +42,6 @@ En la [consola de Facebook Developers](https://developers.facebook.com/apps/):
 ### Notas
 
 - Google Login funciona tanto en HTTP como HTTPS, no necesita este setup
-- El backend Django puede seguir en HTTP (`http://localhost:8000`) — el flujo OAuth envía el token del SDK al backend por API
+- El backend Django puede seguir en HTTP (`http://localhost:8000`) — el flujo OAuth envía el token del SDK al backend por API. El navegador mostrará avisos de "mixed content" en la consola porque el frontend es HTTPS y el backend HTTP; esto es normal en desarrollo y no afecta el funcionamiento del OAuth (el SDK de Facebook corre en el cliente y el token se envía al backend vía API)
+- Asegúrate de tener `NEXT_PUBLIC_API_URL=http://localhost:8000/api` en tu `.env.local`
 - En producción (Vercel/dominio real) HTTPS es automático, no se necesita configuración adicional
