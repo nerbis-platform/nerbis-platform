@@ -258,16 +258,16 @@ function SocialLoginButtonsInner({
 
     const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
 
-    const initFB = () => {
-      const FB = (window as unknown as Record<string, unknown>).FB as {
-        init: (config: Record<string, unknown>) => void;
-        login: (
-          callback: (response: { authResponse?: { accessToken: string } }) => void,
-          options: Record<string, unknown>
-        ) => void;
-      };
+    type FBSdk = {
+      init: (config: Record<string, unknown>) => void;
+      login: (
+        callback: (response: { authResponse?: { accessToken: string } }) => void,
+        options: Record<string, unknown>
+      ) => void;
+    };
 
-      FB.init({ appId, version: 'v19.0', cookie: true, xfbml: false });
+    const loginWithFB = () => {
+      const FB = (window as unknown as Record<string, unknown>).FB as FBSdk;
       FB.login(
         (response) => {
           if (response.authResponse?.accessToken) {
@@ -278,13 +278,19 @@ function SocialLoginButtonsInner({
       );
     };
 
+    const initAndLoginFB = () => {
+      const FB = (window as unknown as Record<string, unknown>).FB as FBSdk;
+      FB.init({ appId, version: 'v19.0', cookie: true, xfbml: false });
+      loginWithFB();
+    };
+
     if (!(window as unknown as Record<string, unknown>).FB) {
       const script = document.createElement('script');
       script.src = 'https://connect.facebook.net/en_US/sdk.js';
-      script.onload = initFB;
+      script.onload = initAndLoginFB;
       document.head.appendChild(script);
     } else {
-      initFB();
+      loginWithFB();
     }
   };
 
