@@ -202,10 +202,11 @@ echo "📌 Branch anterior del usuario: $USER_BRANCH"
 # En worktrees, el branch ya fue asignado al crear el worktree.
 # Solo verificar que NO estamos en develop o main directamente.
 if [ "$CURRENT_BRANCH" = "develop" ] || [ "$CURRENT_BRANCH" = "main" ]; then
-  echo "❌ ERROR: El worktree está en '$CURRENT_BRANCH'. Crear un branch dedicado:"
-  git checkout -b {branch-name}
+  echo "❌ ERROR: El worktree está en '$CURRENT_BRANCH'. Creando branch desde develop..."
+  git fetch origin develop
+  git checkout -b {branch-name} origin/develop
 fi
-echo "✅ Worktree en branch: $CURRENT_BRANCH"
+echo "✅ Worktree en branch: $(git branch --show-current)"
 ```
 
 **Verificación post-branch (OBLIGATORIO):**
