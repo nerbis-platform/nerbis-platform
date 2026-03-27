@@ -47,24 +47,49 @@ Lee `docs/SDD.md` antes de cambios arquitectónicos.
 - `EnterWorktree` es una acción interna de permisos — no es un comando manual
 
 ### Setup automático en worktrees (OBLIGATORIO)
-Al detectar que estás trabajando en un worktree con cambios frontend:
-1. Crear symlink de `node_modules` para no duplicar dependencias:
-   ```bash
-   if [ -d "frontend/node_modules" ] && [ ! -L "frontend/node_modules" ]; then
-     echo "Error: frontend/node_modules existe como directorio. Elimínalo antes de continuar."
-     exit 1
-   fi
-   ln -sfn "$(git rev-parse --show-toplevel)/../../../frontend/node_modules" frontend/node_modules
-   ```
-2. Crear symlink de `.env.local` si existe en el repo principal:
-   ```bash
-   [ -f "$(git rev-parse --show-toplevel)/../../../frontend/.env.local" ] && ln -sfn "$(git rev-parse --show-toplevel)/../../../frontend/.env.local" frontend/.env.local
-   ```
-3. Levantar dev server en puerto alternativo (3001, 3002, etc.):
-   ```bash
-   cd frontend && npm run dev -- --port 3001
-   ```
-4. Informar al usuario: "Preview disponible en http://localhost:3001"
+
+Al detectar que estás trabajando en un worktree, ejecutar este setup **ANTES de cualquier otro trabajo**:
+
+```bash
+# 1. Detectar paths absolutos (funciona desde cualquier subdirectorio del worktree)
+MAIN_REPO="$(git rev-parse --git-common-dir | sed 's|/\.git$||')"
+WT_ROOT="$(git rev-parse --show-toplevel)"
+
+# 2. Symlink de node_modules (evita duplicar ~500MB de dependencias)
+if [ -d "$MAIN_REPO/frontend/node_modules" ]; then
+  if [ -d "$WT_ROOT/frontend/node_modules" ] && [ ! -L "$WT_ROOT/frontend/node_modules" ]; then
+    echo "⚠️  frontend/node_modules es un directorio real. Eliminándolo para crear symlink..."
+    rm -rf "$WT_ROOT/frontend/node_modules"
+  fi
+  ln -sfn "$MAIN_REPO/frontend/node_modules" "$WT_ROOT/frontend/node_modules"
+  echo "✅ Symlink node_modules → repo principal"
+fi
+
+# 3. Symlink de .env.local (variables de entorno compartidas)
+if [ -f "$MAIN_REPO/frontend/.env.local" ]; then
+  ln -sfn "$MAIN_REPO/frontend/.env.local" "$WT_ROOT/frontend/.env.local"
+  echo "✅ Symlink .env.local → repo principal"
+fi
+
+# 4. Symlink de backend .env si existe
+if [ -f "$MAIN_REPO/.env" ]; then
+  ln -sfn "$MAIN_REPO/.env" "$WT_ROOT/.env"
+  echo "✅ Symlink .env → repo principal"
+fi
+```
+
+**Verificación post-setup** (OBLIGATORIO — no continuar si falla):
+```bash
+WT_ROOT="$(git rev-parse --show-toplevel)"
+[ -L "$WT_ROOT/frontend/node_modules" ] && echo "✅ node_modules OK" || { echo "❌ node_modules FALTA — DETENERSE"; exit 1; }
+[ -L "$WT_ROOT/frontend/.env.local" ] && echo "✅ .env.local OK" || echo "⚠️  .env.local no existe (puede ser normal)"
+```
+
+**Dev server** (solo si el usuario lo pide o la tarea requiere preview):
+```bash
+cd frontend && npm run dev -- --port 3001
+# Informar: "Preview disponible en http://localhost:3001"
+```
 
 ## Skills
 
@@ -128,36 +153,105 @@ vía Task tool, y sintetizar sus resultados.
 ### Grafo de dependencias (DAG)
 
 ```text
-[init + branch] → explore → propose → 🚪 → spec + design (paralelo) → 🚪 → tasks → apply → 🚪 → verify → archive → [PR]
+[bootstrap: init + branch + symlinks] → explore → propose → 🚪 → spec + design (paralelo) → 🚪 → tasks → apply → 🚪 → verify → archive → [commit + push + PR a develop]
 ```
+
+**Regla de oro:** Si `git branch --show-current` devuelve `develop` o `main` en cualquier
+punto del pipeline, **DETENERSE INMEDIATAMENTE**. Algo salió mal en el bootstrap.
 
 ### Bootstrap automático (OBLIGATORIO en flujo SDD)
 
-Al iniciar `sdd-new` o `sdd-ff`, ANTES de lanzar cualquier sub-agente, ejecutar estos pasos automáticamente (NO preguntar, NO saltar):
+Al iniciar `sdd-new`, `sdd-ff`, o cualquier comando SDD que inicie un cambio nuevo,
+ejecutar estos pasos **en orden, sin saltar ninguno, sin preguntar**. Si un paso falla,
+**DETENERSE e informar al usuario**. NO continuar con el pipeline hasta que todos pasen.
 
-**Paso 1 — sdd-init (si no existe skill registry):**
+#### Paso 1 — sdd-init (si no existe skill registry)
 1. Verificar si `.atl/skill-registry.md` existe
-2. Si NO existe → lanzar `sdd-init` automáticamente (detecta stack, genera registry, persiste en Engram)
-3. Si SÍ existe → saltar (ya fue inicializado)
+2. Si NO existe → lanzar `sdd-init` automáticamente
+3. Si SÍ existe → saltar
 
-**Paso 2 — Crear branch:**
+#### Paso 2 — Crear branch aislado (CRÍTICO — NO SALTAR)
+
+**Determinar el nombre del branch:**
+- Si el usuario referencia un issue: `feature/issue-{N}-{descripcion-corta}`
+- Si es un fix: `fix/{change-name}`
+- Si es feature: `feature/{change-name}`
+
+**Determinar el contexto actual:**
+
 ```bash
-git checkout develop && git pull origin develop
-git checkout -b feature/{change-name}
+CURRENT_BRANCH=$(git branch --show-current)
+IS_WORKTREE=$(git rev-parse --is-inside-work-tree >/dev/null 2>&1 && [ "$(git rev-parse --git-common-dir)" != "$(git rev-parse --git-dir)" ] && echo "yes" || echo "no")
 ```
 
-**Paso 3 — Si el usuario referencia un issue de GitHub:**
+**Caso A — Estás en el repo principal (no worktree):**
+```bash
+# Guardar el branch actual del usuario para no perderlo
+USER_BRANCH="$CURRENT_BRANCH"
+
+# Crear branch desde develop actualizado
+git fetch origin develop
+git checkout -b {branch-name} origin/develop
+
+echo "✅ Branch '{branch-name}' creado desde develop"
+echo "📌 Branch anterior del usuario: $USER_BRANCH"
+```
+
+**Caso B — Estás en un worktree:**
+```bash
+# En worktrees, el branch ya fue asignado al crear el worktree.
+# Solo verificar que NO estamos en develop o main directamente.
+if [ "$CURRENT_BRANCH" = "develop" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+  echo "❌ ERROR: El worktree está en '$CURRENT_BRANCH'. Creando branch desde develop..."
+  git fetch origin develop
+  git checkout -b {branch-name} origin/develop
+fi
+echo "✅ Worktree en branch: $(git branch --show-current)"
+```
+
+**Verificación post-branch (OBLIGATORIO):**
+```bash
+# Confirmar que NO estamos en develop ni main
+BRANCH=$(git branch --show-current)
+if [ "$BRANCH" = "develop" ] || [ "$BRANCH" = "main" ]; then
+  echo "❌ FATAL: Seguimos en '$BRANCH'. El bootstrap falló. DETENERSE."
+  exit 1
+fi
+echo "✅ Branch de trabajo confirmado: $BRANCH"
+```
+
+#### Paso 3 — Setup de symlinks (si es worktree)
+
+Si `IS_WORKTREE` es "yes", ejecutar el **setup automático de worktrees** descrito arriba
+en la sección "Setup automático en worktrees". Esto crea symlinks de node_modules, .env.local, y .env.
+
+#### Paso 4 — Vincular issue de GitHub (si aplica)
+Si el usuario referencia un issue:
 1. Leer el issue completo (`gh issue view {N}` o MCP GitHub)
 2. Usar su contenido como intent del pipeline
-3. Branch: `feature/issue-{N}-{descripcion-corta}`
-4. Al crear PR: incluir `Closes #{N}` en el body
+3. Al crear PR al final: incluir `Closes #{N}` en el body
 
-Después de estos pasos, continuar con el pipeline (explore → propose → ...).
+#### Paso 5 — Confirmar al usuario
 
-Esto garantiza que:
-- Los agentes SIEMPRE tienen el skill registry disponible
-- El pipeline NUNCA toca el branch principal del desarrollador
-- Los issues de GitHub se vinculan automáticamente
+Mostrar un resumen antes de continuar:
+```text
+🚀 SDD Bootstrap completo:
+  Branch: {branch-name}
+  Base: develop (commit {short-hash})
+  Worktree: {sí/no}
+  Symlinks: {node_modules ✅, .env.local ✅/⚠️}
+  Issue: #{N} (si aplica)
+  Persistencia: engram
+
+Iniciando pipeline: explore → propose → ...
+```
+
+**Esto garantiza que:**
+- Cada cambio SDD vive en su PROPIO branch aislado
+- El usuario puede probar cada cambio independientemente antes de merge
+- NUNCA se trabaja directamente en develop o main
+- Los worktrees tienen todos los symlinks necesarios
+- El usuario sabe exactamente dónde está parado
 
 ### Human Gates
 
