@@ -85,10 +85,16 @@ WT_ROOT="$(git rev-parse --show-toplevel)"
 [ -L "$WT_ROOT/frontend/.env.local" ] && echo "✅ .env.local OK" || echo "⚠️  .env.local no existe (puede ser normal)"
 ```
 
-**Dev server** (solo si el usuario lo pide o la tarea requiere preview):
+**Dev server automático post-desarrollo** (OBLIGATORIO cuando el cambio toca UI):
+
+Al finalizar el desarrollo (commit hecho, build y lint pasando), evaluar si el cambio tocó archivos visuales:
+- **Levantar server si:** el cambio toca componentes, pages, estilos, layouts, o cualquier archivo que afecte lo que el usuario ve en el browser
+- **NO levantar si:** el cambio es cleanup, backend, docs, CI, configuración, o solo elimina código sin cambio visual
+
+Cuando aplique:
 ```bash
-cd frontend && npm run dev -- --port 3001
-# Informar: "Preview disponible en http://localhost:3001"
+cd frontend && npm run dev -- --port 3001 &
+# Informar: "Preview disponible en http://localhost:3001 — verifica los cambios en el browser"
 ```
 
 ## Skills
