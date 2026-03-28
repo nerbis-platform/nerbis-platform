@@ -150,7 +150,7 @@ vía Task tool, y sintetizar sus resultados.
 | `/sdd-init` | Lanzar sub-agente sdd-init (detectar stack, generar skill registry) |
 | `/sdd-explore <tema>` | Lanzar sub-agente sdd-explore (investigación standalone) |
 | `/sdd-new <cambio>` | Ejecutar explore → propose → HUMAN GATE |
-| `/sdd-continue [cambio]` | Crear siguiente artifact faltante en el DAG |
+| `/sdd-continue [cambio]` | Rebase contra develop (Caso C) + crear siguiente artifact faltante en el DAG |
 | `/sdd-ff <cambio>` | Fast-forward: propose → spec+design → tasks (sin gates) |
 | `/sdd-apply [cambio]` | Lanzar sdd-apply en batches |
 | `/sdd-verify [cambio]` | Lanzar sdd-verify |
@@ -188,9 +188,15 @@ ejecutar estos pasos **en orden, sin saltar ninguno, sin preguntar**. Si un paso
 ```bash
 CURRENT_BRANCH=$(git branch --show-current)
 IS_WORKTREE=$(git rev-parse --is-inside-work-tree >/dev/null 2>&1 && [ "$(git rev-parse --git-common-dir)" != "$(git rev-parse --git-dir)" ] && echo "yes" || echo "no")
+BRANCH_EXISTS=$( (git show-ref --verify --quiet "refs/heads/{branch-name}" || git show-ref --verify --quiet "refs/remotes/origin/{branch-name}") && echo "yes" || echo "no")
 ```
 
-**Caso A — Estás en el repo principal (no worktree):**
+**Selección automática de caso:**
+- Si `IS_WORKTREE` es "yes" → **Caso B**
+- Si `BRANCH_EXISTS` es "yes" → **Caso C** (retomar branch existente)
+- Si no → **Caso A** (branch nueva)
+
+**Caso A — Branch nueva en repo principal (no worktree):**
 ```bash
 # Guardar el branch actual del usuario para no perderlo
 USER_BRANCH="$CURRENT_BRANCH"
@@ -214,6 +220,36 @@ if [ "$CURRENT_BRANCH" = "develop" ] || [ "$CURRENT_BRANCH" = "main" ]; then
 fi
 echo "✅ Worktree en branch: $(git branch --show-current)"
 ```
+
+**Caso C — Retomar branch existente (rebase contra develop):**
+
+Cuando se retoma una branch que ya existe (ej: `sdd-continue`, volver a un feature después de días),
+hacer rebase contra develop para evitar conflictos tardíos o trabajar sobre código desactualizado:
+
+```bash
+git checkout {branch-name}
+git fetch origin develop
+```
+
+1. Verificar que el working tree esté limpio:
+   ```bash
+   git status --porcelain
+   ```
+   Si hay cambios sin commitear → **DETENERSE** y pedir al usuario que haga commit, stash o abort.
+
+2. Mostrar commits nuevos en develop que se van a incorporar:
+   ```bash
+   git log {branch-name}..origin/develop --oneline
+   ```
+
+3. **Human Gate**: Mostrar los commits listados y preguntar al usuario: "¿Procedo con el rebase contra develop?"
+
+4. Si el usuario confirma, ejecutar el rebase:
+   ```bash
+   git rebase origin/develop
+   ```
+
+5. **Si el rebase falla por conflictos**: informar al usuario con el detalle del conflicto y **NO continuar** el pipeline. El usuario debe resolver manualmente.
 
 **Verificación post-branch (OBLIGATORIO):**
 ```bash
