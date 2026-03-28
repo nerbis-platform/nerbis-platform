@@ -5,7 +5,7 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { PasswordField } from '@/components/auth/PasswordField';
-import { useForm } from 'react-hook-form';
+import { useForm, type Control } from 'react-hook-form';
 import { Form } from '@/components/ui/form';
 
 // ─── Mocks ──────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ function PasswordFieldWrapper() {
           name="password"
           label="Contraseña"
           placeholder="••••••••"
-          control={form.control as any}
+          control={form.control as unknown as Control<Record<string, string>>}
         />
       </form>
     </Form>

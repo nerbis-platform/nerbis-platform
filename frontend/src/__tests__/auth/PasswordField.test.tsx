@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useForm, FormProvider } from 'react-hook-form';
-import type { ReactNode } from 'react';
+import { useForm } from 'react-hook-form';
+import type { Control } from 'react-hook-form';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { Form } from '@/components/ui/form';
 
-function Wrapper({ children, showStrength = false }: { children?: ReactNode; showStrength?: boolean }) {
+function Wrapper({ showStrength = false }: { showStrength?: boolean }) {
   const form = useForm({
     defaultValues: { password: '' },
   });
@@ -18,7 +18,7 @@ function Wrapper({ children, showStrength = false }: { children?: ReactNode; sho
           name="password"
           label="Contraseña"
           placeholder="••••••••"
-          control={form.control as any}
+          control={form.control as unknown as Control<Record<string, string>>}
           showStrength={showStrength}
         />
       </form>
@@ -38,7 +38,7 @@ function WrapperWithValue({ value }: { value: string }) {
           name="password"
           label="Contraseña"
           placeholder="••••••••"
-          control={form.control as any}
+          control={form.control as unknown as Control<Record<string, string>>}
           showStrength
         />
       </form>
