@@ -81,7 +81,7 @@ export function RegisterForm({
         return () => clearTimeout(timer);
       }
     }
-  }, [step]);
+  }, [step, activePrefill?.provider]);
 
   // ── Social prefill handler (from Step1 social buttons — stays on Step 1)
   // Google/social can give us name+email, but NOT business_name, industry, or country.
@@ -112,6 +112,7 @@ export function RegisterForm({
         setIsLoading(true);
         const result = await registerTenant({
           business_name: data.business_name,
+          industry: data.industry || undefined,
           country: data.country,
           email: data.email,
           password: data.password,

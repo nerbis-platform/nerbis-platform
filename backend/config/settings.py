@@ -21,9 +21,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-default-key-solo-desarroll
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
 if not DEBUG and SECRET_KEY == "django-insecure-default-key-solo-desarrollo":
-    raise ValueError(
-        "SECRET_KEY no está configurada. Configura la variable de entorno SECRET_KEY en producción."
-    )
+    raise ValueError("SECRET_KEY no está configurada. Configura la variable de entorno SECRET_KEY en producción.")
 
 # Desarrollo: localhost
 # Producción: agrega tus dominios via variable de entorno
@@ -117,9 +115,7 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
-            BASE_DIR
-            / "core"
-            / "templates",  # Templates personalizados (admin login multi-tenant)
+            BASE_DIR / "core" / "templates",  # Templates personalizados (admin login multi-tenant)
         ],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -370,9 +366,7 @@ SPECTACULAR_SETTINGS = {
 # ===================================
 # En desarrollo, usamos console backend (imprime emails en consola)
 # En producción, configurar SMTP real
-EMAIL_BACKEND = os.getenv(
-    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
-)
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
@@ -452,9 +446,7 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutos
 # ===================================
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
-TWILIO_WHATSAPP_FROM = os.getenv(
-    "TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886"
-)  # Sandbox por defecto
+TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")  # Sandbox por defecto
 TWILIO_SMS_FROM = os.getenv("TWILIO_SMS_FROM", "")
 
 # Activar/desactivar Twilio
@@ -466,9 +458,7 @@ TWILIO_ENABLED = os.getenv("TWILIO_ENABLED", "False") == "True"
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
 ANTHROPIC_PRICE_INPUT = os.getenv("ANTHROPIC_PRICE_INPUT", "0.25")  # USD por 1M tokens
-ANTHROPIC_PRICE_OUTPUT = os.getenv(
-    "ANTHROPIC_PRICE_OUTPUT", "1.25"
-)  # USD por 1M tokens
+ANTHROPIC_PRICE_OUTPUT = os.getenv("ANTHROPIC_PRICE_OUTPUT", "1.25")  # USD por 1M tokens
 
 # ===================================
 # UNSPLASH (Stock images para Website Builder)
@@ -657,17 +647,13 @@ UNFOLD = {
                     {
                         "title": "Templates",
                         "icon": "dashboard_customize",
-                        "link": reverse_lazy(
-                            "admin:websites_websitetemplate_changelist"
-                        ),
+                        "link": reverse_lazy("admin:websites_websitetemplate_changelist"),
                         "permission": can_view_tenants,
                     },
                     {
                         "title": "Preguntas Onboarding",
                         "icon": "quiz",
-                        "link": reverse_lazy(
-                            "admin:websites_onboardingquestion_changelist"
-                        ),
+                        "link": reverse_lazy("admin:websites_onboardingquestion_changelist"),
                         "permission": can_view_tenants,
                     },
                     {
@@ -679,17 +665,13 @@ UNFOLD = {
                     {
                         "title": "Logs de IA",
                         "icon": "smart_toy",
-                        "link": reverse_lazy(
-                            "admin:websites_aigenerationlog_changelist"
-                        ),
+                        "link": reverse_lazy("admin:websites_aigenerationlog_changelist"),
                         "permission": can_view_tenants,
                     },
                     {
                         "title": "Respuestas Onboarding",
                         "icon": "fact_check",
-                        "link": reverse_lazy(
-                            "admin:websites_onboardingresponse_changelist"
-                        ),
+                        "link": reverse_lazy("admin:websites_onboardingresponse_changelist"),
                         "permission": can_view_tenants,
                     },
                     {
@@ -749,9 +731,7 @@ UNFOLD = {
                     {
                         "title": "Categorías",
                         "icon": "category",
-                        "link": reverse_lazy(
-                            "admin:ecommerce_productcategory_changelist"
-                        ),
+                        "link": reverse_lazy("admin:ecommerce_productcategory_changelist"),
                         "permission": can_view_shop,
                     },
                     {
@@ -809,9 +789,7 @@ UNFOLD = {
                     {
                         "title": "Categorías",
                         "icon": "folder",
-                        "link": reverse_lazy(
-                            "admin:services_servicecategory_changelist"
-                        ),
+                        "link": reverse_lazy("admin:services_servicecategory_changelist"),
                         "permission": can_view_bookings,
                     },
                     {
@@ -846,25 +824,19 @@ UNFOLD = {
                     {
                         "title": "Mis Planes",
                         "icon": "layers",
-                        "link": reverse_lazy(
-                            "admin:subscriptions_marketplaceplan_changelist"
-                        ),
+                        "link": reverse_lazy("admin:subscriptions_marketplaceplan_changelist"),
                         "permission": can_view_services,
                     },
                     {
                         "title": "Categorías",
                         "icon": "folder_special",
-                        "link": reverse_lazy(
-                            "admin:subscriptions_marketplacecategory_changelist"
-                        ),
+                        "link": reverse_lazy("admin:subscriptions_marketplacecategory_changelist"),
                         "permission": can_view_services,
                     },
                     {
                         "title": "Contratos",
                         "icon": "description",
-                        "link": reverse_lazy(
-                            "admin:subscriptions_marketplacecontract_changelist"
-                        ),
+                        "link": reverse_lazy("admin:subscriptions_marketplacecontract_changelist"),
                         "permission": can_view_services,
                     },
                 ],

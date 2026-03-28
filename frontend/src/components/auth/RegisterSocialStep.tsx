@@ -92,6 +92,7 @@ export function RegisterSocialStep({
   useEffect(() => {
     if (!debouncedName || debouncedName.trim().length < 2) {
       setBusinessNameExists(false);
+      setCheckingName(false);
       return;
     }
     const controller = new AbortController();
