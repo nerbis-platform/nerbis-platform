@@ -13,8 +13,6 @@ export const features = {
   /** Show "remember me" checkbox on login form */
   rememberMe: process.env.NEXT_PUBLIC_FEATURE_REMEMBER_ME === 'true',
 
-  /** Use new V2 auth components instead of the monolithic V1 */
-  useNewAuth: process.env.NEXT_PUBLIC_USE_NEW_AUTH === 'true',
 } as const;
 
 export type FeatureFlags = typeof features;

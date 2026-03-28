@@ -1,6 +1,5 @@
 // src/components/auth/AuthSplitScreenV2.tsx
-// V2 orchestrator: split-screen layout with BrandPanel + modular form components.
-// Feature-flagged via NEXT_PUBLIC_USE_NEW_AUTH. Does NOT replace V1 — coexists.
+// Auth orchestrator: split-screen layout with BrandPanel + modular form components.
 
 'use client';
 

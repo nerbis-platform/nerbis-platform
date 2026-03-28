@@ -2,12 +2,10 @@
 // Shared TypeScript types for the auth component architecture.
 
 import type { ReactNode } from 'react';
-import type { Control, UseFormReturn } from 'react-hook-form';
+import type { Control } from 'react-hook-form';
 import type {
   LoginFormValues,
   RegisterBusinessFormValues,
-  ForgotEmailFormValues,
-  ForgotResetFormValues,
 } from './schemas';
 
 // ─── Core Auth Types ────────────────────────────────────────────
@@ -132,58 +130,3 @@ export interface ReactivateDialogProps {
   isLoading: boolean;
 }
 
-// ─── Internal V1 panel props (for backward compat) ──────────────
-
-export interface LoginFormPanelProps {
-  form: UseFormReturn<LoginFormValues>;
-  onSubmit: (data: LoginFormValues) => void;
-  isLoading: boolean;
-  showPassword: boolean;
-  setShowPassword: (v: boolean) => void;
-  onToggleMode: () => void;
-  onForgotPassword: () => void;
-}
-
-export interface RegisterFormPanelProps {
-  form: UseFormReturn<RegisterBusinessFormValues>;
-  step: RegisterStep;
-  onNextStep: () => void;
-  onPrevStep: () => void;
-  onSubmit: (data: RegisterBusinessFormValues) => void;
-  isLoading: boolean;
-  phoneCodeOpen: boolean;
-  setPhoneCodeOpen: (v: boolean) => void;
-  phoneCountry: string;
-  setPhoneCountry: (v: string) => void;
-  showPassword: boolean;
-  setShowPassword: (v: boolean) => void;
-  showPassword2: boolean;
-  setShowPassword2: (v: boolean) => void;
-  businessNameExists: boolean;
-  checkingName: boolean;
-  emailExists: boolean;
-  checkingEmail: boolean;
-  passwordsMatch: boolean;
-  onToggleMode: () => void;
-}
-
-export interface ForgotPasswordFormPanelProps {
-  forgotStep: ForgotStep;
-  email: string;
-  emailForm: UseFormReturn<ForgotEmailFormValues>;
-  resetForm: UseFormReturn<ForgotResetFormValues>;
-  onEmailSubmit: (data: ForgotEmailFormValues) => void;
-  onResetSubmit: (data: ForgotResetFormValues) => void;
-  onResendCode: () => void;
-  onGoToLogin: () => void;
-  isLoading: boolean;
-  isResending: boolean;
-  otpDigits: string[];
-  otpInputRefs: React.MutableRefObject<(HTMLInputElement | null)[]>;
-  onOtpChange: (index: number, value: string) => void;
-  onOtpKeyDown: (index: number, e: React.KeyboardEvent<HTMLInputElement>) => void;
-  showNewPassword: boolean;
-  setShowNewPassword: (v: boolean) => void;
-  showConfirmPassword: boolean;
-  setShowConfirmPassword: (v: boolean) => void;
-}
