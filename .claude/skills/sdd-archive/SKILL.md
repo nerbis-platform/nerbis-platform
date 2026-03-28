@@ -166,12 +166,26 @@ Proceed with cleanup? (y/n)
 
 Do NOT proceed without explicit user approval.
 
-**8.2 — Detect context**
+**8.2 — Detect and validate context**
 
 ```bash
 BRANCH_NAME=$(git branch --show-current)
 IS_WORKTREE=$([ "$(git rev-parse --git-common-dir)" != "$(git rev-parse --git-dir)" ] && echo "yes" || echo "no")
 WT_PATH=$(git rev-parse --show-toplevel)
+
+# Guard: abort if BRANCH_NAME is empty (detached HEAD)
+if [ -z "$BRANCH_NAME" ]; then
+  echo "❌ Cannot determine current branch (detached HEAD?). Aborting cleanup."
+  exit 1
+fi
+
+# Guard: never delete protected branches
+case "$BRANCH_NAME" in
+  main|master|develop|release/*|hotfix/*)
+    echo "❌ Refusing to delete protected branch '$BRANCH_NAME'. Aborting cleanup."
+    exit 1
+    ;;
+esac
 ```
 
 **8.3 — Execute cleanup**
