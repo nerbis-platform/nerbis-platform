@@ -6,7 +6,7 @@ description: >
 license: MIT
 metadata:
   author: nerbis-platform
-  version: "1.0"
+  version: "1.1"
 ---
 
 ## Purpose
@@ -140,11 +140,103 @@ mem_save(
 ### NERBIS Actions
 - SDD.md update needed: {Yes — sections X, Y / No}
 - PR suggestion: {branch name} → develop
+- Branch cleanup: {Pending — will execute after PR merge / Skipped}
 
 ### SDD Cycle Complete
 The change has been fully planned, implemented, verified, and archived.
 Ready for the next change.
 ```
+
+### Step 8: Branch Cleanup (post-merge)
+
+**This step runs AFTER the PR has been merged to `develop`.** If the PR has not been created or merged yet, include the cleanup instructions in the summary and skip execution.
+
+**8.1 — Human Gate (MANDATORY)**
+
+Before executing any cleanup, ask the user for confirmation:
+```text
+🧹 Branch cleanup ready. This will:
+  - Delete remote branch: origin/{branch-name}
+  - Delete local branch: {branch-name}
+  - {If worktree: Remove worktree at {worktree-path}}
+  - Switch to develop (updated)
+
+Proceed with cleanup? (y/n)
+```
+
+Do NOT proceed without explicit user approval.
+
+**8.2 — Detect and validate context**
+
+```bash
+BRANCH_NAME=$(git branch --show-current)
+IS_WORKTREE=$([ "$(git rev-parse --git-common-dir)" != "$(git rev-parse --git-dir)" ] && echo "yes" || echo "no")
+WT_PATH=$(git rev-parse --show-toplevel)
+
+# Guard: abort if BRANCH_NAME is empty (detached HEAD)
+if [ -z "$BRANCH_NAME" ]; then
+  echo "❌ Cannot determine current branch (detached HEAD?). Aborting cleanup."
+  exit 1
+fi
+
+# Guard: never delete protected branches
+case "$BRANCH_NAME" in
+  main|master|develop|release/*|hotfix/*)
+    echo "❌ Refusing to delete protected branch '$BRANCH_NAME'. Aborting cleanup."
+    exit 1
+    ;;
+esac
+```
+
+**8.3 — Execute cleanup**
+
+```bash
+# Verify working tree is clean before switching
+if ! git diff-index --quiet HEAD --; then
+  echo "⚠️ You have uncommitted changes. Please commit or stash them before cleanup."
+  exit 1
+fi
+
+# Switch to develop first (required before deleting the current branch)
+git checkout develop
+git pull origin develop
+
+# Delete remote branch (check if it exists first to avoid hiding real errors)
+if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+  git push origin --delete "$BRANCH_NAME" || echo "⚠️ Failed to delete remote branch (check permissions/network)"
+else
+  echo "✅ Remote branch already deleted (auto-delete may be enabled)"
+fi
+
+# Delete local branch (use -d for safe delete — fails if not fully merged)
+git branch -d "$BRANCH_NAME"
+```
+
+**8.4 — Worktree cleanup (if applicable)**
+
+```bash
+if [ "$IS_WORKTREE" = "yes" ]; then
+  # From the MAIN repo (not from inside the worktree)
+  MAIN_REPO="$(git rev-parse --show-toplevel 2>/dev/null || git rev-parse --git-common-dir | sed 's|/\.git$||')"
+  git -C "$MAIN_REPO" worktree remove "$WT_PATH"
+else
+  echo "ℹ️ Not a worktree, skipping worktree cleanup"
+fi
+```
+
+**8.5 — Verify cleanup**
+
+```bash
+# Ensure we're in a valid git directory (not in a deleted worktree)
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+
+# Confirm branch is gone
+git branch | grep -q "$BRANCH_NAME" && echo "⚠️ Local branch still exists" || echo "✅ Local branch deleted"
+git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME" && echo "⚠️ Remote branch still exists" || echo "✅ Remote branch deleted"
+echo "✅ On branch: $(git branch --show-current)"
+```
+
+> **Tip:** Consider enabling "Automatically delete head branches" in the GitHub repository settings (Settings → General → Pull Requests) to handle remote branch deletion automatically on merge.
 
 ## Rules
 
@@ -155,4 +247,6 @@ Ready for the next change.
 - The archive is an AUDIT TRAIL — never delete or modify archived changes
 - ALWAYS suggest SDD.md updates for architectural changes
 - ALWAYS suggest PR creation to develop
+- ALWAYS ask for user confirmation (Human Gate) before deleting branches or worktrees
+- Use `git branch -d` (safe delete) — NEVER use `-D` (force delete) unless the user explicitly requests it
 - After the summary above, ALWAYS append a structured envelope: `{ status, executive_summary, artifacts: [{name, store, ref}], next_recommended: [...], risks: [...] }`
