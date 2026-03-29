@@ -2,7 +2,6 @@
 
 import logging
 from email.mime.image import MIMEImage
-from pathlib import Path
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -76,7 +75,7 @@ def send_email(user, subject, template_name, context=None, recipient_email=None)
 
         # Adjuntar logo como imagen inline si el template lo referencia
         if "cid:nerbis-logo" in html_content:
-            logo_path = Path(settings.BASE_DIR) / "static" / "branding" / "nerbis_logo.png"
+            logo_path = settings.BASE_DIR / "static" / "branding" / "nerbis_logo.png"
             if logo_path.exists():
                 with open(logo_path, "rb") as f:
                     logo = MIMEImage(f.read(), _subtype="png")
