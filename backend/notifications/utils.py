@@ -1,6 +1,8 @@
 # backend/notifications/utils.py
 
 import logging
+from email.mime.image import MIMEImage
+from pathlib import Path
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -71,6 +73,20 @@ def send_email(user, subject, template_name, context=None, recipient_email=None)
             to=[to_email],
         )
         email.attach_alternative(html_content, "text/html")
+
+        # Adjuntar logo como imagen inline si el template lo referencia
+        if "cid:nerbis-logo" in html_content:
+            logo_path = Path(settings.BASE_DIR) / "static" / "branding" / "nerbis_logo.png"
+            if logo_path.exists():
+                with open(logo_path, "rb") as f:
+                    logo = MIMEImage(f.read(), _subtype="png")
+                    logo.add_header("Content-ID", "<nerbis-logo>")
+                    logo.add_header("Content-Disposition", "inline", filename="nerbis-logo.png")
+                    email.attach(logo)
+            else:
+                logger.warning(
+                    f"Logo no encontrado en {logo_path} — el template referencia cid:nerbis-logo pero el archivo no existe"
+                )
 
         # Enviar
         email.send(fail_silently=False)
