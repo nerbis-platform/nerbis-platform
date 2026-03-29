@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import {
   FormControl,
@@ -35,8 +35,8 @@ import {
 import { ArrowRight, Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { RegisterBusinessFormValues } from './schemas';
-import { countries, industries, DEBOUNCE_DELAY_MS, LABEL_CLASS, LABEL_STYLE } from './constants';
-import { useDebounce } from './hooks';
+import { countries, industries, LABEL_CLASS, LABEL_STYLE } from './constants';
+import { useBusinessNameCheck } from './hooks';
 import { SocialLoginButtons } from './SocialLoginButtons';
 import { FormDivider } from './FormDivider';
 import { features } from '@/lib/features';
@@ -60,53 +60,12 @@ export function RegisterStep1({
   onToggleMode,
   onSocialPrefill,
 }: RegisterStep1Props) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
   // Industry combobox
   const [industryOpen, setIndustryOpen] = useState(false);
 
   // Business name existence check
-  const [businessNameExists, setBusinessNameExists] = useState(false);
-  const [checkingName, setCheckingName] = useState(false);
-
   const businessName = form.watch('business_name');
-  const debouncedName = useDebounce(businessName, DEBOUNCE_DELAY_MS);
-
-  const checkBusinessName = useCallback(
-    async (name: string, signal: AbortSignal) => {
-      if (!name || name.trim().length < 2) {
-        setBusinessNameExists(false);
-        return;
-      }
-      setCheckingName(true);
-      try {
-        const res = await fetch(
-          `${API_URL}/api/public/check-business-name/?name=${encodeURIComponent(name.trim())}`,
-          { signal },
-        );
-        if (res.ok) {
-          const data = await res.json();
-          if (!signal.aborted) setBusinessNameExists(data.exists);
-        }
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-      } finally {
-        if (!signal.aborted) setCheckingName(false);
-      }
-    },
-    [API_URL],
-  );
-
-  useEffect(() => {
-    if (!debouncedName || debouncedName.trim().length < 2) {
-      setBusinessNameExists(false);
-      setCheckingName(false);
-      return;
-    }
-    const controller = new AbortController();
-    checkBusinessName(debouncedName, controller.signal);
-    return () => controller.abort();
-  }, [debouncedName, checkBusinessName]);
+  const { exists: businessNameExists, checking: checkingName } = useBusinessNameCheck(businessName);
 
   // Block "Continuar" if name is duplicate or still checking
   const continueDisabled = businessNameExists || checkingName;
@@ -219,6 +178,7 @@ export function RegisterStep1({
                         type="button"
                         role="combobox"
                         aria-expanded={industryOpen}
+                        aria-controls="industry-listbox"
                         className={cn(
                           'flex h-[var(--auth-input-height)] w-full items-center justify-between rounded-[var(--auth-radius-input)] border border-[var(--auth-border)] bg-[var(--auth-bg-input)] px-3 text-sm transition-[border-color,box-shadow] duration-[var(--auth-duration-fast)] ease-out focus-visible:border-[var(--auth-border-focus)] focus-visible:ring-[3px] focus-visible:ring-[var(--auth-accent)]/10 focus-visible:outline-none',
                           !field.value && 'text-[var(--auth-text-placeholder)]',
@@ -249,7 +209,7 @@ export function RegisterStep1({
                         placeholder="Buscar industria..."
                         className="text-sm"
                       />
-                      <CommandList>
+                      <CommandList id="industry-listbox">
                         <CommandEmpty className="py-3 text-center text-sm text-[var(--auth-text-muted)]">
                           No encontrada.
                         </CommandEmpty>

@@ -200,7 +200,10 @@ git fetch origin develop
 # Verificar si el branch ya existe (ej: pipeline reiniciado)
 if git show-ref --verify --quiet "refs/heads/{branch-name}"; then
   # Branch existe — retomar trabajo previo
-  git checkout {branch-name}
+  git checkout {branch-name} || {
+    echo "❌ ERROR: No se pudo hacer checkout de '{branch-name}' (¿en uso por otro worktree?). DETENERSE."
+    exit 1
+  }
   echo "✅ Branch '{branch-name}' ya existía, retomando"
   echo "📌 Branch anterior del usuario: $USER_BRANCH"
 
@@ -216,7 +219,10 @@ if git show-ref --verify --quiet "refs/heads/{branch-name}"; then
   fi
 else
   # Branch no existe — crear desde develop
-  git checkout -b {branch-name} origin/develop
+  git checkout -b {branch-name} origin/develop || {
+    echo "❌ ERROR: No se pudo crear branch '{branch-name}'. DETENERSE."
+    exit 1
+  }
   echo "✅ Branch '{branch-name}' creado desde develop"
   echo "📌 Branch anterior del usuario: $USER_BRANCH"
 fi
@@ -230,9 +236,15 @@ if [ "$CURRENT_BRANCH" = "develop" ] || [ "$CURRENT_BRANCH" = "main" ]; then
   echo "❌ ERROR: El worktree está en '$CURRENT_BRANCH'. Creando branch desde develop..."
   git fetch origin develop
   if git show-ref --verify --quiet "refs/heads/{branch-name}"; then
-    git checkout {branch-name}
+    git checkout {branch-name} || {
+      echo "❌ ERROR: No se pudo hacer checkout de '{branch-name}' (¿en uso por otro worktree?). DETENERSE."
+      exit 1
+    }
   else
-    git checkout -b {branch-name} origin/develop
+    git checkout -b {branch-name} origin/develop || {
+      echo "❌ ERROR: No se pudo crear branch '{branch-name}'. DETENERSE."
+      exit 1
+    }
   fi
 fi
 echo "✅ Worktree en branch: $(git branch --show-current)"

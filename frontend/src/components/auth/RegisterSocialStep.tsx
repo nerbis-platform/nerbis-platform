@@ -4,7 +4,6 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import {
@@ -25,8 +24,8 @@ import { Check, Loader2 } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
 import type { RegisterBusinessFormValues } from './schemas';
 import type { AuthPrefill } from './types';
-import { countries, DEBOUNCE_DELAY_MS, LABEL_CLASS, LABEL_STYLE } from './constants';
-import { useDebounce } from './hooks';
+import { countries, LABEL_CLASS, LABEL_STYLE } from './constants';
+import { useBusinessNameCheck } from './hooks';
 import { PasswordField } from './PasswordField';
 import { SubmitButton } from './SubmitButton';
 
@@ -55,50 +54,8 @@ export function RegisterSocialStep({
   prefill,
   onToggleMode,
 }: RegisterSocialStepProps) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-  // Business name existence check
-  const [businessNameExists, setBusinessNameExists] = useState(false);
-  const [checkingName, setCheckingName] = useState(false);
-
   const businessName = form.watch('business_name');
-  const debouncedName = useDebounce(businessName, DEBOUNCE_DELAY_MS);
-
-  const checkBusinessName = useCallback(
-    async (name: string, signal: AbortSignal) => {
-      if (!name || name.trim().length < 2) {
-        setBusinessNameExists(false);
-        return;
-      }
-      setCheckingName(true);
-      try {
-        const res = await fetch(
-          `${API_URL}/api/public/check-business-name/?name=${encodeURIComponent(name.trim())}`,
-          { signal },
-        );
-        if (res.ok) {
-          const data = await res.json();
-          if (!signal.aborted) setBusinessNameExists(data.exists);
-        }
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-      } finally {
-        if (!signal.aborted) setCheckingName(false);
-      }
-    },
-    [API_URL],
-  );
-
-  useEffect(() => {
-    if (!debouncedName || debouncedName.trim().length < 2) {
-      setBusinessNameExists(false);
-      setCheckingName(false);
-      return;
-    }
-    const controller = new AbortController();
-    checkBusinessName(debouncedName, controller.signal);
-    return () => controller.abort();
-  }, [debouncedName, checkBusinessName]);
+  const { exists: businessNameExists, checking: checkingName } = useBusinessNameCheck(businessName);
 
   const providerName = providerLabels[prefill.provider || ''] || 'tu cuenta social';
 
