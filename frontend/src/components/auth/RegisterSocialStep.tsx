@@ -245,6 +245,7 @@ export function RegisterSocialStep({
               <Select
                 onValueChange={field.onChange}
                 value={field.value}
+                disabled={isLoading}
               >
                 <FormControl>
                   <SelectTrigger
