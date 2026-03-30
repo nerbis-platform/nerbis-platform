@@ -25,8 +25,11 @@ urlpatterns = [
     # OTP - Reactivación de cuenta
     path("auth/request-reactivation/", views.RequestReactivationOTPView.as_view(), name="request_reactivation"),
     path("auth/verify-reactivation/", views.VerifyReactivationOTPView.as_view(), name="verify_reactivation"),
-    # Social Auth (link/ must come before <str:provider>/ to avoid matching "link" as provider)
+    # Social Auth (link/ and disconnect/ must come before <str:provider>/ to avoid matching as provider)
     path("auth/social/link/", views.SocialLinkView.as_view(), name="social_link"),
+    path(
+        "auth/social/disconnect/<str:provider>/", views.SocialAccountDisconnectView.as_view(), name="social_disconnect"
+    ),
     path("auth/social/<str:provider>/", views.SocialLoginView.as_view(), name="social_login"),
     # Banners
     path("banners/", views.ActiveBannersView.as_view(), name="active_banners"),

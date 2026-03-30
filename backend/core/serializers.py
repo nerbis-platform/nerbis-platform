@@ -3,7 +3,7 @@
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import Banner, Tenant, User
+from .models import Banner, SocialAccount, Tenant, User
 
 
 class TenantSerializer(serializers.ModelSerializer):
@@ -65,12 +65,23 @@ class TenantSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "slug"]
 
 
+class SocialAccountSerializer(serializers.ModelSerializer):
+    """Serializer para cuentas sociales vinculadas."""
+
+    class Meta:
+        model = SocialAccount
+        fields = ["id", "provider", "email", "created_at"]
+        read_only_fields = fields
+
+
 class UserSerializer(serializers.ModelSerializer):
     """Serializer para User (información completa)"""
 
     tenant_name = serializers.CharField(source="tenant.name", read_only=True)
     role_display = serializers.CharField(source="get_role_display", read_only=True)
     full_name = serializers.SerializerMethodField()
+    has_password = serializers.SerializerMethodField()
+    social_accounts = SocialAccountSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -89,11 +100,16 @@ class UserSerializer(serializers.ModelSerializer):
             "role_display",
             "is_active",
             "date_joined",
+            "has_password",
+            "social_accounts",
         ]
         read_only_fields = ["id", "tenant", "date_joined"]
 
     def get_full_name(self, obj) -> str:
         return obj.get_full_name() or obj.username
+
+    def get_has_password(self, obj) -> bool:
+        return obj.has_usable_password()
 
 
 class UserPublicSerializer(serializers.ModelSerializer):

@@ -65,9 +65,17 @@ export interface User {
   date_joined: string;
   auth_provider?: string;
   has_password?: boolean;
+  social_accounts?: SocialAccountInfo[];
 }
 
 export type SocialProvider = 'google' | 'apple' | 'facebook';
+
+export interface SocialAccountInfo {
+  id: number;
+  provider: SocialProvider;
+  email: string;
+  created_at: string;
+}
 
 // ===================================
 // AUTH

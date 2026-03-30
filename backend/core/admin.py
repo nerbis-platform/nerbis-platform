@@ -12,7 +12,7 @@ from unfold.forms import AdminPasswordChangeForm, UserChangeForm
 from unfold.forms import UserCreationForm as UnfoldUserCreationForm
 from unfold.widgets import UnfoldAdminTextareaWidget
 
-from .models import Banner, Tenant, TenantConfig, TenantWebsite, User
+from .models import Banner, SocialAccount, Tenant, TenantConfig, TenantWebsite, User
 
 
 class CustomUserCreationForm(UnfoldUserCreationForm):
@@ -963,6 +963,48 @@ class TenantWebsiteAdmin(UnfoldModelAdmin):
     )
 
 
+class AuthMethodFilter(admin.SimpleListFilter):
+    """Filtrar usuarios por método de autenticación."""
+
+    title = "Método de acceso"
+    parameter_name = "auth_method"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("email_only", "Solo email"),
+            ("social_only", "Solo social"),
+            ("both", "Email + Social"),
+        ]
+
+    def queryset(self, request, queryset):
+        has_social = queryset.filter(social_accounts__isnull=False).distinct()
+        no_social = queryset.exclude(pk__in=has_social)
+
+        if self.value() == "email_only":
+            return no_social
+        if self.value() == "social_only":
+            # Usuarios sin password usable (solo social)
+            return has_social.exclude(password__startswith="pbkdf2_")
+        if self.value() == "both":
+            # Usuarios con password Y social
+            return has_social.filter(password__startswith="pbkdf2_")
+        return queryset
+
+
+class SocialAccountInline(admin.TabularInline):
+    """Cuentas sociales vinculadas al usuario."""
+
+    model = SocialAccount
+    extra = 0
+    fields = ["provider", "email", "provider_uid", "created_at"]
+    readonly_fields = ["provider", "email", "provider_uid", "created_at"]
+    can_delete = True
+    show_change_link = False
+
+    verbose_name = "Cuenta social"
+    verbose_name_plural = "Cuentas sociales vinculadas"
+
+
 @admin.register(User, site=nerbis_admin_site)
 class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
     """
@@ -978,6 +1020,8 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
     form = UserChangeForm
     add_form = CustomUserCreationForm
     change_password_form = AdminPasswordChangeForm
+
+    inlines = [SocialAccountInline]
 
     def has_module_permission(self, request):
         """Permitir ver el módulo Users"""
@@ -999,6 +1043,7 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
         "full_name_display",
         "tenant",
         "role_badge",
+        "auth_method_display",
         "is_active",
         "created_at",
     ]
@@ -1011,8 +1056,8 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
     def get_list_filter(self, request):
         """Mostrar más filtros solo a superusuarios"""
         if request.user.is_superuser:
-            return ["role", "is_active", "is_staff", "tenant", "created_at"]
-        return ["role", "is_active"]
+            return ["role", "is_active", "is_staff", "tenant", AuthMethodFilter, "created_at"]
+        return ["role", "is_active", AuthMethodFilter]
 
     def get_list_display_links(self, request, list_display):
         """
@@ -1348,6 +1393,31 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
 
     role_badge.short_description = "Rol"
 
+    @admin.display(description="Acceso")
+    def auth_method_display(self, obj):
+        """Indicador visual del método de autenticación."""
+        has_password = obj.has_usable_password()
+        social_accounts = obj.social_accounts.all()
+        providers = [sa.get_provider_display() for sa in social_accounts]
+
+        parts = []
+        if has_password:
+            parts.append(
+                '<span style="background-color: #6366f1; color: white; padding: 2px 8px; '
+                'border-radius: 3px; font-size: 11px;">Email</span>'
+            )
+        for provider in providers:
+            colors = {"Google": "#4285F4", "Apple": "#000000", "Facebook": "#1877F2"}
+            color = colors.get(provider, "#6b7280")
+            parts.append(
+                f'<span style="background-color: {color}; color: white; padding: 2px 8px; '
+                f'border-radius: 3px; font-size: 11px;">{provider}</span>'
+            )
+
+        if not parts:
+            return format_html('<span style="color: #9ca3af;">—</span>')
+        return format_html(" ".join(parts))
+
     def assigned_services_display(self, obj):
         """Mostrar servicios asignados al staff (solo lectura)"""
         if not hasattr(obj, "staff_profile"):
@@ -1393,6 +1463,85 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
         return format_html("".join(html_parts))
 
     assigned_services_display.short_description = "Servicios que puedo realizar"
+
+
+@admin.register(SocialAccount, site=nerbis_admin_site)
+class SocialAccountAdmin(UnfoldModelAdmin):
+    """
+    Panel de administración para Cuentas Sociales.
+    Permite ver y gestionar las vinculaciones sociales de los usuarios.
+    """
+
+    list_display = ["user", "provider_badge", "email", "tenant", "created_at"]
+    list_filter = ["provider", "tenant"]
+    search_fields = ["user__email", "user__first_name", "user__last_name", "email"]
+    search_help_text = "Buscar por email del usuario o email del proveedor"
+    readonly_fields = ["provider_uid", "extra_data", "created_at", "updated_at"]
+    ordering = ["-created_at"]
+    actions = ["disconnect_social_accounts"]
+
+    fieldsets = (
+        (
+            "Vinculación",
+            {"fields": ("user", "tenant", "provider", "email", "provider_uid")},
+        ),
+        (
+            "Datos adicionales",
+            {
+                "fields": ("extra_data", "created_at", "updated_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="Proveedor")
+    def provider_badge(self, obj):
+        """Badge visual con color del proveedor."""
+        colors = {"google": "#4285F4", "apple": "#000000", "facebook": "#1877F2"}
+        color = colors.get(obj.provider, "#6b7280")
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 10px; border-radius: 3px;">{}</span>',
+            color,
+            obj.get_provider_display(),
+        )
+
+    @admin.action(description="Desvincular cuentas sociales seleccionadas")
+    def disconnect_social_accounts(self, request, queryset):
+        """Elimina las vinculaciones seleccionadas verificando que el usuario no pierda acceso."""
+        disconnected = 0
+        skipped = 0
+        for social_account in queryset:
+            user = social_account.user
+            has_password = user.has_usable_password()
+            other_social = (
+                SocialAccount.objects.filter(user=user, tenant=user.tenant).exclude(pk=social_account.pk).count()
+            )
+            if not has_password and other_social == 0:
+                skipped += 1
+                continue
+            social_account.delete()
+            disconnected += 1
+
+        if disconnected:
+            self.message_user(request, f"{disconnected} cuenta(s) desvinculada(s) correctamente.")
+        if skipped:
+            self.message_user(
+                request,
+                f"{skipped} cuenta(s) omitida(s) porque es el único método de acceso del usuario.",
+                level="warning",
+            )
+
+    def has_add_permission(self, request):
+        """Las cuentas sociales se crean por OAuth, no manualmente."""
+        return False
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if hasattr(request.user, "tenant") and request.user.tenant:
+            return qs.filter(tenant=request.user.tenant)
+        return qs.none()
 
 
 @admin.register(Banner, site=nerbis_admin_site)

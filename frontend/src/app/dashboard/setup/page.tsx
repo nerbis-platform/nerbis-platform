@@ -23,8 +23,10 @@ import {
   Loader2,
   Check,
   Lock,
+  UserCircle,
 } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { toast } from 'sonner';
 
 // ─── Module definitions ──────────────────────────────────────
@@ -285,17 +287,28 @@ export default function SetupPage() {
                 NERBIS
               </span>
             </div>
-            <span className="text-[0.72rem] text-gray-400 font-medium tracking-wide">
+            <span className="text-[0.72rem] text-gray-400 font-medium tracking-wide" role="status" aria-label="Paso 1 de 2">
               PASO 1 DE 2
             </span>
-            <button
-              type="button"
-              onClick={() => logout('/register-business')}
-              className="flex items-center gap-1.5 text-[0.72rem] text-gray-400 hover:text-red-400 transition-colors cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Salir
-            </button>
+            <div className="flex items-center gap-1.5">
+              <Link
+                href="/dashboard/profile"
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[0.72rem] text-gray-500 hover:text-[#1C3B57] hover:bg-gray-50 transition-colors"
+                aria-label="Mi Perfil"
+              >
+                <UserCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Mi Perfil</span>
+              </Link>
+              <div className="w-px h-4 bg-gray-200" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => logout('/register-business')}
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[0.72rem] text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
+                Salir
+              </button>
+            </div>
           </div>
         </div>
 

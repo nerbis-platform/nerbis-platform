@@ -18,7 +18,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // Rutas con layout limpio (sin Header/Footer de tienda)
   const isBuilderRoute = pathname.startsWith('/dashboard/website-builder');
   const isSetupRoute = pathname === '/dashboard/setup';
-  const isCleanLayout = isBuilderRoute || isSetupRoute;
+  const isProfileRoute = pathname === '/dashboard/profile';
+  const isCleanLayout = isBuilderRoute || isSetupRoute || isProfileRoute;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -31,18 +32,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       router.push('/login?redirect=/dashboard');
       return;
     }
-    // Redirect to setup if modules not configured (except if already on setup)
-    if (tenant && !tenant.modules_configured && !isSetupRoute) {
+    // Redirect to setup if modules not configured (except if already on setup or profile)
+    if (tenant && !tenant.modules_configured && !isSetupRoute && !isProfileRoute) {
       router.push('/dashboard/setup');
     } else if (
       tenant?.has_website &&
       tenant.website_status !== 'published' &&
       !isBuilderRoute &&
-      !isSetupRoute
+      !isSetupRoute &&
+      !isProfileRoute
     ) {
       router.push('/dashboard/website-builder');
     }
-  }, [mounted, isAuthenticated, isLoading, tenant, isSetupRoute, isBuilderRoute, router]);
+  }, [mounted, isAuthenticated, isLoading, tenant, isSetupRoute, isBuilderRoute, isProfileRoute, router]);
 
   // Layout limpio para Setup y Website Builder
   if (isCleanLayout) {
