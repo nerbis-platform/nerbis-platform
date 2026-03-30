@@ -1735,6 +1735,55 @@ class SocialLinkView(APIView):
         return Response(_build_social_auth_response(user, tenant))
 
 
+class SocialAccountDisconnectView(APIView):
+    """
+    DELETE /api/auth/social/<provider>/ — Desvincular cuenta social.
+
+    Solo permite desvincular si el usuario tiene contraseña u otra cuenta social,
+    para evitar que quede sin forma de acceder.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(description="Cuenta social desvinculada"),
+            400: OpenApiResponse(description="No se puede desvincular (único método de acceso)"),
+            404: OpenApiResponse(description="No hay cuenta vinculada para este proveedor"),
+        },
+        parameters=[
+            OpenApiParameter(name="provider", location="path", type=str, enum=["google", "apple", "facebook"]),
+        ],
+    )
+    def delete(self, request, provider):
+        if provider not in ("google", "apple", "facebook"):
+            return Response({"error": "Proveedor no válido"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        social_account = SocialAccount.objects.filter(user=user, tenant=user.tenant, provider=provider).first()
+
+        if not social_account:
+            return Response(
+                {"error": f"No tienes una cuenta de {provider} vinculada"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Verificar que el usuario no quede sin forma de acceder
+        has_password = user.has_usable_password()
+        other_social_count = (
+            SocialAccount.objects.filter(user=user, tenant=user.tenant).exclude(id=social_account.id).count()
+        )
+
+        if not has_password and other_social_count == 0:
+            return Response(
+                {"error": "No puedes desvincular tu único método de acceso. Establece una contraseña primero."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        social_account.delete()
+        return Response({"message": f"Cuenta de {provider} desvinculada correctamente"})
+
+
 class PlatformSocialLoginView(APIView):
     """
     POST /api/public/platform-social-login/ — Social login cross-tenant.
