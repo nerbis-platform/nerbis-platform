@@ -18,7 +18,11 @@ Only runs on PostgreSQL (SQLite does not support ALTER CONSTRAINT).
 See: https://github.com/nerbis-platform/nerbis-platform/issues/88
 """
 
+import logging
+
 from django.db import migrations
+
+logger = logging.getLogger(__name__)
 
 # ── FK → core_tenant (all TenantAwareModel use CASCADE) ─────────────────────
 
@@ -87,7 +91,7 @@ USER_FK_RULES = [
 ]
 
 
-def _find_constraint_name(cursor, table, column, ref_table):
+def _find_constraint_name(cursor, table, column, ref_table, schema="public"):
     """Find the FK constraint name for a given table/column/ref_table combo."""
     cursor.execute(
         """
@@ -97,13 +101,14 @@ def _find_constraint_name(cursor, table, column, ref_table):
             ON tc.constraint_name = kcu.constraint_name
         JOIN information_schema.constraint_column_usage ccu
             ON tc.constraint_name = ccu.constraint_name
-        WHERE tc.table_name = %s
+        WHERE tc.table_schema = %s
+          AND tc.table_name = %s
           AND kcu.column_name = %s
           AND ccu.table_name = %s
           AND tc.constraint_type = 'FOREIGN KEY'
         LIMIT 1
         """,
-        [table, column, ref_table],
+        [schema, table, column, ref_table],
     )
     row = cursor.fetchone()
     return row[0] if row else None
@@ -113,6 +118,12 @@ def _alter_fk(cursor, table, column, ref_table, ref_column, action):
     """Drop and recreate an FK constraint with the desired ON DELETE action."""
     constraint_name = _find_constraint_name(cursor, table, column, ref_table)
     if constraint_name is None:
+        logger.warning(
+            "FK constraint not found: %s.%s → %s (skipping)",
+            table,
+            column,
+            ref_table,
+        )
         return
 
     cursor.execute(f'ALTER TABLE "{table}" DROP CONSTRAINT "{constraint_name}"')

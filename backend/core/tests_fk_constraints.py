@@ -16,7 +16,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _get_fk_delete_rule(table, column, ref_table):
+def _get_fk_delete_rule(table, column, ref_table, schema="public"):
     """Consulta information_schema para obtener la regla ON DELETE de una FK."""
     with connection.cursor() as cursor:
         cursor.execute(
@@ -29,13 +29,14 @@ def _get_fk_delete_rule(table, column, ref_table):
                 ON tc.constraint_name = kcu.constraint_name
             JOIN information_schema.constraint_column_usage ccu
                 ON tc.constraint_name = ccu.constraint_name
-            WHERE tc.table_name = %s
+            WHERE tc.table_schema = %s
+              AND tc.table_name = %s
               AND kcu.column_name = %s
               AND ccu.table_name = %s
               AND tc.constraint_type = 'FOREIGN KEY'
             LIMIT 1
             """,
-            [table, column, ref_table],
+            [schema, table, column, ref_table],
         )
         row = cursor.fetchone()
         return row[0] if row else None
@@ -71,6 +72,9 @@ TENANT_CASCADE_TABLES = [
     "services_service",
     "services_servicecategory",
     "services_staffmember",
+    "subscriptions_marketplacecategory",
+    "subscriptions_marketplacecontract",
+    "subscriptions_marketplaceplan",
     "websites_aigenerationlog",
     "websites_websiteconfig",
 ]
@@ -100,6 +104,7 @@ USER_FK_EXPECTED = [
     ("reviews_review", "user_id", "CASCADE"),
     ("reviews_reviewhelpful", "user_id", "CASCADE"),
     ("services_staffmember", "user_id", "CASCADE"),
+    ("subscriptions_marketplacecontract", "customer_id", "CASCADE"),
     ("token_blacklist_outstandingtoken", "user_id", "CASCADE"),
     # PROTECT → RESTRICT en PostgreSQL
     ("orders_order", "customer_id", "RESTRICT"),
