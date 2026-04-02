@@ -154,7 +154,7 @@ export default function SettingsProfilePage() {
     onSuccess: (data) => {
       setUser(data);
       setIsEditingProfile(false);
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       toast({ title: 'Perfil actualizado', description: 'Tus datos han sido actualizados correctamente' });
     },
     onError: (error: Error) => {

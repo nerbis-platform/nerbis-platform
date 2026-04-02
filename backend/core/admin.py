@@ -3,6 +3,7 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
 from django.db import models
 from django.db.models import Q
 from django.utils.html import format_html
@@ -982,13 +983,13 @@ class AuthMethodFilter(admin.SimpleListFilter):
         no_social = queryset.exclude(pk__in=has_social)
 
         if self.value() == "email_only":
-            return no_social.exclude(password__startswith="!").exclude(password="")
+            return no_social.exclude(password__startswith=UNUSABLE_PASSWORD_PREFIX).exclude(password="")
         if self.value() == "social_only":
-            # Usuarios sin password usable (password vacío o con prefijo !)
-            return has_social.filter(Q(password__startswith="!") | Q(password=""))
+            # Usuarios sin password usable
+            return has_social.filter(Q(password__startswith=UNUSABLE_PASSWORD_PREFIX) | Q(password=""))
         if self.value() == "both":
             # Usuarios con password usable Y social
-            return has_social.exclude(password__startswith="!").exclude(password="")
+            return has_social.exclude(password__startswith=UNUSABLE_PASSWORD_PREFIX).exclude(password="")
         return queryset
 
 
@@ -1552,7 +1553,7 @@ class SocialAccountAdmin(UnfoldModelAdmin):
     def provider_avatar_display(self, obj):
         """Avatar del usuario según el proveedor OAuth."""
         picture = obj.extra_data.get("picture", "")
-        if picture:
+        if picture and picture.startswith(("https://", "http://")):
             return format_html(
                 '<img src="{}" style="width:64px; height:64px; border-radius:50%; object-fit:cover;" alt="avatar" />',
                 picture,
@@ -1584,9 +1585,9 @@ class SocialAccountAdmin(UnfoldModelAdmin):
                 user_id=request.user.pk,
                 content_type_id=ct.pk,
                 object_id=str(social_account.pk),
-                object_repr=f"{social_account.get_provider_display()} - {social_account.email} ({user.get_full_name()})",
+                object_repr=f"{social_account.get_provider_display()} (id={social_account.pk})",
                 action_flag=DELETION,
-                change_message=f"Desvinculación de cuenta {social_account.get_provider_display()} del usuario {user.email}",
+                change_message=f"Desvinculación de cuenta {social_account.get_provider_display()} del usuario id={user.pk}",
             )
             social_account.delete()
             disconnected += 1

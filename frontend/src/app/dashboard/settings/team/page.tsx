@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { getTeamMembers, disconnectTeamSocial } from '@/lib/api/team';
@@ -73,13 +73,25 @@ function getInitials(member: TeamMember): string {
   return member.email[0].toUpperCase();
 }
 
+const DEFAULT_PROVIDER_CONFIG = { label: 'Otro', textColor: 'text-gray-700', bgLight: 'bg-gray-100' };
+
+function isValidAvatarUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 function ProviderBadge({ social }: { social: SocialAccountDetail }) {
-  const config = PROVIDER_CONFIG[social.provider];
+  const config = PROVIDER_CONFIG[social.provider] ?? DEFAULT_PROVIDER_CONFIG;
+  const showAvatar = social.avatar_url && isValidAvatarUrl(social.avatar_url);
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${config.bgLight} ${config.textColor}`}
     >
-      {social.avatar_url && (
+      {showAvatar && (
         <Image
           src={social.avatar_url}
           alt=""
@@ -149,14 +161,19 @@ export default function SettingsTeamPage() {
       toast.success(data.message);
       setDisconnectDialog({ open: false, member: null, social: null });
     },
-    onError: (error: Error & { response?: { data?: { error?: string } } }) => {
-      toast.error(error.response?.data?.error || 'Error al desvincular la cuenta');
+    onError: (error: Error & { data?: { error?: string } }) => {
+      toast.error(error.data?.error || error.message || 'Error al desvincular la cuenta');
     },
   });
 
-  // Role guard — solo admins (después de hooks para cumplir Rules of Hooks)
+  // Role guard — solo admins (en useEffect para evitar navegación durante render)
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
+
   if (user?.role !== 'admin') {
-    router.push('/dashboard');
     return null;
   }
 
@@ -340,7 +357,7 @@ export default function SettingsTeamPage() {
                               className="text-destructive"
                             >
                               <Unlink className="h-4 w-4 mr-2" />
-                              Desvincular {PROVIDER_CONFIG[sa.provider].label}
+                              Desvincular {(PROVIDER_CONFIG[sa.provider] ?? DEFAULT_PROVIDER_CONFIG).label}
                             </DropdownMenuItem>
                           ))}
                         </DropdownMenuContent>
@@ -386,7 +403,7 @@ export default function SettingsTeamPage() {
                 <>
                   ¿Desvincular la cuenta de{' '}
                   <strong>
-                    {PROVIDER_CONFIG[disconnectDialog.social.provider].label}
+                    {(PROVIDER_CONFIG[disconnectDialog.social.provider] ?? DEFAULT_PROVIDER_CONFIG).label}
                   </strong>{' '}
                   de <strong>{disconnectDialog.member.full_name}</strong>?
                   <br />
