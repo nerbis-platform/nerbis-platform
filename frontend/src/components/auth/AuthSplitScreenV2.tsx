@@ -30,7 +30,9 @@ export default function AuthSplitScreenV2({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [contentVisible, setContentVisible] = useState(true);
   const [registerPrefill, setRegisterPrefill] = useState<AuthPrefill | null>(null);
-  const formPanelRef = useRef<HTMLDivElement>(null);
+  const formPanelRefDesktop = useRef<HTMLDivElement>(null);
+  const formPanelRefTablet = useRef<HTMLDivElement>(null);
+  const formPanelRefMobile = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
 
   // Screen-reader live region for mode announcements
@@ -90,15 +92,24 @@ export default function AuthSplitScreenV2({
 
   // ── Focus first input after mode switch animation
   useEffect(() => {
-    if (contentVisible && !isTransitioning && formPanelRef.current) {
-      const firstInput = formPanelRef.current.querySelector<HTMLInputElement>(
-        'input:not([type="hidden"]):not([disabled])',
-      );
-      if (firstInput) {
-        // Slight delay to let CSS transitions settle
-        const timer = setTimeout(() => firstInput.focus(), 50);
-        return () => clearTimeout(timer);
-      }
+    if (!contentVisible || isTransitioning) return;
+
+    // Pick the visible ref based on current viewport
+    const activeRef =
+      formPanelRefDesktop.current?.offsetParent !== null
+        ? formPanelRefDesktop
+        : formPanelRefTablet.current?.offsetParent !== null
+          ? formPanelRefTablet
+          : formPanelRefMobile;
+
+    if (!activeRef.current) return;
+
+    const firstInput = activeRef.current.querySelector<HTMLInputElement>(
+      'input:not([type="hidden"]):not([disabled])',
+    );
+    if (firstInput) {
+      const timer = setTimeout(() => firstInput.focus(), 50);
+      return () => clearTimeout(timer);
     }
   }, [mode, contentVisible, isTransitioning]);
 
@@ -157,12 +168,11 @@ export default function AuthSplitScreenV2({
 
         {/* Right: Form panel */}
         <main
-          role="main"
           className="relative flex w-[55%] flex-1 flex-col items-center justify-center xl:w-[58%]"
           style={{ background: 'var(--auth-bg, #FAFAFA)' }}
         >
           <div
-            ref={formPanelRef}
+            ref={formPanelRefDesktop}
             className="w-full max-w-md px-12"
             style={formTransitionStyle}
           >
@@ -183,12 +193,11 @@ export default function AuthSplitScreenV2({
 
         {/* Right: Form panel */}
         <main
-          role="main"
           className="relative flex w-[62%] flex-1 flex-col items-center justify-center"
           style={{ background: 'var(--auth-bg, #FAFAFA)' }}
         >
           <div
-            ref={formPanelRef}
+            ref={formPanelRefTablet}
             className="w-full max-w-md px-8"
             style={formTransitionStyle}
           >
@@ -206,7 +215,6 @@ export default function AuthSplitScreenV2({
 
         {/* Form panel — scrollable */}
         <main
-          role="main"
           className="flex flex-1 flex-col items-center overflow-y-auto overscroll-contain"
           style={{
             background: 'linear-gradient(180deg, #F5F7FA 0%, var(--auth-bg, #FAFAFA) 100%)',
@@ -214,7 +222,7 @@ export default function AuthSplitScreenV2({
           }}
         >
           <div
-            ref={formPanelRef}
+            ref={formPanelRefMobile}
             className="w-full max-w-md px-5 py-6 sm:px-8 sm:py-8"
             style={formTransitionStyle}
           >
