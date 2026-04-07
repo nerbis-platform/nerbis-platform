@@ -126,9 +126,7 @@ class PasskeyRegisterOptionsView(APIView):
 
         # Excluir credenciales ya registradas (para que el browser no permita duplicar)
         existing = WebAuthnCredential.objects.filter(user=user)
-        exclude = [
-            PublicKeyCredentialDescriptor(id=bytes(cred.credential_id)) for cred in existing
-        ]
+        exclude = [PublicKeyCredentialDescriptor(id=bytes(cred.credential_id)) for cred in existing]
 
         options = generate_registration_options(
             rp_id=_rp_id(),
@@ -231,9 +229,7 @@ class PasskeyAuthenticateOptionsView(APIView):
         if email:
             # Buscar cualquier usuario con ese email (multi-tenant: puede haber varios)
             creds = WebAuthnCredential.objects.filter(user__email__iexact=email).select_related("user")
-            allow_credentials = [
-                PublicKeyCredentialDescriptor(id=bytes(cred.credential_id)) for cred in creds
-            ]
+            allow_credentials = [PublicKeyCredentialDescriptor(id=bytes(cred.credential_id)) for cred in creds]
             if not allow_credentials:
                 return Response(
                     {"detail": "No hay passkeys registrados para este email."},
@@ -292,9 +288,7 @@ class PasskeyAuthenticateVerifyView(APIView):
             return Response({"detail": "rawId inválido"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            cred_obj = WebAuthnCredential.objects.select_related("user", "user__tenant").get(
-                credential_id=raw_id
-            )
+            cred_obj = WebAuthnCredential.objects.select_related("user", "user__tenant").get(credential_id=raw_id)
         except WebAuthnCredential.DoesNotExist:
             return Response(
                 {
