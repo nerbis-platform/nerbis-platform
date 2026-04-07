@@ -8,7 +8,7 @@ import { getClientTenantSlug } from '@/lib/tenant';
 import { applyThemeToDOM, type ThemeConfig } from '@/lib/utils/theme-colors';
 
 /** Rutas que no requieren tenant (auth, registro, etc.) */
-const AUTH_PATHS = ['/login', '/forgot-password', '/reset-password', '/reactivate', '/register-business'];
+const AUTH_PATHS = ['/login', '/forgot-password', '/reset-password', '/reactivate', '/register-business', '/ayuda'];
 
 // Tipos
 export interface TenantModules {

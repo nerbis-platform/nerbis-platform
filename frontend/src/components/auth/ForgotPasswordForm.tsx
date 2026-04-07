@@ -359,7 +359,7 @@ export function ForgotPasswordForm({
             </div>
             <p>
               <a
-                href="mailto:soporte@nerbis.com"
+                href="/ayuda"
                 className="text-[0.78rem] font-medium hover:underline underline-offset-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
                 style={{ color: 'var(--auth-text-muted)' }}
               >
@@ -414,7 +414,7 @@ export function ForgotPasswordForm({
 
           <p className="mt-6">
             <a
-              href="mailto:soporte@nerbis.com"
+              href="/ayuda"
               className="text-[0.78rem] font-medium hover:underline underline-offset-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
               style={{ color: 'var(--auth-text-muted)' }}
             >
