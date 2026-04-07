@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 import dj_database_url
 from dotenv import load_dotenv
@@ -378,11 +379,20 @@ DEFAULT_FROM_NAME = os.getenv("DEFAULT_FROM_NAME", "Nerbis")
 # URL base del frontend (para links en emails)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
-if not DEBUG and FRONTEND_URL == "http://localhost:3000":
-    raise RuntimeError(
-        "FRONTEND_URL no está configurado en producción. "
-        "Define la variable de entorno FRONTEND_URL con la URL pública del frontend."
-    )
+if not DEBUG:
+    _parsed_frontend_url = urlparse(FRONTEND_URL)
+    _frontend_host = (_parsed_frontend_url.hostname or "").lower()
+    _local_hosts = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+
+    if (
+        not _parsed_frontend_url.scheme
+        or not _parsed_frontend_url.netloc
+        or _frontend_host in _local_hosts
+    ):
+        raise RuntimeError(
+            "FRONTEND_URL no es válido para producción. "
+            "Define una URL pública del frontend (no localhost/loopback)."
+        )
 
 # Dominio base de la plataforma (para subdominios de tenants/websites)
 PLATFORM_BASE_DOMAIN = os.getenv("PLATFORM_BASE_DOMAIN", "nerbis.com")
