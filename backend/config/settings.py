@@ -378,6 +378,12 @@ DEFAULT_FROM_NAME = os.getenv("DEFAULT_FROM_NAME", "Nerbis")
 # URL base del frontend (para links en emails)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
+if not DEBUG and FRONTEND_URL == "http://localhost:3000":
+    raise RuntimeError(
+        "FRONTEND_URL no está configurado en producción. "
+        "Define la variable de entorno FRONTEND_URL con la URL pública del frontend."
+    )
+
 # Dominio base de la plataforma (para subdominios de tenants/websites)
 PLATFORM_BASE_DOMAIN = os.getenv("PLATFORM_BASE_DOMAIN", "nerbis.com")
 
@@ -473,12 +479,6 @@ APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID", "")
 APPLE_TEAM_ID = os.getenv("APPLE_TEAM_ID", "")
 FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", "")
 FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", "")
-
-# ===================================
-# FRONTEND URL
-# ===================================
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-
 
 # ===================================
 # UNFOLD ADMIN CONFIGURATION
