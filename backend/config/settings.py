@@ -1,3 +1,4 @@
+import ipaddress
 import os
 from pathlib import Path
 from urllib.parse import urlparse
@@ -382,9 +383,24 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 if not DEBUG:
     _parsed_frontend_url = urlparse(FRONTEND_URL)
     _frontend_host = (_parsed_frontend_url.hostname or "").lower()
-    _local_hosts = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 
-    if not _parsed_frontend_url.scheme or not _parsed_frontend_url.netloc or _frontend_host in _local_hosts:
+    _is_loopback = _frontend_host == "localhost"
+    if not _is_loopback and _frontend_host:
+        try:
+            _is_loopback = ipaddress.ip_address(_frontend_host).is_loopback
+        except ValueError:
+            # No es una IP literal — es un hostname DNS, se permite
+            _is_loopback = False
+
+    # 0.0.0.0 / :: no son loopback pero tampoco son URLs públicas válidas
+    _is_unspecified = False
+    if _frontend_host:
+        try:
+            _is_unspecified = ipaddress.ip_address(_frontend_host).is_unspecified
+        except ValueError:
+            _is_unspecified = False
+
+    if not _parsed_frontend_url.scheme or not _parsed_frontend_url.netloc or _is_loopback or _is_unspecified:
         raise RuntimeError(
             "FRONTEND_URL no es válido para producción. Define una URL pública del frontend (no localhost/loopback)."
         )
