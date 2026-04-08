@@ -3,16 +3,21 @@
 //   - Correo + contraseña (estado y cambio)
 //   - Cuentas vinculadas (Google, Apple, Facebook)
 //   - Passkeys (WebAuthn)
+//   - Autenticación en dos pasos (TOTP)
 //
-// Futuro (ver issue): sesiones activas, 2FA, historial de inicios, alertas de seguridad.
+// Futuro (ver issue): sesiones activas, historial de inicios, alertas de seguridad.
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import {
+  AlertTriangle,
   Check,
+  Copy,
+  Download,
   Eye,
   EyeOff,
   Fingerprint,
@@ -21,14 +26,27 @@ import {
   Lock,
   Pencil,
   Plus,
+  ShieldAlert,
+  ShieldCheck,
+  Smartphone,
   Trash2,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,7 +58,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { OtpInput } from '@/components/auth/OtpInput';
 import { useAuth } from '@/contexts/AuthContext';
+import { ApiError } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import type { SocialProvider } from '@/types';
 import {
@@ -56,6 +76,14 @@ import {
   registerPasskey,
   type PasskeyRecord,
 } from '@/lib/api/passkey';
+import {
+  disableTwoFactor,
+  getTwoFactorStatus,
+  regenerateBackupCodes,
+  setupTwoFactor,
+  verifyTwoFactor,
+  type TwoFactorSetupResponse,
+} from '@/lib/api/twoFactor';
 
 // ─── SVG icons de providers sociales ──────────────────────
 const googleIcon = (
@@ -117,6 +145,43 @@ function PasswordToggle({ show, onToggle }: { show: boolean; onToggle: () => voi
       {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
     </Button>
   );
+}
+
+// ─── Helpers 2FA ──────────────────────────────────────────
+type TwoFactorPhase =
+  | { name: 'loading' }
+  | { name: 'disabled' }
+  | { name: 'enabling'; setup: TwoFactorSetupResponse; code: string }
+  | { name: 'show-codes'; codes: string[] }
+  | { name: 'enabled' };
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.clipboard) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function downloadTxt(filename: string, content: string): void {
+  if (typeof window === 'undefined') return;
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) return error.message;
+  if (error instanceof Error) return error.message;
+  return fallback;
 }
 
 // ─── Página ───────────────────────────────────────────────
@@ -280,6 +345,136 @@ export default function LoginSettingsPage() {
       toast.error(message);
     }
   };
+
+  // ── 2FA (TOTP) ──────────────────────────────────────
+  const [twoFactorPhase, setTwoFactorPhase] = useState<TwoFactorPhase>({ name: 'loading' });
+  const [regenDialogOpen, setRegenDialogOpen] = useState(false);
+  const [disableDialogOpen, setDisableDialogOpen] = useState(false);
+
+  const { data: twoFactorStatus, isLoading: twoFactorLoading } = useQuery({
+    queryKey: ['two-factor', 'status'],
+    queryFn: getTwoFactorStatus,
+    enabled: mounted,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (twoFactorLoading) {
+      setTwoFactorPhase({ name: 'loading' });
+      return;
+    }
+    if (twoFactorStatus?.enabled) {
+      setTwoFactorPhase((prev) =>
+        prev.name === 'show-codes' ? prev : { name: 'enabled' },
+      );
+    } else {
+      setTwoFactorPhase((prev) =>
+        prev.name === 'enabling' ? prev : { name: 'disabled' },
+      );
+    }
+  }, [twoFactorStatus?.enabled, twoFactorLoading]);
+
+  const setupTwoFactorMutation = useMutation({
+    mutationFn: setupTwoFactor,
+    onSuccess: (data) => {
+      setTwoFactorPhase({ name: 'enabling', setup: data, code: '' });
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, 'No pudimos iniciar el enrolamiento'));
+    },
+  });
+
+  const verifyTwoFactorMutation = useMutation({
+    mutationFn: verifyTwoFactor,
+    onSuccess: (data) => {
+      setTwoFactorPhase({ name: 'show-codes', codes: data.backup_codes });
+      queryClient.invalidateQueries({ queryKey: ['two-factor', 'status'] });
+      toast.success('2FA activado correctamente');
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, 'Código inválido'));
+      setTwoFactorPhase((prev) =>
+        prev.name === 'enabling' ? { ...prev, code: '' } : prev,
+      );
+    },
+  });
+
+  const regenerateBackupCodesMutation = useMutation({
+    mutationFn: regenerateBackupCodes,
+    onSuccess: (data) => {
+      setRegenDialogOpen(false);
+      setTwoFactorPhase({ name: 'show-codes', codes: data.backup_codes });
+      toast.success('Nuevos códigos generados');
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, 'No pudimos regenerar los códigos'));
+    },
+  });
+
+  const disableTwoFactorMutation = useMutation({
+    mutationFn: disableTwoFactor,
+    onSuccess: () => {
+      setDisableDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['two-factor', 'status'] });
+      setTwoFactorPhase({ name: 'disabled' });
+      toast.success('2FA desactivado');
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, 'No pudimos desactivar 2FA'));
+    },
+  });
+
+  const twoFactorContent = useMemo(() => {
+    switch (twoFactorPhase.name) {
+      case 'loading':
+        return <TwoFactorLoadingState />;
+      case 'disabled':
+        return (
+          <TwoFactorDisabledState
+            isLoading={setupTwoFactorMutation.isPending}
+            onActivate={() => setupTwoFactorMutation.mutate()}
+          />
+        );
+      case 'enabling':
+        return (
+          <TwoFactorEnablingState
+            setup={twoFactorPhase.setup}
+            code={twoFactorPhase.code}
+            onCodeChange={(code) =>
+              setTwoFactorPhase((prev) =>
+                prev.name === 'enabling' ? { ...prev, code } : prev,
+              )
+            }
+            onCancel={() => setTwoFactorPhase({ name: 'disabled' })}
+            onSubmit={() => verifyTwoFactorMutation.mutate(twoFactorPhase.code)}
+            isSubmitting={verifyTwoFactorMutation.isPending}
+          />
+        );
+      case 'show-codes':
+        return (
+          <TwoFactorShowCodesState
+            codes={twoFactorPhase.codes}
+            onDone={() =>
+              setTwoFactorPhase(
+                twoFactorStatus?.enabled ? { name: 'enabled' } : { name: 'disabled' },
+              )
+            }
+          />
+        );
+      case 'enabled':
+        return (
+          <TwoFactorEnabledState
+            onRegenerate={() => setRegenDialogOpen(true)}
+            onDisable={() => setDisableDialogOpen(true)}
+          />
+        );
+    }
+  }, [
+    twoFactorPhase,
+    setupTwoFactorMutation,
+    verifyTwoFactorMutation,
+    twoFactorStatus?.enabled,
+  ]);
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -762,6 +957,489 @@ export default function LoginSettingsPage() {
           )}
         </div>
       </section>
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* SECCIÓN 4 — Autenticación en dos pasos                  */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      <section>
+        <h3 className="text-[0.7rem] text-gray-400 font-medium tracking-wide uppercase mb-3">
+          Autenticación en dos pasos
+        </h3>
+        {twoFactorContent}
+      </section>
+
+      {/* Dialog: regenerar backup codes */}
+      <RegenerateBackupCodesDialog
+        open={regenDialogOpen}
+        onOpenChange={setRegenDialogOpen}
+        isSubmitting={regenerateBackupCodesMutation.isPending}
+        onSubmit={(code) => regenerateBackupCodesMutation.mutate(code)}
+      />
+
+      {/* Dialog: desactivar 2FA */}
+      <DisableTwoFactorDialog
+        open={disableDialogOpen}
+        onOpenChange={setDisableDialogOpen}
+        hasPassword={!!(profile?.has_password ?? user?.has_password)}
+        isSubmitting={disableTwoFactorMutation.isPending}
+        onSubmit={(payload) => disableTwoFactorMutation.mutate(payload)}
+      />
     </div>
+  );
+}
+
+// ─── Sub-componentes 2FA ──────────────────────────────────
+
+function TwoFactorLoadingState() {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+      <Skeleton className="h-5 w-48" />
+      <Skeleton className="h-4 w-full max-w-md" />
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-10 w-56" />
+    </div>
+  );
+}
+
+function TwoFactorDisabledState({
+  isLoading,
+  onActivate,
+}: {
+  isLoading: boolean;
+  onActivate: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <div className="flex items-start gap-3 mb-4">
+        <div className="size-9 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+          <ShieldAlert className="size-4 text-gray-400" aria-hidden="true" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[0.9rem] font-medium text-gray-800">
+            Aún no tienes 2FA activo
+          </p>
+          <p className="text-[0.78rem] text-gray-500 leading-relaxed mt-1">
+            Protege tu cuenta con un segundo paso de verificación. Usaremos una app
+            autenticadora (Google Authenticator, 1Password, Authy) para generar un
+            código temporal cada vez que inicies sesión.
+          </p>
+        </div>
+      </div>
+      <Button
+        type="button"
+        onClick={onActivate}
+        disabled={isLoading}
+        className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+      >
+        <ShieldCheck className="size-3.5" aria-hidden="true" />
+        {isLoading ? 'Preparando\u2026' : 'Activar autenticación de dos pasos'}
+      </Button>
+    </div>
+  );
+}
+
+function TwoFactorEnablingState({
+  setup,
+  code,
+  onCodeChange,
+  onCancel,
+  onSubmit,
+  isSubmitting,
+}: {
+  setup: TwoFactorSetupResponse;
+  code: string;
+  onCodeChange: (code: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+  isSubmitting: boolean;
+}) {
+  const [uriCopied, setUriCopied] = useState(false);
+
+  const handleCopyUri = async () => {
+    const ok = await copyToClipboard(setup.otpauth_uri);
+    if (ok) {
+      setUriCopied(true);
+      toast.success('URI copiada');
+      setTimeout(() => setUriCopied(false), 2000);
+    } else {
+      toast.error('No pudimos copiar la URI');
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="size-9 rounded-lg bg-[rgba(13,148,136,0.08)] flex items-center justify-center shrink-0">
+          <Smartphone className="size-4 text-[#0D9488]" aria-hidden="true" />
+        </div>
+        <div>
+          <p className="text-[0.9rem] font-medium text-gray-800">
+            Escanea el QR con tu app autenticadora
+          </p>
+          <p className="text-[0.78rem] text-gray-500 leading-relaxed mt-1">
+            Abre Google Authenticator, 1Password o Authy y escanea el código. Luego
+            ingresa el código de 6 dígitos que te aparece.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex justify-center py-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+          <Image
+            src={setup.qr_code_base64}
+            alt="Código QR de 2FA"
+            width={200}
+            height={200}
+            unoptimized
+            className="size-48 object-contain"
+          />
+        </div>
+      </div>
+
+      <details className="group rounded-lg border border-gray-100 bg-gray-50/60 p-3">
+        <summary className="cursor-pointer text-[0.75rem] text-gray-500 font-medium select-none">
+          ¿No puedes escanear? Copia la clave manualmente
+        </summary>
+        <div className="mt-3 flex items-center gap-2">
+          <code className="flex-1 overflow-x-auto rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[0.7rem] font-mono text-gray-700 whitespace-nowrap">
+            {setup.otpauth_uri}
+          </code>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleCopyUri}
+            className="shrink-0 rounded-lg text-[0.72rem] h-8"
+          >
+            {uriCopied ? (
+              <Check className="size-3.5" aria-hidden="true" />
+            ) : (
+              <Copy className="size-3.5" aria-hidden="true" />
+            )}
+            {uriCopied ? 'Copiado' : 'Copiar'}
+          </Button>
+        </div>
+      </details>
+
+      <div className="space-y-2">
+        <Label className="text-[0.75rem] text-gray-500">
+          Código de verificación
+        </Label>
+        <OtpInput value={code} onChange={onCodeChange} disabled={isSubmitting} />
+      </div>
+
+      <div className="flex justify-end gap-2 pt-1">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onCancel}
+          disabled={isSubmitting}
+          className="rounded-xl text-[0.82rem] text-gray-500 hover:text-gray-700"
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          onClick={onSubmit}
+          disabled={isSubmitting || code.length !== 6}
+          className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+        >
+          {isSubmitting ? 'Verificando\u2026' : 'Verificar y activar'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TwoFactorShowCodesState({
+  codes,
+  onDone,
+}: {
+  codes: string[];
+  onDone: () => void;
+}) {
+  const allCodes = codes.join('\n');
+
+  const handleCopyAll = async () => {
+    const ok = await copyToClipboard(allCodes);
+    toast[ok ? 'success' : 'error'](
+      ok ? 'Códigos copiados al portapapeles' : 'No pudimos copiar los códigos',
+    );
+  };
+
+  const handleDownload = () => {
+    const header =
+      'NERBIS — Códigos de respaldo para 2FA\n' +
+      'Guárdalos en un lugar seguro. Cada uno se puede usar una sola vez.\n\n';
+    downloadTxt('nerbis-backup-codes.txt', header + allCodes + '\n');
+    toast.success('Archivo descargado');
+  };
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-5 space-y-4">
+      <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+        <AlertTriangle className="size-4" aria-hidden="true" />
+        <AlertTitle className="text-[0.85rem] font-semibold">
+          Guarda estos códigos ahora
+        </AlertTitle>
+        <AlertDescription className="text-[0.78rem] leading-relaxed">
+          Estos códigos de respaldo te permiten entrar si pierdes el acceso a tu app
+          autenticadora. No volverán a mostrarse. Cada código se puede usar una sola
+          vez.
+        </AlertDescription>
+      </Alert>
+
+      <div className="grid grid-cols-2 gap-2 rounded-lg border border-amber-200 bg-white p-4">
+        {codes.map((code) => (
+          <code
+            key={code}
+            className="rounded-md bg-gray-50 px-3 py-2 text-center text-[0.82rem] font-mono tracking-[0.1em] text-gray-800"
+          >
+            {code}
+          </code>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleCopyAll}
+          className="rounded-xl text-[0.8rem]"
+        >
+          <Copy className="size-3.5" aria-hidden="true" />
+          Copiar todos
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleDownload}
+          className="rounded-xl text-[0.8rem]"
+        >
+          <Download className="size-3.5" aria-hidden="true" />
+          Descargar .txt
+        </Button>
+        <Button
+          type="button"
+          onClick={onDone}
+          className="ml-auto rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+        >
+          Listo, ya los guardé
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TwoFactorEnabledState({
+  onRegenerate,
+  onDisable,
+}: {
+  onRegenerate: () => void;
+  onDisable: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <div className="flex items-start gap-3 mb-4">
+        <div className="size-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+          <ShieldCheck className="size-4 text-emerald-600" aria-hidden="true" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-[0.9rem] font-medium text-gray-800">2FA activo</p>
+            <Badge
+              variant="outline"
+              className="gap-1 text-[0.68rem] text-emerald-600 border-emerald-200 bg-emerald-50/80"
+            >
+              <Check className="size-3" aria-hidden="true" />
+              Activo
+            </Badge>
+          </div>
+          <p className="text-[0.78rem] text-gray-500 leading-relaxed mt-1">
+            Cada vez que inicies sesión te pediremos un código de 6 dígitos de tu app
+            autenticadora. Guarda tus códigos de respaldo por si pierdes el acceso.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 mt-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onRegenerate}
+          className="rounded-xl text-[0.8rem]"
+        >
+          <KeyRound className="size-3.5" aria-hidden="true" />
+          Regenerar códigos de respaldo
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onDisable}
+          className="rounded-xl text-[0.8rem] border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+        >
+          <ShieldAlert className="size-3.5" aria-hidden="true" />
+          Desactivar 2FA
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function RegenerateBackupCodesDialog({
+  open,
+  onOpenChange,
+  isSubmitting,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isSubmitting: boolean;
+  onSubmit: (code: string) => void;
+}) {
+  const [code, setCode] = useState('');
+
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next) setCode('');
+      onOpenChange(next);
+    },
+    [onOpenChange],
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-sm rounded-xl p-5 gap-0 bg-white">
+        <DialogHeader className="space-y-1.5 pb-3">
+          <DialogTitle className="text-[0.92rem] font-semibold text-gray-800">
+            Regenerar códigos de respaldo
+          </DialogTitle>
+          <DialogDescription className="text-[0.78rem] text-gray-500 leading-relaxed">
+            Se invalidarán los códigos anteriores. Ingresa el código actual de tu app
+            para confirmar.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-3 space-y-2">
+          <Label className="text-[0.75rem] text-gray-500">Código TOTP</Label>
+          <OtpInput value={code} onChange={setCode} disabled={isSubmitting} />
+        </div>
+        <DialogFooter className="flex-row gap-2 pt-2 border-t border-gray-100">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isSubmitting}
+            className="flex-1 rounded-lg text-[0.8rem] h-9"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={() => onSubmit(code)}
+            disabled={isSubmitting || code.length !== 6}
+            className="flex-1 rounded-lg text-[0.8rem] h-9 bg-[#1C3B57] hover:bg-[#15304a] text-white"
+          >
+            {isSubmitting ? 'Generando\u2026' : 'Regenerar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DisableTwoFactorDialog({
+  open,
+  onOpenChange,
+  hasPassword,
+  isSubmitting,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  hasPassword: boolean;
+  isSubmitting: boolean;
+  onSubmit: (payload: { code: string; password?: string }) => void;
+}) {
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next) {
+        setCode('');
+        setPassword('');
+      }
+      onOpenChange(next);
+    },
+    [onOpenChange],
+  );
+
+  const canSubmit =
+    code.length === 6 && (!hasPassword || password.length > 0) && !isSubmitting;
+
+  const handleSubmit = useCallback(() => {
+    onSubmit(hasPassword ? { code, password } : { code });
+  }, [code, password, hasPassword, onSubmit]);
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-sm rounded-xl p-5 gap-0 bg-white">
+        <DialogHeader className="space-y-1.5 pb-3">
+          <DialogTitle className="text-[0.92rem] font-semibold text-gray-800">
+            Desactivar 2FA
+          </DialogTitle>
+          <DialogDescription className="text-[0.78rem] text-gray-500 leading-relaxed">
+            Tu cuenta quedará protegida únicamente por tu contraseña. Puedes volver a
+            activar 2FA cuando quieras.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-3 space-y-4">
+          {hasPassword && (
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="disable-2fa-password"
+                className="text-[0.75rem] text-gray-500"
+              >
+                Contraseña actual
+              </Label>
+              <Input
+                id="disable-2fa-password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isSubmitting}
+                className="h-9 text-[0.85rem] md:text-[0.85rem]"
+              />
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label className="text-[0.75rem] text-gray-500">
+              Código actual de tu app
+            </Label>
+            <OtpInput value={code} onChange={setCode} disabled={isSubmitting} />
+          </div>
+        </div>
+        <DialogFooter className="flex-row gap-2 pt-2 border-t border-gray-100">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isSubmitting}
+            className="flex-1 rounded-lg text-[0.8rem] h-9"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="flex-1 rounded-lg text-[0.8rem] h-9 bg-red-500 hover:bg-red-600 text-white disabled:opacity-50"
+          >
+            {isSubmitting ? 'Desactivando\u2026' : 'Desactivar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
