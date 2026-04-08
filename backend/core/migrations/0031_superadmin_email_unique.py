@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('auth', '0012_alter_user_first_name_max_length'),
-        ('core', '0029_fix_tenant_and_user_fk_cascade'),
+        ('core', '0030_webauthncredential'),
     ]
 
     operations = [
