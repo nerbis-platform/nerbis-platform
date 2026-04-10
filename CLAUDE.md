@@ -102,6 +102,7 @@ npm run dev --prefix frontend -- --port 3001 &
 Leer los skills relevantes en `.claude/skills/` antes de actuar:
 
 **Frontend:**
+- `.claude/skills/nerbis-design-identity` — **identidad visual NERBIS** (tipografía, color, motion, layout, micro-copy, data viz, anti-AI-slop). Leer SIEMPRE antes de crear UI.
 - `.claude/skills/frontend-design` — dirección estética premium, anti "AI slop" (oficial Anthropic)
 - `.claude/skills/web-design-guidelines` — diseño web, UI/UX, layouts, accesibilidad
 - `.claude/skills/shadcn` — uso correcto de shadcn/ui + Radix UI

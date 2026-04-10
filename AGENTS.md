@@ -67,6 +67,11 @@ docs/       → Documentación técnica (SDD.md)
 - shadcn/ui + Radix UI para componentes base
 - Context API para estado global (AuthContext, CartContext, TenantContext, WebsiteContentContext)
 - Mobile-first, responsive
+- **OBLIGATORIO: Seguir la identidad visual NERBIS** definida en `.claude/skills/nerbis-design-identity/`
+  - Leer `SKILL.md` antes de crear cualquier componente o página
+  - Usar tokens semánticos de color (no hex hardcodeados)
+  - Respetar la tipografía (Geist Sans), spacing (4px grid), motion (150ms hover), y accesibilidad (WCAG AA)
+  - Verificar contra el checklist anti-AI-slop antes de enviar PR
 
 ## CI/CD
 
@@ -124,3 +129,8 @@ one-liners encadenados con `&&`.
 - [ ] ¿Está paginado (si es listado)?
 - [ ] ¿Sigue las convenciones del proyecto?
 - [ ] ¿No hay credenciales hardcodeadas?
+- [ ] ¿Sigue la identidad visual NERBIS? (si es frontend)
+- [ ] ¿Pasó el checklist anti-AI-slop? (si es frontend)
+- [ ] ¿Funciona en dark mode? (si es frontend)
+- [ ] ¿Es accesible? (keyboard nav, aria-labels, contraste WCAG AA)
+- [ ] ¿Funciona en mobile? (touch targets, responsive, bottom nav)
