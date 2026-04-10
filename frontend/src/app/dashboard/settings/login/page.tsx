@@ -9,10 +9,9 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   Check,
@@ -24,6 +23,7 @@ import {
   KeyRound,
   Loader2,
   Lock,
+  Mail,
   Pencil,
   Plus,
   ShieldAlert,
@@ -60,6 +60,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { useAuth } from '@/contexts/AuthContext';
+import { requestPasswordResetOTP, verifyPasswordResetOTP } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import type { SocialProvider } from '@/types';
@@ -184,10 +185,20 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  const masked =
+    local.length <= 2
+      ? local
+      : local.slice(0, 2) + '\u2022'.repeat(Math.min(local.length - 2, 6));
+  return `${masked}@${domain}`;
+}
+
+type PasswordResetStep = 'idle' | 'confirm' | 'otp' | 'new-password';
+
 // ─── Página ───────────────────────────────────────────────
 export default function LoginSettingsPage() {
   const { user } = useAuth();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
 
@@ -212,6 +223,112 @@ export default function LoginSettingsPage() {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // ── Inline password reset (forgot password) ───────
+  const [resetStep, setResetStep] = useState<PasswordResetStep>('idle');
+  const [resetOtp, setResetOtp] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [showResetNewPassword, setShowResetNewPassword] = useState(false);
+  const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const resendTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startResendCooldown = useCallback(() => {
+    setResendCooldown(60);
+    if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+    resendTimerRef.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+    };
+  }, []);
+
+  const resetInlineFlow = useCallback(() => {
+    setResetStep('idle');
+    setResetOtp('');
+    setResetNewPassword('');
+    setResetConfirmPassword('');
+    setShowResetNewPassword(false);
+    setShowResetConfirmPassword(false);
+    setResetLoading(false);
+    setResetError('');
+    setResendCooldown(0);
+    if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+  }, []);
+
+  const handleSendResetOtp = useCallback(async () => {
+    if (!user?.email) return;
+    setResetLoading(true);
+    setResetError('');
+    try {
+      await requestPasswordResetOTP(user.email);
+      setResetStep('otp');
+      startResendCooldown();
+    } catch (error) {
+      setResetError(extractErrorMessage(error, 'Error al enviar el codigo'));
+    } finally {
+      setResetLoading(false);
+    }
+  }, [user?.email, startResendCooldown]);
+
+  const handleResendOtp = useCallback(async () => {
+    if (!user?.email || resendCooldown > 0) return;
+    setResetLoading(true);
+    setResetError('');
+    try {
+      await requestPasswordResetOTP(user.email);
+      startResendCooldown();
+      toast.success('Codigo reenviado');
+    } catch (error) {
+      setResetError(extractErrorMessage(error, 'Error al reenviar el codigo'));
+    } finally {
+      setResetLoading(false);
+    }
+  }, [user?.email, resendCooldown, startResendCooldown]);
+
+  const handleVerifyResetOtp = useCallback(async () => {
+    if (!user?.email) return;
+    const pw = resetNewPassword;
+    if (pw !== resetConfirmPassword) {
+      setResetError('Las contrasenas no coinciden');
+      return;
+    }
+    if (pw.length < 8) {
+      setResetError('La contrasena debe tener al menos 8 caracteres');
+      return;
+    }
+    if (/^\d+$/.test(pw)) {
+      setResetError('La contrasena no puede ser completamente numerica');
+      return;
+    }
+    setResetLoading(true);
+    setResetError('');
+    try {
+      await verifyPasswordResetOTP(user.email, resetOtp, pw);
+      toast.success('Contrasena restablecida correctamente');
+      resetInlineFlow();
+      setIsEditingPassword(false);
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+    } catch (error) {
+      setResetError(extractErrorMessage(error, 'Error al restablecer la contrasena'));
+    } finally {
+      setResetLoading(false);
+    }
+  }, [user?.email, resetOtp, resetNewPassword, resetConfirmPassword, resetInlineFlow, queryClient]);
 
   const changePasswordMutation = useMutation({
     mutationFn: changePassword,
@@ -530,19 +647,221 @@ export default function LoginSettingsPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push('/forgot-password')}
+                onClick={() => {
+                  setResetStep('confirm');
+                  setIsEditingPassword(true);
+                }}
                 className="text-[0.75rem] font-medium text-[#0D9488] hover:text-[#0D9488] hover:bg-[rgba(13,148,136,0.08)] cursor-pointer"
               >
                 Crear contraseña
               </Button>
             )}
           </div>
-          {profile && !profile.has_password && (
+          {profile && !profile.has_password && resetStep === 'idle' && (
             <div className="px-4 pb-3.5 -mt-1">
               <p className="text-[0.75rem] text-gray-400 leading-relaxed">
                 Crea una contraseña para acceder también por email, sin depender de redes
                 sociales.
               </p>
+            </div>
+          )}
+          {profile && !profile.has_password && resetStep !== 'idle' && (
+            <div className="px-4 pb-5 pt-1 flex flex-col gap-4 border-t border-gray-100">
+              {/* Step 1: Confirm & send OTP */}
+              {resetStep === 'confirm' && (
+                <div className="flex flex-col gap-3 pt-4">
+                  <div className="flex items-start gap-3">
+                    <div className="size-8 rounded-lg flex items-center justify-center shrink-0 bg-[rgba(13,148,136,0.08)]">
+                      <Mail className="size-4 text-[#0D9488]" aria-hidden="true" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[0.85rem] font-medium text-gray-700">
+                        Crear contrasena por correo
+                      </p>
+                      <p className="text-[0.75rem] text-gray-400 mt-0.5">
+                        Te enviaremos un codigo de verificacion a{' '}
+                        <span className="font-medium text-gray-500">
+                          {user?.email ? maskEmail(user.email) : ''}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  {resetError && (
+                    <p className="text-[0.75rem] text-red-500">{resetError}</p>
+                  )}
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        resetInlineFlow();
+                        setIsEditingPassword(false);
+                      }}
+                      className="rounded-xl text-[0.82rem] text-gray-500 hover:text-gray-700"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={resetLoading}
+                      onClick={handleSendResetOtp}
+                      className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                    >
+                      {resetLoading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+                      {resetLoading ? 'Enviando...' : 'Enviar codigo'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Enter OTP */}
+              {resetStep === 'otp' && (
+                <div className="flex flex-col gap-4 pt-4">
+                  <div>
+                    <p className="text-[0.85rem] font-medium text-gray-700">
+                      Ingresa el codigo de verificacion
+                    </p>
+                    <p className="text-[0.75rem] text-gray-400 mt-0.5">
+                      Enviamos un codigo de 6 digitos a{' '}
+                      <span className="font-medium text-gray-500">
+                        {user?.email ? maskEmail(user.email) : ''}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="py-1">
+                    <OtpInput
+                      value={resetOtp}
+                      onChange={(val) => {
+                        setResetOtp(val);
+                        setResetError('');
+                      }}
+                      disabled={resetLoading}
+                    />
+                  </div>
+                  <div className="flex items-center justify-center">
+                    {resendCooldown > 0 ? (
+                      <p className="text-[0.72rem] text-gray-400">
+                        Reenviar en {resendCooldown}s
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={resetLoading}
+                        className="text-[0.72rem] font-medium text-[#0D9488] hover:underline cursor-pointer disabled:opacity-50"
+                      >
+                        Reenviar codigo
+                      </button>
+                    )}
+                  </div>
+                  {resetError && (
+                    <p className="text-[0.75rem] text-red-500 text-center">{resetError}</p>
+                  )}
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        resetInlineFlow();
+                        setIsEditingPassword(false);
+                      }}
+                      className="rounded-xl text-[0.82rem] text-gray-500 hover:text-gray-700"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={resetOtp.length < 6}
+                      onClick={() => {
+                        setResetStep('new-password');
+                        setResetError('');
+                      }}
+                      className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                    >
+                      Siguiente
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: New password */}
+              {resetStep === 'new-password' && (
+                <div className="flex flex-col gap-4 pt-4">
+                  <p className="text-[0.85rem] font-medium text-gray-700">
+                    Crea tu nueva contrasena
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="reset_new_password_create" className="text-[0.75rem] text-gray-500">
+                      Nueva contrasena
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="reset_new_password_create"
+                        type={showResetNewPassword ? 'text' : 'password'}
+                        value={resetNewPassword}
+                        onChange={(e) => {
+                          setResetNewPassword(e.target.value);
+                          setResetError('');
+                        }}
+                        autoComplete="new-password"
+                        className="h-9 pr-10 text-[0.85rem] md:text-[0.85rem]"
+                      />
+                      <PasswordToggle
+                        show={showResetNewPassword}
+                        onToggle={() => setShowResetNewPassword((v) => !v)}
+                      />
+                    </div>
+                    <p className="text-[0.72rem] text-gray-400">Minimo 8 caracteres</p>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="reset_confirm_password_create" className="text-[0.75rem] text-gray-500">
+                      Confirmar nueva contrasena
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="reset_confirm_password_create"
+                        type={showResetConfirmPassword ? 'text' : 'password'}
+                        value={resetConfirmPassword}
+                        onChange={(e) => {
+                          setResetConfirmPassword(e.target.value);
+                          setResetError('');
+                        }}
+                        autoComplete="new-password"
+                        className="h-9 pr-10 text-[0.85rem] md:text-[0.85rem]"
+                      />
+                      <PasswordToggle
+                        show={showResetConfirmPassword}
+                        onToggle={() => setShowResetConfirmPassword((v) => !v)}
+                      />
+                    </div>
+                  </div>
+                  {resetError && (
+                    <p className="text-[0.75rem] text-red-500">{resetError}</p>
+                  )}
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        resetInlineFlow();
+                        setIsEditingPassword(false);
+                      }}
+                      className="rounded-xl text-[0.82rem] text-gray-500 hover:text-gray-700"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={resetLoading || !resetNewPassword || !resetConfirmPassword}
+                      onClick={handleVerifyResetOtp}
+                      className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                    >
+                      {resetLoading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+                      {resetLoading ? 'Creando...' : 'Crear contrasena'}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -566,7 +885,207 @@ export default function LoginSettingsPage() {
               )}
             </div>
 
-            {isEditingPassword && (
+            {isEditingPassword && resetStep !== 'idle' && (
+              <div className="px-4 pb-5 pt-1 flex flex-col gap-4 border-t border-gray-100">
+                {/* Step 1: Confirm & send OTP */}
+                {resetStep === 'confirm' && (
+                  <div className="flex flex-col gap-3 pt-4">
+                    <div className="flex items-start gap-3">
+                      <div className="size-8 rounded-lg flex items-center justify-center shrink-0 bg-[rgba(13,148,136,0.08)]">
+                        <Mail className="size-4 text-[#0D9488]" aria-hidden="true" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[0.85rem] font-medium text-gray-700">
+                          Restablecer por correo
+                        </p>
+                        <p className="text-[0.75rem] text-gray-400 mt-0.5">
+                          Te enviaremos un codigo de verificacion a{' '}
+                          <span className="font-medium text-gray-500">
+                            {user?.email ? maskEmail(user.email) : ''}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    {resetError && (
+                      <p className="text-[0.75rem] text-red-500">{resetError}</p>
+                    )}
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          resetInlineFlow();
+                          setIsEditingPassword(false);
+                        }}
+                        className="rounded-xl text-[0.82rem] text-gray-500 hover:text-gray-700"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={resetLoading}
+                        onClick={handleSendResetOtp}
+                        className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                      >
+                        {resetLoading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+                        {resetLoading ? 'Enviando...' : 'Enviar codigo'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: Enter OTP */}
+                {resetStep === 'otp' && (
+                  <div className="flex flex-col gap-4 pt-4">
+                    <div>
+                      <p className="text-[0.85rem] font-medium text-gray-700">
+                        Ingresa el codigo de verificacion
+                      </p>
+                      <p className="text-[0.75rem] text-gray-400 mt-0.5">
+                        Enviamos un codigo de 6 digitos a{' '}
+                        <span className="font-medium text-gray-500">
+                          {user?.email ? maskEmail(user.email) : ''}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="py-1">
+                      <OtpInput
+                        value={resetOtp}
+                        onChange={(val) => {
+                          setResetOtp(val);
+                          setResetError('');
+                        }}
+                        disabled={resetLoading}
+                      />
+                    </div>
+                    <div className="flex items-center justify-center">
+                      {resendCooldown > 0 ? (
+                        <p className="text-[0.72rem] text-gray-400">
+                          Reenviar en {resendCooldown}s
+                        </p>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleResendOtp}
+                          disabled={resetLoading}
+                          className="text-[0.72rem] font-medium text-[#0D9488] hover:underline cursor-pointer disabled:opacity-50"
+                        >
+                          Reenviar codigo
+                        </button>
+                      )}
+                    </div>
+                    {resetError && (
+                      <p className="text-[0.75rem] text-red-500 text-center">{resetError}</p>
+                    )}
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          resetInlineFlow();
+                          setIsEditingPassword(false);
+                        }}
+                        className="rounded-xl text-[0.82rem] text-gray-500 hover:text-gray-700"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={resetOtp.length < 6}
+                        onClick={() => {
+                          setResetStep('new-password');
+                          setResetError('');
+                        }}
+                        className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: New password */}
+                {resetStep === 'new-password' && (
+                  <div className="flex flex-col gap-4 pt-4">
+                    <p className="text-[0.85rem] font-medium text-gray-700">
+                      Crea tu nueva contrasena
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="reset_new_password" className="text-[0.75rem] text-gray-500">
+                        Nueva contrasena
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="reset_new_password"
+                          type={showResetNewPassword ? 'text' : 'password'}
+                          value={resetNewPassword}
+                          onChange={(e) => {
+                            setResetNewPassword(e.target.value);
+                            setResetError('');
+                          }}
+                          autoComplete="new-password"
+                          className="h-9 pr-10 text-[0.85rem] md:text-[0.85rem]"
+                        />
+                        <PasswordToggle
+                          show={showResetNewPassword}
+                          onToggle={() => setShowResetNewPassword((v) => !v)}
+                        />
+                      </div>
+                      <p className="text-[0.72rem] text-gray-400">Minimo 8 caracteres</p>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="reset_confirm_password" className="text-[0.75rem] text-gray-500">
+                        Confirmar nueva contrasena
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="reset_confirm_password"
+                          type={showResetConfirmPassword ? 'text' : 'password'}
+                          value={resetConfirmPassword}
+                          onChange={(e) => {
+                            setResetConfirmPassword(e.target.value);
+                            setResetError('');
+                          }}
+                          autoComplete="new-password"
+                          className="h-9 pr-10 text-[0.85rem] md:text-[0.85rem]"
+                        />
+                        <PasswordToggle
+                          show={showResetConfirmPassword}
+                          onToggle={() => setShowResetConfirmPassword((v) => !v)}
+                        />
+                      </div>
+                    </div>
+                    {resetError && (
+                      <p className="text-[0.75rem] text-red-500">{resetError}</p>
+                    )}
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          resetInlineFlow();
+                          setIsEditingPassword(false);
+                        }}
+                        className="rounded-xl text-[0.82rem] text-gray-500 hover:text-gray-700"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={resetLoading || !resetNewPassword || !resetConfirmPassword}
+                        onClick={handleVerifyResetOtp}
+                        className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                      >
+                        {resetLoading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+                        {resetLoading ? 'Restableciendo...' : 'Restablecer contrasena'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isEditingPassword && resetStep === 'idle' && (
               <form
                 onSubmit={handlePasswordSubmit}
                 className="px-4 pb-5 pt-1 flex flex-col gap-4 border-t border-gray-100"
@@ -578,7 +1097,7 @@ export default function LoginSettingsPage() {
                     </Label>
                     <button
                       type="button"
-                      onClick={() => router.push('/forgot-password')}
+                      onClick={() => setResetStep('confirm')}
                       className="text-[0.7rem] font-medium text-[#0D9488] hover:underline cursor-pointer"
                     >
                       ¿La olvidaste?
