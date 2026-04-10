@@ -87,7 +87,7 @@ export function RegisterStep2({
       {/* Step + Title */}
       <div className="mb-6">
         <h2
-          className="text-[1.5rem] tracking-[-0.02em] mb-2 mt-4"
+          className="text-[1.5rem] tracking-[-0.03em] mb-2 mt-4"
           tabIndex={-1}
           style={{
             color: 'var(--auth-primary)',

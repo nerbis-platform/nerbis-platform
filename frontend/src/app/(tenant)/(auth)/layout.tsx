@@ -1,7 +1,6 @@
-// src/app/(auth)/layout.tsx
+// src/app/(tenant)/(auth)/layout.tsx
 
 import type { Metadata } from 'next';
-import { Inter, Nunito } from 'next/font/google';
 import { PlatformCookieConsent } from '@/components/auth/PlatformCookieConsent';
 
 export const metadata: Metadata = {
@@ -12,27 +11,13 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  display: 'swap',
-  variable: '--font-inter',
-});
-
-const nunito = Nunito({
-  subsets: ['latin'],
-  weight: ['900'],
-  display: 'swap',
-  variable: '--font-nunito',
-});
-
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className={`${inter.variable} ${nunito.variable}`}>
+    <div>
       {children}
       <PlatformCookieConsent />
     </div>

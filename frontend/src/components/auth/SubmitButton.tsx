@@ -25,7 +25,7 @@ export function SubmitButton({
       disabled={disabled || isLoading}
       aria-busy={isLoading}
       aria-label={isLoading ? loadingLabel : undefined}
-      className="flex h-12 w-full items-center justify-center gap-2 rounded-[var(--auth-radius-button)] bg-[var(--auth-primary)] text-white text-[0.9375rem] font-medium transition-[background-color,transform,opacity] duration-[var(--auth-duration-fast)] ease-out hover:bg-[var(--auth-primary-hover)] hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+      className="flex h-12 w-full items-center justify-center gap-2 rounded-[var(--auth-radius-button)] bg-[var(--auth-primary)] text-white text-[0.9375rem] font-medium transition-[background-color,transform,box-shadow,opacity] duration-150 ease-out hover:bg-[var(--auth-primary-hover)] hover:-translate-y-[1px] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 active:translate-y-0 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
       style={{ fontFamily: 'var(--auth-font-body)' }}
       data-auth-animated
     >

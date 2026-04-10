@@ -159,10 +159,10 @@
   --auth-section-padding: 4rem;
   --auth-input-height: 2.75rem;
 
-  /* Auth typography */
-  --auth-font-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-  --auth-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-  --auth-font-brand: var(--font-nunito), sans-serif;
+  /* Auth typography — uses Geist Sans from root layout */
+  --auth-font-heading: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  --auth-font-body: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  --auth-font-brand: var(--font-geist-sans), sans-serif;
 
   /* Auth border radius */
   --auth-radius-input: 0.5rem;

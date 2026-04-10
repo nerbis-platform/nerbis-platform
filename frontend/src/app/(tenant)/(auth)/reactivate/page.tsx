@@ -100,13 +100,13 @@ function ReactivateForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/10 to-secondary/10 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <UserCheck className="h-8 w-8 text-green-600" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+              <UserCheck className="h-8 w-8 text-emerald-600" />
             </div>
-            <CardTitle className="text-2xl font-bold">¡Bienvenido de vuelta!</CardTitle>
+            <CardTitle className="text-2xl font-semibold tracking-[-0.03em]">¡Bienvenido de vuelta!</CardTitle>
             <CardDescription>
               Tu cuenta ha sido reactivada exitosamente
             </CardDescription>
@@ -122,10 +122,10 @@ function ReactivateForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/10 to-secondary/10 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
+          <CardTitle className="text-2xl font-semibold tracking-[-0.03em] text-center">
             Reactivar cuenta
           </CardTitle>
           <CardDescription className="text-center">
@@ -201,7 +201,7 @@ function ReactivateForm() {
 export default function ReactivatePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/10 to-secondary/10 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     }>

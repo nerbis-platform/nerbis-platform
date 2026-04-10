@@ -1,5 +1,5 @@
 // src/components/auth/BrandCarousel.tsx
-// Auto-rotating carousel for brand value propositions.
+// Manual carousel for brand value propositions (user-controlled via dots).
 // CSS-only transitions, respects prefers-reduced-motion.
 
 'use client';
@@ -35,21 +35,12 @@ export function BrandCarousel({ slides, interval = DEFAULT_INTERVAL }: BrandCaro
     [slides.length],
   );
 
-  // Auto-advance timer
+  // Auto-advance disabled by default — users control via dots.
+  // Auto-rotating carousels are an anti-pattern per NERBIS design identity.
+  // Keeping timer infrastructure for future opt-in if needed.
   useEffect(() => {
-    if (slides.length <= 1 || isPaused || prefersReducedMotion.current) {
-      return;
-    }
-
-    timerRef.current = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % slides.length);
-    }, interval);
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
+    // No auto-advance — user navigates manually via dot indicators
+    return;
   }, [slides.length, interval, isPaused]);
 
   if (slides.length === 0) return null;
@@ -85,7 +76,7 @@ export function BrandCarousel({ slides, interval = DEFAULT_INTERVAL }: BrandCaro
           >
             {/* Headline */}
             <h2
-              className="text-[2rem] lg:text-[2.5rem] xl:text-[3rem] leading-[1.1] tracking-[-0.02em] text-[var(--auth-text-on-dark)] mb-4"
+              className="text-[2rem] lg:text-[2.5rem] xl:text-[3rem] leading-[1.1] tracking-[-0.03em] text-[var(--auth-text-on-dark)] mb-4"
               style={{
                 fontFamily: 'var(--auth-font-heading)',
                 fontWeight: 600,

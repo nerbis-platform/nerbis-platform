@@ -75,7 +75,7 @@ export function RegisterStep1({
       {/* Step + Title */}
       <div className="mb-6">
         <h2
-          className="text-[1.5rem] tracking-[-0.02em] mb-2 mt-4"
+          className="text-[1.5rem] tracking-[-0.03em] mb-2 mt-4"
           tabIndex={-1}
           style={{
             color: 'var(--auth-primary)',
@@ -313,7 +313,7 @@ export function RegisterStep1({
           onClick={onNextStep}
           disabled={continueDisabled}
           aria-label="Continuar al paso 2: Tu cuenta"
-          className="w-full h-12 mt-6 rounded-[var(--auth-radius-button)] text-white text-[0.9375rem] font-medium transition-[background-color,transform,opacity] duration-[var(--auth-duration-fast)] ease-out hover:bg-[var(--auth-primary-hover)] hover:scale-[1.01] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          className="w-full h-12 mt-6 rounded-[var(--auth-radius-button)] text-white text-[0.9375rem] font-medium transition-[background-color,transform,box-shadow,opacity] duration-150 ease-out hover:bg-[var(--auth-primary-hover)] hover:-translate-y-[1px] hover:shadow-md active:translate-y-0 active:shadow-none flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           style={{
             background: 'var(--auth-primary)',
             fontFamily: 'var(--auth-font-body)',
@@ -326,7 +326,7 @@ export function RegisterStep1({
       </div>
 
       {/* Toggle link */}
-      <div className="mt-6 pt-5 border-t border-gray-100 text-center">
+      <div className="mt-6 pt-5 border-t border-stone-200 text-center">
         <p
           className="text-[0.8rem]"
           style={{

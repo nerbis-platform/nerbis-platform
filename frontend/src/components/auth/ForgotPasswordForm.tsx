@@ -116,7 +116,7 @@ export function ForgotPasswordForm({
         <>
           <div className="mb-6">
             <h2
-              className="text-[1.5rem] tracking-[-0.02em] mb-2"
+              className="text-[1.5rem] tracking-[-0.03em] mb-2"
               style={{
                 color: 'var(--auth-primary)',
                 fontWeight: 600,
@@ -177,7 +177,7 @@ export function ForgotPasswordForm({
             </form>
           </Form>
 
-          <div className="mt-6 pt-5 border-t border-gray-100 text-center">
+          <div className="mt-6 pt-5 border-t border-stone-200 text-center">
             <button
               type="button"
               onClick={onGoToLogin}
@@ -199,7 +199,7 @@ export function ForgotPasswordForm({
         <>
           <div className="mb-6">
             <h2
-              className="text-[1.5rem] tracking-[-0.02em] mb-2"
+              className="text-[1.5rem] tracking-[-0.03em] mb-2"
               style={{
                 color: 'var(--auth-primary)',
                 fontWeight: 600,
@@ -324,7 +324,7 @@ export function ForgotPasswordForm({
           </Form>
 
           {/* Resend + back links */}
-          <div className="mt-6 pt-5 border-t border-gray-100 text-center space-y-3">
+          <div className="mt-6 pt-5 border-t border-stone-200 text-center space-y-3">
             <button
               type="button"
               onClick={handleResendCode}
@@ -384,7 +384,7 @@ export function ForgotPasswordForm({
           </div>
 
           <h2
-            className="text-[1.5rem] tracking-[-0.02em] mb-2"
+            className="text-[1.5rem] tracking-[-0.03em] mb-2"
             style={{
               color: 'var(--auth-primary)',
               fontWeight: 600,

@@ -19,7 +19,7 @@ export default function RegisterPage() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#1C3B57' }} />
+          <Loader2 className="h-8 w-8 animate-spin text-stone-400" />
         </div>
       }
     >

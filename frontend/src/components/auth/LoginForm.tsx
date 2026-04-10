@@ -112,7 +112,7 @@ export function LoginForm({
         {/* Title */}
         <div className="mb-6">
           <h2
-            className="text-[1.5rem] tracking-[-0.02em] mb-2"
+            className="text-[1.5rem] tracking-[-0.03em] mb-2"
             style={{
               color: 'var(--auth-primary)',
               fontWeight: 600,
@@ -205,7 +205,7 @@ export function LoginForm({
         <PasskeyButton email={form.watch('email')} redirectTo={redirectTo ?? undefined} />
 
         {/* Toggle link */}
-        <div className="mt-6 pt-5 border-t border-gray-100 text-center">
+        <div className="mt-6 pt-5 border-t border-stone-200 text-center">
           <p
             className="text-[0.8rem]"
             style={{
