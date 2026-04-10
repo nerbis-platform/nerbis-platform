@@ -572,9 +572,18 @@ export default function LoginSettingsPage() {
                 className="px-4 pb-5 pt-1 flex flex-col gap-4 border-t border-gray-100"
               >
                 <div className="flex flex-col gap-1.5 pt-4">
-                  <Label htmlFor="current_password" className="text-[0.75rem] text-gray-500">
-                    Contraseña actual
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="current_password" className="text-[0.75rem] text-gray-500">
+                      Contraseña actual
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => router.push('/forgot-password')}
+                      className="text-[0.7rem] font-medium text-[#0D9488] hover:underline cursor-pointer"
+                    >
+                      ¿La olvidaste?
+                    </button>
+                  </div>
                   <div className="relative">
                     <Input
                       id="current_password"
