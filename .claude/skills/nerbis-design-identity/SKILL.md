@@ -180,17 +180,44 @@ Before writing any UI code, internalize these rules. Each links to a detailed gu
 - No animations that serve no functional purpose
 - **If you recognize it from a v0/bolt/lovable template, redesign it.**
 
+## Related Skills — How They Work Together
+
+This skill is the **source of truth for WHAT NERBIS looks like**. The other skills handle HOW to implement it correctly.
+
+| Skill | Role | When to Use | Relationship |
+|-------|------|-------------|--------------|
+| **nerbis-design-identity** (this) | Visual identity, UX patterns, brand voice | ALWAYS — before creating any UI | **Master** — defines the design standard |
+| **shadcn** | Component API correctness, installation, composition | When using shadcn/ui components | **Implementation** — how to build components that follow our identity |
+| **vercel-react-best-practices** | React/Next.js performance optimization | When writing React code | **Performance** — ensures our premium design is also fast |
+| **web-design-guidelines** | Audit against Web Interface Guidelines | When reviewing existing UI code | **Validation** — catches accessibility and UX violations we might miss |
+| **frontend-design** | Creative aesthetic direction for distinctive UI | When designing new pages/features from scratch | **Creative** — provides aesthetic inspiration, but NERBIS identity overrides when they conflict |
+| **code-quality** | Clean code, tech debt, NERBIS-specific patterns | When reviewing code quality | **Quality** — ensures the code behind the UI is maintainable |
+| **multi-tenancy** | Django multi-tenant patterns | When touching tenant-scoped frontend data | **Data** — ensures tenant isolation in frontend API calls and state |
+
+### Priority When Skills Conflict
+
+1. **nerbis-design-identity** — visual decisions (colors, typography, spacing, motion)
+2. **shadcn** — component API and composition patterns
+3. **vercel-react-best-practices** — performance patterns
+4. **web-design-guidelines** — accessibility and UX standards
+5. **frontend-design** — creative direction (only when this skill doesn't specify)
+
+**Rule:** If `frontend-design` suggests an aesthetic choice (e.g., "use brutalist typography") that contradicts this skill (e.g., "use Geist Sans with -0.04em tracking"), **this skill wins**. `frontend-design` is for creative inspiration on layout and composition; this skill defines the NERBIS brand.
+
 ## Workflow
 
 When building any UI for NERBIS:
 
-1. **Read this skill** — internalize the identity
-2. **Check the relevant rules** — typography, color, motion, layout, components
-3. **Run the anti-patterns checklist** — before submitting, verify zero AI-slop indicators
-4. **Use shadcn skill** — for component API correctness
-5. **Use vercel-react-best-practices** — for performance patterns
-6. **Validate accessibility** — keyboard nav, contrast ratios, screen reader compatibility
-7. **Test dark mode** — it's not optional, it's the primary experience
+1. **Read this skill** — internalize the identity and signature elements
+2. **Check the relevant rules** — typography, color, motion, layout, components, micro-copy
+3. **Use shadcn skill** — for correct component API and composition
+4. **Use vercel-react-best-practices** — for React/Next.js performance patterns
+5. **Use frontend-design** — for creative layout inspiration (within NERBIS constraints)
+6. **Validate with web-design-guidelines** — audit against Web Interface Guidelines
+7. **Run the anti-patterns checklist** — before submitting, verify zero AI-slop indicators
+8. **Validate accessibility** — keyboard nav, contrast ratios, screen reader compatibility
+9. **Test dark mode** — it's not optional, it's the primary experience
+10. **Test mobile** — bottom nav, touch targets, responsive transformations
 
 ## Multi-Tenant Considerations
 
