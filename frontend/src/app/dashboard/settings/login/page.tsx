@@ -304,27 +304,37 @@ export default function LoginSettingsPage() {
     if (!user?.email) return;
     const pw = resetNewPassword;
     if (pw !== resetConfirmPassword) {
-      setResetError('Las contrasenas no coinciden');
+      setResetError('Las contraseñas no coinciden');
       return;
     }
     if (pw.length < 8) {
-      setResetError('La contrasena debe tener al menos 8 caracteres');
+      setResetError('La contraseña debe tener al menos 8 caracteres');
       return;
     }
     if (/^\d+$/.test(pw)) {
-      setResetError('La contrasena no puede ser completamente numerica');
+      setResetError('La contraseña no puede ser completamente numérica');
       return;
     }
     setResetLoading(true);
     setResetError('');
     try {
       await verifyPasswordResetOTP(user.email, resetOtp, pw);
-      toast.success('Contrasena restablecida correctamente');
+      toast.success('Contraseña restablecida correctamente');
       resetInlineFlow();
       setIsEditingPassword(false);
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
     } catch (error) {
-      setResetError(extractErrorMessage(error, 'Error al restablecer la contrasena'));
+      const msg = extractErrorMessage(error, 'Error al restablecer la contraseña');
+      // Si el OTP expiró o no existe, volver al paso de envío
+      if (msg.toLowerCase().includes('código') && (msg.toLowerCase().includes('activo') || msg.toLowerCase().includes('expirado') || msg.toLowerCase().includes('inválido'))) {
+        setResetStep('confirm');
+        setResetOtp('');
+        setResetNewPassword('');
+        setResetConfirmPassword('');
+        toast.error('El código expiró. Solicitá uno nuevo.');
+      } else {
+        setResetError(msg);
+      }
     } finally {
       setResetLoading(false);
     }
@@ -676,7 +686,7 @@ export default function LoginSettingsPage() {
                     </div>
                     <div className="flex-1">
                       <p className="text-[0.85rem] font-medium text-gray-700">
-                        Crear contrasena por correo
+                        Crear contraseña por correo
                       </p>
                       <p className="text-[0.75rem] text-gray-400 mt-0.5">
                         Te enviaremos un codigo de verificacion a{' '}
@@ -788,11 +798,11 @@ export default function LoginSettingsPage() {
               {resetStep === 'new-password' && (
                 <div className="flex flex-col gap-4 pt-4">
                   <p className="text-[0.85rem] font-medium text-gray-700">
-                    Crea tu nueva contrasena
+                    Crea tu nueva contraseña
                   </p>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="reset_new_password_create" className="text-[0.75rem] text-gray-500">
-                      Nueva contrasena
+                      Nueva contraseña
                     </Label>
                     <div className="relative">
                       <Input
@@ -815,7 +825,7 @@ export default function LoginSettingsPage() {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="reset_confirm_password_create" className="text-[0.75rem] text-gray-500">
-                      Confirmar nueva contrasena
+                      Confirmar nueva contraseña
                     </Label>
                     <div className="relative">
                       <Input
@@ -857,7 +867,7 @@ export default function LoginSettingsPage() {
                       className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
                     >
                       {resetLoading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
-                      {resetLoading ? 'Creando...' : 'Crear contrasena'}
+                      {resetLoading ? 'Creando...' : 'Crear contraseña'}
                     </Button>
                   </div>
                 </div>
@@ -1008,11 +1018,11 @@ export default function LoginSettingsPage() {
                 {resetStep === 'new-password' && (
                   <div className="flex flex-col gap-4 pt-4">
                     <p className="text-[0.85rem] font-medium text-gray-700">
-                      Crea tu nueva contrasena
+                      Crea tu nueva contraseña
                     </p>
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="reset_new_password" className="text-[0.75rem] text-gray-500">
-                        Nueva contrasena
+                        Nueva contraseña
                       </Label>
                       <div className="relative">
                         <Input
@@ -1035,7 +1045,7 @@ export default function LoginSettingsPage() {
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="reset_confirm_password" className="text-[0.75rem] text-gray-500">
-                        Confirmar nueva contrasena
+                        Confirmar nueva contraseña
                       </Label>
                       <div className="relative">
                         <Input
@@ -1077,7 +1087,7 @@ export default function LoginSettingsPage() {
                         className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
                       >
                         {resetLoading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
-                        {resetLoading ? 'Restableciendo...' : 'Restablecer contrasena'}
+                        {resetLoading ? 'Restableciendo...' : 'Restablecer contraseña'}
                       </Button>
                     </div>
                   </div>
