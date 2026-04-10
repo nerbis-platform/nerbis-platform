@@ -43,6 +43,7 @@ Plataforma SaaS multi-tenant multi-industria. Lee `docs/SDD.md` antes de hacer c
 
 Para tareas de frontend, leer los skills instalados en `.claude/skills/` antes de actuar:
 
+- `.claude/skills/nerbis-design-identity` — **identidad visual NERBIS** (tipografía, color, motion, layout, micro-copy, data viz, anti-AI-slop). Leer SIEMPRE antes de crear UI.
 - `.claude/skills/web-design-guidelines` — diseño web, UI/UX, layouts, accesibilidad
 - `.claude/skills/shadcn` — uso correcto de shadcn/ui + Radix UI
 - `.claude/skills/vercel-react-best-practices` — patrones React 19 + Next.js performance
