@@ -1,9 +1,6 @@
 ---
 name: nerbis-design-identity
-description: |
-  NERBIS design system identity — premium, distinctive UI/UX patterns inspired by Apple, Vercel, Linear, and Stripe.
-  Triggers when building UI components, pages, layouts, landing pages, dashboards, or any visual interface for NERBIS.
-  Also triggers when reviewing design quality or checking if a design "looks AI-generated".
+description: "NERBIS design system identity — premium UI/UX patterns inspired by Apple, Vercel, Linear, and Stripe. Triggers when building UI components, pages, layouts, dashboards, or reviewing design quality."
 metadata:
   author: NERBIS
   version: 1.0.0
