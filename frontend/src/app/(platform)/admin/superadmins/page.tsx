@@ -111,16 +111,15 @@ export default function SuperadminsPage() {
     setCreateError(null);
     setCreateSubmitting(true);
     try {
-      const created = await adminRegister({
+      await adminRegister({
         email: createForm.email.trim().toLowerCase(),
         password: createForm.password,
         first_name: createForm.first_name.trim() || undefined,
         last_name: createForm.last_name.trim() || undefined,
       });
-      setItems((prev) => [created, ...prev]);
-      setCount((prev) => prev + 1);
       setCreateForm(EMPTY_FORM);
       setCreateOpen(false);
+      await loadPage(page);
     } catch (err) {
       const message =
         err instanceof Error
@@ -261,8 +260,8 @@ export default function SuperadminsPage() {
             Cargando...
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="min-w-[720px] w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">

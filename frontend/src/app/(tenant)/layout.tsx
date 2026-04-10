@@ -4,7 +4,6 @@
 // provider stack (TenantContext, AuthContext, CartContext, etc.).
 
 import { Providers } from '@/components/Providers';
-import { Toaster } from '@/components/ui/toaster';
 import { GoogleAnalytics } from '@/components/GoogleAnalytics';
 
 export default function TenantLayout({
@@ -17,7 +16,6 @@ export default function TenantLayout({
       <GoogleAnalytics />
       <Providers>
         {children}
-        <Toaster />
       </Providers>
     </>
   );
