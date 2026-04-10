@@ -118,10 +118,16 @@ export function TenantProvider({ children }: TenantProviderProps) {
         setTenantData(response.data);
         setError(null);
       } catch (err) {
-        if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
-          // Tenant no encontrado — redirigir al login
-          window.location.href = '/login';
-          return;
+        if (err instanceof ApiError) {
+          if (err.status === 401) {
+            // Sesión expirada — clearSessionAndRedirect ya redirige al login
+            return;
+          }
+          if (err.status === 400 || err.status === 404) {
+            // Tenant no encontrado — redirigir al login
+            window.location.href = '/login';
+            return;
+          }
         }
         console.error('Error loading tenant config:', err);
         setError('Error al cargar la configuración del tenant');
