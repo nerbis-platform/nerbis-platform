@@ -21,7 +21,7 @@ function getStoredTenant(): Tenant | null {
  */
 export type LoginOutcome =
   | { kind: 'authenticated' }
-  | { kind: '2fa_required'; challengeToken: string };
+  | { kind: '2fa_required'; challengeToken: string; methods: string[] };
 
 interface AuthContextType {
   user: User | null;
@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<LoginOutcome> => {
     const result = await authApi.platformLogin(credentials);
     if (result.kind === '2fa_required') {
-      return { kind: '2fa_required', challengeToken: result.challengeToken };
+      return { kind: '2fa_required', challengeToken: result.challengeToken, methods: result.methods };
     }
     const { response } = result;
     setUser(response.user);
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       : await authApi.platformSocialLogin(provider, token, extra);
 
     if (result.kind === '2fa_required') {
-      return { kind: '2fa_required', challengeToken: result.challengeToken };
+      return { kind: '2fa_required', challengeToken: result.challengeToken, methods: result.methods };
     }
     const { response } = result;
     setUser(response.user);

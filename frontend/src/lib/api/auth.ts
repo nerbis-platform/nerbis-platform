@@ -13,11 +13,11 @@ import {
  */
 type RawLoginResponse =
   | AuthResponse
-  | { status: '2fa_required'; challenge_token: string };
+  | { status: '2fa_required'; challenge_token: string; methods?: string[] };
 
 function isTwoFactorRequired(
   data: RawLoginResponse,
-): data is { status: '2fa_required'; challenge_token: string } {
+): data is { status: '2fa_required'; challenge_token: string; methods?: string[] } {
   return (data as { status?: string }).status === '2fa_required';
 }
 
@@ -47,7 +47,7 @@ export async function platformLogin(credentials: { email: string; password: stri
   const { data } = await apiClient.post<RawLoginResponse>('/public/platform-login/', credentials);
 
   if (isTwoFactorRequired(data)) {
-    return { kind: '2fa_required', challengeToken: data.challenge_token };
+    return { kind: '2fa_required', challengeToken: data.challenge_token, methods: data.methods ?? ['totp', 'backup'] };
   }
 
   persistSession(data);
@@ -181,7 +181,7 @@ export async function socialLogin(
   });
 
   if (isTwoFactorRequired(data)) {
-    return { kind: '2fa_required', challengeToken: data.challenge_token };
+    return { kind: '2fa_required', challengeToken: data.challenge_token, methods: data.methods ?? ['totp', 'backup'] };
   }
 
   persistSession(data);
@@ -233,7 +233,7 @@ export async function platformSocialLogin(
   });
 
   if (isTwoFactorRequired(data)) {
-    return { kind: '2fa_required', challengeToken: data.challenge_token };
+    return { kind: '2fa_required', challengeToken: data.challenge_token, methods: data.methods ?? ['totp', 'backup'] };
   }
 
   persistSession(data);

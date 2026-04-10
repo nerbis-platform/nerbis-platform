@@ -361,10 +361,14 @@ class LoginView(APIView):
         from .views_2fa import issue_2fa_challenge_token, user_has_confirmed_2fa
 
         if user_has_confirmed_2fa(user):
+            methods = ["totp", "backup"]
+            if user.webauthn_credentials.exists():
+                methods.insert(0, "passkey")
             return Response(
                 {
                     "status": "2fa_required",
                     "challenge_token": issue_2fa_challenge_token(user),
+                    "methods": methods,
                 }
             )
 
@@ -442,10 +446,14 @@ class PlatformLoginView(APIView):
         from .views_2fa import issue_2fa_challenge_token, user_has_confirmed_2fa
 
         if user_has_confirmed_2fa(user):
+            methods = ["totp", "backup"]
+            if user.webauthn_credentials.exists():
+                methods.insert(0, "passkey")
             return Response(
                 {
                     "status": "2fa_required",
                     "challenge_token": issue_2fa_challenge_token(user),
+                    "methods": methods,
                 }
             )
 
@@ -1696,10 +1704,14 @@ class SocialLoginView(APIView):
         from .views_2fa import issue_2fa_challenge_token, user_has_confirmed_2fa
 
         if user_has_confirmed_2fa(user):
+            methods = ["totp", "backup"]
+            if user.webauthn_credentials.exists():
+                methods.insert(0, "passkey")
             return Response(
                 {
                     "status": "2fa_required",
                     "challenge_token": issue_2fa_challenge_token(user),
+                    "methods": methods,
                 }
             )
 
@@ -1904,6 +1916,22 @@ class PlatformSocialLoginView(APIView):
                     {"error": "El negocio asociado a esta cuenta no está activo."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
+
+            # Si tiene 2FA activo, emitir challenge en vez de tokens
+            from .views_2fa import issue_2fa_challenge_token, user_has_confirmed_2fa
+
+            if user_has_confirmed_2fa(user):
+                methods = ["totp", "backup"]
+                if user.webauthn_credentials.exists():
+                    methods.insert(0, "passkey")
+                return Response(
+                    {
+                        "status": "2fa_required",
+                        "challenge_token": issue_2fa_challenge_token(user),
+                        "methods": methods,
+                    }
+                )
+
             return Response(_build_social_auth_response(user, user.tenant))
 
         # Buscar por email en cualquier tenant
@@ -1954,6 +1982,21 @@ class PlatformSocialLoginView(APIView):
                     "email": social_info.email,
                     "extra_data": social_info.extra_data,
                 },
+            )
+
+        # Si tiene 2FA activo, emitir challenge en vez de tokens
+        from .views_2fa import issue_2fa_challenge_token, user_has_confirmed_2fa
+
+        if user_has_confirmed_2fa(user):
+            methods = ["totp", "backup"]
+            if user.webauthn_credentials.exists():
+                methods.insert(0, "passkey")
+            return Response(
+                {
+                    "status": "2fa_required",
+                    "challenge_token": issue_2fa_challenge_token(user),
+                    "methods": methods,
+                }
             )
 
         return Response(_build_social_auth_response(user, user.tenant))

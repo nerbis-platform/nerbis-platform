@@ -29,6 +29,16 @@ urlpatterns = [
         views_2fa.TwoFactorBackupCodesRegenerateView.as_view(),
         name="two_factor_backup_codes_regenerate",
     ),
+    path(
+        "auth/2fa/challenge/passkey/options/",
+        views_2fa.TwoFactorPasskeyOptionsView.as_view(),
+        name="two_factor_passkey_options",
+    ),
+    path(
+        "auth/2fa/challenge/passkey/verify/",
+        views_2fa.TwoFactorPasskeyVerifyView.as_view(),
+        name="two_factor_passkey_verify",
+    ),
     path("auth/2fa/challenge/", views_2fa.TwoFactorChallengeView.as_view(), name="two_factor_challenge"),
     # OTP - Recuperación de contraseña
     path("auth/forgot-password/", views.RequestPasswordResetOTPView.as_view(), name="forgot_password"),

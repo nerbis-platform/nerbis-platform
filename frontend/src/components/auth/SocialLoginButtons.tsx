@@ -167,7 +167,7 @@ function SocialLoginButtonsInner({
       const outcome = await socialLogin(provider, token, extra);
       if (outcome.kind === '2fa_required') {
         if (onTwoFactorRequired) {
-          onTwoFactorRequired(outcome.challengeToken);
+          onTwoFactorRequired(outcome.challengeToken, outcome.methods);
         } else {
           toast.error('Esta cuenta requiere verificación en dos pasos');
         }

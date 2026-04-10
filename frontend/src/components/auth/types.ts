@@ -110,7 +110,7 @@ export interface SocialLoginButtonsProps {
    * Permite al formulario padre mostrar el paso de verificación TOTP
    * en lugar de persistir tokens.
    */
-  onTwoFactorRequired?: (challengeToken: string) => void;
+  onTwoFactorRequired?: (challengeToken: string, methods: string[]) => void;
 }
 
 export interface FormDividerProps {

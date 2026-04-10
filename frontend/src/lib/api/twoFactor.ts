@@ -37,7 +37,7 @@ export interface TwoFactorChallengeRequest {
  */
 export type LoginResult =
   | { kind: 'tokens'; response: AuthResponse }
-  | { kind: '2fa_required'; challengeToken: string };
+  | { kind: '2fa_required'; challengeToken: string; methods: string[] };
 
 // ─── Endpoints ──────────────────────────────────────────────────
 
@@ -113,6 +113,47 @@ export async function completeTwoFactorChallenge(
 ): Promise<AuthResponse> {
   const { data } = await apiClient.post<AuthResponse>(
     '/auth/2fa/challenge/',
+    payload,
+  );
+  return data;
+}
+
+// ─── Passkey como segundo factor ─────────────────────────────────
+
+export interface PasskeyChallengeOptionsResponse {
+  challenge: string;
+  timeout?: number;
+  rpId: string;
+  allowCredentials?: Array<{ id: string; type: 'public-key'; transports?: string[] }>;
+  userVerification?: string;
+  _scope: string;
+}
+
+/**
+ * POST /auth/2fa/challenge/passkey/options/
+ * Genera opciones de autenticación WebAuthn para verificar passkey como 2FA.
+ */
+export async function getTwoFactorPasskeyOptions(
+  challengeToken: string,
+): Promise<PasskeyChallengeOptionsResponse> {
+  const { data } = await apiClient.post<PasskeyChallengeOptionsResponse>(
+    '/auth/2fa/challenge/passkey/options/',
+    { challenge_token: challengeToken },
+  );
+  return data;
+}
+
+/**
+ * POST /auth/2fa/challenge/passkey/verify/
+ * Verifica la assertion WebAuthn como segundo factor y devuelve JWT.
+ */
+export async function verifyTwoFactorPasskey(payload: {
+  challenge_token: string;
+  credential: Record<string, unknown>;
+  scope: string;
+}): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>(
+    '/auth/2fa/challenge/passkey/verify/',
     payload,
   );
   return data;

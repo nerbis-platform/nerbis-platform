@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import TOTPDevice, User
+from .models import TOTPDevice, User, WebAuthnCredential
 from .serializers import TenantSerializer, UserSessionSerializer
 from .throttles import TwoFactorChallengeThrottle, TwoFactorVerifyThrottle
 
@@ -354,5 +354,168 @@ class TwoFactorChallengeView(APIView):
 
         device.last_used_at = timezone.now()
         device.save(update_fields=["last_used_at"])
+
+        return Response(_build_jwt_pair(user))
+
+
+class TwoFactorPasskeyOptionsView(APIView):
+    """
+    POST /api/auth/2fa/challenge/passkey/options/
+
+    Genera opciones de autenticación WebAuthn para un usuario identificado
+    por su challenge_token de 2FA. Almacena el challenge en cache para
+    verificación posterior.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [TwoFactorChallengeThrottle]
+
+    def post(self, request):
+        challenge_token = request.data.get("challenge_token", "")
+        if not challenge_token:
+            return Response(
+                {"error": "challenge_token es requerido"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = decode_2fa_challenge_token(challenge_token)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar que el usuario tiene credenciales WebAuthn
+        credentials = WebAuthnCredential.objects.filter(user=user)
+        if not credentials.exists():
+            return Response(
+                {"error": "No tienes passkeys registrados"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from webauthn import generate_authentication_options, options_to_json
+        from webauthn.helpers.structs import (
+            PublicKeyCredentialDescriptor,
+            UserVerificationRequirement,
+        )
+
+        from .webauthn_auth import (
+            _rp_id,
+            _store_challenge,
+        )
+
+        allow_credentials = [
+            PublicKeyCredentialDescriptor(id=bytes(cred.credential_id))
+            for cred in credentials
+        ]
+
+        options = generate_authentication_options(
+            rp_id=_rp_id(),
+            allow_credentials=allow_credentials,
+            user_verification=UserVerificationRequirement.PREFERRED,
+        )
+
+        # Almacenar challenge con scope '2fa' y key basado en user_id
+        scope_key = f"2fa:{user.id}"
+        _store_challenge("auth", scope_key, options.challenge)
+
+        import json
+
+        parsed = json.loads(options_to_json(options))
+        parsed["_scope"] = scope_key
+        return Response(parsed, status=status.HTTP_200_OK)
+
+
+class TwoFactorPasskeyVerifyView(APIView):
+    """
+    POST /api/auth/2fa/challenge/passkey/verify/
+
+    Verifica una assertion WebAuthn en contexto de 2FA. El usuario
+    se identifica por el challenge_token; la assertion se verifica
+    contra sus credenciales registradas. Si es válida, retorna JWT.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [TwoFactorChallengeThrottle]
+
+    def post(self, request):
+        challenge_token = request.data.get("challenge_token", "")
+        credential = request.data.get("credential")
+        scope = request.data.get("scope", "")
+
+        if not challenge_token or not credential or not scope:
+            return Response(
+                {"error": "challenge_token, credential y scope son requeridos"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = decode_2fa_challenge_token(challenge_token)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        from webauthn import verify_authentication_response
+
+        from .webauthn_auth import (
+            _b64url_decode,
+            _expected_origin,
+            _pop_challenge,
+            _rp_id,
+        )
+
+        stored = _pop_challenge("auth", scope)
+        if not stored:
+            return Response(
+                {"error": "Challenge expirado. Vuelve a intentarlo."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Resolver credencial por rawId
+        raw_id_b64 = credential.get("rawId") if isinstance(credential, dict) else None
+        if not raw_id_b64:
+            return Response(
+                {"error": "credential.rawId requerido"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            raw_id = _b64url_decode(raw_id_b64)
+        except Exception:
+            return Response(
+                {"error": "rawId inválido"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # La credencial debe pertenecer al usuario del challenge token
+        try:
+            cred_obj = WebAuthnCredential.objects.get(
+                credential_id=raw_id, user=user
+            )
+        except WebAuthnCredential.DoesNotExist:
+            return Response(
+                {"error": "Passkey no reconocido para este usuario"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            verification = verify_authentication_response(
+                credential=credential,
+                expected_challenge=_b64url_decode(stored["challenge"]),
+                expected_origin=_expected_origin(),
+                expected_rp_id=_rp_id(),
+                credential_public_key=bytes(cred_obj.public_key),
+                credential_current_sign_count=cred_obj.sign_count,
+                require_user_verification=False,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return Response(
+                {"error": f"Verificación fallida: {exc}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Actualizar sign_count + last_used_at
+        cred_obj.sign_count = verification.new_sign_count
+        cred_obj.last_used_at = timezone.now()
+        cred_obj.save(update_fields=["sign_count", "last_used_at"])
 
         return Response(_build_jwt_pair(user))

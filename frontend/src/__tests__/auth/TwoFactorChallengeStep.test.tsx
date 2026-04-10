@@ -3,13 +3,23 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TwoFactorChallengeStep } from '@/components/auth/TwoFactorChallengeStep';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 const mockComplete = vi.fn();
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     completeTwoFactorChallenge: mockComplete,
+    setUser: vi.fn(),
+    setTenant: vi.fn(),
     user: null,
     isAuthenticated: false,
   }),
+}));
+
+vi.mock('@/lib/api/passkey', () => ({
+  isWebAuthnSupported: () => false,
 }));
 
 const toastError = vi.fn();

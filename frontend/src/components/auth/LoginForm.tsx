@@ -61,6 +61,7 @@ export function LoginForm({
 
   // 2FA state — solo vive en memoria mientras el paso está activo
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [twoFactorMethods, setTwoFactorMethods] = useState<string[]>(['totp', 'backup']);
 
   const handleLogin = useCallback(
     async (data: LoginFormValues) => {
@@ -68,6 +69,7 @@ export function LoginForm({
         const outcome = await platformLogin(data, redirectTo || undefined);
         if (outcome.kind === '2fa_required') {
           setChallengeToken(outcome.challengeToken);
+          setTwoFactorMethods(outcome.methods);
           return;
         }
         toast.success('¡Bienvenido!');
@@ -118,6 +120,7 @@ export function LoginForm({
     return (
       <TwoFactorChallengeStep
         challengeToken={challengeToken}
+        methods={twoFactorMethods}
         redirectTo={redirectTo}
         onBack={() => setChallengeToken(null)}
       />
@@ -156,7 +159,10 @@ export function LoginForm({
             <SocialLoginButtons
               mode="login"
               onSwitchToRegister={onSwitchToRegister}
-              onTwoFactorRequired={(token) => setChallengeToken(token)}
+              onTwoFactorRequired={(token, methods) => {
+                setChallengeToken(token);
+                setTwoFactorMethods(methods);
+              }}
             />
             <FormDivider text="o continúa con email" />
           </>
