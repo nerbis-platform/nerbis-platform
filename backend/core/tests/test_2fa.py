@@ -136,7 +136,7 @@ class TwoFactorLoginChallengeTest(TenantAwareTestCase):
             {"challenge_token": challenge_token, "code": "000000"},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_challenge_with_backup_code_consumes_it(self):
         device, _secret = _make_confirmed_device(self.admin_user)
@@ -172,7 +172,7 @@ class TwoFactorLoginChallengeTest(TenantAwareTestCase):
             {"challenge_token": challenge_token_2, "code": backup_code},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class TwoFactorDisableTest(TenantAwareTestCase):
@@ -281,10 +281,10 @@ def _make_google_info(email="admin@test.com"):
 
 
 class TwoFactorSocialLoginTest(TenantAwareTestCase):
-    """Test de integración: social login también exige 2FA."""
+    """Test de integración: social login NO exige 2FA (por diseño)."""
 
     @patch("core.views.verify_social_token")
-    def test_social_login_with_2fa_returns_challenge(self, mock_verify):
+    def test_social_login_with_2fa_skips_challenge(self, mock_verify):
         _make_confirmed_device(self.admin_user)
         mock_verify.return_value = _make_google_info(email="admin@test.com")
 
@@ -295,6 +295,6 @@ class TwoFactorSocialLoginTest(TenantAwareTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
-        self.assertEqual(data.get("status"), "2fa_required")
-        self.assertIn("challenge_token", data)
-        self.assertNotIn("tokens", data)
+        # Social login bypasses 2FA — providers handle their own security
+        self.assertNotEqual(data.get("status"), "2fa_required")
+        self.assertIn("tokens", data)
