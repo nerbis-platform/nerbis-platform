@@ -52,6 +52,22 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
 
 ## What to Do
 
+### Step 0: Sync with develop (MANDATORY)
+
+**Before ANY analysis, ensure you are working on the latest code from GitHub.**
+
+```bash
+git fetch origin develop
+CURRENT_BRANCH=$(git branch --show-current)
+if [ "$CURRENT_BRANCH" = "develop" ]; then
+  git pull origin develop
+else
+  git rebase origin/develop
+fi
+```
+
+If the rebase has conflicts, STOP and report to the user. Do NOT continue with stale code.
+
 ### Step 1: Load Skill Registry
 
 **Do this FIRST, before any other work.**

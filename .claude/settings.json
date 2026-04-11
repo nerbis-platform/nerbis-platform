@@ -1,0 +1,155 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git fetch origin develop 2>/dev/null && echo 'Synced with origin/develop' || echo 'Could not fetch origin/develop (offline?)'",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '/migrations/[0-9]'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: No se pueden modificar migraciones existentes de Django.\"}}'; else exit 0; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.(env|pem|key)$|credentials\\.json|secrets\\.'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: No se pueden editar archivos con secretos o credenciales.\"}}'; else exit 0; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE 'npm install.*(\\@mui|\\.@chakra|\\@mantine|antd|bootstrap|react-bootstrap|\\@material)'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: Este proyecto usa shadcn/ui + Radix UI exclusivamente.\"}}'; else exit 0; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE 'git push.*(origin\\s+(main|master|develop)\\b|--force)'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: No se permite push directo a branches protegidos.\"}}'; else exit 0; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE '^git commit'; then MSG=$(echo \"$CMD\" | grep -oP '(?<=-m [\"'\\'']).+?(?=[\"'\\''](\\s|$))' || echo ''); if [ -n \"$MSG\" ] && ! echo \"$MSG\" | grep -qE '^(feat|fix|refactor|docs|ci|chore|test|style|perf)(\\(.+\\))?!?:'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: El commit debe usar conventional commits.\"}}'; else exit 0; fi; else exit 0; fi"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.py$' && echo \"$FILE_PATH\" | grep -q 'backend/'; then ruff check --fix \"$FILE_PATH\" 2>/dev/null && echo 'Ruff auto-fix applied' || true; fi",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.tsx$' && echo \"$FILE_PATH\" | grep -q 'frontend/src/'; then if grep -qE '(useState|useEffect|useRef|useCallback|onClick|onChange|onSubmit|useContext)' \"$FILE_PATH\" 2>/dev/null && ! head -5 \"$FILE_PATH\" | grep -q 'use client' 2>/dev/null; then echo 'ADVERTENCIA: '\"$FILE_PATH\"' usa hooks/eventos de React pero NO tiene use client al inicio.'; fi; fi",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE 'backend/.*/models\\.py$'; then if grep -qE '^class\\s+\\w+.*models\\.Model\\)' \"$FILE_PATH\" 2>/dev/null && ! grep -q 'TenantAwareModel' \"$FILE_PATH\" 2>/dev/null; then echo 'ALERTA TENANT: '\"$FILE_PATH\"' tiene modelos que heredan de models.Model en vez de TenantAwareModel.'; fi; fi",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.py$' && echo \"$FILE_PATH\" | grep -q 'backend/'; then ISSUES=''; if grep -nE '\\.objects\\.all\\(\\)' \"$FILE_PATH\" 2>/dev/null | grep -vE '#.*noqa|#.*tenant-safe' > /tmp/tenant_check 2>/dev/null && [ -s /tmp/tenant_check ]; then ISSUES=\"$ISSUES$(echo 'objects.all() sin filtro de tenant encontrado:'; cat /tmp/tenant_check)\"; fi; if grep -nE '(cursor\\.execute|connection\\.cursor|raw\\()' \"$FILE_PATH\" 2>/dev/null | grep -vE '#.*noqa' > /tmp/raw_sql_check 2>/dev/null && [ -s /tmp/raw_sql_check ]; then ISSUES=\"$ISSUES$(echo 'Raw SQL detectado:'; cat /tmp/raw_sql_check)\"; fi; if [ -n \"$ISSUES\" ]; then echo \"$ISSUES\"; fi; rm -f /tmp/tenant_check /tmp/raw_sql_check; fi",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.tsx$' && echo \"$FILE_PATH\" | grep -q 'frontend/'; then if grep -nE 'dangerouslySetInnerHTML' \"$FILE_PATH\" 2>/dev/null > /tmp/xss_check && [ -s /tmp/xss_check ]; then echo 'ALERTA XSS: dangerouslySetInnerHTML detectado'; cat /tmp/xss_check; fi; rm -f /tmp/xss_check; fi",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.tsx$' && echo \"$FILE_PATH\" | grep -q 'frontend/src/'; then echo 'DESIGN CHECK: Verifica shadcn/ui, TailwindCSS, mobile-first, aria labels en '\"$FILE_PATH\"; fi",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.tsx$' && echo \"$FILE_PATH\" | grep -q 'frontend/src/'; then echo 'DESIGN REVIEW: Verifica shadcn/ui, TailwindCSS 4, Server Component, mobile-first, accesibilidad en '\"$FILE_PATH\"; fi",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'RECORDATORIO POST-COMPACTACION: SDD activo. Branch flow: feature/* -> develop -> main. Conventional commits obligatorios.'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CHANGED=$(git diff --name-only HEAD 2>/dev/null | head -20); if [ -n \"$CHANGED\" ]; then echo 'Cambios pendientes detectados.'; fi",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

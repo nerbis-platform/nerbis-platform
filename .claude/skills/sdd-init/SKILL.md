@@ -38,6 +38,32 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
 
 ## What to Do
 
+### Step 0: Sync with develop (MANDATORY)
+
+**Before ANY analysis, ensure you are working on the latest code from GitHub.**
+
+```bash
+# Fetch latest from remote
+git fetch origin develop
+
+# If on develop, pull latest
+CURRENT_BRANCH=$(git branch --show-current)
+if [ "$CURRENT_BRANCH" = "develop" ]; then
+  git pull origin develop
+else
+  # If on a feature branch, rebase on latest develop
+  git rebase origin/develop
+fi
+```
+
+If the rebase has conflicts, STOP and report to the user. Do NOT continue with stale code.
+
+**If working in a worktree**, ensure the worktree's branch is up to date with `origin/develop`:
+```bash
+git fetch origin develop
+git merge origin/develop --ff-only || echo "⚠️ Cannot fast-forward — manual merge needed"
+```
+
 ### Step 1: Detect Project Context
 
 Read the project to understand:
