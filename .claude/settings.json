@@ -2,7 +2,6 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
         "hooks": [
           {
             "type": "command",
@@ -18,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '/migrations/[0-9]'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: No se pueden modificar migraciones existentes de Django. Las migraciones son registros inmutables.\"}}'; else exit 0; fi"
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '/migrations/[0-9]'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: No se pueden modificar migraciones existentes de Django.\"}}'; else exit 0; fi"
           }
         ]
       },
@@ -36,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE 'npm install.*(\\@mui|\\.@chakra|\\@mantine|antd|bootstrap|react-bootstrap|\\@material)'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: Este proyecto usa shadcn/ui + Radix UI exclusivamente. No instalar otras librerias de UI. Usa: npx shadcn@latest add {component}\"}}'; else exit 0; fi"
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE 'npm install.*(\\@mui|\\.@chakra|\\@mantine|antd|bootstrap|react-bootstrap|\\@material)'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: Este proyecto usa shadcn/ui + Radix UI exclusivamente.\"}}'; else exit 0; fi"
           }
         ]
       },
@@ -45,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE 'git push.*(origin\\s+(main|master|develop)\\b|--force)'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: No se permite push directo a branches protegidos. Usa PR: feature/* o fix/* -> develop -> main.\"}}'; else exit 0; fi"
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE 'git push.*(origin\\s+(main|master|develop)\\b|--force)'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: No se permite push directo a branches protegidos.\"}}'; else exit 0; fi"
           }
         ]
       },
@@ -54,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE '^git commit'; then MSG=$(echo \"$CMD\" | grep -oP '(?<=-m [\"'\\'']).+?(?=[\"'\\''](\\s|$))' || echo ''); if [ -n \"$MSG\" ] && ! echo \"$MSG\" | grep -qE '^(feat|fix|refactor|docs|ci|chore|test|style|perf)(\\(.+\\))?!?:'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: El commit debe usar conventional commits. Formato: tipo(scope): descripcion. Tipos: feat, fix, refactor, docs, ci, chore, test, style, perf\"}}'; else exit 0; fi; else exit 0; fi"
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE '^git commit'; then MSG=$(echo \"$CMD\" | grep -oP '(?<=-m [\"'\\'']).+?(?=[\"'\\''](\\s|$))' || echo ''); if [ -n \"$MSG\" ] && ! echo \"$MSG\" | grep -qE '^(feat|fix|refactor|docs|ci|chore|test|style|perf)(\\(.+\\))?!?:'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: El commit debe usar conventional commits.\"}}'; else exit 0; fi; else exit 0; fi"
           }
         ]
       }
@@ -95,7 +94,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.py$' && echo \"$FILE_PATH\" | grep -q 'backend/'; then ISSUES=''; if grep -nE '\\.objects\\.all\\(\\)' \"$FILE_PATH\" 2>/dev/null | grep -vE '#.*noqa|#.*tenant-safe' > /tmp/tenant_check 2>/dev/null && [ -s /tmp/tenant_check ]; then ISSUES=\"$ISSUES$(echo 'objects.all() sin filtro de tenant encontrado:'; cat /tmp/tenant_check)\"; fi; if grep -nE '(cursor\\.execute|connection\\.cursor|raw\\()' \"$FILE_PATH\" 2>/dev/null | grep -vE '#.*noqa' > /tmp/raw_sql_check 2>/dev/null && [ -s /tmp/raw_sql_check ]; then ISSUES=\"$ISSUES$(echo 'Raw SQL detectado (riesgo de inyeccion SQL y bypass de tenant):'; cat /tmp/raw_sql_check)\"; fi; if grep -nE '\\.extra\\(' \"$FILE_PATH\" 2>/dev/null | grep -vE '#.*noqa' > /tmp/extra_check 2>/dev/null && [ -s /tmp/extra_check ]; then ISSUES=\"$ISSUES$(echo 'QuerySet.extra() detectado (deprecado, riesgo de SQL injection):'; cat /tmp/extra_check)\"; fi; if [ -n \"$ISSUES\" ]; then echo \"$ISSUES\"; fi; rm -f /tmp/tenant_check /tmp/raw_sql_check /tmp/extra_check; fi",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.py$' && echo \"$FILE_PATH\" | grep -q 'backend/'; then ISSUES=''; if grep -nE '\\.objects\\.all\\(\\)' \"$FILE_PATH\" 2>/dev/null | grep -vE '#.*noqa|#.*tenant-safe' > /tmp/tenant_check 2>/dev/null && [ -s /tmp/tenant_check ]; then ISSUES=\"$ISSUES$(echo 'objects.all() sin filtro de tenant encontrado:'; cat /tmp/tenant_check)\"; fi; if grep -nE '(cursor\\.execute|connection\\.cursor|raw\\()' \"$FILE_PATH\" 2>/dev/null | grep -vE '#.*noqa' > /tmp/raw_sql_check 2>/dev/null && [ -s /tmp/raw_sql_check ]; then ISSUES=\"$ISSUES$(echo 'Raw SQL detectado:'; cat /tmp/raw_sql_check)\"; fi; if [ -n \"$ISSUES\" ]; then echo \"$ISSUES\"; fi; rm -f /tmp/tenant_check /tmp/raw_sql_check; fi",
             "timeout": 5
           }
         ]
@@ -105,7 +104,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.tsx$' && echo \"$FILE_PATH\" | grep -q 'frontend/'; then if grep -nE 'dangerouslySetInnerHTML' \"$FILE_PATH\" 2>/dev/null > /tmp/xss_check && [ -s /tmp/xss_check ]; then echo 'ALERTA XSS: dangerouslySetInnerHTML detectado en '\"$FILE_PATH\"':'; cat /tmp/xss_check; echo 'Asegurate de sanitizar el HTML con DOMPurify u otra libreria antes de renderizar.'; fi; rm -f /tmp/xss_check; fi",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.tsx$' && echo \"$FILE_PATH\" | grep -q 'frontend/'; then if grep -nE 'dangerouslySetInnerHTML' \"$FILE_PATH\" 2>/dev/null > /tmp/xss_check && [ -s /tmp/xss_check ]; then echo 'ALERTA XSS: dangerouslySetInnerHTML detectado'; cat /tmp/xss_check; fi; rm -f /tmp/xss_check; fi",
             "timeout": 5
           }
         ]
@@ -115,7 +114,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.tsx$' && echo \"$FILE_PATH\" | grep -q 'frontend/src/'; then echo 'DESIGN CHECK: Verifica que '\"$FILE_PATH\"' cumple: (1) shadcn/ui components (2) TailwindCSS only (3) mobile-first responsive (4) aria labels en elementos interactivos. Skills: .claude/skills/web-design-guidelines/ y .claude/skills/shadcn/'; fi",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.tsx$' && echo \"$FILE_PATH\" | grep -q 'frontend/src/'; then echo 'DESIGN CHECK: Verifica shadcn/ui, TailwindCSS, mobile-first, aria labels en '\"$FILE_PATH\"; fi",
             "timeout": 5
           }
         ]
@@ -125,7 +124,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.tsx$' && echo \"$FILE_PATH\" | grep -q 'frontend/src/'; then echo 'DESIGN REVIEW: Archivo nuevo '\"$FILE_PATH\"'. Verifica: (1) shadcn/ui + Radix UI (2) TailwindCSS 4 only (3) Server Component by default (4) mobile-first (sm: md: lg:) (5) Accesibilidad (aria, alt, semantic HTML). Lee skills: web-design-guidelines, shadcn, vercel-react-best-practices.'; fi",
+            "command": "INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // empty'); if echo \"$FILE_PATH\" | grep -qE '\\.tsx$' && echo \"$FILE_PATH\" | grep -q 'frontend/src/'; then echo 'DESIGN REVIEW: Verifica shadcn/ui, TailwindCSS 4, Server Component, mobile-first, accesibilidad en '\"$FILE_PATH\"; fi",
             "timeout": 5
           }
         ]
@@ -136,7 +135,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'RECORDATORIO POST-COMPACTACION: Este proyecto usa SDD (Spec-Driven Development). Branch flow: feature/* -> develop -> main. Conventional commits obligatorios. Skills: multi-tenancy, shadcn, vercel-react, web-design-guidelines, code-quality, frontend-design. Agents: backend-implementer, frontend-implementer, security-reviewer, test-runner.'"
+            "command": "echo 'RECORDATORIO POST-COMPACTACION: SDD activo. Branch flow: feature/* -> develop -> main. Conventional commits obligatorios.'"
           }
         ]
       }
@@ -146,18 +145,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CHANGED=$(git diff --name-only HEAD 2>/dev/null | head -20); if [ -n \"$CHANGED\" ]; then echo 'Cambios pendientes detectados. Considera guardar progreso en Engram si esta sesion tiene trabajo importante sin commit.'; fi",
+            "command": "CHANGED=$(git diff --name-only HEAD 2>/dev/null | head -20); if [ -n \"$CHANGED\" ]; then echo 'Cambios pendientes detectados.'; fi",
             "timeout": 5
-          }
-        ]
-      }
-    ],
-    "WorktreeCreate": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'Worktree creado. RECORDATORIO: (1) Al terminar, limpia el worktree. (2) Cada worktree debe tener su propio feature branch. (3) No olvides git fetch origin develop antes de crear el branch.'"
           }
         ]
       }
