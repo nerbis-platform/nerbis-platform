@@ -65,13 +65,43 @@ if [ -d "$MAIN_REPO/frontend/node_modules" ]; then
   echo "✅ Symlink node_modules → repo principal"
 fi
 
-# 3. Symlink de .env.local (variables de entorno compartidas)
-if [ -f "$MAIN_REPO/frontend/.env.local" ]; then
-  ln -sfn "$MAIN_REPO/frontend/.env.local" "$WT_ROOT/frontend/.env.local"
-  echo "✅ Symlink .env.local → repo principal"
-fi
+# 3. Symlink de TODOS los .env* del frontend (feature flags, API URLs, etc.)
+for envfile in "$MAIN_REPO"/frontend/.env*; do
+  [ -f "$envfile" ] || continue
+  fname="$(basename "$envfile")"
+  dest="$WT_ROOT/frontend/$fname"
+  # Skip if dest already points to the correct target
+  if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$envfile" ]; then
+    echo "✅ Symlink frontend/$fname ya existe (correcto)"
+    continue
+  fi
+  # Backup if dest is a real file or a symlink to a different target
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    echo "⚠️  frontend/$fname existe — backup a frontend/${fname}.bak"
+    mv "$dest" "${dest}.bak"
+  fi
+  ln -sfn "$envfile" "$dest"
+  echo "✅ Symlink frontend/$fname → repo principal"
+done
 
-# 4. Symlink de backend .env si existe
+# 4. Symlink de TODOS los .env* del backend
+for envfile in "$MAIN_REPO"/backend/.env*; do
+  [ -f "$envfile" ] || continue
+  fname="$(basename "$envfile")"
+  dest="$WT_ROOT/backend/$fname"
+  if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$envfile" ]; then
+    echo "✅ Symlink backend/$fname ya existe (correcto)"
+    continue
+  fi
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    echo "⚠️  backend/$fname existe — backup a backend/${fname}.bak"
+    mv "$dest" "${dest}.bak"
+  fi
+  ln -sfn "$envfile" "$dest"
+  echo "✅ Symlink backend/$fname → repo principal"
+done
+
+# 5. Symlink de .env raíz si existe
 if [ -f "$MAIN_REPO/.env" ]; then
   ln -sfn "$MAIN_REPO/.env" "$WT_ROOT/.env"
   echo "✅ Symlink .env → repo principal"
@@ -82,7 +112,16 @@ fi
 ```bash
 WT_ROOT="$(git rev-parse --show-toplevel)"
 [ -L "$WT_ROOT/frontend/node_modules" ] && echo "✅ node_modules OK" || { echo "❌ node_modules FALTA — DETENERSE"; exit 1; }
-[ -L "$WT_ROOT/frontend/.env.local" ] && echo "✅ .env.local OK" || echo "⚠️  .env.local no existe (puede ser normal)"
+for envfile in "$WT_ROOT"/frontend/.env*; do
+  [ -e "$envfile" ] || [ -L "$envfile" ] || continue
+  fname="$(basename "$envfile")"
+  [ -L "$envfile" ] && echo "✅ frontend/$fname OK" || echo "⚠️  frontend/$fname no es symlink"
+done
+for envfile in "$WT_ROOT"/backend/.env*; do
+  [ -e "$envfile" ] || [ -L "$envfile" ] || continue
+  fname="$(basename "$envfile")"
+  [ -L "$envfile" ] && echo "✅ backend/$fname OK" || echo "⚠️  backend/$fname no es symlink"
+done
 ```
 
 **Dev server automático post-desarrollo** (OBLIGATORIO cuando el cambio toca UI):
