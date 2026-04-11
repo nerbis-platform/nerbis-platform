@@ -242,6 +242,12 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
   }
+
+  /* Signature NERBIS — brand selection color */
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
 }
 
 @layer utilities {

@@ -40,6 +40,12 @@
   --glow-sm: 0 0 12px color-mix(in srgb, var(--primary), transparent 80%);
 }
 
+/* Brand selection color — signature NERBIS */
+.published-website ::selection {
+  background-color: var(--primary);
+  color: var(--primary-foreground, #fff);
+}
+
 /* ═══════════════════════════════════════════════════
    2. KEYFRAME ANIMATIONS
    ═══════════════════════════════════════════════════ */
