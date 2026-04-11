@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE 'git push.*(origin\\s+(main|master|develop)\\b|--force)'; then BRANCH=$(echo \"$CMD\" | grep -oE '(main|master|develop)'); echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: No se permite push directo a '\"$BRANCH\"'. Usa PR: feature/* o fix/* → develop → main.\"}}'; else exit 0; fi"
+            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty'); if echo \"$CMD\" | grep -qE 'git push.*(origin\\s+(main|master|develop)\\b|--force)'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"BLOQUEADO: No se permite push directo a branches protegidos. Usa PR: feature/* o fix/* → develop → main.\"}}'; else exit 0; fi"
           }
         ]
       },
@@ -115,8 +115,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "if": "Edit(frontend/src/**/*.tsx)",
-            "prompt": "You are a UI/UX design reviewer for NERBIS, a multi-tenant SaaS platform using Next.js 16 + React 19 + shadcn/ui + TailwindCSS 4. Quickly review this code edit for design compliance. Check: (1) Uses shadcn/ui components (Button, Card, Dialog, etc.) — not custom or third-party UI libraries. (2) TailwindCSS utility classes only — no inline styles or custom CSS modules. (3) Mobile-first responsive design (sm:, md:, lg: breakpoints). (4) Proper visual hierarchy: consistent spacing (p-4, gap-4, etc.), clear heading levels, adequate contrast. (5) No generic AI aesthetics (avoid Inter font, purple-on-white gradients, cookie-cutter layouts). (6) Accessible: proper aria labels on interactive elements, alt text on images. Return PASS if compliant or list ONLY actual violations found (max 3 most important). Be concise — one line per issue. If the edit is minor (import change, variable rename), return PASS."
+            "prompt": "You are a UI/UX design reviewer for NERBIS, a multi-tenant SaaS platform using Next.js 16 + React 19 + shadcn/ui + TailwindCSS 4. The tool_input contains the file path and the edit that was made. ONLY review if the file path ends in .tsx and is inside frontend/src/. If NOT a frontend .tsx file, return PASS immediately. Check: (1) Uses shadcn/ui components — not custom or third-party UI libraries. (2) TailwindCSS utility classes only — no inline styles or custom CSS modules. (3) Mobile-first responsive design (sm:, md:, lg: breakpoints). (4) Proper visual hierarchy: consistent spacing, clear headings, adequate contrast. (5) No generic AI aesthetics (avoid Inter font, purple-on-white gradients). (6) Accessible: proper aria labels on interactive elements, alt text on images. Return PASS if compliant or not a frontend file. Otherwise list ONLY actual violations (max 3, one line each). If the edit is minor (import change, variable rename), return PASS."
           }
         ]
       },
@@ -125,8 +124,7 @@
         "hooks": [
           {
             "type": "agent",
-            "if": "Write(frontend/src/**/*.tsx)",
-            "prompt": "You are a thorough UI/UX design reviewer for NERBIS. A new frontend component was just created. Do a full design compliance review: (1) Read .claude/skills/web-design-guidelines/SKILL.md for UI guidelines. (2) Read .claude/skills/shadcn/rules/styling.md and .claude/skills/shadcn/rules/composition.md for component patterns. (3) Read .claude/skills/vercel-react-best-practices/SKILL.md for React/Next.js performance patterns. (4) Review the new file against these skills. Check: shadcn/ui usage, TailwindCSS compliance, Server Component by default, mobile-first responsive, accessibility (aria, alt, semantic HTML), visual hierarchy and spacing consistency, no generic AI aesthetics. Return a structured report: PASS or FAIL with specific line-number violations grouped by category (Components, Styling, Accessibility, Performance). Max 5 issues. If the file is a simple utility or config, return PASS."
+            "prompt": "You are a thorough UI/UX design reviewer for NERBIS. The tool_input contains the file path and content. ONLY review if the file path ends in .tsx and is inside frontend/src/. If NOT a frontend .tsx file, return PASS immediately. For frontend .tsx files: (1) Read .claude/skills/web-design-guidelines/SKILL.md for UI guidelines. (2) Read .claude/skills/shadcn/rules/styling.md and .claude/skills/shadcn/rules/composition.md for component patterns. (3) Read .claude/skills/vercel-react-best-practices/SKILL.md for React/Next.js performance patterns. (4) Review the new file against these skills. Check: shadcn/ui usage, TailwindCSS compliance, Server Component by default, mobile-first responsive, accessibility (aria, alt, semantic HTML), visual hierarchy and spacing consistency, no generic AI aesthetics. Return PASS or FAIL with specific line-number violations grouped by category (Components, Styling, Accessibility, Performance). Max 5 issues."
           }
         ]
       }
