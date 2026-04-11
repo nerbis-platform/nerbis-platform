@@ -299,7 +299,7 @@ function SocialLoginButtonsInner({
   const appleAvailable = !!process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
 
   const btnClass =
-    'flex h-11 flex-1 items-center justify-center gap-2 rounded-[var(--auth-radius-button)] border border-[var(--auth-border)] bg-white text-[0.75rem] font-medium transition-[background-color,border-color,transform,box-shadow] duration-150 ease-out hover:bg-stone-50 hover:border-stone-300 hover:-translate-y-[1px] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 active:translate-y-0 active:shadow-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0';
+    'flex h-11 flex-1 items-center justify-center gap-2 rounded-[var(--auth-radius-button)] border border-[var(--auth-border)] bg-[var(--auth-bg-input)] text-[0.75rem] font-medium transition-[background-color,border-color,transform,box-shadow] duration-150 ease-out hover:bg-[var(--auth-bg)] hover:border-[var(--auth-text-muted)] hover:-translate-y-[1px] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 active:translate-y-0 active:shadow-none motion-reduce:hover:translate-y-0 motion-reduce:hover:shadow-none motion-reduce:transition-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0';
 
   return (
     <>

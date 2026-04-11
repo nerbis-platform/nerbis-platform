@@ -313,7 +313,7 @@ export function RegisterStep1({
           onClick={onNextStep}
           disabled={continueDisabled}
           aria-label="Continuar al paso 2: Tu cuenta"
-          className="w-full h-12 mt-6 rounded-[var(--auth-radius-button)] text-white text-[0.9375rem] font-medium transition-[background-color,transform,box-shadow,opacity] duration-150 ease-out hover:bg-[var(--auth-primary-hover)] hover:-translate-y-[1px] hover:shadow-md active:translate-y-0 active:shadow-none flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+          className="w-full h-12 mt-6 rounded-[var(--auth-radius-button)] text-white text-[0.9375rem] font-medium transition-[background-color,transform,box-shadow,opacity] duration-150 ease-out hover:bg-[var(--auth-primary-hover)] hover:-translate-y-[1px] hover:shadow-md active:translate-y-0 active:shadow-none motion-reduce:hover:translate-y-0 motion-reduce:hover:shadow-none motion-reduce:transition-none flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           style={{
             background: 'var(--auth-primary)',
             fontFamily: 'var(--auth-font-body)',
@@ -326,7 +326,7 @@ export function RegisterStep1({
       </div>
 
       {/* Toggle link */}
-      <div className="mt-6 pt-5 border-t border-stone-200 text-center">
+      <div className="mt-6 pt-5 border-t border-[var(--auth-border)] text-center">
         <p
           className="text-[0.8rem]"
           style={{

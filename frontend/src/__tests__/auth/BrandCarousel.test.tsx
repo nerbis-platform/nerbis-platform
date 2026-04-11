@@ -97,18 +97,19 @@ describe('BrandCarousel', () => {
     vi.useFakeTimers();
   });
 
-  it('auto-advances slides after interval', async () => {
+  it('does NOT auto-advance slides (manual navigation only)', async () => {
     render(<BrandCarousel slides={mockSlides} interval={3000} />);
 
     const dot1 = screen.getByLabelText('Ir a slide 1');
     expect(dot1).toHaveAttribute('aria-current', 'true');
 
+    // After interval passes, slide should NOT change (auto-advance disabled)
     act(() => {
       vi.advanceTimersByTime(3000);
     });
 
-    const dot2 = screen.getByLabelText('Ir a slide 2');
-    expect(dot2).toHaveAttribute('aria-current', 'true');
+    // Slide 1 should still be active
+    expect(dot1).toHaveAttribute('aria-current', 'true');
   });
 
   it('has carousel accessibility attributes', () => {

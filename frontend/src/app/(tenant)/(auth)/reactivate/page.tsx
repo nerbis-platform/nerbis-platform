@@ -100,7 +100,7 @@ function ReactivateForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
@@ -122,7 +122,7 @@ function ReactivateForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-semibold tracking-[-0.03em] text-center">
@@ -201,7 +201,7 @@ function ReactivateForm() {
 export default function ReactivatePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     }>

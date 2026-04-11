@@ -177,7 +177,7 @@ export function ForgotPasswordForm({
             </form>
           </Form>
 
-          <div className="mt-6 pt-5 border-t border-stone-200 text-center">
+          <div className="mt-6 pt-5 border-t border-[var(--auth-border)] text-center">
             <button
               type="button"
               onClick={onGoToLogin}
@@ -324,7 +324,7 @@ export function ForgotPasswordForm({
           </Form>
 
           {/* Resend + back links */}
-          <div className="mt-6 pt-5 border-t border-stone-200 text-center space-y-3">
+          <div className="mt-6 pt-5 border-t border-[var(--auth-border)] text-center space-y-3">
             <button
               type="button"
               onClick={handleResendCode}

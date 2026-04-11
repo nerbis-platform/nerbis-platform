@@ -205,7 +205,7 @@ export function LoginForm({
         <PasskeyButton email={form.watch('email')} redirectTo={redirectTo ?? undefined} />
 
         {/* Toggle link */}
-        <div className="mt-6 pt-5 border-t border-stone-200 text-center">
+        <div className="mt-6 pt-5 border-t border-[var(--auth-border)] text-center">
           <p
             className="text-[0.8rem]"
             style={{

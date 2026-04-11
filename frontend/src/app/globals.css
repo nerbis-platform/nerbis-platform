@@ -142,7 +142,7 @@
   --auth-text-on-dark: #FFFFFF;
   --auth-text-on-dark-muted: rgba(255, 255, 255, 0.7);
   --auth-text-on-dark-subtle: rgba(255, 255, 255, 0.5);
-  --auth-border: #E5E7EB;
+  --auth-border: #e7e5e4; /* stone-200 — warm */
   --auth-border-focus: #0D9488;
   --auth-border-error: #DC2626;
   --auth-error: #DC2626;
