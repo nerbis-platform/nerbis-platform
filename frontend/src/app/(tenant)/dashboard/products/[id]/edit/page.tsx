@@ -19,13 +19,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '@/components/ui/responsive-dialog';
 import { toast } from 'sonner';
 import { ArrowLeft, Package, PackageX } from 'lucide-react';
 import Link from 'next/link';
@@ -168,12 +168,12 @@ export default function EditProductPage() {
       <ProductForm product={product} onSubmit={handleSubmit} isSubmitting={updateMutation.isPending} />
 
       {/* Stock Dialog */}
-      <Dialog open={stockDialog} onOpenChange={setStockDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ajustar Stock</DialogTitle>
-            <DialogDescription>Stock actual: {currentStock} unidades</DialogDescription>
-          </DialogHeader>
+      <ResponsiveDialog open={stockDialog} onOpenChange={setStockDialog}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Ajustar Stock</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>Stock actual: {currentStock} unidades</ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
 
           <div className="space-y-4">
             <div>
@@ -217,7 +217,7 @@ export default function EditProductPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <ResponsiveDialogFooter>
             <Button variant="outline" onClick={() => setStockDialog(false)}>
               Cancelar
             </Button>
@@ -227,9 +227,9 @@ export default function EditProductPage() {
             >
               {stockMutation.isPending ? 'Actualizando...' : 'Confirmar'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </>
   );
 }

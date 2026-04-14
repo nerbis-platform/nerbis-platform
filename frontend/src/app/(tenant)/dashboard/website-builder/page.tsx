@@ -36,13 +36,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '@/components/ui/responsive-dialog';
 import { getWebsiteTemplates, getWebsiteConfig, startOnboarding } from '@/lib/api/websites';
 import { WebsiteTemplate, WebsiteIndustry } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -526,18 +526,18 @@ export default function WebsiteBuilderPage() {
         )}
 
         {/* ── Dialog de confirmación ── */}
-        <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle
+        <ResponsiveDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <ResponsiveDialogContent className="sm:max-w-md">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle
                 className="text-[1.2rem] tracking-[-0.02em]"
                 style={{ color: '#1C3B57', fontWeight: 600 }}
               >
                 {currentTemplateId && selectedTemplate?.id !== currentTemplateId
                   ? 'Cambiar plantilla'
                   : 'Excelente elección'}
-              </DialogTitle>
-              <DialogDescription className="text-[0.85rem] leading-relaxed pt-1">
+              </ResponsiveDialogTitle>
+              <ResponsiveDialogDescription className="text-[0.85rem] leading-relaxed pt-1">
                 {currentTemplateId && selectedTemplate?.id !== currentTemplateId ? (
                   <>
                     Vas a cambiar a <strong className="text-gray-700">{selectedTemplate?.name}</strong>.
@@ -550,8 +550,8 @@ export default function WebsiteBuilderPage() {
                     personalizar el contenido.
                   </>
                 )}
-              </DialogDescription>
-            </DialogHeader>
+              </ResponsiveDialogDescription>
+            </ResponsiveDialogHeader>
 
             {/* Preview en el dialog */}
             {selectedTemplate && (
@@ -577,7 +577,7 @@ export default function WebsiteBuilderPage() {
               </div>
             )}
 
-            <DialogFooter className="gap-2 sm:gap-2 pt-2">
+            <ResponsiveDialogFooter className="gap-2 sm:gap-2 pt-2">
               <button
                 onClick={() => setShowConfirmDialog(false)}
                 disabled={startOnboardingMutation.isPending}
@@ -603,9 +603,9 @@ export default function WebsiteBuilderPage() {
                   </>
                 )}
               </button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </ResponsiveDialogFooter>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
     </>
   );
