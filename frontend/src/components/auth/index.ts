@@ -7,6 +7,7 @@ export { RegisterForm } from './RegisterForm';
 export { RegisterStep1 } from './RegisterStep1';
 export { RegisterStep2 } from './RegisterStep2';
 export { ForgotPasswordForm } from './ForgotPasswordForm';
+export { ReactivateForm } from './ReactivateForm';
 
 // ─── Shared UI Components ────────────────────────────────────────
 export { PasswordField } from './PasswordField';
@@ -57,6 +58,7 @@ export {
   registerBusinessSchema,
   forgotEmailSchema,
   forgotResetSchema,
+  reactivateSchema,
   passwordRules,
 } from './schemas';
 export type {
@@ -64,6 +66,7 @@ export type {
   RegisterBusinessFormValues,
   ForgotEmailFormValues,
   ForgotResetFormValues,
+  ReactivateFormValues,
 } from './schemas';
 
 // ─── Constants ───────────────────────────────────────────────────

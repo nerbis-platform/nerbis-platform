@@ -10,6 +10,7 @@ import { MobileBrandHeader } from './MobileBrandHeader';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
+import { ReactivateForm } from './ReactivateForm';
 import { useReducedMotion } from './hooks';
 import type { AuthMode, AuthPrefill } from './types';
 
@@ -44,6 +45,7 @@ export default function AuthSplitScreenV2({
       login: 'Formulario de inicio de sesión',
       register: 'Formulario de registro',
       forgot: 'Recuperar contraseña',
+      reactivate: 'Reactivar cuenta',
     };
     setAnnouncement(labels[m]);
   }, []);
@@ -145,6 +147,10 @@ export default function AuthSplitScreenV2({
 
       {mode === 'forgot' && (
         <ForgotPasswordForm onGoToLogin={goToLogin} />
+      )}
+
+      {mode === 'reactivate' && (
+        <ReactivateForm />
       )}
     </>
   );

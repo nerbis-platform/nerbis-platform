@@ -75,3 +75,11 @@ export const forgotResetSchema = z
   });
 
 export type ForgotResetFormValues = z.infer<typeof forgotResetSchema>;
+
+// ─── Reactivate Account ──────────────────────────────────────
+
+export const reactivateSchema = z.object({
+  code: z.string().length(6, 'El código debe tener 6 dígitos').regex(/^\d+$/, 'El código solo debe contener números'),
+});
+
+export type ReactivateFormValues = z.infer<typeof reactivateSchema>;

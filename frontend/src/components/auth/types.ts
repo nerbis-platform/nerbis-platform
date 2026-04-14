@@ -10,7 +10,7 @@ import type {
 
 // ─── Core Auth Types ────────────────────────────────────────────
 
-export type AuthMode = 'login' | 'register' | 'forgot';
+export type AuthMode = 'login' | 'register' | 'forgot' | 'reactivate';
 export type ForgotStep = 'email' | 'reset' | 'success';
 export type RegisterStep = 1 | 2;
 
