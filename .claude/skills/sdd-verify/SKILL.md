@@ -65,14 +65,20 @@ Read and follow `.claude/skills/_shared/persistence-contract.md` for mode resolu
 ```bash
 git fetch origin develop
 CURRENT_BRANCH=$(git branch --show-current)
-if [ "$CURRENT_BRANCH" = "develop" ]; then
-  git pull origin develop
-else
-  git rebase origin/develop
+if [ "$CURRENT_BRANCH" = "develop" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+  echo "ERROR: SDD pipeline must run on a feature branch, not $CURRENT_BRANCH. STOP."
+  exit 1
 fi
+git rebase origin/develop
 ```
 
 If the rebase has conflicts, STOP and report to the user. Do NOT continue with stale code.
+
+**If working in a worktree**, ensure the worktree's branch is up to date with `origin/develop`:
+```bash
+git fetch origin develop
+git merge origin/develop --ff-only || { echo "ERROR: Cannot fast-forward — manual merge needed. STOP."; exit 1; }
+```
 
 ### Step 1: Load Skill Registry
 

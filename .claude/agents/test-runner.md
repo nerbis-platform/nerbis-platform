@@ -69,6 +69,11 @@ If step 1 fails, still run steps 2-4 to get the full picture.
 - Status: PASS / FAIL
 - {Error details if failed}
 
+### Comandos Ejecutados
+- {exact command 1}
+- {exact command 2}
+- ...
+
 ### Overall: PASS / FAIL
 {Summary of what needs to be fixed}
 ```
@@ -78,4 +83,5 @@ If step 1 fails, still run steps 2-4 to get the full picture.
 - Capture FULL error output for failed tests
 - If a test suite can't run (missing dependencies, docker not running), report that clearly
 - Always run ALL suites even if one fails — give the complete picture
-- Include the exact commands you ran so results are reproducible
+- The "Comandos Ejecutados" section is MANDATORY — always list every command you ran for reproducibility
+- Sanitize stack traces before including them: redact tokens, cookies, API keys, SSH keys, and file paths containing secrets (replace with [REDACTED])

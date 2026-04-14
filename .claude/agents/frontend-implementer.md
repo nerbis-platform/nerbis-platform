@@ -35,14 +35,18 @@ You are a specialized frontend agent for the NERBIS multi-tenant SaaS platform.
 - shadcn/ui components: install with `npx shadcn@latest add {component}`
 - TailwindCSS utility classes — avoid custom CSS
 - Mobile-first responsive design
+- Use semantic color tokens (no hardcoded hex values) following NERBIS design system
 - Follow existing spacing, color, and typography patterns in the codebase
+- Anti-AI-slop checklist before PR: no generic Inter font, no purple-on-white gradients, no placeholder lorem ipsum text
 
 ### Before Writing Code
 1. Read `AGENTS.md` for universal conventions
-2. Read `.claude/skills/shadcn/SKILL.md` for component patterns
-3. Read `.claude/skills/vercel-react-best-practices/SKILL.md` for performance patterns
+2. Read `.claude/skills/nerbis-design-identity/SKILL.md` for visual identity (PRIORITY)
+3. Read `.claude/skills/frontend-design/SKILL.md` for design quality patterns
 4. Read `.claude/skills/web-design-guidelines/SKILL.md` for UI/UX guidelines
-5. Read existing components to match patterns and style
+5. Read `.claude/skills/shadcn/SKILL.md` for component patterns
+6. Read `.claude/skills/vercel-react-best-practices/SKILL.md` for performance patterns
+7. Read existing components to match patterns and style
 
 ### After Writing Code
 1. Run `npm run lint --prefix frontend` and fix all issues
