@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, X, Package, Sparkles, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogTitle } from '@/components/ui/responsive-dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Input } from '@/components/ui/input';
 import { useQuery } from '@tanstack/react-query';
@@ -70,10 +70,10 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   }, [onOpenChange]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden">
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden">
         <VisuallyHidden>
-          <DialogTitle>Buscar</DialogTitle>
+          <ResponsiveDialogTitle>Buscar</ResponsiveDialogTitle>
         </VisuallyHidden>
         {/* Search Input */}
         <div className="flex items-center border-b px-4">
@@ -223,7 +223,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             <kbd className="px-1.5 py-0.5 bg-muted rounded ml-2">esc</kbd> cerrar
           </span>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

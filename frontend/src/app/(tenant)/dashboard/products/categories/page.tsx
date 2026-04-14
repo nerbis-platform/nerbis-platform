@@ -30,13 +30,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -338,16 +338,16 @@ export default function CategoriesPage() {
       </Card>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialog.open} onOpenChange={(open) => !open && handleCloseDialog()}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{dialog.category ? 'Editar Categoría' : 'Nueva Categoría'}</DialogTitle>
-            <DialogDescription>
+      <ResponsiveDialog open={dialog.open} onOpenChange={(open) => !open && handleCloseDialog()}>
+        <ResponsiveDialogContent className="max-w-lg">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>{dialog.category ? 'Editar Categoría' : 'Nueva Categoría'}</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
               {dialog.category
                 ? 'Actualiza la información de la categoría'
                 : 'Crea una nueva categoría para organizar tus productos'}
-            </DialogDescription>
-          </DialogHeader>
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -425,18 +425,18 @@ export default function CategoriesPage() {
                 )}
               />
 
-              <DialogFooter>
+              <ResponsiveDialogFooter>
                 <Button type="button" variant="outline" onClick={handleCloseDialog} disabled={isMutating}>
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={isMutating}>
                   {isMutating ? 'Guardando...' : dialog.category ? 'Actualizar' : 'Crear'}
                 </Button>
-              </DialogFooter>
+              </ResponsiveDialogFooter>
             </form>
           </Form>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {/* Delete Dialog */}
       <AlertDialog

@@ -7,12 +7,12 @@
 import { useState, useEffect } from 'react';
 import { Settings, Shield } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '@/components/ui/responsive-dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
@@ -117,17 +117,17 @@ export function PlatformCookieConsent() {
       </div>
 
       {/* Modal de configuración */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="sm:max-w-md border-0 bg-[#1C3B57] text-white">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-white">
+      <ResponsiveDialog open={showSettings} onOpenChange={setShowSettings}>
+        <ResponsiveDialogContent className="sm:max-w-md border-0 bg-[#1C3B57] text-white">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle className="flex items-center gap-2 text-white">
               <Settings className="h-5 w-5 text-[#0D9488]" />
               Configuración de cookies
-            </DialogTitle>
-            <DialogDescription className="text-white/50">
+            </ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="text-white/50">
               Personaliza qué cookies deseas permitir en la plataforma NERBIS.
-            </DialogDescription>
-          </DialogHeader>
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
 
           <div className="space-y-3 py-4">
             {/* Esenciales */}
@@ -192,8 +192,8 @@ export function PlatformCookieConsent() {
               Guardar preferencias
             </button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </>
   );
 }
