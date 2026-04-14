@@ -89,10 +89,10 @@ export const LABEL_STYLE: React.CSSProperties = {
   fontFamily: 'var(--auth-font-body)',
 };
 
-/** Auth gradient for the brand panel (dark side) */
+/** Auth gradient for the brand panel (dark side) — uses design system tokens */
 export const AUTH_GRADIENT =
-  'linear-gradient(135deg, #1C3B57 0%, #1a3450 40%, #1e4a5e 70%, #265e6a 100%)';
+  'linear-gradient(135deg, var(--auth-gradient-start) 0%, var(--auth-gradient-mid) 40%, color-mix(in srgb, var(--auth-gradient-start) 70%, var(--auth-gradient-end)) 70%, var(--auth-gradient-end) 100%)';
 
-/** Radial glow overlay for brand panel */
+/** Radial glow overlay for brand panel — uses auth accent */
 export const AUTH_RADIAL_GLOW =
-  'radial-gradient(ellipse at 20% 80%, rgba(13, 148, 136, 0.15) 0%, transparent 60%)';
+  'radial-gradient(ellipse at 20% 80%, color-mix(in srgb, var(--auth-accent) 15%, transparent) 0%, transparent 60%)';

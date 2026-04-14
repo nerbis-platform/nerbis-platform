@@ -331,7 +331,7 @@ export function ForgotPasswordForm({
               disabled={isResending}
               className="text-[0.78rem] transition-colors disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
               style={{
-                color: 'var(--auth-accent, #0D9488)',
+                color: 'var(--auth-accent)',
                 fontFamily: 'var(--auth-font-body)',
               }}
             >
@@ -375,7 +375,7 @@ export function ForgotPasswordForm({
         <div className="text-center" role="status" data-auth-animated>
           <div
             className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full"
-            style={{ background: 'var(--auth-accent-bg, #E2F3F1)' }}
+            style={{ background: 'var(--accent)' }}
           >
             <CheckCircle
               className="h-7 w-7"

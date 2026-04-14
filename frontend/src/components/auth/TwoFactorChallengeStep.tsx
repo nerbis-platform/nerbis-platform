@@ -306,7 +306,7 @@ export function TwoFactorChallengeStep({
           {passkeyError && (
             <p
               className="text-[0.8rem] text-center"
-              style={{ color: 'var(--auth-border-error, #EF4444)' }}
+              style={{ color: 'var(--auth-border-error)' }}
               role="alert"
             >
               {passkeyError}
@@ -407,7 +407,7 @@ export function TwoFactorChallengeStep({
             type="button"
             onClick={() => switchMode(mode === 'totp' ? 'backup' : 'totp')}
             className="text-[0.75rem] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
-            style={{ color: 'var(--auth-accent, #0D9488)' }}
+            style={{ color: 'var(--auth-accent)' }}
           >
             {mode === 'totp'
               ? 'Usar código de respaldo'

@@ -196,7 +196,7 @@ export function RegisterStep2({
                 <p
                   className="text-[0.75rem] mt-1"
                   role="alert"
-                  style={{ color: 'var(--auth-warning, #D97706)' }}
+                  style={{ color: 'var(--auth-warning)' }}
                 >
                   Este email ya está registrado.{' '}
                   <button

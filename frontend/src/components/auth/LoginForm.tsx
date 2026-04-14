@@ -202,7 +202,7 @@ export function LoginForm({
                   type="button"
                   onClick={onForgotPassword}
                   className="text-[0.75rem] leading-none transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
-                  style={{ color: 'var(--auth-accent, #0D9488)' }}
+                  style={{ color: 'var(--auth-accent)' }}
                 >
                   ¿Olvidaste tu contraseña?
                 </button>

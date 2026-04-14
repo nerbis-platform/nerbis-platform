@@ -126,33 +126,33 @@
 
   /* ── Auth Design Tokens ────────────────────────────────────── */
 
-  /* Auth colors */
-  --auth-primary: #1C3B57;
-  --auth-primary-hover: #162f46;
-  --auth-accent: #0D9488;
+  /* Auth colors — unified with NERBIS design system tokens */
+  --auth-primary: var(--accent-foreground);           /* #1C3B57 */
+  --auth-primary-hover: color-mix(in srgb, var(--accent-foreground) 85%, black);
+  --auth-accent: #0D9488;                             /* teal-600 — auth-specific */
   --auth-accent-light: #0D9488;
   --auth-secondary: #0D9488;
-  --auth-bg: #FAFAFA;
-  --auth-bg-input: #FFFFFF;
-  --auth-bg-dark: #1C3B57;
-  --auth-text: #111827;
-  --auth-text-muted: #9CA3AF;
-  --auth-text-label: #6B7280;
-  --auth-text-placeholder: #D1D5DB;
-  --auth-text-on-dark: #FFFFFF;
+  --auth-bg: var(--background);                       /* #FBF9F7 */
+  --auth-bg-input: var(--card);                       /* #FFFFFF */
+  --auth-bg-dark: var(--accent-foreground);           /* #1C3B57 */
+  --auth-text: var(--foreground);                     /* #3D3D3D */
+  --auth-text-muted: var(--muted-foreground);         /* #7A7A7A */
+  --auth-text-label: #6B7280;                         /* auth-specific gray */
+  --auth-text-placeholder: #D1D5DB;                   /* auth-specific light gray */
+  --auth-text-on-dark: var(--primary-foreground);     /* #FFFFFF */
   --auth-text-on-dark-muted: rgba(255, 255, 255, 0.7);
   --auth-text-on-dark-subtle: rgba(255, 255, 255, 0.5);
-  --auth-border: #e7e5e4; /* stone-200 — warm */
-  --auth-border-focus: #0D9488;
-  --auth-border-error: #DC2626;
-  --auth-error: #DC2626;
-  --auth-success: #059669;
-  --auth-warning: #D97706;
+  --auth-border: var(--border);                       /* #E8E0DC */
+  --auth-border-focus: #0D9488;                       /* teal-600 — auth-specific */
+  --auth-border-error: var(--destructive);            /* #E57373 */
+  --auth-error: var(--destructive);
+  --auth-success: #059669;                            /* emerald-600 — auth-specific */
+  --auth-warning: #D97706;                            /* amber-600 — auth-specific */
 
-  /* Auth gradient (brand panel) */
-  --auth-gradient-start: #1C3B57;
-  --auth-gradient-mid: #1a3450;
-  --auth-gradient-end: #265e6a;
+  /* Auth gradient (brand panel) — derived from primary */
+  --auth-gradient-start: var(--accent-foreground);
+  --auth-gradient-mid: color-mix(in srgb, var(--accent-foreground) 90%, black);
+  --auth-gradient-end: color-mix(in srgb, var(--accent-foreground) 60%, var(--ring));
 
   /* Auth spacing */
   --auth-form-gap: 1.25rem;

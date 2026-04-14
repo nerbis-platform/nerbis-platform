@@ -138,7 +138,7 @@ export function RegisterStep1({
                 <p
                   className="text-[0.75rem] mt-1"
                   role="alert"
-                  style={{ color: 'var(--auth-warning, #D97706)' }}
+                  style={{ color: 'var(--auth-warning)' }}
                 >
                   Este nombre ya está registrado.{' '}
                   <button
@@ -199,7 +199,7 @@ export function RegisterStep1({
                     align="start"
                     style={
                       {
-                        '--accent': '#E2F3F1',
+                        '--accent': 'var(--accent)',
                         '--accent-foreground': 'var(--auth-primary)',
                       } as React.CSSProperties
                     }
@@ -288,7 +288,7 @@ export function RegisterStep1({
                 <SelectContent
                   style={
                     {
-                      '--accent': '#E2F3F1',
+                      '--accent': 'var(--accent)',
                       '--accent-foreground': 'var(--auth-primary)',
                     } as React.CSSProperties
                   }

@@ -81,7 +81,7 @@ export function RegisterSocialStep({
         className="flex items-center gap-3 rounded-[var(--auth-radius-input)] border px-4 py-3 mb-6"
         style={{
           borderColor: 'var(--auth-accent)',
-          background: 'var(--auth-accent-bg, #E2F3F1)',
+          background: 'var(--accent)',
         }}
       >
         {prefill.avatar ? (
@@ -216,7 +216,7 @@ export function RegisterSocialStep({
                 <p
                   className="text-[0.75rem] mt-1"
                   role="alert"
-                  style={{ color: 'var(--auth-warning, #D97706)' }}
+                  style={{ color: 'var(--auth-warning)' }}
                 >
                   Este nombre ya está registrado.{' '}
                   <button
@@ -269,7 +269,7 @@ export function RegisterSocialStep({
                 <SelectContent
                   style={
                     {
-                      '--accent': '#E2F3F1',
+                      '--accent': 'var(--accent)',
                       '--accent-foreground': 'var(--auth-primary)',
                     } as React.CSSProperties
                   }

@@ -346,7 +346,7 @@ function SocialLoginButtonsInner({
           <AppleIcon />
           <span>{isLoading === 'apple' ? '...' : 'Apple'}</span>
           {!appleAvailable && (
-            <span className="absolute -top-2.5 -right-2 rounded-full bg-[var(--auth-accent,#3B82F6)] px-1.5 py-0.5 text-[0.55rem] font-semibold leading-none text-white shadow-sm">
+            <span className="absolute -top-2.5 -right-2 rounded-full bg-auth-accent px-1.5 py-0.5 text-[0.55rem] font-semibold leading-none text-white shadow-sm">
               Pronto
             </span>
           )}
