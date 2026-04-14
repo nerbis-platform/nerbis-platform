@@ -25,13 +25,9 @@ import { LABEL_CLASS, LABEL_STYLE } from './constants';
 
 // ─── Props ──────────────────────────────────────────────────────
 
-interface ReactivateFormComponentProps {
-  onGoToLogin: () => void;
-}
-
 // ─── Component ──────────────────────────────────────────────────
 
-export function ReactivateForm({ onGoToLogin }: ReactivateFormComponentProps) {
+export function ReactivateForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || '';
@@ -189,7 +185,7 @@ export function ReactivateForm({ onGoToLogin }: ReactivateFormComponentProps) {
       <div className="mt-6 pt-5 border-t border-[var(--auth-border)] text-center">
         <button
           type="button"
-          onClick={onGoToLogin}
+          onClick={() => router.push('/login')}
           className="inline-flex items-center text-[0.78rem] transition-colors cursor-pointer hover:text-[var(--auth-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
           style={{
             color: 'var(--auth-text-muted)',

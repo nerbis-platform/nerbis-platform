@@ -150,7 +150,7 @@ export default function AuthSplitScreenV2({
       )}
 
       {mode === 'reactivate' && (
-        <ReactivateForm onGoToLogin={goToLogin} />
+        <ReactivateForm />
       )}
     </>
   );
