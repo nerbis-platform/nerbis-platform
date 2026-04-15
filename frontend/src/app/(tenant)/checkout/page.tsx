@@ -147,7 +147,7 @@ export default function CheckoutPage() {
         <main className="container py-8">
           <Card className="max-w-md mx-auto text-center py-12">
             <CardContent>
-              <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+              <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-auth-accent" />
               <h2 className="text-xl font-semibold mb-2">Cargando...</h2>
             </CardContent>
           </Card>
@@ -309,7 +309,7 @@ export default function CheckoutPage() {
         <main className="container py-8">
           <Card className="max-w-md mx-auto text-center py-12">
             <CardContent>
-              <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+              <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-auth-accent" />
               <h2 className="text-xl font-semibold mb-2">Sincronizando tu carrito...</h2>
               <p className="text-muted-foreground">
                 Estamos preparando tu pedido, por favor espera.
