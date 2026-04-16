@@ -248,6 +248,52 @@ def send_welcome_email(user_id):
 
 
 @shared_task
+def send_admin_password_reset_email(user_id: int, token: str) -> None:
+    """
+    Enviar email de restablecimiento de contraseña disparado por un superadmin.
+
+    A diferencia de ``send_otp_email``, este flujo entrega un enlace (no un OTP)
+    que el usuario sigue para fijar una nueva contraseña. El enlace apunta al
+    subdominio del tenant cuando el usuario pertenece a uno, o al dominio
+    principal de la plataforma en caso contrario.
+
+    Args:
+        user_id: ID del usuario destinatario.
+        token: Token ``PasswordSetToken.token`` (secreto) a incluir en el enlace.
+    """
+    from django.conf import settings
+
+    from core.models import User
+
+    try:
+        user = User.objects.select_related("tenant").get(id=user_id)
+
+        base_domain = getattr(settings, "PLATFORM_BASE_DOMAIN", "nerbis.com")
+        if user.tenant and user.tenant.slug:
+            reset_url = f"https://{user.tenant.slug}.{base_domain}/set-password?token={token}"
+        else:
+            # Fallback: caer al FRONTEND_URL (por ejemplo para accounts sin tenant).
+            frontend_url = getattr(settings, "FRONTEND_URL", f"https://{base_domain}").rstrip("/")
+            reset_url = f"{frontend_url}/set-password?token={token}"
+
+        send_email(
+            user=user,
+            subject="Restablecimiento de contraseña solicitado por un administrador",
+            template_name="admin_password_reset",
+            context={
+                "reset_url": reset_url,
+                "metadata": {"user_id": user.id, "purpose": "admin_password_reset"},
+            },
+        )
+
+        logger.info(f"Admin password reset email enviado a {user.email}")
+
+    except Exception as e:
+        logger.error(f"Error enviando admin password reset email a usuario {user_id}: {str(e)}")
+        raise
+
+
+@shared_task
 def send_otp_email(user_id, otp_code, purpose):
     """
     Enviar email con código OTP.

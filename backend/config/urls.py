@@ -10,9 +10,13 @@ from rest_framework_simplejwt.views import TokenRefreshView
 # Importar el admin site personalizado de NERBIS
 from core.admin_site import nerbis_admin_site
 from core.admin_tenant_views import (
+    AdminDeletePasskeyView,
+    AdminDisable2FAView,
+    AdminResetPasswordView,
     AdminTenantDetailView,
     AdminTenantListView,
     AdminTenantUsersListView,
+    AdminUnlinkSocialView,
     AdminUserDetailView,
 )
 from core.admin_views import (
@@ -97,6 +101,26 @@ urlpatterns = [
         "api/admin/users/<int:pk>/",
         AdminUserDetailView.as_view(),
         name="admin-users-detail",
+    ),
+    path(
+        "api/admin/users/<int:pk>/reset-password/",
+        AdminResetPasswordView.as_view(),
+        name="admin-users-reset-password",
+    ),
+    path(
+        "api/admin/users/<int:pk>/passkeys/<int:passkey_pk>/",
+        AdminDeletePasskeyView.as_view(),
+        name="admin-users-delete-passkey",
+    ),
+    path(
+        "api/admin/users/<int:pk>/disable-2fa/",
+        AdminDisable2FAView.as_view(),
+        name="admin-users-disable-2fa",
+    ),
+    path(
+        "api/admin/users/<int:pk>/social/<str:provider>/",
+        AdminUnlinkSocialView.as_view(),
+        name="admin-users-unlink-social",
     ),
     # Webhooks (sin middleware de tenant)
     path("api/webhooks/stripe/", stripe_webhook, name="stripe-webhook"),
