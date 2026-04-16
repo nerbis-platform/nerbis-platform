@@ -5,7 +5,6 @@ from django.conf.urls.static import static
 from django.urls import include, path
 from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from rest_framework_simplejwt.views import TokenRefreshView
 
 # Importar el admin site personalizado de NERBIS
 from core.admin_site import nerbis_admin_site
@@ -16,6 +15,7 @@ from core.admin_views import (
     AdminRegisterView,
     AdminSuperadminDetailView,
     AdminSuperadminListView,
+    AdminTokenRefreshView,
 )
 from core.views import (
     CheckBusinessNameView,
@@ -69,7 +69,7 @@ urlpatterns = [
     path("api/admin/auth/register/", AdminRegisterView.as_view(), name="admin-register"),
     path("api/admin/auth/me/", AdminMeView.as_view(), name="admin-me"),
     path("api/admin/auth/logout/", AdminLogoutView.as_view(), name="admin-logout"),
-    path("api/admin/auth/refresh/", TokenRefreshView.as_view(), name="admin-token-refresh"),
+    path("api/admin/auth/refresh/", AdminTokenRefreshView.as_view(), name="admin-token-refresh"),
     path("api/admin/superadmins/", AdminSuperadminListView.as_view(), name="admin-superadmins-list"),
     path(
         "api/admin/superadmins/<int:pk>/",

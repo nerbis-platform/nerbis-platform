@@ -52,8 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (refreshedRef.current) return;
     if (typeof window === 'undefined') return;
 
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
+    const hasUser = localStorage.getItem('user');
+    if (!hasUser) return;
 
     refreshedRef.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect

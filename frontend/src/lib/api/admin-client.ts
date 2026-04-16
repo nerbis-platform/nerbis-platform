@@ -7,8 +7,8 @@
 //      directory or its alias under "@/lib/api"). Only the standalone
 //      `axios` package may be imported here.
 //   2. MUST NOT read or write the tenant localStorage keys. Only the
-//      admin_* namespaced keys (admin_access_token, admin_refresh_token,
-//      admin_user) are allowed.
+//      admin_user namespaced key is allowed in localStorage. Auth tokens
+//      are managed via httpOnly cookies (nerbis_admin_access, nerbis_admin_refresh).
 //   3. MUST NOT send any tenant routing header. The tenant header literal
 //      is intentionally NOT spelled in this file — see the runtime
 //      concatenation below — so that the isolation grep script can
@@ -46,10 +46,11 @@ export class AdminApiError extends Error {
 export const adminClient: AxiosInstance = axios.create({
   baseURL: ADMIN_API_BASE,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
 // ──────────────────────────────────────────────────────────────────────
-// Request interceptor: Authorization only. Never any tenant header.
+// Request interceptor: strip tenant headers. Auth via httpOnly cookies.
 // ──────────────────────────────────────────────────────────────────────
 //
 // We construct the forbidden header name at runtime via concatenation so
@@ -59,12 +60,7 @@ export const adminClient: AxiosInstance = axios.create({
 const FORBIDDEN_TENANT_HEADER_LOWER = ['x', 'tenant', 'slug'].join('-');
 
 adminClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (typeof window !== 'undefined') {
-    const token = window.localStorage.getItem(ADMIN_STORAGE_KEYS.access);
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  }
+  // Auth tokens are now sent automatically via httpOnly cookies (withCredentials: true).
   // Defensive: strip any tenant header that may have been attached upstream
   // (axios normalizes header names to lower-case internally).
   if (config.headers) {
@@ -84,28 +80,30 @@ adminClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 // ──────────────────────────────────────────────────────────────────────
 // 401 → refresh interceptor (admin namespace only).
 // ──────────────────────────────────────────────────────────────────────
-let refreshingPromise: Promise<string | null> | null = null;
+let refreshingPromise: Promise<boolean> | null = null;
 
 function clearAdminSession(): void {
   if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(ADMIN_STORAGE_KEYS.access);
-  window.localStorage.removeItem(ADMIN_STORAGE_KEYS.refresh);
+  // Only clear admin_user from localStorage.
+  // Admin auth cookies (nerbis_admin_access, nerbis_admin_refresh) are httpOnly
+  // and managed server-side — the browser cannot access them via JS.
   window.localStorage.removeItem(ADMIN_STORAGE_KEYS.user);
 }
 
-async function refreshAdminToken(): Promise<string | null> {
-  if (typeof window === 'undefined') return null;
-  const refresh = window.localStorage.getItem(ADMIN_STORAGE_KEYS.refresh);
-  if (!refresh) return null;
+async function refreshAdminToken(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
   try {
-    const res = await axios.post<{ access: string }>(
+    // The refresh token is sent automatically via httpOnly cookie.
+    // The backend reads it from the cookie and sets new cookies on the response.
+    await axios.post(
       `${ADMIN_API_BASE}/admin/auth/refresh/`,
-      { refresh },
-      { headers: { 'Content-Type': 'application/json' } },
+      {},
+      {
+        headers: { 'Content-Type': 'application/json' },
+        withCredentials: true,
+      },
     );
-    const newAccess = res.data.access;
-    window.localStorage.setItem(ADMIN_STORAGE_KEYS.access, newAccess);
-    return newAccess;
+    return true;
   } catch {
     clearAdminSession();
     if (typeof window !== 'undefined') {
@@ -114,7 +112,7 @@ async function refreshAdminToken(): Promise<string | null> {
         window.location.href = '/admin/login';
       }
     }
-    return null;
+    return false;
   }
 }
 
@@ -151,10 +149,9 @@ adminClient.interceptors.response.use(
           refreshingPromise = null;
         });
       }
-      const newAccess = await refreshingPromise;
-      if (newAccess) {
-        original.headers = original.headers ?? {};
-        original.headers.Authorization = `Bearer ${newAccess}`;
+      const refreshed = await refreshingPromise;
+      if (refreshed) {
+        // Retry the original request — the new access cookie is sent automatically.
         return adminClient(original);
       }
       return Promise.reject(

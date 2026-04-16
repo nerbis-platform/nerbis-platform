@@ -40,6 +40,7 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
+from .cookies import set_auth_cookies
 from .models import User, WebAuthnCredential
 from .serializers import TenantSerializer, UserSessionSerializer
 from .throttles import LoginThrottle
@@ -327,7 +328,7 @@ class PasskeyAuthenticateVerifyView(APIView):
         # Emitir JWT — mismo shape que PlatformLoginView (AuthResponse)
         tokens = _tokens_for_user(user)
 
-        return Response(
+        response = Response(
             {
                 "user": UserSessionSerializer(user).data,
                 "tenant": TenantSerializer(user.tenant).data if user.tenant else None,
@@ -335,6 +336,8 @@ class PasskeyAuthenticateVerifyView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+        set_auth_cookies(response, tokens["access"], tokens["refresh"])
+        return response
 
 
 # ===================================
