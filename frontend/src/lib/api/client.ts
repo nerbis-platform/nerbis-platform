@@ -40,26 +40,21 @@ function getTenantSlug(): string {
  */
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
 /**
- * Interceptor para agregar token de autenticación y tenant slug
+ * Interceptor para agregar tenant slug.
+ * Los tokens de autenticación se envían automáticamente como httpOnly cookies
+ * gracias a withCredentials: true.
  */
 apiClient.interceptors.request.use(
   (config) => {
     // Agregar tenant slug dinámicamente
     config.headers['X-Tenant-Slug'] = getTenantSlug();
-
-    // Obtener token del localStorage
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('access_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
     return config;
   },
   (error) => {
@@ -89,16 +84,16 @@ export class ApiError extends Error {
  */
 let isRefreshing = false;
 let failedQueue: Array<{
-  resolve: (token: string) => void;
+  resolve: () => void;
   reject: (error: unknown) => void;
 }> = [];
 
-function processQueue(error: unknown, token: string | null) {
+function processQueue(error: unknown) {
   failedQueue.forEach(({ resolve, reject }) => {
-    if (error || !token) {
+    if (error) {
       reject(error);
     } else {
-      resolve(token);
+      resolve();
     }
   });
   failedQueue = [];
@@ -106,8 +101,6 @@ function processQueue(error: unknown, token: string | null) {
 
 function clearSessionAndRedirect() {
   if (typeof window !== 'undefined') {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     localStorage.removeItem('tenant');
     const currentPath = window.location.pathname;
@@ -167,27 +160,12 @@ apiClient.interceptors.response.use(
         return Promise.reject(authError);
       }
 
-      // Intentar renovar el access token con el refresh token
-      const refreshToken = typeof window !== 'undefined'
-        ? localStorage.getItem('refresh_token')
-        : null;
-
-      if (!refreshToken) {
-        clearSessionAndRedirect();
-        const authError = new ApiError(
-          'Sesión expirada. Por favor, inicia sesión de nuevo.',
-          401,
-          'UNAUTHORIZED'
-        );
-        return Promise.reject(authError);
-      }
-
       // Si ya hay un refresh en curso, encolar este request
       if (isRefreshing) {
-        return new Promise<string>((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        }).then((newToken) => {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        }).then(() => {
+          // Cookie actualizada automáticamente por el backend
           return apiClient(originalRequest);
         });
       }
@@ -195,22 +173,22 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const { data } = await axios.post<{ access: string; refresh?: string }>(
+        // El refresh token se envía automáticamente como httpOnly cookie
+        await axios.post(
           `${API_URL}/auth/refresh/`,
-          { refresh: refreshToken },
-          { headers: { 'Content-Type': 'application/json' } }
+          {},
+          {
+            withCredentials: true,
+            headers: { 'Content-Type': 'application/json' },
+          }
         );
 
-        localStorage.setItem('access_token', data.access);
-        if (data.refresh) {
-          localStorage.setItem('refresh_token', data.refresh);
-        }
-        processQueue(null, data.access);
+        processQueue(null);
 
-        originalRequest.headers.Authorization = `Bearer ${data.access}`;
+        // Reintentar request original (nueva cookie establecida por el backend)
         return apiClient(originalRequest);
       } catch (refreshError) {
-        processQueue(refreshError, null);
+        processQueue(refreshError);
         clearSessionAndRedirect();
         const authError = new ApiError(
           'Sesión expirada. Por favor, inicia sesión de nuevo.',

@@ -22,9 +22,9 @@ export async function adminLogin(
     '/admin/auth/login/',
     { email, password },
   );
+  // Auth tokens (access, refresh) are now set as httpOnly cookies by the backend.
+  // Only persist admin_user in localStorage for UI state.
   if (typeof window !== 'undefined') {
-    window.localStorage.setItem(ADMIN_STORAGE_KEYS.access, data.access);
-    window.localStorage.setItem(ADMIN_STORAGE_KEYS.refresh, data.refresh);
     window.localStorage.setItem(
       ADMIN_STORAGE_KEYS.user,
       JSON.stringify(data.user),
@@ -43,16 +43,15 @@ export async function adminMe(): Promise<AdminUser> {
 
 export async function adminLogout(): Promise<void> {
   if (typeof window === 'undefined') return;
-  const refresh = window.localStorage.getItem(ADMIN_STORAGE_KEYS.refresh);
   try {
-    if (refresh) {
-      await adminClient.post('/admin/auth/logout/', { refresh });
-    }
+    // The backend reads the refresh token from the httpOnly cookie and
+    // blacklists it. It also clears admin cookies on the response.
+    await adminClient.post('/admin/auth/logout/', {});
   } catch {
     // Si falla (token ya expiró, etc), continuar con limpieza local.
   } finally {
-    window.localStorage.removeItem(ADMIN_STORAGE_KEYS.access);
-    window.localStorage.removeItem(ADMIN_STORAGE_KEYS.refresh);
+    // Only clear admin_user from localStorage. Auth cookies are cleared
+    // server-side via Set-Cookie with max_age=0.
     window.localStorage.removeItem(ADMIN_STORAGE_KEYS.user);
   }
 }
@@ -70,7 +69,8 @@ export function getStoredAdmin(): AdminUser | null {
 
 export function isAdminAuthenticated(): boolean {
   if (typeof window === 'undefined') return false;
-  return !!window.localStorage.getItem(ADMIN_STORAGE_KEYS.access);
+  // Check admin_user instead of access token (tokens are now httpOnly cookies).
+  return !!window.localStorage.getItem(ADMIN_STORAGE_KEYS.user);
 }
 
 // ──────────────────────────────────────────────────────────────────────

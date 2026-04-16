@@ -179,10 +179,8 @@ export async function authenticateWithPasskey(email?: string): Promise<AuthRespo
     },
   );
 
-  // Persistir tokens en localStorage (mismo patrón que platformLogin)
-  if (typeof window !== 'undefined' && authData.tokens) {
-    localStorage.setItem('access_token', authData.tokens.access);
-    localStorage.setItem('refresh_token', authData.tokens.refresh);
+  // Persistir user/tenant en localStorage (tokens se manejan como httpOnly cookies)
+  if (typeof window !== 'undefined') {
     localStorage.setItem('user', JSON.stringify(authData.user));
     if (authData.tenant) {
       localStorage.setItem('tenant', JSON.stringify(authData.tenant));

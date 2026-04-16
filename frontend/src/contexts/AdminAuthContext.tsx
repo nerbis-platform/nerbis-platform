@@ -48,8 +48,10 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return;
     }
-    const token = window.localStorage.getItem(ADMIN_STORAGE_KEYS.access);
-    if (!token) {
+    // Check for stored admin_user to decide if we should hydrate.
+    // Auth tokens are now httpOnly cookies — we can't read them from JS.
+    const storedUser = window.localStorage.getItem(ADMIN_STORAGE_KEYS.user);
+    if (!storedUser) {
       setIsLoading(false);
       return;
     }

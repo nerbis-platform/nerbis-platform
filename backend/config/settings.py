@@ -295,7 +295,7 @@ LOGGING = {
 REST_FRAMEWORK = {
     # Autenticación
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "core.authentication.CookieJWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     # Permisos por defecto
@@ -355,6 +355,17 @@ SIMPLE_JWT = {
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
 }
+
+# ===================================
+# JWT COOKIE CONFIGURATION (httpOnly tokens)
+# ===================================
+# Cookie names: nerbis_access, nerbis_refresh (tenant)
+#               nerbis_admin_access, nerbis_admin_refresh (superadmin)
+JWT_COOKIE_SECURE = not DEBUG  # True in production (HTTPS only)
+JWT_COOKIE_SAMESITE = "Lax"  # Prevents cross-site POST CSRF attacks
+JWT_COOKIE_HTTPONLY = True  # Not accessible via document.cookie (XSS protection)
+JWT_COOKIE_PATH = "/"  # Sent on all paths
+JWT_COOKIE_DOMAIN = os.getenv("JWT_COOKIE_DOMAIN", None)  # .nerbis.com in prod, None in dev
 
 # ===================================
 # DRF SPECTACULAR (Documentación)

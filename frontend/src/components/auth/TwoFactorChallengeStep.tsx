@@ -97,10 +97,8 @@ export function TwoFactorChallengeStep({
 
   const handlePasskeyAuthResponse = useCallback(
     (data: AuthResponse) => {
-      // Persistir tokens en localStorage (mismo patrón que passkey.ts)
-      if (typeof window !== 'undefined' && data.tokens) {
-        localStorage.setItem('access_token', data.tokens.access);
-        localStorage.setItem('refresh_token', data.tokens.refresh);
+      // Persistir user/tenant en localStorage (tokens se manejan como httpOnly cookies)
+      if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify(data.user));
         if (data.tenant) {
           localStorage.setItem('tenant', JSON.stringify(data.tenant));

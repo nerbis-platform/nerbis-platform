@@ -22,12 +22,11 @@ function isTwoFactorRequired(
 }
 
 /**
- * Persiste tokens/user/tenant tras un login exitoso (sin 2FA pendiente).
+ * Persiste user/tenant tras un login exitoso (sin 2FA pendiente).
+ * Los tokens JWT se manejan como httpOnly cookies por el backend.
  */
 function persistSession(data: AuthResponse): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('access_token', data.tokens.access);
-  localStorage.setItem('refresh_token', data.tokens.refresh);
   localStorage.setItem('user', JSON.stringify(data.user));
   if (data.tenant) {
     localStorage.setItem('tenant', JSON.stringify(data.tenant));
@@ -61,8 +60,6 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
   const response = await apiClient.post<AuthResponse>('/auth/register/', data);
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem('access_token', response.data.tokens.access);
-    localStorage.setItem('refresh_token', response.data.tokens.refresh);
     localStorage.setItem('user', JSON.stringify(response.data.user));
     if (response.data.tenant) {
       localStorage.setItem('tenant', JSON.stringify(response.data.tenant));
@@ -73,21 +70,16 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
 }
 
 /**
- * Logout — invalida refresh token en backend + limpia localStorage
+ * Logout — invalida refresh token en backend (cookie) + limpia localStorage
  */
 export async function logout(): Promise<void> {
   if (typeof window !== 'undefined') {
-    const refreshToken = localStorage.getItem('refresh_token');
-    // Invalidar token en backend (blacklist)
-    if (refreshToken) {
-      try {
-        await apiClient.post('/auth/logout/', { refresh: refreshToken });
-      } catch {
-        // Si falla (token ya expiró, etc), continuar con limpieza local
-      }
+    // El backend lee el refresh token desde la httpOnly cookie y lo blacklistea
+    try {
+      await apiClient.post('/auth/logout/');
+    } catch {
+      // Si falla (token ya expiró, etc), continuar con limpieza local
     }
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     localStorage.removeItem('tenant');
   }
@@ -114,7 +106,7 @@ export async function getCurrentUser(): Promise<User> {
  */
 export function isAuthenticated(): boolean {
   if (typeof window === 'undefined') return false;
-  return !!localStorage.getItem('access_token');
+  return !!localStorage.getItem('user');
 }
 
 /**
@@ -205,8 +197,6 @@ export async function socialLinkAccount(
   });
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem('access_token', data.tokens.access);
-    localStorage.setItem('refresh_token', data.tokens.refresh);
     localStorage.setItem('user', JSON.stringify(data.user));
     if (data.tenant) {
       localStorage.setItem('tenant', JSON.stringify(data.tenant));
@@ -285,8 +275,6 @@ export async function registerTenant(data: RegisterTenantData): Promise<AuthResp
   const response = await apiClient.post<AuthResponse>('/public/register-tenant/', data);
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem('access_token', response.data.tokens.access);
-    localStorage.setItem('refresh_token', response.data.tokens.refresh);
     localStorage.setItem('user', JSON.stringify(response.data.user));
     if (response.data.tenant) {
       localStorage.setItem('tenant', JSON.stringify(response.data.tenant));
@@ -380,8 +368,6 @@ export async function verifyReactivationOTP(email: string, code: string): Promis
   const { data } = await apiClient.post<AuthResponse>('/auth/verify-reactivation/', { email, code });
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem('access_token', data.tokens.access);
-    localStorage.setItem('refresh_token', data.tokens.refresh);
     localStorage.setItem('user', JSON.stringify(data.user));
     if (data.tenant) {
       localStorage.setItem('tenant', JSON.stringify(data.tenant));

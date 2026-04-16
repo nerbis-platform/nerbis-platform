@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .cookies import set_auth_cookies
 from .models import TOTPDevice, User, WebAuthnCredential
 from .serializers import TenantSerializer, UserSessionSerializer
 from .throttles import TwoFactorChallengeThrottle, TwoFactorVerifyThrottle
@@ -374,7 +375,14 @@ class TwoFactorChallengeView(APIView):
         device.last_used_at = timezone.now()
         device.save(update_fields=["last_used_at"])
 
-        return Response(_build_jwt_pair(user))
+        data = _build_jwt_pair(user)
+        response = Response(data)
+        set_auth_cookies(
+            response,
+            data["tokens"]["access"],
+            data["tokens"]["refresh"],
+        )
+        return response
 
 
 class TwoFactorPasskeyOptionsView(APIView):
@@ -550,4 +558,11 @@ class TwoFactorPasskeyVerifyView(APIView):
         cred_obj.last_used_at = timezone.now()
         cred_obj.save(update_fields=["sign_count", "last_used_at"])
 
-        return Response(_build_jwt_pair(user))
+        data = _build_jwt_pair(user)
+        response = Response(data)
+        set_auth_cookies(
+            response,
+            data["tokens"]["access"],
+            data["tokens"]["refresh"],
+        )
+        return response

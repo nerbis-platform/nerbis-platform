@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from core.cookies import clear_auth_cookies, set_auth_cookies
 from core.models import User
 from core.permissions import IsSuperAdmin
 from core.serializers import (
@@ -84,7 +85,7 @@ class AdminLoginView(APIView):
             )
 
         tokens = build_superadmin_tokens(user)
-        return Response(
+        response = Response(
             {
                 "access": tokens["access"],
                 "refresh": tokens["refresh"],
@@ -92,6 +93,13 @@ class AdminLoginView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+        set_auth_cookies(
+            response,
+            tokens["access"],
+            tokens["refresh"],
+            cookie_prefix="nerbis_admin",
+        )
+        return response
 
 
 class AdminRegisterView(APIView):
@@ -127,7 +135,7 @@ class AdminLogoutView(APIView):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def post(self, request):
-        refresh = request.data.get("refresh")
+        refresh = request.data.get("refresh") or request.COOKIES.get("nerbis_admin_refresh")
         if not refresh:
             return Response(
                 {"detail": "refresh token required"},
@@ -146,7 +154,71 @@ class AdminLogoutView(APIView):
                 {"detail": "invalid refresh token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        return Response(status=status.HTTP_205_RESET_CONTENT)
+        response = Response(status=status.HTTP_205_RESET_CONTENT)
+        clear_auth_cookies(response, cookie_prefix="nerbis_admin")
+        return response
+
+
+class AdminTokenRefreshView(APIView):
+    """POST /api/admin/auth/refresh/ — Refresh admin JWT tokens.
+
+    Reads the refresh token from the request body (``refresh`` field) or
+    from the ``nerbis_admin_refresh`` httpOnly cookie.  Returns new tokens
+    and sets updated cookies.
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_raw = request.data.get("refresh") or request.COOKIES.get("nerbis_admin_refresh")
+        if not refresh_raw:
+            return Response(
+                {"detail": "refresh token required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            old_token = RefreshToken(refresh_raw)
+        except TokenError:
+            return Response(
+                {"detail": "invalid refresh token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if old_token.get("scope") != "admin":
+            return Response(
+                {"detail": "invalid refresh token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Rotate: blacklist old, issue new pair
+        try:
+            old_token.blacklist()
+        except AttributeError:
+            pass  # blacklisting not enabled
+
+        user_id = old_token.get("user_id")
+        try:
+            user = User.objects.get(pk=user_id, is_superuser=True, is_active=True)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "invalid refresh token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tokens = build_superadmin_tokens(user)
+        response = Response(
+            {"access": tokens["access"], "refresh": tokens["refresh"]},
+            status=status.HTTP_200_OK,
+        )
+        set_auth_cookies(
+            response,
+            tokens["access"],
+            tokens["refresh"],
+            cookie_prefix="nerbis_admin",
+        )
+        return response
 
 
 class AdminSuperadminPagination(PageNumberPagination):
