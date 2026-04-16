@@ -175,7 +175,7 @@ class AdminTokenRefreshView(APIView):
         if not refresh_raw:
             return Response(
                 {"detail": "refresh token required"},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         try:
@@ -183,13 +183,13 @@ class AdminTokenRefreshView(APIView):
         except TokenError:
             return Response(
                 {"detail": "invalid refresh token"},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         if old_token.get("scope") != "admin":
             return Response(
                 {"detail": "invalid refresh token"},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         # Rotate: blacklist old, issue new pair
@@ -204,7 +204,7 @@ class AdminTokenRefreshView(APIView):
         except User.DoesNotExist:
             return Response(
                 {"detail": "invalid refresh token"},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         tokens = build_superadmin_tokens(user)
