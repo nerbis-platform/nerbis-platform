@@ -769,6 +769,10 @@ class SocialAccount(models.Model):
                 fields=["tenant", "provider", "provider_uid"],
                 name="unique_social_account_per_tenant",
             ),
+            models.UniqueConstraint(
+                fields=["user", "provider"],
+                name="core_socialaccount_user_provider_uq",
+            ),
         ]
         indexes = [
             models.Index(fields=["tenant", "provider", "email"]),

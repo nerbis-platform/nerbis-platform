@@ -1887,13 +1887,13 @@ class SocialLinkView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Crear SocialAccount (o actualizar si ya existe para otro provider_uid)
+        # Crear SocialAccount (o actualizar si ya existe para este user+provider)
         SocialAccount.objects.update_or_create(
-            tenant=tenant,
+            user=user,
             provider=social_info.provider,
-            provider_uid=social_info.provider_uid,
             defaults={
-                "user": user,
+                "tenant": tenant,
+                "provider_uid": social_info.provider_uid,
                 "email": social_info.email,
                 "extra_data": social_info.extra_data,
             },
@@ -2073,14 +2073,14 @@ class PlatformSocialLoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Vincular automáticamente (get_or_create para manejar concurrencia)
+        # Vincular automáticamente (update_or_create para manejar concurrencia)
         with transaction.atomic():
-            SocialAccount.objects.get_or_create(
-                tenant=user.tenant,
+            SocialAccount.objects.update_or_create(
+                user=user,
                 provider=social_info.provider,
-                provider_uid=social_info.provider_uid,
                 defaults={
-                    "user": user,
+                    "tenant": user.tenant,
+                    "provider_uid": social_info.provider_uid,
                     "email": social_info.email,
                     "extra_data": social_info.extra_data,
                 },
