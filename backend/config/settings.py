@@ -230,7 +230,18 @@ CORS_ALLOW_HEADERS = [
 ]
 
 
-# backend/config/settings.py (al final)
+# ===================================
+# SECURITY HARDENING (producción)
+# ===================================
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "True") == "True"
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 
 # ===================================
 # LOGGING
@@ -316,6 +327,8 @@ REST_FRAMEWORK = {
     ],
     # Documentación
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Proxies — para que los throttles usen la IP real del cliente
+    "NUM_PROXIES": int(os.getenv("NUM_PROXIES", "1")),
     # Rate Limiting (throttling)
     "DEFAULT_THROTTLE_HANDLERS": {
         "THROTTLED_CACHE": "throttle",
@@ -339,7 +352,7 @@ from datetime import timedelta
 
 SIMPLE_JWT = {
     # Tiempo de vida de los tokens
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     # Rotación de tokens
     "ROTATE_REFRESH_TOKENS": True,
@@ -347,10 +360,13 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": True,
     # Configuración
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
+    "SIGNING_KEY": os.getenv("JWT_SIGNING_KEY", SECRET_KEY),
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
+    # Claims de validación (#145)
+    "ISSUER": "nerbis",
+    "AUDIENCE": None,
 }
 
 # ===================================
