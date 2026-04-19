@@ -43,6 +43,7 @@ class AdminTenantListSerializer(serializers.ModelSerializer):
             "email",
             "plan",
             "is_active",
+            "subscription_ends_at",
             "subscription_status",
             "days_remaining",
             "user_count",
@@ -147,9 +148,9 @@ class AdminTenantUpdateSerializer(serializers.Serializer):
 class AdminSocialAccountSerializer(serializers.ModelSerializer):
     """Resumen de cuenta social vinculada al usuario.
 
-    Intencionalmente NO expone ``provider_uid`` crudo (podría filtrar datos
-    del proveedor); sí el ``extra_data`` que el proveedor ya devolvió al
-    vincular. El ``connected_at`` mapea a ``created_at`` del modelo.
+    Intencionalmente NO expone ``provider_uid`` ni ``extra_data`` para
+    evitar filtrar datos del proveedor. El ``connected_at`` mapea a
+    ``created_at`` del modelo.
     """
 
     connected_at = serializers.DateTimeField(source="created_at", read_only=True)
@@ -159,9 +160,7 @@ class AdminSocialAccountSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "provider",
-            "provider_uid",
             "email",
-            "extra_data",
             "connected_at",
         ]
         read_only_fields = fields

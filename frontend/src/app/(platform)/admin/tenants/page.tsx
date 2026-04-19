@@ -219,7 +219,7 @@ export default function AdminTenantsPage() {
       setItems((prev) =>
         prev.map((row) =>
           row.id === updated.id
-            ? { ...row, is_active: updated.is_active }
+            ? { ...row, is_active: updated.is_active, subscription_status: updated.subscription_status }
             : row,
         ),
       );

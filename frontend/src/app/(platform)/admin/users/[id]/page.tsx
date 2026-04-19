@@ -262,7 +262,7 @@ export default function AdminUserDetailPage({
   const [actionSubmitting, setActionSubmitting] = useState(false);
 
   const loadUser = useCallback(async () => {
-    if (!Number.isFinite(userId)) {
+    if (!/^\d+$/.test(id) || !Number.isFinite(userId)) {
       setError('ID de usuario invalido.');
       setLoading(false);
       return;
@@ -282,7 +282,7 @@ export default function AdminUserDetailPage({
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [id, userId]);
 
   useEffect(() => {
     void loadUser();
@@ -1139,7 +1139,7 @@ export default function AdminUserDetailPage({
                 Este es el ultimo metodo alternativo.
               </strong>
               Despues de desvincular solo podra acceder con contraseña
-              ({projectedAuthCountAfterRemoval(1)} metodo restante ademas de
+              ({Math.max(0, projectedAuthCountAfterRemoval(1) - 1)} metodo restante ademas de
               la contraseña).
             </div>
           ) : null}

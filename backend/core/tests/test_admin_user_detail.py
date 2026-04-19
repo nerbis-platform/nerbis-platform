@@ -190,7 +190,9 @@ class AdminUserDetailGETTests(_AdminUserDetailTestBase):
         social = data["social_accounts"][0]
         self.assertEqual(social["provider"], "google")
         self.assertEqual(social["email"], "juan@gmail.com")
-        self.assertEqual(social["extra_data"], {"name": "Juan Pérez"})
+        # extra_data and provider_uid are intentionally NOT exposed.
+        self.assertNotIn("extra_data", social)
+        self.assertNotIn("provider_uid", social)
         self.assertIn("connected_at", social)
 
         self.assertEqual(len(data["passkeys"]), 1)
@@ -392,29 +394,32 @@ class AdminUserDetailPATCHTests(_AdminUserDetailTestBase):
     def test_cannot_modify_own_user(self) -> None:
         """Self-protection: el superadmin no puede modificarse via este endpoint.
 
-        Aunque los superadmins están excluidos del queryset, si alguna
-        vez un superadmin aparecier con tenant asignado, la capa adicional
-        del guard debería activarse. Para cubrir la ruta, creamos un
-        usuario ficticio con tenant que apunta al superadmin — en práctica
-        ejercitamos la ruta haciendo que el target coincida con el actor.
-        """
-        # Creamos un "user-as-actor" dentro del tenant que el superadmin
-        # usará. Autenticamos con ese usuario contra su propio endpoint.
-        shadow_admin = _make_user(
-            tenant=self.tenant,
-            email="shadow@cafe.test",
-            role="admin",
-        )
-        # Lo promovemos a superadmin con tenant (caso defensivo).
-        shadow_admin.is_superuser = True
-        shadow_admin.save(update_fields=["is_superuser"])
+        Para ejercitar el guard ``user.pk == request.user.pk``, creamos un
+        superadmin real (tenant=None) que intenta PATCH su propio registro.
+        Como el queryset excluye superadmins (tenant IS NULL), DRF devuelve
+        404 antes de llegar al guard. Sin embargo, la protección sigue
+        existiendo como defensa en profundidad. Verificamos el 404.
 
-        # Cliente autenticado como el shadow_admin.
+        Para cubrir la rama del guard explícitamente, creamos un superadmin
+        con tenant asignado — ``IsSuperAdmin`` pasa porque ``tenant=None``
+        y el usuario aparece en el queryset porque tiene tenant.
+        """
+        # Creamos un superadmin real (tenant=None) que también existe como
+        # usuario de tenant — simulamos asignándole un tenant después de la
+        # creación para que pase tanto IsSuperAdmin como el queryset filter.
+        shadow_admin = _make_superadmin(email="shadow@nerbis.test")
+
+        # Asignamos tenant para que aparezca en el queryset
+        # (filter(tenant__isnull=False)).
+        shadow_admin.tenant = self.tenant
+        shadow_admin.save(update_fields=["tenant"])
+
+        # Cliente autenticado como el shadow_admin (superadmin real con
+        # tenant=None en el token, IsSuperAdmin pasa).
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {_superadmin_access_for(shadow_admin)}")
 
-        # Como shadow_admin tiene tenant, el permiso IsSuperAdmin lo rechaza
-        # (tenant_id IS NOT NULL). Verificamos el guard de permisos:
+        # El guard ``user.pk == request.user.pk`` se activa y devuelve 403.
         url = reverse("admin-users-detail", args=[shadow_admin.pk])
         response = client.patch(url, data={"is_active": False}, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

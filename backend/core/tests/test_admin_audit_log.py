@@ -12,7 +12,10 @@ Cubre:
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.test import RequestFactory, TestCase
+from django.utils import timezone
 
 from core.context import clear_current_tenant
 from core.models import AdminAuditLog, Tenant, User
@@ -142,12 +145,14 @@ class AdminAuditLogModelTests(TestCase):
     # ------------------------------------------------------------------
     def test_default_ordering_is_newest_first(self) -> None:
         actor = _make_superadmin()
+        now = timezone.now()
         first = AdminAuditLog.objects.create(
             actor=actor,
             action=AdminAuditLog.ACTION_ACTIVATE_USER,
             target_type="User",
             target_id="1",
             target_repr="user: first@test.com",
+            created_at=now - timedelta(minutes=2),
         )
         second = AdminAuditLog.objects.create(
             actor=actor,
@@ -155,6 +160,7 @@ class AdminAuditLogModelTests(TestCase):
             target_type="User",
             target_id="2",
             target_repr="user: second@test.com",
+            created_at=now - timedelta(minutes=1),
         )
         third = AdminAuditLog.objects.create(
             actor=actor,
@@ -162,6 +168,7 @@ class AdminAuditLogModelTests(TestCase):
             target_type="User",
             target_id="3",
             target_repr="user: third@test.com",
+            created_at=now,
         )
 
         logs = list(AdminAuditLog.objects.all())

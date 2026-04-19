@@ -286,10 +286,14 @@ def send_admin_password_reset_email(user_id: int, token: str) -> None:
             },
         )
 
-        logger.info(f"Admin password reset email enviado a {user.email}")
+        logger.info(
+            "Admin password reset email enviado para user_id=%s tenant_id=%s",
+            user.id,
+            getattr(user, "tenant_id", None),
+        )
 
     except Exception as e:
-        logger.error(f"Error enviando admin password reset email a usuario {user_id}: {str(e)}")
+        logger.error("Error enviando admin password reset email para user_id=%s: %s", user_id, str(e))
         raise
 
 

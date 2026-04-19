@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 
+from django.db import transaction
 from django.db.models import Count, Q, QuerySet
 from rest_framework import generics, status
 from rest_framework.pagination import PageNumberPagination
@@ -185,23 +186,26 @@ class AdminTenantDetailView(generics.RetrieveUpdateAPIView):
                 status=status.HTTP_200_OK,
             )
 
-        previous_is_active = tenant.is_active
-        update_fields: list[str] = []
+        with transaction.atomic():
+            # Re-fetch with lock inside the transaction.
+            tenant = Tenant.objects.select_for_update().get(pk=tenant.pk)
 
-        for field, value in validated.items():
-            setattr(tenant, field, value)
-            update_fields.append(field)
+            previous_is_active = tenant.is_active
+            update_fields: list[str] = []
 
-        tenant.save(update_fields=update_fields)
+            for field, value in validated.items():
+                setattr(tenant, field, value)
+                update_fields.append(field)
 
-        # Audit trail sólo para transiciones de is_active.
-        if "is_active" in validated and previous_is_active != validated["is_active"]:
-            action = (
-                AdminAuditLog.ACTION_ACTIVATE_TENANT
-                if validated["is_active"]
-                else AdminAuditLog.ACTION_DEACTIVATE_TENANT
-            )
-            try:
+            tenant.save(update_fields=update_fields)
+
+            # Audit trail sólo para transiciones de is_active.
+            if "is_active" in validated and previous_is_active != validated["is_active"]:
+                action = (
+                    AdminAuditLog.ACTION_ACTIVATE_TENANT
+                    if validated["is_active"]
+                    else AdminAuditLog.ACTION_DEACTIVATE_TENANT
+                )
                 AdminAuditLog.objects.create(
                     actor=request.user,
                     action=action,
@@ -213,12 +217,6 @@ class AdminTenantDetailView(generics.RetrieveUpdateAPIView):
                         "new_is_active": validated["is_active"],
                     },
                     ip_address=get_client_ip(request),
-                )
-            except Exception:  # pragma: no cover — defensivo, no bloquea la acción
-                logger.exception(
-                    "Failed to write AdminAuditLog for tenant %s action=%s",
-                    tenant.id,
-                    action,
                 )
 
         # Re-anotar para incluir user_count/admin_count en la respuesta.
@@ -371,49 +369,57 @@ class AdminUserDetailView(generics.RetrieveUpdateAPIView):
                 status=status.HTTP_200_OK,
             )
 
-        previous_is_active = user.is_active
-        previous_role = user.role
-        update_fields: list[str] = []
+        with transaction.atomic():
+            # Re-fetch with lock inside the transaction.
+            user = User.objects.select_for_update().get(pk=user.pk)
 
-        for field, value in validated.items():
-            setattr(user, field, value)
-            update_fields.append(field)
+            previous_is_active = user.is_active
+            previous_role = user.role
+            update_fields: list[str] = []
 
-        if update_fields:
-            user.save(update_fields=update_fields)
+            for field, value in validated.items():
+                setattr(user, field, value)
+                update_fields.append(field)
 
-        # Audit trail: una entrada por tipo de cambio destructivo.
-        ip = get_client_ip(request)
-        target_repr = f"user: {user.email}"
+            if update_fields:
+                user.save(update_fields=update_fields)
 
-        if "is_active" in validated and previous_is_active != validated["is_active"]:
-            action = (
-                AdminAuditLog.ACTION_ACTIVATE_USER if validated["is_active"] else AdminAuditLog.ACTION_DEACTIVATE_USER
-            )
-            self._write_audit(
-                actor=request.user,
-                action=action,
-                target_id=str(user.pk),
-                target_repr=target_repr,
-                details={
-                    "previous_is_active": previous_is_active,
-                    "new_is_active": validated["is_active"],
-                },
-                ip_address=ip,
-            )
+            # Audit trail: una entrada por tipo de cambio destructivo.
+            ip = get_client_ip(request)
+            target_repr = f"user: {user.email}"
 
-        if "role" in validated and previous_role != validated["role"]:
-            self._write_audit(
-                actor=request.user,
-                action=AdminAuditLog.ACTION_CHANGE_USER_ROLE,
-                target_id=str(user.pk),
-                target_repr=target_repr,
-                details={
-                    "old_role": previous_role,
-                    "new_role": validated["role"],
-                },
-                ip_address=ip,
-            )
+            if "is_active" in validated and previous_is_active != validated["is_active"]:
+                action = (
+                    AdminAuditLog.ACTION_ACTIVATE_USER
+                    if validated["is_active"]
+                    else AdminAuditLog.ACTION_DEACTIVATE_USER
+                )
+                AdminAuditLog.objects.create(
+                    actor=request.user,
+                    action=action,
+                    target_type="User",
+                    target_id=str(user.pk),
+                    target_repr=target_repr,
+                    details={
+                        "previous_is_active": previous_is_active,
+                        "new_is_active": validated["is_active"],
+                    },
+                    ip_address=ip,
+                )
+
+            if "role" in validated and previous_role != validated["role"]:
+                AdminAuditLog.objects.create(
+                    actor=request.user,
+                    action=AdminAuditLog.ACTION_CHANGE_USER_ROLE,
+                    target_type="User",
+                    target_id=str(user.pk),
+                    target_repr=target_repr,
+                    details={
+                        "old_role": previous_role,
+                        "new_role": validated["role"],
+                    },
+                    ip_address=ip,
+                )
 
         # Re-fetch con prefetch para evitar N+1 al serializar métodos auth.
         refreshed = self.get_queryset().get(pk=user.pk)
@@ -427,34 +433,6 @@ class AdminUserDetailView(generics.RetrieveUpdateAPIView):
             {"detail": 'Method "PUT" not allowed.'},
             status=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
-
-    @staticmethod
-    def _write_audit(
-        *,
-        actor: User,
-        action: str,
-        target_id: str,
-        target_repr: str,
-        details: dict,
-        ip_address: str | None,
-    ) -> None:
-        """Escribe una entrada de AdminAuditLog. No bloquea la acción si falla."""
-        try:
-            AdminAuditLog.objects.create(
-                actor=actor,
-                action=action,
-                target_type="User",
-                target_id=target_id,
-                target_repr=target_repr,
-                details=details,
-                ip_address=ip_address,
-            )
-        except Exception:  # pragma: no cover — defensivo
-            logger.exception(
-                "Failed to write AdminAuditLog action=%s target_id=%s",
-                action,
-                target_id,
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -486,23 +464,18 @@ def _write_user_audit(
 
     No usamos el método estático de ``AdminUserDetailView`` para mantener
     cada vista aislada y evitar acoplar import paths.
+    Debe llamarse dentro de un ``transaction.atomic()`` para que el audit
+    log se guarde o se revierta junto con la acción principal.
     """
-    try:
-        AdminAuditLog.objects.create(
-            actor=actor,
-            action=action,
-            target_type="User",
-            target_id=str(target_user.pk),
-            target_repr=f"user: {target_user.email}",
-            details=details,
-            ip_address=ip_address,
-        )
-    except Exception:  # pragma: no cover — defensivo
-        logger.exception(
-            "Failed to write AdminAuditLog action=%s target_id=%s",
-            action,
-            target_user.pk,
-        )
+    AdminAuditLog.objects.create(
+        actor=actor,
+        action=action,
+        target_type="User",
+        target_id=str(target_user.pk),
+        target_repr=f"user: {target_user.email}",
+        details=details,
+        ip_address=ip_address,
+    )
 
 
 def _mask_email(email: str) -> str:
@@ -560,9 +533,19 @@ class AdminResetPasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        token = PasswordSetToken.create_for_user(user, hours_valid=24)
+        with transaction.atomic():
+            token = PasswordSetToken.create_for_user(user, hours_valid=24)
+
+            _write_user_audit(
+                actor=request.user,
+                action=AdminAuditLog.ACTION_RESET_PASSWORD,
+                target_user=user,
+                details={"email": user.email},
+                ip_address=get_client_ip(request),
+            )
 
         # Envío async vía Celery — si falla la entrega, Celery reintenta.
+        # Fuera del transaction.atomic() porque es fire-and-forget.
         try:
             from notifications.tasks import send_admin_password_reset_email
 
@@ -572,14 +555,6 @@ class AdminResetPasswordView(APIView):
                 "Failed to enqueue admin_password_reset email for user_id=%s",
                 user.pk,
             )
-
-        _write_user_audit(
-            actor=request.user,
-            action=AdminAuditLog.ACTION_RESET_PASSWORD,
-            target_user=user,
-            details={"email": user.email},
-            ip_address=get_client_ip(request),
-        )
 
         return Response(
             {"detail": f"Password reset email sent to {_mask_email(user.email)}"},
@@ -623,15 +598,17 @@ class AdminDeletePasskeyView(APIView):
             )
 
         passkey_name = passkey.name
-        passkey.delete()
 
-        _write_user_audit(
-            actor=request.user,
-            action=AdminAuditLog.ACTION_DELETE_PASSKEY,
-            target_user=user,
-            details={"passkey_name": passkey_name},
-            ip_address=get_client_ip(request),
-        )
+        with transaction.atomic():
+            passkey.delete()
+
+            _write_user_audit(
+                actor=request.user,
+                action=AdminAuditLog.ACTION_DELETE_PASSKEY,
+                target_user=user,
+                details={"passkey_name": passkey_name},
+                ip_address=get_client_ip(request),
+            )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -671,15 +648,17 @@ class AdminDisable2FAView(APIView):
             )
 
         was_confirmed = device.confirmed
-        device.delete()
 
-        _write_user_audit(
-            actor=request.user,
-            action=AdminAuditLog.ACTION_DISABLE_2FA,
-            target_user=user,
-            details={"was_confirmed": was_confirmed},
-            ip_address=get_client_ip(request),
-        )
+        with transaction.atomic():
+            device.delete()
+
+            _write_user_audit(
+                actor=request.user,
+                action=AdminAuditLog.ACTION_DISABLE_2FA,
+                target_user=user,
+                details={"was_confirmed": was_confirmed},
+                ip_address=get_client_ip(request),
+            )
 
         return Response(
             {"detail": "2FA disabled for user."},
@@ -731,14 +710,16 @@ class AdminUnlinkSocialView(APIView):
             )
 
         account_email = account.email
-        account.delete()
 
-        _write_user_audit(
-            actor=request.user,
-            action=AdminAuditLog.ACTION_UNLINK_SOCIAL,
-            target_user=user,
-            details={"provider": normalized_provider, "email": account_email},
-            ip_address=get_client_ip(request),
-        )
+        with transaction.atomic():
+            account.delete()
+
+            _write_user_audit(
+                actor=request.user,
+                action=AdminAuditLog.ACTION_UNLINK_SOCIAL,
+                target_user=user,
+                details={"provider": normalized_provider, "email": account_email},
+                ip_address=get_client_ip(request),
+            )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
