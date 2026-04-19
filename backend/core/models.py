@@ -1096,8 +1096,8 @@ class OTPToken(models.Model):
         if recent_count >= cls.MAX_RESENDS_PER_HOUR:
             raise ValueError("Demasiadas solicitudes de OTP. Intenta de nuevo más tarde.")
 
-        # Invalidar OTPs anteriores del mismo propósito
-        cls.objects.filter(user=user, purpose=purpose, used_at__isnull=True).delete()
+        # Soft-invalidar OTPs anteriores (no delete, para que el count de rate limit siga válido)
+        cls.objects.filter(user=user, purpose=purpose, used_at__isnull=True).update(used_at=timezone.now())
 
         # Generar código de 8 dígitos (criptográficamente seguro)
         code = "".join([str(secrets.randbelow(10)) for _ in range(cls.OTP_LENGTH)])

@@ -370,9 +370,9 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
-    # Claims de validación (#145)
-    "ISSUER": "nerbis",
-    "AUDIENCE": None,
+    # Claims: ISSUER omitted intentionally — adding it would invalidate
+    # all existing tokens, forcing a mass logout.  Roll out in two steps
+    # (issue new tokens with iss → then enforce) if desired in the future.
 }
 
 # ===================================

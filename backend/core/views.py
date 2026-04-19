@@ -411,8 +411,13 @@ class PlatformLoginView(APIView):
             if not candidates:
                 return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
-            # Verificar password contra todos los candidatos
-            matching = [u for u in candidates if u.check_password(password)]
+            # Verificar password contra candidatos (short-circuit: stop after 2 matches to cap bcrypt cost)
+            matching = []
+            for c in candidates:
+                if c.check_password(password):
+                    matching.append(c)
+                    if len(matching) > 1:
+                        break  # Already ambiguous — no need to check more
             if not matching:
                 return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -555,9 +560,12 @@ class PlatformVerifyResetOTPView(APIView):
         ).select_related("user", "user__tenant")
 
         # Encontrar el OTP correcto sin incrementar intentos en los demás
+        import secrets as secrets_mod
+
         matched_otp = None
+        code_str = str(code) if code is not None else ""
         for otp in active_otps:
-            if otp.is_valid and isinstance(code, str) and otp.code == code:
+            if otp.is_valid and secrets_mod.compare_digest(otp.code, code_str):
                 matched_otp = otp
                 break
 
@@ -627,7 +635,8 @@ class LogoutView(APIView):
             try:
                 token = RefreshToken(refresh_token)
                 # Security: verify token ownership before blacklisting (#143)
-                if token.payload.get("user_id") == request.user.id:
+                # str() normalization: payload may store int or str depending on serializer
+                if str(token.payload.get("user_id")) == str(request.user.id):
                     token.blacklist()
             except Exception:
                 pass  # Token may already be expired/blacklisted — still clear cookies
@@ -1260,9 +1269,12 @@ class RequestPasswordResetOTPView(APIView):
         try:
             otp = OTPToken.create_for_user(user, purpose="password_reset")
         except ValueError:
+            # Return generic response to avoid revealing that the email exists
             return Response(
-                {"error": "Demasiadas solicitudes. Intenta de nuevo más tarde."},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+                {
+                    "message": "Si el email existe, recibirás un código de verificación",
+                    "email": email,
+                }
             )
 
         # Enviar email con OTP (async con Celery)
@@ -1330,18 +1342,21 @@ class VerifyPasswordResetOTPView(APIView):
                 {"error": "Email, código y nueva contraseña son requeridos"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Buscar usuario
-        try:
-            user = User.objects.get(email__iexact=email, tenant=tenant)
-        except User.DoesNotExist:
-            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        # Resolve user via OTP ownership — avoids leaking email existence (#138)
+        otp = (
+            OTPToken.objects.filter(
+                user__email__iexact=email,
+                user__tenant=tenant,
+                purpose="password_reset",
+                used_at__isnull=True,
+            )
+            .select_related("user")
+            .first()
+        )
 
-        # Buscar OTP válido
-        try:
-            otp = OTPToken.objects.get(user=user, purpose="password_reset", used_at__isnull=True)
-        except OTPToken.DoesNotExist:
+        if not otp or not otp.is_valid:
             return Response(
-                {"error": "No hay un código de verificación activo. Solicita uno nuevo."},
+                {"error": "Solicitud inválida. Solicita un nuevo código."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1349,6 +1364,8 @@ class VerifyPasswordResetOTPView(APIView):
         success, error = otp.verify(code)
         if not success:
             return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = otp.user
 
         # Validar contraseña con los validadores de Django (#141)
         from django.contrib.auth.password_validation import validate_password
@@ -1430,10 +1447,8 @@ class RequestReactivationOTPView(APIView):
         try:
             otp = OTPToken.create_for_user(user, purpose="account_reactivation")
         except ValueError:
-            return Response(
-                {"error": "Demasiadas solicitudes. Intenta de nuevo más tarde."},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
+            # Return generic response to avoid revealing that credentials were valid
+            return generic_ok
 
         # Enviar email con OTP (async con Celery)
         from notifications.tasks import send_otp_email

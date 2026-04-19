@@ -32,7 +32,8 @@ class LoginEmailThrottle(SimpleRateThrottle):
     cache = throttle_cache
 
     def get_cache_key(self, request, view):
-        email = request.data.get("email", "").strip().lower()
+        raw = request.data.get("email", "")
+        email = str(raw).strip().lower() if raw else ""
         if not email:
             return None  # Sin email, solo aplica el throttle por IP
         return self.cache_format % {
