@@ -67,9 +67,9 @@
 :root {
   --radius: 0.625rem;
 
-  /* Rose Gold Elegante - Paleta Principal */
-  --background: #FBF9F7;
-  --footer-background: #F5F0ED;
+  /* Defaults neutrales — applyThemeToDOM() los overridea con colores del tenant */
+  --background: #FAFAFA;
+  --footer-background: #F5F5F5;
   --header: #FFFFFF;
   --foreground: #3D3D3D;
 
@@ -79,46 +79,46 @@
   --popover: #FFFFFF;
   --popover-foreground: #3D3D3D;
 
-  /* Primary - Rosa Dusty Elegante */
-  --primary: #D4A5A5;
+  /* Primary - Neutral */
+  --primary: #6B7280;
   --primary-foreground: #FFFFFF;
 
-  /* Secondary - Rosa más suave */
-  --secondary: #F5E6E6;
-  --secondary-foreground: #6B4C4C;
+  /* Secondary - Neutral */
+  --secondary: #F3F4F6;
+  --secondary-foreground: #4B5563;
 
-  /* Muted - Tonos neutros cálidos */
-  --muted: #F5F0ED;
+  /* Muted */
+  --muted: #F5F5F5;
   --muted-foreground: #7A7A7A;
 
-  /* Accent - Verde Nerbis */
-  --accent: #E2F3F1;
-  --accent-foreground: #1C3B57;
+  /* Accent */
+  --accent: #F3F4F6;
+  --accent-foreground: #374151;
 
   /* Estados */
   --destructive: #E57373;
 
   /* Bordes e inputs */
-  --border: #E8E0DC;
-  --input: #E8E0DC;
-  --ring: #0D9488;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #9CA3AF;
 
-  /* Charts - Paleta complementaria */
-  --chart-1: #D4A5A5;
-  --chart-2: #C48B8B;
-  --chart-3: #D4AF37;
-  --chart-4: #A8C5A8;
-  --chart-5: #9BB5C9;
+  /* Charts - Neutral */
+  --chart-1: #6B7280;
+  --chart-2: #4B5563;
+  --chart-3: #9CA3AF;
+  --chart-4: #D1D5DB;
+  --chart-5: #E5E7EB;
 
   /* Sidebar */
   --sidebar: #FFFFFF;
   --sidebar-foreground: #3D3D3D;
-  --sidebar-primary: #D4A5A5;
+  --sidebar-primary: #6B7280;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F5E6E6;
-  --sidebar-accent-foreground: #6B4C4C;
-  --sidebar-border: #E8E0DC;
-  --sidebar-ring: #D4A5A5;
+  --sidebar-accent: #F3F4F6;
+  --sidebar-accent-foreground: #4B5563;
+  --sidebar-border: #E5E7EB;
+  --sidebar-ring: #6B7280;
 
   /* Fuentes del tema (overrideadas por ThemeInjector cuando el tenant tiene fuentes custom) */
   --font-heading: 'Inter', sans-serif;
@@ -126,33 +126,33 @@
 
   /* ── Auth Design Tokens ────────────────────────────────────── */
 
-  /* Auth colors — unified with NERBIS design system tokens */
-  --auth-primary: var(--accent-foreground);           /* #1C3B57 */
-  --auth-primary-hover: color-mix(in srgb, var(--accent-foreground) 85%, black);
-  --auth-accent: #0D9488;                             /* teal-600 — auth-specific */
+  /* Auth colors — NERBIS brand, no dependen de CSS vars del tenant */
+  --auth-primary: #1C3B57;
+  --auth-primary-hover: color-mix(in srgb, #1C3B57 85%, black);
+  --auth-accent: #0D9488;                             /* teal-600 */
   --auth-accent-light: #0D9488;
   --auth-secondary: #0D9488;
-  --auth-bg: var(--background);                       /* #FBF9F7 */
-  --auth-bg-input: var(--card);                       /* #FFFFFF */
-  --auth-bg-dark: var(--accent-foreground);           /* #1C3B57 */
-  --auth-text: var(--foreground);                     /* #3D3D3D */
-  --auth-text-muted: var(--muted-foreground);         /* #7A7A7A */
-  --auth-text-label: #6B7280;                         /* auth-specific gray */
-  --auth-text-placeholder: #D1D5DB;                   /* auth-specific light gray */
-  --auth-text-on-dark: var(--primary-foreground);     /* #FFFFFF */
+  --auth-bg: #FAFAFA;
+  --auth-bg-input: #FFFFFF;
+  --auth-bg-dark: #1C3B57;
+  --auth-text: #3D3D3D;
+  --auth-text-muted: #7A7A7A;
+  --auth-text-label: #6B7280;
+  --auth-text-placeholder: #D1D5DB;
+  --auth-text-on-dark: #FFFFFF;
   --auth-text-on-dark-muted: rgba(255, 255, 255, 0.7);
   --auth-text-on-dark-subtle: rgba(255, 255, 255, 0.5);
-  --auth-border: var(--border);                       /* #E8E0DC */
-  --auth-border-focus: #0D9488;                       /* teal-600 — auth-specific */
-  --auth-border-error: var(--destructive);            /* #E57373 */
-  --auth-error: var(--destructive);
-  --auth-success: #059669;                            /* emerald-600 — auth-specific */
-  --auth-warning: #D97706;                            /* amber-600 — auth-specific */
+  --auth-border: #E5E7EB;
+  --auth-border-focus: #0D9488;                       /* teal-600 */
+  --auth-border-error: #E57373;
+  --auth-error: #E57373;
+  --auth-success: #059669;                            /* emerald-600 */
+  --auth-warning: #D97706;                            /* amber-600 */
 
-  /* Auth gradient (brand panel) — derived from primary */
-  --auth-gradient-start: var(--accent-foreground);
-  --auth-gradient-mid: color-mix(in srgb, var(--accent-foreground) 90%, black);
-  --auth-gradient-end: color-mix(in srgb, var(--accent-foreground) 60%, var(--ring));
+  /* Auth gradient (brand panel) — NERBIS brand colors */
+  --auth-gradient-start: #1C3B57;
+  --auth-gradient-mid: color-mix(in srgb, #1C3B57 90%, black);
+  --auth-gradient-end: color-mix(in srgb, #1C3B57 60%, #95D0C9);
 
   /* Auth spacing */
   --auth-form-gap: 1.25rem;
@@ -178,33 +178,33 @@
 }
 
 .dark {
-  /* Rose Gold Dark - Elegante y sofisticado */
-  --background: #1A1517;
-  --footer-background: #231E20;
-  --foreground: #F5F0ED;
-  --header: #1F1A1C;
+  /* Defaults neutrales dark — applyThemeToDOM() los overridea con colores del tenant */
+  --background: #111827;
+  --footer-background: #1F2937;
+  --foreground: #F9FAFB;
+  --header: #1F2937;
 
   /* Cards y Popovers */
-  --card: #2A2426;
-  --card-foreground: #F5F0ED;
-  --popover: #2A2426;
-  --popover-foreground: #F5F0ED;
+  --card: #1F2937;
+  --card-foreground: #F9FAFB;
+  --popover: #1F2937;
+  --popover-foreground: #F9FAFB;
 
-  /* Primary - Rosa Dusty en modo oscuro */
-  --primary: #E8B4B4;
-  --primary-foreground: #1A1517;
+  /* Primary - Neutral dark */
+  --primary: #9CA3AF;
+  --primary-foreground: #111827;
 
   /* Secondary */
-  --secondary: #3D3335;
-  --secondary-foreground: #F5F0ED;
+  --secondary: #374151;
+  --secondary-foreground: #F9FAFB;
 
   /* Muted */
-  --muted: #3D3335;
-  --muted-foreground: #A89999;
+  --muted: #374151;
+  --muted-foreground: #9CA3AF;
 
   /* Accent */
-  --accent: #3D3335;
-  --accent-foreground: #F5F0ED;
+  --accent: #374151;
+  --accent-foreground: #F9FAFB;
 
   /* Estados */
   --destructive: #F87171;
@@ -212,24 +212,24 @@
   /* Bordes e inputs */
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.15);
-  --ring: #7BBFB8;
+  --ring: #6B7280;
 
   /* Charts */
-  --chart-1: #E8B4B4;
-  --chart-2: #D4A5A5;
-  --chart-3: #E8C87D;
-  --chart-4: #A8D4A8;
-  --chart-5: #A8C5D4;
+  --chart-1: #9CA3AF;
+  --chart-2: #6B7280;
+  --chart-3: #D1D5DB;
+  --chart-4: #4B5563;
+  --chart-5: #374151;
 
   /* Sidebar */
-  --sidebar: #231E20;
-  --sidebar-foreground: #F5F0ED;
-  --sidebar-primary: #E8B4B4;
-  --sidebar-primary-foreground: #1A1517;
-  --sidebar-accent: #3D3335;
-  --sidebar-accent-foreground: #F5F0ED;
+  --sidebar: #1F2937;
+  --sidebar-foreground: #F9FAFB;
+  --sidebar-primary: #9CA3AF;
+  --sidebar-primary-foreground: #111827;
+  --sidebar-accent: #374151;
+  --sidebar-accent-foreground: #F9FAFB;
   --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: #E8B4B4;
+  --sidebar-ring: #9CA3AF;
 }
 
 @layer base {
