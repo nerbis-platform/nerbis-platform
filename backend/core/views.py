@@ -26,7 +26,15 @@ from .serializers import (
     UserSerializer,
     UserSessionSerializer,
 )
-from .throttles import LoginThrottle, OTPRequestThrottle, OTPVerifyThrottle, PasswordResetThrottle, RegisterThrottle
+from .throttles import (
+    LoginEmailThrottle,
+    LoginThrottle,
+    OTPRequestThrottle,
+    OTPVerifyThrottle,
+    PasswordResetThrottle,
+    PublicCheckThrottle,
+    RegisterThrottle,
+)
 
 logger = logging.getLogger(__name__)
 from django.db.models import Q
@@ -119,6 +127,7 @@ class CheckBusinessNameView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [PublicCheckThrottle]
 
     @extend_schema(
         parameters=[
@@ -162,6 +171,7 @@ class CheckTenantEmailView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [PublicCheckThrottle]
 
     @extend_schema(
         parameters=[
@@ -258,7 +268,7 @@ class LoginView(APIView):
 
     authentication_classes = []  # No requiere autenticación (evita CSRF)
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
+    throttle_classes = [LoginThrottle, LoginEmailThrottle]
 
     @extend_schema(
         request=LoginSerializer,
@@ -345,7 +355,7 @@ class PlatformLoginView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
+    throttle_classes = [LoginThrottle, LoginEmailThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -915,7 +925,7 @@ class ReactivateAccountView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
+    throttle_classes = [LoginThrottle, LoginEmailThrottle]
 
     @extend_schema(
         request=inline_serializer(

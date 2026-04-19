@@ -322,10 +322,13 @@ REST_FRAMEWORK = {
     },
     "DEFAULT_THROTTLE_RATES": {
         "login": "5/min",  # Login: 5 intentos por minuto por IP
+        "login_email": "10/hour",  # Login: 10 intentos por hora por email
         "register": "3/min",  # Registro: 3 por minuto por IP
         "otp_request": "3/min",  # Solicitar OTP: 3 por minuto por IP
         "otp_verify": "5/min",  # Verificar OTP: 5 por minuto por IP
         "password_reset": "3/min",  # Reset password: 3 por minuto por IP
+        "token_refresh": "30/min",  # Refresh token: 30 por minuto por IP
+        "public_check": "20/min",  # Check endpoints públicos: 20 por minuto por IP
     },
 }
 

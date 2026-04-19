@@ -26,9 +26,12 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
     "login": None,
     "register": None,
+    "login_email": None,
     "otp_request": None,
     "otp_verify": None,
     "password_reset": None,
+    "token_refresh": None,
+    "public_check": None,
 }
 
 # ===================================
