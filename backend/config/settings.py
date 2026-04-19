@@ -232,7 +232,18 @@ CORS_ALLOW_HEADERS = [
 ]
 
 
-# backend/config/settings.py (al final)
+# ===================================
+# SECURITY HARDENING (producción)
+# ===================================
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "True") == "True"
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 
 # ===================================
 # LOGGING
@@ -322,8 +333,11 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_HANDLERS": {
         "THROTTLED_CACHE": "throttle",
     },
+    # Proxies — para que los throttles usen la IP real del cliente
+    "NUM_PROXIES": int(os.getenv("NUM_PROXIES", "1")),
     "DEFAULT_THROTTLE_RATES": {
         "login": "5/min",  # Login: 5 intentos por minuto por IP
+        "login_email": "10/hour",  # Login: 10 intentos por hora por email
         "register": "3/min",  # Registro: 3 por minuto por IP
         "otp_request": "3/min",  # Solicitar OTP: 3 por minuto por IP
         "otp_verify": "5/min",  # Verificar OTP: 5 por minuto por IP
@@ -332,6 +346,8 @@ REST_FRAMEWORK = {
         "two_factor_challenge": "10/min",  # 2FA challenge: 10 por minuto por IP
         "two_factor_verify": "10/min",  # 2FA verify/disable: 10 por minuto por IP
         "admin_login": "5/min",  # Superadmin login: 5 por minuto por IP
+        "token_refresh": "30/min",  # Refresh token: 30 por minuto por IP
+        "public_check": "20/min",  # Check endpoints públicos: 20 por minuto por IP
     },
 }
 
@@ -342,7 +358,7 @@ from datetime import timedelta
 
 SIMPLE_JWT = {
     # Tiempo de vida de los tokens
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     # Rotación de tokens
     "ROTATE_REFRESH_TOKENS": True,
@@ -350,10 +366,13 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": True,
     # Configuración
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
+    "SIGNING_KEY": os.getenv("JWT_SIGNING_KEY", SECRET_KEY),
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
+    # Claims de validación (#145)
+    "ISSUER": "nerbis",
+    "AUDIENCE": None,
 }
 
 # ===================================

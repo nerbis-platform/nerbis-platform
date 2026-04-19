@@ -808,7 +808,7 @@ class Banner(TenantAwareModel):
 
     message = models.TextField(
         verbose_name="Mensaje",
-        help_text="Texto que se mostrará en el banner. Puede incluir HTML básico.",
+        help_text="Texto plano que se mostrará en el banner. HTML será eliminado automáticamente.",
     )
 
     link_url = models.URLField(
@@ -1004,8 +1004,16 @@ class OTPToken(models.Model):
     - Restablecer contraseña (forgot password)
     - Reactivar cuenta
 
-    El código es de 6 dígitos y expira después de 10 minutos.
+    Security hardening (#142):
+    - Código de 8 dígitos (10× más resistente a brute force que 6)
+    - Máximo 5 intentos antes de bloqueo
+    - Rate limit de reenvío: máximo 5 OTPs por usuario por hora
+    - Comparación timing-safe con secrets.compare_digest
     """
+
+    OTP_LENGTH = 8
+    MAX_ATTEMPTS = 5
+    MAX_RESENDS_PER_HOUR = 5
 
     PURPOSE_CHOICES = [
         ("password_reset", "Restablecer contraseña"),
@@ -1020,9 +1028,9 @@ class OTPToken(models.Model):
     )
 
     code = models.CharField(
-        max_length=6,
+        max_length=8,
         verbose_name="Código OTP",
-        help_text="Código de 6 dígitos",
+        help_text="Código de 8 dígitos",
     )
 
     purpose = models.CharField(
@@ -1065,24 +1073,34 @@ class OTPToken(models.Model):
 
     @property
     def is_valid(self):
-        """Verificar si el OTP es válido (no usado, no expirado, máx 3 intentos)"""
+        """Verificar si el OTP es válido (no usado, no expirado, dentro del límite de intentos)"""
         from django.utils import timezone
 
-        return self.used_at is None and self.expires_at > timezone.now() and self.attempts < 3
+        return self.used_at is None and self.expires_at > timezone.now() and self.attempts < self.MAX_ATTEMPTS
 
     @classmethod
     def create_for_user(cls, user, purpose, minutes_valid=10):
-        """Crear un nuevo OTP para un usuario"""
+        """Crear un nuevo OTP para un usuario.
+
+        Raises:
+            ValueError: Si el usuario ha excedido el límite de reenvíos por hora.
+        """
         import secrets
         from datetime import timedelta
 
         from django.utils import timezone
 
+        # Rate limit: máximo MAX_RESENDS_PER_HOUR por usuario por hora
+        one_hour_ago = timezone.now() - timedelta(hours=1)
+        recent_count = cls.objects.filter(user=user, purpose=purpose, created_at__gte=one_hour_ago).count()
+        if recent_count >= cls.MAX_RESENDS_PER_HOUR:
+            raise ValueError("Demasiadas solicitudes de OTP. Intenta de nuevo más tarde.")
+
         # Invalidar OTPs anteriores del mismo propósito
         cls.objects.filter(user=user, purpose=purpose, used_at__isnull=True).delete()
 
-        # Generar código de 6 dígitos (criptográficamente seguro)
-        code = "".join([str(secrets.randbelow(10)) for _ in range(6)])
+        # Generar código de 8 dígitos (criptográficamente seguro)
+        code = "".join([str(secrets.randbelow(10)) for _ in range(cls.OTP_LENGTH)])
         expires_at = timezone.now() + timedelta(minutes=minutes_valid)
 
         return cls.objects.create(
@@ -1094,11 +1112,13 @@ class OTPToken(models.Model):
 
     def verify(self, code):
         """
-        Verificar el código OTP.
+        Verificar el código OTP con comparación timing-safe.
 
         Returns:
             tuple: (success: bool, error_message: str or None)
         """
+        import secrets as secrets_mod
+
         from django.utils import timezone
 
         if self.used_at is not None:
@@ -1107,13 +1127,16 @@ class OTPToken(models.Model):
         if self.expires_at < timezone.now():
             return False, "El código ha expirado"
 
-        if self.attempts >= 3:
+        if self.attempts >= self.MAX_ATTEMPTS:
             return False, "Demasiados intentos fallidos. Solicita un nuevo código"
 
-        if self.code != code:
+        # Coerce to str to prevent TypeError from compare_digest
+        code_str = str(code) if code is not None else ""
+
+        if not secrets_mod.compare_digest(self.code, code_str):
             self.attempts += 1
             self.save()
-            remaining = 3 - self.attempts
+            remaining = self.MAX_ATTEMPTS - self.attempts
             if remaining > 0:
                 return False, f"Código incorrecto. Te quedan {remaining} intentos"
             return False, "Demasiados intentos fallidos. Solicita un nuevo código"

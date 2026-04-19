@@ -267,11 +267,12 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         tenant = request.tenant
 
-        # Validar email único por tenant (case-insensitive)
+        # Validar email único por tenant (incluye activos e inactivos para
+        # no revelar si existe una cuenta inactiva — previene account takeover #135)
         email = attrs.get("email", "").lower()
         if User.objects.filter(tenant=tenant, email__iexact=email).exists():
             raise serializers.ValidationError(
-                {"email": "Ya existe un usuario con este email en este centro. Por favor inicia sesión."}
+                {"email": "Ya existe un usuario con este email. Por favor inicia sesión."}
             )
 
         return attrs
@@ -570,10 +571,21 @@ class AdminUserUpdateSerializer(serializers.Serializer):
 
 
 class BannerSerializer(serializers.ModelSerializer):
-    """Serializer para Banner (información pública)"""
+    """Serializer para Banner (información pública)
+
+    Security: message se sanea con strip_tags para prevenir XSS stored (#137).
+    """
 
     banner_type_display = serializers.CharField(source="get_banner_type_display", read_only=True)
     position_display = serializers.CharField(source="get_position_display", read_only=True)
+
+    def to_representation(self, instance):
+        from django.utils.html import strip_tags
+
+        data = super().to_representation(instance)
+        if data.get("message"):
+            data["message"] = strip_tags(data["message"])
+        return data
 
     class Meta:
         model = Banner

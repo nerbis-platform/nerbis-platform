@@ -34,12 +34,15 @@ from .serializers import (
 )
 from .social_auth import LinkingRequired, SocialAuthError, social_login_or_create, verify_social_token
 from .throttles import (
+    LoginEmailThrottle,
     LoginThrottle,
     OTPRequestThrottle,
     OTPVerifyThrottle,
     PasswordResetThrottle,
+    PublicCheckThrottle,
     RegisterThrottle,
     SocialLoginThrottle,
+    TokenRefreshThrottle,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,7 +81,9 @@ def subscription_expired_view(request):
 class RegisterView(generics.CreateAPIView):
     """POST /api/core/auth/register/ - Registro de usuarios
 
-    Si existe un usuario inactivo con el mismo email, lo reactiva automáticamente.
+    Security: no auto-reactivation of inactive accounts — prevents account
+    takeover via register endpoint (#135). Inactive users are checked in the
+    serializer and receive a generic "email already exists" error.
     """
 
     queryset = User.objects.all()
@@ -88,64 +93,30 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
     def create(self, request, *args, **kwargs):
-        email = request.data.get("email", "").lower()
-        tenant = request.tenant
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
 
-        # Verificar si existe un usuario inactivo con este email
-        try:
-            inactive_user = User.objects.get(email__iexact=email, tenant=tenant, is_active=False)
+        # Enviar email de bienvenida
+        self._send_welcome_email(user)
 
-            # Reactivar usuario existente
-            serializer = self.get_serializer(inactive_user, data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            user = serializer.save(is_active=True)
+        # Generar tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
 
-            # Enviar email de bienvenida
-            self._send_welcome_email(user)
-
-            # Generar tokens
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
-
-            response = Response(
-                {
-                    "user": UserSessionSerializer(user).data,
-                    "tokens": {
-                        "refresh": refresh_token,
-                        "access": access_token,
-                    },
-                    "message": "Cuenta reactivada exitosamente",
+        response = Response(
+            {
+                "user": UserSessionSerializer(user).data,
+                "tokens": {
+                    "refresh": refresh_token,
+                    "access": access_token,
                 },
-                status=status.HTTP_200_OK,
-            )
-            return set_auth_cookies(response, access_token, refresh_token)
-        except User.DoesNotExist:
-            # No existe usuario inactivo, crear uno nuevo
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            user = serializer.save()
-
-            # Enviar email de bienvenida
-            self._send_welcome_email(user)
-
-            # Generar tokens
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
-
-            response = Response(
-                {
-                    "user": UserSessionSerializer(user).data,
-                    "tokens": {
-                        "refresh": refresh_token,
-                        "access": access_token,
-                    },
-                    "message": "Usuario creado exitosamente",
-                },
-                status=status.HTTP_201_CREATED,
-            )
-            return set_auth_cookies(response, access_token, refresh_token)
+                "message": "Usuario creado exitosamente",
+            },
+            status=status.HTTP_201_CREATED,
+        )
+        return set_auth_cookies(response, access_token, refresh_token)
 
     def _send_welcome_email(self, user):
         """Enviar email de bienvenida (sin bloquear el registro si falla)."""
@@ -171,6 +142,7 @@ class CheckBusinessNameView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [PublicCheckThrottle]
 
     @extend_schema(
         parameters=[
@@ -214,6 +186,7 @@ class CheckTenantEmailView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [PublicCheckThrottle]
 
     @extend_schema(
         parameters=[
@@ -313,7 +286,7 @@ class LoginView(APIView):
 
     authentication_classes = []  # No requiere autenticación (evita CSRF)
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
+    throttle_classes = [LoginThrottle, LoginEmailThrottle]
 
     @extend_schema(
         request=LoginSerializer,
@@ -356,12 +329,12 @@ class LoginView(APIView):
             return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
         # 4. Si el usuario está inactivo, notificar que necesita reactivación
+        # Security: no incluir email en respuesta — previene enumeración (#138)
         if not user.is_active:
             return Response(
                 {
                     "error": "Tu cuenta fue desactivada",
                     "code": "ACCOUNT_INACTIVE",
-                    "email": user.email,
                     "message": "Tu cuenta fue desactivada previamente. ¿Deseas reactivarla?",
                 },
                 status=status.HTTP_403_FORBIDDEN,
@@ -407,13 +380,14 @@ class PlatformLoginView(APIView):
 
     A diferencia del LoginView normal (que requiere tenant context del middleware),
     este endpoint busca al usuario por email en TODOS los tenants.
-    Está diseñado para el formulario de login de la plataforma (nerbis.com),
-    donde el usuario no tiene un subdominio de tenant.
+
+    Security: cuando el email existe en múltiples tenants, verifica la contraseña
+    contra TODOS los candidatos y requiere `tenant_slug` para desambiguar (#136).
     """
 
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
+    throttle_classes = [LoginThrottle, LoginEmailThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -421,19 +395,38 @@ class PlatformLoginView(APIView):
 
         email = serializer.validated_data["email"]
         password = serializer.validated_data["password"]
+        tenant_slug = request.data.get("tenant_slug")
 
-        # Buscar usuario por email en TODOS los tenants
-        try:
-            user = User.objects.select_related("tenant").get(email__iexact=email)
-        except User.DoesNotExist:
-            return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
-        except User.MultipleObjectsReturned:
-            # Email existe en múltiples tenants — usar el más reciente
-            user = User.objects.select_related("tenant").filter(email__iexact=email).order_by("-date_joined").first()
+        # Si se proporciona tenant_slug, buscar directamente en ese tenant
+        if tenant_slug:
+            try:
+                user = User.objects.select_related("tenant").get(email__iexact=email, tenant__slug=tenant_slug)
+            except User.DoesNotExist:
+                return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
+            if not user.check_password(password):
+                return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            # Buscar en todos los tenants
+            candidates = list(User.objects.select_related("tenant").filter(email__iexact=email))
+            if not candidates:
+                return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Verificar contraseña
-        if not user.check_password(password):
-            return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
+            # Verificar password contra todos los candidatos
+            matching = [u for u in candidates if u.check_password(password)]
+            if not matching:
+                return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            if len(matching) > 1:
+                # Mismo email+password en múltiples tenants — exigir selección
+                return Response(
+                    {
+                        "code": "MULTIPLE_TENANTS",
+                        "message": "Tu email está registrado en varios negocios. Selecciona uno.",
+                        "tenants": [{"slug": u.tenant.slug, "name": u.tenant.name} for u in matching],
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            user = matching[0]
 
         # Si el usuario está inactivo
         if not user.is_active:
@@ -441,7 +434,6 @@ class PlatformLoginView(APIView):
                 {
                     "error": "Tu cuenta fue desactivada",
                     "code": "ACCOUNT_INACTIVE",
-                    "email": user.email,
                     "message": "Tu cuenta fue desactivada previamente. ¿Deseas reactivarla?",
                 },
                 status=status.HTTP_403_FORBIDDEN,
@@ -505,43 +497,40 @@ class PlatformForgotPasswordView(APIView):
         if not email:
             return Response({"error": "El email es requerido"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Buscar usuario en todos los tenants
-        try:
-            user = User.objects.select_related("tenant").get(email__iexact=email)
-        except User.DoesNotExist:
-            # Por seguridad, no revelar si el email existe
-            return Response(
-                {
-                    "message": "Si el email existe, recibirás un código de verificación",
-                    "email": email,
-                }
-            )
-        except User.MultipleObjectsReturned:
-            user = User.objects.select_related("tenant").filter(email__iexact=email).order_by("-date_joined").first()
-
-        # Crear OTP
-        otp = OTPToken.create_for_user(user, purpose="password_reset")
-
-        # Enviar email con OTP (async con Celery)
-        from notifications.tasks import send_otp_email
-
-        send_otp_email.delay(user.id, otp.code, "password_reset")
-
-        return Response(
+        generic_response = Response(
             {
                 "message": "Si el email existe, recibirás un código de verificación",
                 "email": email,
             }
         )
 
+        # Buscar TODOS los usuarios con este email (puede haber en múltiples tenants)
+        users = User.objects.select_related("tenant").filter(email__iexact=email)
+
+        if users.exists():
+            from notifications.tasks import send_otp_email
+
+            for user in users:
+                try:
+                    otp = OTPToken.create_for_user(user, purpose="password_reset")
+                    try:
+                        send_otp_email.delay(user.id, otp.code, "password_reset")
+                    except Exception:
+                        send_otp_email(user.id, otp.code, "password_reset")
+                except Exception as e:
+                    logger.warning(f"Fallo enviando OTP password_reset a user={user.id}: {e}")
+
+        # Siempre devolver la misma respuesta genérica
+        return generic_response
+
 
 class PlatformVerifyResetOTPView(APIView):
     """
     POST /api/public/platform-verify-reset-otp/ - Verificar OTP desde la plataforma
 
-    Versión cross-tenant de VerifyPasswordResetOTPView.
-    Busca al usuario por email en TODOS los tenants.
-    Retorna user + tenant + tokens para auto-login.
+    Security: resuelve el usuario via ownership del OTP (no por email lookup),
+    lo que evita cross-tenant mismatch (#136). Usa validate_password de Django
+    en vez de validación ad-hoc (#141).
     """
 
     authentication_classes = []
@@ -558,39 +547,44 @@ class PlatformVerifyResetOTPView(APIView):
                 {"error": "Email, código y nueva contraseña son requeridos"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Buscar usuario en todos los tenants
-        try:
-            user = User.objects.select_related("tenant").get(email__iexact=email)
-        except User.DoesNotExist:
-            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
-        except User.MultipleObjectsReturned:
-            user = User.objects.select_related("tenant").filter(email__iexact=email).order_by("-date_joined").first()
+        # Buscar OTPs activos para usuarios con este email
+        active_otps = OTPToken.objects.filter(
+            user__email__iexact=email,
+            purpose="password_reset",
+            used_at__isnull=True,
+        ).select_related("user", "user__tenant")
 
-        # Buscar OTP válido
-        try:
-            otp = OTPToken.objects.get(user=user, purpose="password_reset", used_at__isnull=True)
-        except OTPToken.DoesNotExist:
+        # Encontrar el OTP correcto sin incrementar intentos en los demás
+        matched_otp = None
+        for otp in active_otps:
+            if otp.is_valid and isinstance(code, str) and otp.code == code:
+                matched_otp = otp
+                break
+
+        if not matched_otp:
+            # Si hay OTPs, verificar contra el primero para incrementar intentos
+            first_otp = active_otps.first()
+            if first_otp and first_otp.is_valid:
+                success, error = first_otp.verify(str(code) if code else "")
+                return Response({"error": error or "Código incorrecto"}, status=status.HTTP_400_BAD_REQUEST)
             return Response(
-                {"error": "No hay un código de verificación activo. Solicita uno nuevo."},
+                {"error": "Solicitud inválida. Solicita un nuevo código."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Verificar OTP
-        success, error = otp.verify(code)
-        if not success:
-            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+        # Marcar OTP como usado
+        matched_otp.mark_as_used()
+        user = matched_otp.user
 
-        # Validar fortaleza de la nueva contraseña
-        if len(new_password) < 8:
+        # Validar contraseña con los validadores de Django
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as e:
             return Response(
-                {"error": "La contraseña debe tener al menos 8 caracteres"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        has_upper = any(c.isupper() for c in new_password)
-        has_lower = any(c.islower() for c in new_password)
-        has_digit = any(c.isdigit() for c in new_password)
-        if not (has_upper and has_lower and has_digit):
-            return Response(
-                {"error": "La contraseña debe incluir mayúsculas, minúsculas y números"},
+                {"error": "; ".join(e.messages)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -632,7 +626,9 @@ class LogoutView(APIView):
         if refresh_token:
             try:
                 token = RefreshToken(refresh_token)
-                token.blacklist()
+                # Security: verify token ownership before blacklisting (#143)
+                if token.payload.get("user_id") == request.user.id:
+                    token.blacklist()
             except Exception:
                 pass  # Token may already be expired/blacklisted — still clear cookies
 
@@ -653,6 +649,7 @@ class CookieTokenRefreshView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [TokenRefreshThrottle]
 
     @extend_schema(
         request=inline_serializer(
@@ -1069,11 +1066,15 @@ class DeleteAccountView(APIView):
 
 
 class ReactivateAccountView(APIView):
-    """POST /api/auth/reactivate-account/ - Reactivar cuenta inactiva"""
+    """POST /api/auth/reactivate-account/ - Reactivar cuenta inactiva
+
+    Security: generic error messages prevent account enumeration (#138).
+    Timing-safe dummy password check when user not found.
+    """
 
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
+    throttle_classes = [LoginThrottle, LoginEmailThrottle]
 
     @extend_schema(
         request=inline_serializer(
@@ -1110,13 +1111,13 @@ class ReactivateAccountView(APIView):
         try:
             user = User.objects.get(email__iexact=email, tenant=tenant, is_active=False)
         except User.DoesNotExist:
-            return Response(
-                {"error": "No se encontró una cuenta inactiva con este email"}, status=status.HTTP_404_NOT_FOUND
-            )
+            # Timing-safe: run a dummy password check to prevent timing oracle
+            User().set_password(password)
+            return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Verificar contraseña
         if not user.check_password(password):
-            return Response({"error": "Contraseña incorrecta"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Reactivar cuenta
         user.is_active = True
@@ -1256,12 +1257,21 @@ class RequestPasswordResetOTPView(APIView):
             )
 
         # Crear OTP
-        otp = OTPToken.create_for_user(user, purpose="password_reset")
+        try:
+            otp = OTPToken.create_for_user(user, purpose="password_reset")
+        except ValueError:
+            return Response(
+                {"error": "Demasiadas solicitudes. Intenta de nuevo más tarde."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
         # Enviar email con OTP (async con Celery)
         from notifications.tasks import send_otp_email
 
-        send_otp_email.delay(user.id, otp.code, "password_reset")
+        try:
+            send_otp_email.delay(user.id, otp.code, "password_reset")
+        except Exception:
+            send_otp_email(user.id, otp.code, "password_reset")
 
         return Response(
             {
@@ -1340,19 +1350,14 @@ class VerifyPasswordResetOTPView(APIView):
         if not success:
             return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validar fortaleza de la nueva contraseña
-        if len(new_password) < 8:
-            return Response(
-                {"error": "La contraseña debe tener al menos 8 caracteres"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        has_upper = any(c.isupper() for c in new_password)
-        has_lower = any(c.islower() for c in new_password)
-        has_digit = any(c.isdigit() for c in new_password)
-        if not (has_upper and has_lower and has_digit):
-            return Response(
-                {"error": "La contraseña debe incluir mayúsculas, minúsculas y números"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Validar contraseña con los validadores de Django (#141)
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as e:
+            return Response({"error": "; ".join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Cambiar contraseña (sin generar tokens — el usuario debe iniciar sesión manualmente)
         user.set_password(new_password)
@@ -1369,8 +1374,8 @@ class RequestReactivationOTPView(APIView):
     """
     POST /api/auth/request-reactivation/ - Solicitar OTP para reactivar cuenta
 
-    Envía un código OTP de 6 dígitos al email del usuario inactivo.
-    El código expira en 10 minutos.
+    Security: generic error messages prevent account enumeration (#138).
+    Handles OTP resend rate limit via ValueError from create_for_user.
     """
 
     authentication_classes = []
@@ -1393,8 +1398,6 @@ class RequestReactivationOTPView(APIView):
                     "email": drf_serializers.EmailField(),
                 },
             ),
-            401: OpenApiResponse(description="Contraseña incorrecta"),
-            404: OpenApiResponse(description="Cuenta no encontrada"),
         },
     )
     def post(self, request):
@@ -1405,32 +1408,42 @@ class RequestReactivationOTPView(APIView):
         if not email or not password:
             return Response({"error": "Email y contraseña son requeridos"}, status=status.HTTP_400_BAD_REQUEST)
 
+        generic_ok = Response(
+            {
+                "message": "Si las credenciales son válidas, recibirás un código de verificación",
+                "email": email,
+            }
+        )
+
         # Buscar usuario inactivo
         try:
             user = User.objects.get(email__iexact=email, tenant=tenant, is_active=False)
         except User.DoesNotExist:
-            return Response(
-                {"error": "No se encontró una cuenta inactiva con este email"}, status=status.HTTP_404_NOT_FOUND
-            )
+            User().set_password(password)  # Timing-safe dummy
+            return generic_ok
 
         # Verificar contraseña
         if not user.check_password(password):
-            return Response({"error": "Contraseña incorrecta"}, status=status.HTTP_401_UNAUTHORIZED)
+            return generic_ok
 
         # Crear OTP
-        otp = OTPToken.create_for_user(user, purpose="account_reactivation")
+        try:
+            otp = OTPToken.create_for_user(user, purpose="account_reactivation")
+        except ValueError:
+            return Response(
+                {"error": "Demasiadas solicitudes. Intenta de nuevo más tarde."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
         # Enviar email con OTP (async con Celery)
         from notifications.tasks import send_otp_email
 
-        send_otp_email.delay(user.id, otp.code, "account_reactivation")
+        try:
+            send_otp_email.delay(user.id, otp.code, "account_reactivation")
+        except Exception:
+            send_otp_email(user.id, otp.code, "account_reactivation")
 
-        return Response(
-            {
-                "message": "Te hemos enviado un código de verificación a tu email",
-                "email": email,
-            }
-        )
+        return generic_ok
 
 
 class VerifyReactivationOTPView(APIView):
@@ -1478,20 +1491,20 @@ class VerifyReactivationOTPView(APIView):
         if not email or not code:
             return Response({"error": "Email y código son requeridos"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Security: generic error messages prevent enumeration (#138)
+        generic_error = Response({"error": "Solicitud inválida"}, status=status.HTTP_400_BAD_REQUEST)
+
         # Buscar usuario inactivo
         try:
             user = User.objects.get(email__iexact=email, tenant=tenant, is_active=False)
         except User.DoesNotExist:
-            return Response({"error": "Usuario no encontrado o ya está activo"}, status=status.HTTP_404_NOT_FOUND)
+            return generic_error
 
         # Buscar OTP válido
         try:
             otp = OTPToken.objects.get(user=user, purpose="account_reactivation", used_at__isnull=True)
         except OTPToken.DoesNotExist:
-            return Response(
-                {"error": "No hay un código de verificación activo. Solicita uno nuevo."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return generic_error
 
         # Verificar OTP
         success, error = otp.verify(code)
