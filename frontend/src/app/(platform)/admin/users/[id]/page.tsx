@@ -248,6 +248,12 @@ export default function AdminUserDetailPage({
   const userId = Number.parseInt(id, 10);
   const { admin, logout } = useAdminAuth();
 
+  useEffect(() => {
+    document.title = user
+      ? `${user.email} — NERBIS Admin`
+      : 'Detalle del usuario — NERBIS Admin';
+  }, [user]);
+
   // ── User detail state ───────────────────────────────────────────────
   const [user, setUser] = useState<AdminUserDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -263,7 +269,7 @@ export default function AdminUserDetailPage({
 
   const loadUser = useCallback(async () => {
     if (!/^\d+$/.test(id) || !Number.isFinite(userId)) {
-      setError('ID de usuario invalido.');
+      setError('ID de usuario inválido.');
       setLoading(false);
       return;
     }
@@ -337,8 +343,8 @@ export default function AdminUserDetailPage({
       setUser(updated);
       toast.success(
         pendingStatus === 'activate'
-          ? 'Usuario reactivado correctamente.'
-          : 'Usuario desactivado correctamente.',
+          ? 'Usuario reactivado. Puede iniciar sesión de nuevo.'
+          : 'Usuario desactivado. Sus sesiones activas fueron invalidadas.',
       );
       setPendingStatus(null);
     } catch (err) {
@@ -444,7 +450,7 @@ export default function AdminUserDetailPage({
           ? { ...prev, totp_enabled: false, totp_confirmed_at: null }
           : prev,
       );
-      toast.success('Autenticacion en dos pasos desactivada.');
+      toast.success('Autenticación en dos pasos desactivada. El usuario deberá activarla de nuevo.');
       setPending2FA(false);
     } catch (err) {
       const message =
@@ -535,7 +541,7 @@ export default function AdminUserDetailPage({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="fade-up-auth mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <nav aria-label="Ruta" className="mb-4">
           <ol className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -625,7 +631,7 @@ export default function AdminUserDetailPage({
                       Perfil del usuario
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Informacion basica y estado de la cuenta.
+                      Información básica y estado de la cuenta.
                     </p>
                   </div>
                 </div>
@@ -737,18 +743,18 @@ export default function AdminUserDetailPage({
                     icon={
                       <CalendarDays className="h-4 w-4" aria-hidden="true" />
                     }
-                    label="Ultimo acceso"
+                    label="Último acceso"
                     value={formatDateTime(user.last_login)}
                   />
                   <InfoRow
                     icon={
                       <CalendarDays className="h-4 w-4" aria-hidden="true" />
                     }
-                    label="Se unio"
+                    label="Se unió"
                     value={formatDate(user.date_joined)}
                   />
                   <InfoRow
-                    label="Metodos de acceso"
+                    label="Métodos de acceso"
                     value={
                       <span className="text-sm text-slate-700">
                         {authMethodCount} activo
@@ -773,7 +779,7 @@ export default function AdminUserDetailPage({
                   id="user-auth-heading"
                   className="text-lg font-semibold tracking-tight text-slate-900"
                 >
-                  Metodos de autenticacion
+                  Métodos de autenticación
                 </h3>
                 <p className="text-sm text-slate-500">
                   Revisa y administra las formas en que este usuario inicia
@@ -809,7 +815,7 @@ export default function AdminUserDetailPage({
                     <AuthCardEmptyState
                       icon={<LinkIcon className="h-4 w-4" aria-hidden="true" />}
                       title="Sin cuentas sociales vinculadas"
-                      description="Este usuario todavia no conecto ninguna cuenta de Google, Apple o Facebook."
+                      description="Este usuario todavía no conectó ninguna cuenta de Google, Apple o Facebook."
                     />
                   ) : (
                     <ul className="divide-y divide-slate-100">
@@ -876,7 +882,7 @@ export default function AdminUserDetailPage({
                         Passkeys (WebAuthn)
                       </h4>
                       <p className="text-xs text-slate-500">
-                        Credenciales biometricas y hardware.
+                        Credenciales biométricas y hardware.
                       </p>
                     </div>
                   </div>
@@ -885,7 +891,7 @@ export default function AdminUserDetailPage({
                     <AuthCardEmptyState
                       icon={<Fingerprint className="h-4 w-4" aria-hidden="true" />}
                       title="Sin passkeys registradas"
-                      description="Cuando el usuario registre una passkey desde su dispositivo, aparecera aqui."
+                      description="Cuando el usuario registre una passkey desde su dispositivo, aparecerá aquí."
                     />
                   ) : (
                     <ul className="divide-y divide-slate-100">
@@ -946,7 +952,7 @@ export default function AdminUserDetailPage({
                         id="twofa-heading"
                         className="text-sm font-semibold text-slate-900"
                       >
-                        Autenticacion en dos pasos
+                        Autenticación en dos pasos
                       </h4>
                       <p className="text-xs text-slate-500">
                         TOTP mediante app (Google Authenticator, Authy).
@@ -977,8 +983,8 @@ export default function AdminUserDetailPage({
                         />
                         <p className="text-xs text-slate-600">
                           Al desactivar, se elimina el dispositivo TOTP y
-                          todos los codigos de respaldo asociados. El usuario
-                          solo podra recuperarlo inscribiendose de nuevo.
+                          todos los códigos de respaldo asociados. El usuario
+                          solo podrá recuperarlo inscribiéndose de nuevo.
                         </p>
                       </div>
                       <button
@@ -994,7 +1000,7 @@ export default function AdminUserDetailPage({
                     <AuthCardEmptyState
                       icon={<Shield className="h-4 w-4" aria-hidden="true" />}
                       title="2FA no activada"
-                      description="Sugiere al usuario activar 2FA desde su panel de seguridad para proteger mejor su cuenta."
+                      description="El usuario puede activar 2FA desde su panel de seguridad para proteger su cuenta."
                     />
                   )}
                 </article>
@@ -1034,8 +1040,8 @@ export default function AdminUserDetailPage({
             <AlertDialogDescription>
               {user
                 ? pendingStatus === 'activate'
-                  ? `${user.email} recuperara acceso inmediatamente y podra iniciar sesion como siempre.`
-                  : `${user.email} perdera acceso a la plataforma hasta que lo reactives. Las sesiones activas seran invalidadas.`
+                  ? `${user.email} recuperará acceso inmediatamente y podrá iniciar sesión como siempre.`
+                  : `${user.email} perderá acceso a la plataforma hasta que lo reactives. Las sesiones activas serán invalidadas.`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1082,7 +1088,7 @@ export default function AdminUserDetailPage({
             <AlertDialogTitle>Enviar restablecimiento de contraseña</AlertDialogTitle>
             <AlertDialogDescription>
               {user
-                ? `Se enviara un correo a ${user.email} con un enlace valido por 24 horas para que defina una nueva contraseña. Los tokens anteriores quedaran invalidados.`
+                ? `Se enviará un correo a ${user.email} con un enlace válido por 24 horas para que defina una nueva contraseña. Los tokens anteriores quedarán invalidados.`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1126,7 +1132,7 @@ export default function AdminUserDetailPage({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingUnlink
-                ? `El usuario ya no podra iniciar sesion usando ${PROVIDER_LABELS[pendingUnlink.social.provider]} (${pendingUnlink.social.email || 'sin correo'}). Podra volver a vincularla cuando quiera desde su panel.`
+                ? `El usuario ya no podrá iniciar sesión usando ${PROVIDER_LABELS[pendingUnlink.social.provider]} (${pendingUnlink.social.email || 'sin correo'}). Podrá volver a vincularla cuando quiera desde su panel.`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1136,10 +1142,10 @@ export default function AdminUserDetailPage({
               className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
             >
               <strong className="block font-semibold">
-                Este es el ultimo metodo alternativo.
+                Este es el último método alternativo.
               </strong>
-              Despues de desvincular solo podra acceder con contraseña
-              ({Math.max(0, projectedAuthCountAfterRemoval(1) - 1)} metodo restante ademas de
+              Después de desvincular solo podrá acceder con contraseña
+              ({Math.max(0, projectedAuthCountAfterRemoval(1) - 1)} método restante además de
               la contraseña).
             </div>
           ) : null}
@@ -1184,7 +1190,7 @@ export default function AdminUserDetailPage({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingPasskey
-                ? 'Esta credencial dejara de funcionar de inmediato. El usuario podra registrar una nueva desde su dispositivo cuando lo necesite.'
+                ? 'Esta credencial dejará de funcionar de inmediato. El usuario podrá registrar una nueva desde su dispositivo cuando lo necesite.'
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1194,9 +1200,9 @@ export default function AdminUserDetailPage({
               className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
             >
               <strong className="block font-semibold">
-                Este es el ultimo metodo alternativo.
+                Este es el último método alternativo.
               </strong>
-              Despues de eliminar solo podra acceder con contraseña.
+              Después de eliminar solo podrá acceder con contraseña.
             </div>
           ) : null}
           <AlertDialogFooter>
@@ -1236,7 +1242,7 @@ export default function AdminUserDetailPage({
             <AlertDialogTitle>Desactivar autenticacion en dos pasos</AlertDialogTitle>
             <AlertDialogDescription>
               {user
-                ? `Se eliminara el dispositivo TOTP de ${user.email} y todos sus codigos de respaldo. El usuario tendra que inscribirse de nuevo para volver a activarla.`
+                ? `Se eliminará el dispositivo TOTP de ${user.email} y todos sus códigos de respaldo. El usuario tendrá que inscribirse de nuevo para volver a activarla.`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>

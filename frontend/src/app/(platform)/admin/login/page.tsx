@@ -20,6 +20,10 @@ export default function AdminLoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    document.title = 'Iniciar sesión — NERBIS Admin';
+  }, []);
+
+  useEffect(() => {
     if (!isLoading && isAuthenticated) {
       router.replace('/admin');
     }
@@ -32,7 +36,7 @@ export default function AdminLoginPage() {
     try {
       await login(email.trim().toLowerCase(), password);
     } catch (err: unknown) {
-      let message = 'Credenciales inválidas.';
+      let message = 'Credenciales inválidas. Verifica tu correo y contraseña.';
       if (err && typeof err === 'object' && 'response' in err) {
         const axiosErr = err as {
           response?: { data?: { detail?: string } };
@@ -81,7 +85,7 @@ export default function AdminLoginPage() {
       {/* Content */}
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12">
         {/* Logo / brand mark */}
-        <div className="mb-8 flex flex-col items-center gap-3">
+        <div className="fade-up-auth mb-8 flex flex-col items-center gap-3">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 shadow-lg shadow-black/10 ring-1 ring-white/20 backdrop-blur-sm">
             <Image
               src="/Isotipo_color_NERBIS.png"
@@ -104,7 +108,7 @@ export default function AdminLoginPage() {
         </div>
 
         {/* Login card */}
-        <div className="w-full max-w-sm">
+        <div className="fade-up-auth w-full max-w-sm" style={{ animationDelay: '80ms' }}>
           <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-8 shadow-2xl shadow-black/20 backdrop-blur-xl">
             <form
               onSubmit={handleSubmit}
@@ -118,7 +122,7 @@ export default function AdminLoginPage() {
                   htmlFor="admin-email"
                   className="block text-xs font-medium uppercase tracking-wider text-white/60"
                 >
-                  Email
+                  Correo electrónico
                 </label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
@@ -195,7 +199,7 @@ export default function AdminLoginPage() {
                 {submitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Ingresando...
+                    Verificando...
                   </>
                 ) : (
                   'Ingresar'

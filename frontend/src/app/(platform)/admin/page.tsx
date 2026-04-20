@@ -1,15 +1,44 @@
 // src/app/(platform)/admin/page.tsx
 //
 // Superadmin dashboard. Dark teal header with light content area.
+// Shows quick metrics and navigation cards.
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Building2, LogOut, Users } from 'lucide-react';
+import { Building2, LogOut, ShieldCheck, Users } from 'lucide-react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import { adminListTenants } from '@/lib/api/admin-tenants';
+import { adminListSuperadmins } from '@/lib/api/admin-auth';
 
 export default function AdminDashboardPage() {
   const { admin, logout } = useAdminAuth();
+  const [tenantCount, setTenantCount] = useState<number | null>(null);
+  const [activeTenants, setActiveTenants] = useState<number | null>(null);
+  const [superadminCount, setSuperadminCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    document.title = 'Panel — NERBIS Admin';
+  }, []);
+
+  useEffect(() => {
+    async function loadMetrics() {
+      try {
+        const [allTenants, activeOnly, admins] = await Promise.all([
+          adminListTenants({ page: 1, page_size: 1 }),
+          adminListTenants({ page: 1, page_size: 1, is_active: true }),
+          adminListSuperadmins(1),
+        ]);
+        setTenantCount(allTenants.count);
+        setActiveTenants(activeOnly.count);
+        setSuperadminCount(admins.count);
+      } catch {
+        // Metrics are non-critical — fail silently
+      }
+    }
+    void loadMetrics();
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -59,21 +88,50 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+      <main className="fade-up-auth mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
             Panel de plataforma
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Gestiona la configuracion global de NERBIS.
+            Gestiona la configuración global de NERBIS.
           </p>
         </div>
 
+        {/* Quick metrics */}
+        <div className="mb-8 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+              Tenants totales
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
+              {tenantCount !== null ? tenantCount : '—'}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+              Tenants activos
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700">
+              {activeTenants !== null ? activeTenants : '—'}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+              Superadministradores
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
+              {superadminCount !== null ? superadminCount : '—'}
+            </p>
+          </div>
+        </div>
+
+        {/* Navigation cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {/* Superadmins card */}
           <Link
             href="/admin/superadmins"
-            className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-teal-200 hover:shadow-md"
+            className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md"
           >
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-teal-600 transition-colors group-hover:bg-teal-100">
               <Users className="h-5 w-5" />
@@ -82,14 +140,14 @@ export default function AdminDashboardPage() {
               Superadministradores
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              Gestiona quien tiene acceso al panel de plataforma.
+              Gestiona quién tiene acceso al panel de plataforma.
             </p>
           </Link>
 
           {/* Tenants card */}
           <Link
             href="/admin/tenants"
-            className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:border-teal-200 hover:shadow-md"
+            className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md"
           >
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-teal-600 transition-colors group-hover:bg-teal-100">
               <Building2 className="h-5 w-5" />
@@ -98,7 +156,7 @@ export default function AdminDashboardPage() {
               Tenants
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              Gestionar tenants, planes, usuarios y métodos de autenticación
+              Negocios registrados, planes, usuarios y métodos de autenticación.
             </p>
           </Link>
         </div>

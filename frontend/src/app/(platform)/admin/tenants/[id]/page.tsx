@@ -30,6 +30,7 @@ import {
   Users as UsersIcon,
   XCircle,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import {
   adminGetTenant,
@@ -66,7 +67,7 @@ const USERS_PAGE_SIZE = 20;
 
 const PLAN_LABELS: Record<AdminTenantPlan, string> = {
   trial: 'Trial',
-  basic: 'Basico',
+  basic: 'Básico',
   professional: 'Profesional',
   enterprise: 'Enterprise',
 };
@@ -251,6 +252,12 @@ export default function AdminTenantDetailPage({
   const { id } = use(params);
   const { admin, logout } = useAdminAuth();
 
+  useEffect(() => {
+    document.title = tenant
+      ? `${tenant.name} — NERBIS Admin`
+      : 'Detalle del tenant — NERBIS Admin';
+  }, [tenant]);
+
   // ── Tenant detail ───────────────────────────────────────────────────
   const [tenant, setTenant] = useState<AdminTenantDetail | null>(null);
   const [tenantError, setTenantError] = useState<string | null>(null);
@@ -363,8 +370,15 @@ export default function AdminTenantDetailPage({
       const updated = await adminUpdateTenant(tenant.id, {
         is_active: pendingAction === 'activate',
       });
+      const name = tenant.name;
+      const action = pendingAction;
       setTenant(updated);
       setPendingAction(null);
+      toast.success(
+        action === 'activate'
+          ? `${name} reactivado correctamente.`
+          : `${name} suspendido correctamente.`,
+      );
     } catch (err) {
       const message =
         err instanceof Error
@@ -443,7 +457,7 @@ export default function AdminTenantDetailPage({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="fade-up-auth mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <nav aria-label="Ruta" className="mb-4">
           <ol className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -508,7 +522,7 @@ export default function AdminTenantDetailPage({
                   {PLAN_LABELS[tenant.plan]} &middot; {tenant.user_count}{' '}
                   usuario{tenant.user_count === 1 ? '' : 's'}
                   {tenant.days_remaining !== null &&
-                    ` · ${tenant.days_remaining} dia${
+                    ` · ${tenant.days_remaining} día${
                       tenant.days_remaining === 1 ? '' : 's'
                     } restantes`}
                 </p>
@@ -566,7 +580,7 @@ export default function AdminTenantDetailPage({
                   id="tenant-info-heading"
                   className="text-sm font-semibold text-slate-900"
                 >
-                  Informacion del negocio
+                  Información del negocio
                 </h3>
               </div>
               <dl className="space-y-4">
@@ -579,12 +593,12 @@ export default function AdminTenantDetailPage({
                 />
                 <InfoRow
                   icon={<Phone className="h-4 w-4" aria-hidden="true" />}
-                  label="Telefono"
+                  label="Teléfono"
                   value={tenant.phone || '\u2014'}
                 />
                 <InfoRow
                   icon={<MapPin className="h-4 w-4" aria-hidden="true" />}
-                  label="Ubicacion"
+                  label="Ubicación"
                   value={
                     [tenant.city, tenant.state, tenant.country]
                       .filter(Boolean)
@@ -618,7 +632,7 @@ export default function AdminTenantDetailPage({
                   id="tenant-subscription-heading"
                   className="text-sm font-semibold text-slate-900"
                 >
-                  Suscripcion
+                  Suscripción
                 </h3>
               </div>
               <dl className="space-y-4">
@@ -652,10 +666,10 @@ export default function AdminTenantDetailPage({
                   value={formatDate(tenant.subscription_ends_at)}
                 />
                 <InfoRow
-                  label="Dias restantes"
+                  label="Días restantes"
                   value={
                     tenant.days_remaining !== null
-                      ? `${tenant.days_remaining} dia${
+                      ? `${tenant.days_remaining} día${
                           tenant.days_remaining === 1 ? '' : 's'
                         }`
                       : 'Sin fecha de corte'
@@ -844,13 +858,13 @@ export default function AdminTenantDetailPage({
               </div>
               <h4 className="text-sm font-semibold text-slate-900">
                 {hasUserFilters
-                  ? 'Ningun usuario coincide con los filtros'
-                  : 'Este tenant aun no tiene usuarios'}
+                  ? 'Ningún usuario coincide con los filtros'
+                  : 'Este tenant aún no tiene usuarios'}
               </h4>
               <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
                 {hasUserFilters
-                  ? 'Ajusta la busqueda o limpia los filtros para ver mas resultados.'
-                  : 'Cuando el negocio invite a su equipo, aparecera aqui.'}
+                  ? 'Ajusta la búsqueda o limpia los filtros para ver más resultados.'
+                  : 'Cuando el negocio invite a su equipo, aparecerá aquí.'}
               </p>
             </div>
           ) : (
@@ -871,7 +885,7 @@ export default function AdminTenantDetailPage({
                       Estado
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                      Ultimo acceso
+                      Último acceso
                     </th>
                   </tr>
                 </thead>
@@ -927,7 +941,7 @@ export default function AdminTenantDetailPage({
           {totalUserPages > 1 && (
             <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
               <span>
-                Pagina {usersPage} de {totalUserPages}
+                Página {usersPage} de {totalUserPages}
               </span>
               <div className="flex gap-2">
                 <button
@@ -973,8 +987,8 @@ export default function AdminTenantDetailPage({
             <AlertDialogDescription>
               {tenant
                 ? pendingAction === 'activate'
-                  ? `${tenant.name} recuperara acceso a la plataforma y sus usuarios podran iniciar sesion de nuevo.`
-                  : `${tenant.name} quedara suspendido. Sus usuarios no podran iniciar sesion hasta que lo reactives.`
+                  ? `${tenant.name} recuperará acceso a la plataforma y sus usuarios podrán iniciar sesión de nuevo.`
+                  : `${tenant.name} quedará suspendido. Sus usuarios no podrán iniciar sesión hasta que lo reactives.`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>

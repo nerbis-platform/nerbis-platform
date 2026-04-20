@@ -23,6 +23,7 @@ import {
   adminReactivateSuperadmin,
   adminRegister,
 } from '@/lib/api/admin-auth';
+import { toast } from 'sonner';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import type { AdminUser } from '@/types/admin';
 import {
@@ -98,6 +99,10 @@ export default function SuperadminsPage() {
   }, []);
 
   useEffect(() => {
+    document.title = 'Superadministradores — NERBIS Admin';
+  }, []);
+
+  useEffect(() => {
     void loadPage(page);
   }, [loadPage, page]);
 
@@ -119,6 +124,7 @@ export default function SuperadminsPage() {
       });
       setCreateForm(EMPTY_FORM);
       setCreateOpen(false);
+      toast.success('Superadministrador creado correctamente.');
       await loadPage(page);
     } catch (err) {
       const message =
@@ -133,6 +139,7 @@ export default function SuperadminsPage() {
 
   async function handleConfirmDeactivate() {
     if (!pendingDeactivate) return;
+    const deactivateEmail = pendingDeactivate.email;
     setDeactivateSubmitting(true);
     setRowError(null);
     try {
@@ -141,6 +148,7 @@ export default function SuperadminsPage() {
         prev.map((item) => (item.id === updated.id ? updated : item)),
       );
       setPendingDeactivate(null);
+      toast.success(`${deactivateEmail} desactivado correctamente.`);
     } catch (err) {
       const message =
         err instanceof Error
@@ -160,6 +168,7 @@ export default function SuperadminsPage() {
       setItems((prev) =>
         prev.map((item) => (item.id === updated.id ? updated : item)),
       );
+      toast.success(`${target.email} reactivado correctamente.`);
     } catch (err) {
       const message =
         err instanceof Error
@@ -231,7 +240,7 @@ export default function SuperadminsPage() {
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="fade-up-auth mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Back link */}
         <Link
           href="/admin"
@@ -274,7 +283,7 @@ export default function SuperadminsPage() {
                     Estado
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                    Ultimo acceso
+                    Último acceso
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
                     Acciones
@@ -325,7 +334,13 @@ export default function SuperadminsPage() {
                         </td>
                         <td className="px-4 py-3 text-slate-500">
                           {item.last_login
-                            ? new Date(item.last_login).toLocaleString()
+                            ? new Date(item.last_login).toLocaleString('es-CO', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
                             : 'Nunca'}
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -365,7 +380,7 @@ export default function SuperadminsPage() {
         {totalPages > 1 && (
           <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
             <span>
-              Pagina {page} de {totalPages}
+              Página {page} de {totalPages}
             </span>
             <div className="flex gap-2">
               <button
@@ -393,7 +408,7 @@ export default function SuperadminsPage() {
           <DialogHeader>
             <DialogTitle>Nuevo superadministrador</DialogTitle>
             <DialogDescription>
-              La nueva cuenta podra acceder al panel de plataforma de inmediato.
+              La nueva cuenta podrá acceder al panel de plataforma de inmediato.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -451,7 +466,7 @@ export default function SuperadminsPage() {
                 </button>
               </div>
               <p className="text-xs text-slate-500">
-                Minimo 8 caracteres.
+                Mínimo 8 caracteres.
               </p>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -539,7 +554,7 @@ export default function SuperadminsPage() {
             <AlertDialogTitle>Desactivar superadministrador</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingDeactivate
-                ? `${pendingDeactivate.email} perdera acceso al panel de plataforma. Puedes reactivar la cuenta mas tarde.`
+                ? `${pendingDeactivate.email} perderá acceso al panel de plataforma. Puedes reactivar la cuenta más tarde.`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
