@@ -410,6 +410,8 @@ class PlatformLoginView(APIView):
             _MAX_CANDIDATES = 10
             candidates = list(User.objects.select_related("tenant").filter(email__iexact=email)[:_MAX_CANDIDATES])
             if not candidates:
+                # Timing-safe: run a dummy bcrypt so response time is indistinguishable
+                User().set_password(password)
                 return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
             # Verificar password contra candidatos (short-circuit: stop after 2 matches)
@@ -525,6 +527,10 @@ class PlatformForgotPasswordView(APIView):
                         send_otp_email(user.id, otp.code, "password_reset")
                 except Exception as e:
                     logger.warning(f"Fallo enviando OTP password_reset a user={user.id}: {e}")
+        else:
+            # Timing-safe: simulate OTP creation work so response time
+            # doesn't reveal whether the email exists in any tenant
+            User().set_password("dummy")
 
         # Siempre devolver la misma respuesta genérica
         return generic_response

@@ -254,7 +254,7 @@ def send_otp_email(user_id, otp_code, purpose):
 
     Args:
         user_id: ID del usuario
-        otp_code: Código OTP de 6 dígitos
+        otp_code: Código OTP de 8 dígitos
         purpose: 'password_reset' o 'account_reactivation'
     """
     from core.models import User
