@@ -56,6 +56,15 @@ class NerbisAdminSite(UnfoldAdminSite):
     @method_decorator(never_cache)
     def login(self, request, extra_context=None):
         """Login para superadmins con email + password."""
+        from django.conf import settings
+        from django.http import HttpResponseRedirect
+
+        # Redirigir usuarios autenticados no-superuser al dashboard del frontend
+        if request.user.is_authenticated and not request.user.is_superuser:
+            dashboard_url = f"{settings.FRONTEND_URL}/dashboard/"
+            logger.info(f"Tenant admin {request.user.email} redirigido a {dashboard_url}")
+            return HttpResponseRedirect(dashboard_url)
+
         if request.method == "POST":
             form = self.login_form(request, data=request.POST)
             if form.is_valid():
