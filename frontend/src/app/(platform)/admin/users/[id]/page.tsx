@@ -248,16 +248,16 @@ export default function AdminUserDetailPage({
   const userId = Number.parseInt(id, 10);
   const { admin, logout } = useAdminAuth();
 
+  // ── User detail state ───────────────────────────────────────────────
+  const [user, setUser] = useState<AdminUserDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     document.title = user
       ? `${user.email} — NERBIS Admin`
       : 'Detalle del usuario — NERBIS Admin';
   }, [user]);
-
-  // ── User detail state ───────────────────────────────────────────────
-  const [user, setUser] = useState<AdminUserDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // ── Pending-action state (one per destructive surface) ──────────────
   const [pendingStatus, setPendingStatus] = useState<PendingStatus>(null);

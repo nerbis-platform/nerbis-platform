@@ -83,9 +83,9 @@ export default function AdminLoginPage() {
       />
 
       {/* Content */}
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12">
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-6 sm:py-12">
         {/* Logo / brand mark */}
-        <div className="fade-up-auth mb-8 flex flex-col items-center gap-3">
+        <div className="fade-up-auth mb-4 flex flex-col items-center gap-3 sm:mb-8">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 shadow-lg shadow-black/10 ring-1 ring-white/20 backdrop-blur-sm">
             <Image
               src="/Isotipo_color_NERBIS.png"
@@ -101,7 +101,7 @@ export default function AdminLoginPage() {
             <h1 className="text-xl font-semibold tracking-[0.15em] text-white">
               NERBIS
             </h1>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-widest text-white/40">
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-widest text-white/60">
               Panel de plataforma
             </p>
           </div>
@@ -109,7 +109,7 @@ export default function AdminLoginPage() {
 
         {/* Login card */}
         <div className="fade-up-auth w-full max-w-sm" style={{ animationDelay: '80ms' }}>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-8 shadow-2xl shadow-black/20 backdrop-blur-xl">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-5 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
             <form
               onSubmit={handleSubmit}
               className="space-y-5"
@@ -125,7 +125,7 @@ export default function AdminLoginPage() {
                   Correo electrónico
                 </label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
                   <input
                     id="admin-email"
                     type="email"
@@ -136,7 +136,7 @@ export default function AdminLoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin@nerbis.com"
-                    className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] pl-10 pr-4 text-sm text-white placeholder:text-white/25 transition-colors duration-200 focus:border-teal-400/50 focus:outline-none focus:ring-2 focus:ring-teal-400/20 disabled:opacity-50"
+                    className="admin-login-input h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] pl-10 pr-4 text-sm text-white placeholder:text-white/25 transition-colors duration-200 focus:border-teal-400/50 focus:outline-none focus:ring-2 focus:ring-teal-400/20 disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -150,7 +150,7 @@ export default function AdminLoginPage() {
                   Contraseña
                 </label>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
                   <input
                     id="admin-password"
                     type={showPassword ? 'text' : 'password'}
@@ -160,12 +160,12 @@ export default function AdminLoginPage() {
                     disabled={submitting}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] pl-10 pr-11 text-sm text-white placeholder:text-white/25 transition-colors duration-200 focus:border-teal-400/50 focus:outline-none focus:ring-2 focus:ring-teal-400/20 disabled:opacity-50"
+                    className="admin-login-input h-11 w-full rounded-xl border border-white/10 bg-white/[0.06] pl-10 pr-11 text-sm text-white placeholder:text-white/25 transition-colors duration-200 focus:border-teal-400/50 focus:outline-none focus:ring-2 focus:ring-teal-400/20 disabled:opacity-50"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 transition-colors hover:text-white/60"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-white/50 transition-colors hover:text-white/80 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
                     aria-label={
                       showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
                     }
@@ -209,7 +209,7 @@ export default function AdminLoginPage() {
           </div>
 
           {/* Footer */}
-          <p className="mt-6 text-center text-xs text-white/30">
+          <p className="mt-6 text-center text-xs text-white/50">
             Acceso exclusivo para superadministradores de la plataforma.
           </p>
         </div>

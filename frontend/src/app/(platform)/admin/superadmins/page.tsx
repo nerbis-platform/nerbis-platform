@@ -213,7 +213,7 @@ export default function SuperadminsPage() {
               <h1 className="text-lg font-semibold tracking-tight text-white">
                 Superadministradores
               </h1>
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-white/60">
                 {count === 0
                   ? 'Sin registros'
                   : `${count} superadmin${count === 1 ? '' : 'es'} en total`}
@@ -264,7 +264,7 @@ export default function SuperadminsPage() {
 
         {/* Table */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-20 text-slate-400">
+          <div className="flex items-center justify-center py-20 text-slate-500">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             Cargando...
           </div>
@@ -295,7 +295,7 @@ export default function SuperadminsPage() {
                   <tr>
                     <td
                       colSpan={5}
-                      className="px-4 py-12 text-center text-slate-400"
+                      className="px-4 py-12 text-center text-slate-500"
                     >
                       No hay superadministradores registrados.
                     </td>
@@ -348,7 +348,7 @@ export default function SuperadminsPage() {
                             <button
                               disabled={isSelf}
                               onClick={() => setPendingDeactivate(item)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-teal-400/50 disabled:cursor-not-allowed disabled:opacity-40"
                               aria-label={`Desactivar ${item.email}`}
                             >
                               <ShieldOff className="h-3.5 w-3.5" aria-hidden="true" />
@@ -455,7 +455,7 @@ export default function SuperadminsPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreatePassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-slate-500 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
                   aria-label={showCreatePassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showCreatePassword ? (

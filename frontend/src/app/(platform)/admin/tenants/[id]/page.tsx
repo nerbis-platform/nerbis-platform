@@ -252,16 +252,16 @@ export default function AdminTenantDetailPage({
   const { id } = use(params);
   const { admin, logout } = useAdminAuth();
 
+  // ── Tenant detail ───────────────────────────────────────────────────
+  const [tenant, setTenant] = useState<AdminTenantDetail | null>(null);
+  const [tenantError, setTenantError] = useState<string | null>(null);
+  const [tenantLoading, setTenantLoading] = useState(true);
+
   useEffect(() => {
     document.title = tenant
       ? `${tenant.name} — NERBIS Admin`
       : 'Detalle del tenant — NERBIS Admin';
   }, [tenant]);
-
-  // ── Tenant detail ───────────────────────────────────────────────────
-  const [tenant, setTenant] = useState<AdminTenantDetail | null>(null);
-  const [tenantError, setTenantError] = useState<string | null>(null);
-  const [tenantLoading, setTenantLoading] = useState(true);
 
   // ── Action state ────────────────────────────────────────────────────
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
@@ -460,7 +460,7 @@ export default function AdminTenantDetailPage({
       <main className="fade-up-auth mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <nav aria-label="Ruta" className="mb-4">
-          <ol className="flex items-center gap-1.5 text-xs text-slate-500">
+          <ol className="flex items-center gap-1.5 text-xs text-slate-600">
             <li>
               <Link
                 href="/admin"

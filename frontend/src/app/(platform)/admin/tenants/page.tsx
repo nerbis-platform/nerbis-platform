@@ -391,7 +391,7 @@ export default function AdminTenantsPage() {
             type="button"
             onClick={clearFilters}
             disabled={!hasActiveFilters}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-400/50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Limpiar
           </button>
@@ -441,7 +441,7 @@ export default function AdminTenantsPage() {
                 </div>
               ))}
             </div>
-            <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-slate-400">
+            <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               Cargando tenants...
             </div>
@@ -544,7 +544,7 @@ export default function AdminTenantsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           aria-label={`Acciones para ${tenant.name}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-colors hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-colors hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
                         >
                           <MoreHorizontal
                             className="h-4 w-4"

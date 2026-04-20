@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Building2, LogOut, ShieldCheck, Users } from 'lucide-react';
+import { ArrowRight, Building2, LogOut, ShieldCheck, Users } from 'lucide-react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { adminListTenants } from '@/lib/api/admin-tenants';
 import { adminListSuperadmins } from '@/lib/api/admin-auth';
@@ -72,14 +72,14 @@ export default function AdminDashboardPage() {
               <h1 className="text-lg font-semibold tracking-[0.12em] text-white">
                 NERBIS
               </h1>
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-white/60">
                 {admin?.email ?? 'superadmin'}
               </p>
             </div>
           </div>
           <button
             onClick={logout}
-            className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-teal-400/50"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
             Salir
@@ -91,75 +91,100 @@ export default function AdminDashboardPage() {
       <main className="fade-up-auth mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
-            Panel de plataforma
+            Bienvenido de nuevo
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Gestiona la configuración global de NERBIS.
+            Vista general del ecosistema NERBIS.
           </p>
         </div>
 
-        {/* Quick metrics */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
-              Tenants totales
-            </p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
-              {tenantCount !== null ? tenantCount : '—'}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
-              Tenants activos
-            </p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700">
-              {activeTenants !== null ? activeTenants : '—'}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
-              Superadministradores
-            </p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
-              {superadminCount !== null ? superadminCount : '—'}
-            </p>
-          </div>
-        </div>
-
-        {/* Navigation cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Superadmins card */}
-          <Link
-            href="/admin/superadmins"
-            className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md"
-          >
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-teal-600 transition-colors group-hover:bg-teal-100">
-              <Users className="h-5 w-5" />
+        {/* Resumen */}
+        <section className="mb-10">
+          <h3 className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+            Resumen
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-slate-500">Negocios</p>
+                <Building2 className="h-4 w-4 text-slate-400" />
+              </div>
+              <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-slate-900">
+                {tenantCount !== null ? tenantCount : '—'}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">registrados en total</p>
             </div>
-            <h3 className="text-sm font-semibold text-slate-900">
-              Superadministradores
-            </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Gestiona quién tiene acceso al panel de plataforma.
-            </p>
-          </Link>
-
-          {/* Tenants card */}
-          <Link
-            href="/admin/tenants"
-            className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md"
-          >
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-teal-600 transition-colors group-hover:bg-teal-100">
-              <Building2 className="h-5 w-5" />
+            <div className="rounded-lg border border-slate-200 bg-white p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-slate-500">Activos</p>
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+              </div>
+              <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-emerald-700">
+                {activeTenants !== null ? activeTenants : '—'}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">negocios operando</p>
             </div>
-            <h3 className="text-sm font-semibold text-slate-900">
-              Tenants
-            </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Negocios registrados, planes, usuarios y métodos de autenticación.
-            </p>
-          </Link>
-        </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-slate-500">Administradores</p>
+                <ShieldCheck className="h-4 w-4 text-slate-400" />
+              </div>
+              <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-slate-900">
+                {superadminCount !== null ? superadminCount : '—'}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">con acceso a este panel</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Separador */}
+        <div className="mb-10 border-t border-slate-200" />
+
+        {/* Accesos */}
+        <section>
+          <h3 className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+            Gestión
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Superadmins card */}
+            <Link
+              href="/admin/superadmins"
+              className="group flex items-center gap-5 rounded-lg border border-slate-200 bg-white p-5 transition-all duration-200 hover:border-teal-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:ring-offset-2"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600 transition-colors group-hover:bg-teal-100">
+                <Users className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-slate-900">
+                  Superadministradores
+                </h4>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Controla quién accede a este panel.
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-teal-500" />
+            </Link>
+
+            {/* Tenants card */}
+            <Link
+              href="/admin/tenants"
+              className="group flex items-center gap-5 rounded-lg border border-slate-200 bg-white p-5 transition-all duration-200 hover:border-teal-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:ring-offset-2"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600 transition-colors group-hover:bg-teal-100">
+                <Building2 className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-slate-900">
+                  Negocios
+                </h4>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Planes, usuarios y estado de cada cuenta.
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-teal-500" />
+            </Link>
+          </div>
+        </section>
       </main>
     </div>
   );
