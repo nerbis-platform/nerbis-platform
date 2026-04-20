@@ -2205,9 +2205,19 @@ class TeamInvitationsView(APIView):
 
     @extend_schema(responses=TeamInvitationSerializer(many=True))
     def get(self, request):
+        from rest_framework.pagination import PageNumberPagination
+
         invitations = TeamInvitation.objects.filter(
             tenant=request.tenant,
         ).select_related("invited_by").order_by("-created_at")
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+        page = paginator.paginate_queryset(invitations, request)
+        if page is not None:
+            serializer = TeamInvitationSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
         serializer = TeamInvitationSerializer(invitations, many=True)
         return Response(serializer.data)
 
@@ -2241,7 +2251,7 @@ class TeamInvitationsView(APIView):
             else:
                 send_team_invitation_email.delay(invitation.id)
         except Exception:
-            logger.warning("No se pudo enviar email de invitación %s: %s", invitation.id, exc_info=True)
+            logger.warning("No se pudo enviar email de invitación %s", invitation.id, exc_info=True)
 
         return Response(
             TeamInvitationSerializer(invitation).data,
@@ -2309,6 +2319,7 @@ class InvitationDetailView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
 
     def get(self, request, token):
         try:
@@ -2329,6 +2340,7 @@ class AcceptInvitationView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [RegisterThrottle]
 
     @extend_schema(request=AcceptInvitationSerializer)
     def post(self, request, token):
@@ -2343,7 +2355,10 @@ class AcceptInvitationView(APIView):
             )
 
         if not invitation.is_valid:
-            error_msg = "La invitación ha expirado" if invitation.status == "pending" else "Esta invitación ya no es válida"
+            if invitation.status == "pending":
+                error_msg = "La invitación ha expirado"
+            else:
+                error_msg = "Esta invitación ya no es válida"
             return Response(
                 {"error": error_msg},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -2363,6 +2378,14 @@ class AcceptInvitationView(APIView):
             )
 
         with transaction.atomic():
+            # Re-fetch with lock to prevent race conditions
+            invitation = TeamInvitation.objects.select_for_update().get(pk=invitation.pk)
+            if invitation.status != "pending":
+                return Response(
+                    {"error": "Esta invitación ya no es válida"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Generar username
             base_username = invitation.email.split("@")[0].lower()
             username = base_username
@@ -2383,8 +2406,11 @@ class AcceptInvitationView(APIView):
 
             invitation.accept(user)
 
-        # Generar tokens JWT
+        # Generar tokens JWT con claims de tenant
         refresh = RefreshToken.for_user(user)
+        refresh["tenant_id"] = tenant.id
+        refresh["tenant_slug"] = tenant.slug
+        refresh["role"] = user.role
 
         return Response(
             {

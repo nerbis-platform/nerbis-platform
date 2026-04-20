@@ -310,8 +310,14 @@ def send_team_invitation_email(invitation_id):
 
         # send_email requiere un user, pero el invitado aún no tiene cuenta.
         # Usamos al invitador como user para que el Notification record quede ligado al tenant.
+        # Si invited_by fue eliminado (SET_NULL), usamos None y send_email debe manejarlo.
+        sender_user = invitation.invited_by
+        if sender_user is None:
+            logger.warning("Invitación %s no tiene invited_by (usuario eliminado)", invitation_id)
+            return
+
         send_email(
-            user=invitation.invited_by,
+            user=sender_user,
             subject=f"Te han invitado a unirte a {invitation.tenant.name}",
             template_name="team_invitation",
             recipient_email=invitation.email,

@@ -178,33 +178,33 @@
 }
 
 .dark {
-  /* Rose Gold Dark - Elegante y sofisticado */
-  --background: #1A1517;
-  --footer-background: #231E20;
-  --foreground: #F5F0ED;
-  --header: #1F1A1C;
+  /* NERBIS Dark — Navy + Teal */
+  --background: #0F1729;
+  --footer-background: #141D2F;
+  --foreground: #F1F5F9;
+  --header: #1A2744;
 
   /* Cards y Popovers */
-  --card: #2A2426;
-  --card-foreground: #F5F0ED;
-  --popover: #2A2426;
-  --popover-foreground: #F5F0ED;
+  --card: #1A2744;
+  --card-foreground: #F1F5F9;
+  --popover: #1A2744;
+  --popover-foreground: #F1F5F9;
 
-  /* Primary - Rosa Dusty en modo oscuro */
-  --primary: #E8B4B4;
-  --primary-foreground: #1A1517;
+  /* Primary - Navy claro en modo oscuro */
+  --primary: #93C5FD;
+  --primary-foreground: #0F1729;
 
   /* Secondary */
-  --secondary: #3D3335;
-  --secondary-foreground: #F5F0ED;
+  --secondary: #1E3A5F;
+  --secondary-foreground: #F1F5F9;
 
   /* Muted */
-  --muted: #3D3335;
-  --muted-foreground: #A89999;
+  --muted: #1E3A5F;
+  --muted-foreground: #94A3B8;
 
-  /* Accent */
-  --accent: #3D3335;
-  --accent-foreground: #F5F0ED;
+  /* Accent - Teal oscuro */
+  --accent: #134E4A;
+  --accent-foreground: #F1F5F9;
 
   /* Estados */
   --destructive: #F87171;
@@ -212,24 +212,24 @@
   /* Bordes e inputs */
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.15);
-  --ring: #7BBFB8;
+  --ring: #5EEAD4;
 
   /* Charts */
-  --chart-1: #E8B4B4;
-  --chart-2: #D4A5A5;
-  --chart-3: #E8C87D;
-  --chart-4: #A8D4A8;
-  --chart-5: #A8C5D4;
+  --chart-1: #93C5FD;
+  --chart-2: #5EEAD4;
+  --chart-3: #60A5FA;
+  --chart-4: #34D399;
+  --chart-5: #A78BFA;
 
   /* Sidebar */
-  --sidebar: #231E20;
-  --sidebar-foreground: #F5F0ED;
-  --sidebar-primary: #E8B4B4;
-  --sidebar-primary-foreground: #1A1517;
-  --sidebar-accent: #3D3335;
-  --sidebar-accent-foreground: #F5F0ED;
+  --sidebar: #141D2F;
+  --sidebar-foreground: #F1F5F9;
+  --sidebar-primary: #93C5FD;
+  --sidebar-primary-foreground: #0F1729;
+  --sidebar-accent: #1E3A5F;
+  --sidebar-accent-foreground: #F1F5F9;
   --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: #E8B4B4;
+  --sidebar-ring: #5EEAD4;
 }
 
 @layer base {

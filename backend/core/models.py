@@ -1224,31 +1224,40 @@ class TeamInvitation(TenantAwareModel):
     def is_valid(self):
         from django.utils import timezone
 
-        return self.status == "pending" and self.expires_at > timezone.now()
+        if self.status != "pending":
+            return False
+        if self.expires_at <= timezone.now():
+            # Auto-expire the invitation in DB
+            self.status = "expired"
+            self.save(update_fields=["status", "updated_at"])
+            return False
+        return True
 
     @classmethod
     def create_invitation(cls, tenant, email, role, invited_by, days_valid=30):
         import secrets
         from datetime import timedelta
 
+        from django.db import transaction
         from django.utils import timezone
 
-        # Cancelar invitaciones pendientes previas al mismo email
-        cls.objects.filter(
-            tenant=tenant, email__iexact=email, status="pending"
-        ).update(status="cancelled")
+        with transaction.atomic():
+            # Cancelar invitaciones pendientes previas al mismo email
+            cls.objects.filter(
+                tenant=tenant, email__iexact=email, status="pending"
+            ).update(status="cancelled")
 
-        token = secrets.token_urlsafe(32)
-        expires_at = timezone.now() + timedelta(days=days_valid)
+            token = secrets.token_urlsafe(32)
+            expires_at = timezone.now() + timedelta(days=days_valid)
 
-        return cls.objects.create(
-            tenant=tenant,
-            email=email.lower(),
-            role=role,
-            token=token,
-            invited_by=invited_by,
-            expires_at=expires_at,
-        )
+            return cls.objects.create(
+                tenant=tenant,
+                email=email.lower(),
+                role=role,
+                token=token,
+                invited_by=invited_by,
+                expires_at=expires_at,
+            )
 
     def cancel(self):
         self.status = "cancelled"

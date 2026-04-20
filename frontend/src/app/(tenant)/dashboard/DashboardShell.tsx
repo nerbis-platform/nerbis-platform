@@ -59,7 +59,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     for (const [prop, value] of Object.entries(NERBIS_PLATFORM_VARS)) {
       root.style.setProperty(prop, value);
     }
-  }, []);
+  }, [tenant?.id]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

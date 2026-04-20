@@ -352,7 +352,7 @@ export default function SettingsTeamPage() {
                   <div className="space-y-2">
                     <Label htmlFor="invite-role" className="text-gray-600">Rol</Label>
                     <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as 'staff' | 'admin')}>
-                      <SelectTrigger>
+                      <SelectTrigger id="invite-role">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

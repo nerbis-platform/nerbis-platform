@@ -91,8 +91,10 @@ export async function resetTeam2FA(
 // ===================================
 
 export async function getTeamInvitations(): Promise<TeamInvitation[]> {
-  const { data } = await api.get<TeamInvitation[]>('/team/invitations/');
-  return data;
+  const { data } = await api.get<{ results: TeamInvitation[] } | TeamInvitation[]>('/team/invitations/');
+  // Handle both paginated and non-paginated responses
+  if (Array.isArray(data)) return data;
+  return data.results;
 }
 
 export async function createTeamInvitation(invitationData: CreateInvitationData): Promise<TeamInvitation> {
