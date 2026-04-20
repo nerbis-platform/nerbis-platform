@@ -281,7 +281,7 @@ def social_login_or_create(social_info: SocialUserInfo, tenant: Tenant) -> User:
     2. Si existe User con mismo email → auto-vincular (el proveedor ya verificó la identidad)
     3. No existe → crear User + SocialAccount
     """
-    # 1. Buscar SocialAccount existente
+    # 1. Buscar SocialAccount existente por tenant+provider+provider_uid
     try:
         social_account = SocialAccount.objects.select_related("user").get(
             tenant=tenant,
@@ -312,13 +312,13 @@ def social_login_or_create(social_info: SocialUserInfo, tenant: Tenant) -> User:
                 existing_user.is_guest = False
                 existing_user.save()
 
-            # Auto-vincular (get_or_create para manejar concurrencia)
-            SocialAccount.objects.get_or_create(
-                tenant=tenant,
+            # Auto-vincular (update_or_create por user+provider unique constraint)
+            SocialAccount.objects.update_or_create(
+                user=existing_user,
                 provider=social_info.provider,
-                provider_uid=social_info.provider_uid,
                 defaults={
-                    "user": existing_user,
+                    "tenant": tenant,
+                    "provider_uid": social_info.provider_uid,
                     "email": social_info.email,
                     "extra_data": social_info.extra_data,
                 },
@@ -344,12 +344,12 @@ def social_login_or_create(social_info: SocialUserInfo, tenant: Tenant) -> User:
             user.set_unusable_password()
             user.save()
 
-            SocialAccount.objects.get_or_create(
-                tenant=tenant,
+            SocialAccount.objects.update_or_create(
+                user=user,
                 provider=social_info.provider,
-                provider_uid=social_info.provider_uid,
                 defaults={
-                    "user": user,
+                    "tenant": tenant,
+                    "provider_uid": social_info.provider_uid,
                     "email": social_info.email,
                     "extra_data": social_info.extra_data,
                 },
@@ -358,12 +358,12 @@ def social_login_or_create(social_info: SocialUserInfo, tenant: Tenant) -> User:
     except IntegrityError:
         # Concurrencia: otro request creó el usuario primero, reconsultar
         user = User.objects.get(email__iexact=social_info.email, tenant=tenant)
-        SocialAccount.objects.get_or_create(
-            tenant=tenant,
+        SocialAccount.objects.update_or_create(
+            user=user,
             provider=social_info.provider,
-            provider_uid=social_info.provider_uid,
             defaults={
-                "user": user,
+                "tenant": tenant,
+                "provider_uid": social_info.provider_uid,
                 "email": social_info.email,
                 "extra_data": social_info.extra_data,
             },
