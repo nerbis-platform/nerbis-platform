@@ -13,6 +13,16 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/sdd-gate.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Edit",
         "hooks": [
           {
