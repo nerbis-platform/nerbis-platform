@@ -67,60 +67,60 @@
 :root {
   --radius: 0.625rem;
 
-  /* Rose Gold Elegante - Paleta Principal */
-  --background: #FBF9F7;
-  --footer-background: #F5F0ED;
+  /* NERBIS Platform Identity — Navy + Teal */
+  --background: #FAFAFA;
+  --footer-background: #F5F5F5;
   --header: #FFFFFF;
-  --foreground: #3D3D3D;
+  --foreground: #111827;
 
   /* Cards y Popovers */
   --card: #FFFFFF;
-  --card-foreground: #3D3D3D;
+  --card-foreground: #111827;
   --popover: #FFFFFF;
-  --popover-foreground: #3D3D3D;
+  --popover-foreground: #111827;
 
-  /* Primary - Rosa Dusty Elegante */
-  --primary: #D4A5A5;
+  /* Primary - Navy NERBIS */
+  --primary: #1C3B57;
   --primary-foreground: #FFFFFF;
 
-  /* Secondary - Rosa más suave */
-  --secondary: #F5E6E6;
-  --secondary-foreground: #6B4C4C;
+  /* Secondary - Neutro frío */
+  --secondary: #F1F5F9;
+  --secondary-foreground: #334155;
 
-  /* Muted - Tonos neutros cálidos */
-  --muted: #F5F0ED;
-  --muted-foreground: #7A7A7A;
+  /* Muted - Gris neutro */
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
 
-  /* Accent - Verde Nerbis */
+  /* Accent - Teal NERBIS */
   --accent: #E2F3F1;
   --accent-foreground: #1C3B57;
 
   /* Estados */
-  --destructive: #E57373;
+  --destructive: #DC2626;
 
   /* Bordes e inputs */
-  --border: #E8E0DC;
-  --input: #E8E0DC;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
   --ring: #0D9488;
 
-  /* Charts - Paleta complementaria */
-  --chart-1: #D4A5A5;
-  --chart-2: #C48B8B;
-  --chart-3: #D4AF37;
-  --chart-4: #A8C5A8;
-  --chart-5: #9BB5C9;
+  /* Charts - Paleta NERBIS */
+  --chart-1: #1C3B57;
+  --chart-2: #0D9488;
+  --chart-3: #2563EB;
+  --chart-4: #059669;
+  --chart-5: #6366F1;
 
   /* Sidebar */
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #3D3D3D;
-  --sidebar-primary: #D4A5A5;
+  --sidebar-foreground: #111827;
+  --sidebar-primary: #1C3B57;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F5E6E6;
-  --sidebar-accent-foreground: #6B4C4C;
-  --sidebar-border: #E8E0DC;
-  --sidebar-ring: #D4A5A5;
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #334155;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #0D9488;
 
-  /* Fuentes del tema (overrideadas por ThemeInjector cuando el tenant tiene fuentes custom) */
+  /* Fuentes del tema (overrideadas por ThemeInjector dentro de .published-website) */
   --font-heading: 'Inter', sans-serif;
   --font-body: 'Inter', sans-serif;
 
@@ -239,7 +239,12 @@
   body {
     @apply bg-background text-foreground;
   }
-  h1, h2, h3, h4, h5, h6 {
+  .published-website h1,
+  .published-website h2,
+  .published-website h3,
+  .published-website h4,
+  .published-website h5,
+  .published-website h6 {
     font-family: var(--font-heading);
   }
 

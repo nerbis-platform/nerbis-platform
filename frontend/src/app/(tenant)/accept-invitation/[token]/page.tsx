@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getInvitationDetail, acceptInvitation } from '@/lib/api/team';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   Shield,
   ShieldCheck,
@@ -30,7 +29,6 @@ export default function AcceptInvitationPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { setUser, setTenant } = useAuth();
   const token = params.token as string;
 
   const [formData, setFormData] = useState<AcceptInvitationData>({
@@ -50,17 +48,14 @@ export default function AcceptInvitationPage() {
 
   const acceptMutation = useMutation({
     mutationFn: (data: AcceptInvitationData) => acceptInvitation(token, data),
-    onSuccess: (data) => {
+    onSuccess: () => {
+      // acceptInvitation() ya guarda tokens, user y tenant en localStorage
       setAccepted(true);
-      setUser(data.user);
-      if (data.tenant) {
-        setTenant(data.tenant);
-      }
       toast({
         title: 'Bienvenido al equipo',
         description: `Te has unido a ${invitation?.tenant_name}`,
       });
-      // Redirigir al dashboard después de un momento
+      // Redirigir al dashboard — AuthProvider cargará la sesión de localStorage
       setTimeout(() => {
         router.push('/dashboard');
       }, 2000);

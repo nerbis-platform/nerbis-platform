@@ -5,10 +5,20 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { getTeamMembers, disconnectTeamSocial, resetTeam2FA } from '@/lib/api/team';
+import {
+  getTeamMembers,
+  disconnectTeamSocial,
+  resetTeam2FA,
+  getTeamInvitations,
+  createTeamInvitation,
+  cancelTeamInvitation,
+  resendTeamInvitation,
+} from '@/lib/api/team';
 import type { TeamMember, TeamFilters, SocialAccountDetail } from '@/lib/api/team';
+import type { CreateInvitationData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -30,6 +40,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -46,6 +65,13 @@ import {
   UserRound,
   Mail,
   KeyRound,
+  UserPlus,
+  Clock,
+  Send,
+  X,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
@@ -152,6 +178,11 @@ export default function SettingsTeamPage() {
     member: TeamMember | null;
   }>({ open: false, member: null });
 
+  // Invitation state
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'staff' | 'admin'>('staff');
+
   const { data: members, isLoading } = useQuery({
     queryKey: ['team-members', filters],
     queryFn: () => getTeamMembers(filters),
@@ -183,6 +214,46 @@ export default function SettingsTeamPage() {
     },
   });
 
+  // Invitations
+  const { data: invitations } = useQuery({
+    queryKey: ['team-invitations'],
+    queryFn: getTeamInvitations,
+    enabled: user?.role === 'admin',
+  });
+
+  const createInvitationMutation = useMutation({
+    mutationFn: (data: CreateInvitationData) => createTeamInvitation(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['team-invitations'] });
+      toast.success('Invitación enviada');
+      setInviteDialogOpen(false);
+      setInviteEmail('');
+      setInviteRole('staff');
+    },
+    onError: (error: Error & { response?: { data?: { email?: string[]; detail?: string } } }) => {
+      const msg = error.response?.data?.email?.[0] || error.response?.data?.detail || 'Error al enviar la invitación';
+      toast.error(msg);
+    },
+  });
+
+  const cancelInvitationMutation = useMutation({
+    mutationFn: (id: number) => cancelTeamInvitation(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['team-invitations'] });
+      toast.success('Invitación cancelada');
+    },
+    onError: () => toast.error('Error al cancelar la invitación'),
+  });
+
+  const resendInvitationMutation = useMutation({
+    mutationFn: (id: number) => resendTeamInvitation(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['team-invitations'] });
+      toast.success(data.message || 'Invitación reenviada');
+    },
+    onError: () => toast.error('Error al reenviar la invitación'),
+  });
+
   // Role guard — solo admins (en useEffect para evitar navegación durante render)
   useEffect(() => {
     if (user && user.role !== 'admin') {
@@ -202,6 +273,16 @@ export default function SettingsTeamPage() {
     staff: teamList.filter((m) => m.role === 'staff').length,
     customers: teamList.filter((m) => m.role === 'customer').length,
   };
+
+  const pendingInvitations = (invitations || []).filter((inv) => inv.status === 'pending');
+  const pastInvitations = (invitations || []).filter((inv) => inv.status !== 'pending');
+
+  const STATUS_CONFIG = {
+    pending: { label: 'Pendiente', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+    accepted: { label: 'Aceptada', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    cancelled: { label: 'Cancelada', icon: XCircle, color: 'text-gray-500', bg: 'bg-gray-100' },
+    expired: { label: 'Expirada', icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-50' },
+  } as const;
 
   return (
     <div className="max-w-2xl">
@@ -230,12 +311,74 @@ export default function SettingsTeamPage() {
         </div>
       </section>
 
-      {/* ── Buscar y filtrar ── */}
+      {/* ── Miembros ── */}
       <section className="mb-8">
-        <h3 className="text-[0.7rem] text-gray-400 font-medium tracking-wide uppercase mb-3">
-          Buscar y filtrar
-        </h3>
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[0.7rem] text-gray-400 font-medium tracking-wide uppercase">
+            Miembros
+          </h3>
+          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1.5 text-xs">
+                <UserPlus className="h-3.5 w-3.5" />
+                Invitar
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="text-lg font-semibold" style={navyText}>Invitar miembro al equipo</DialogTitle>
+                <DialogDescription>
+                  Se enviará un email con un enlace para unirse al equipo.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  createInvitationMutation.mutate({ email: inviteEmail, role: inviteRole });
+                }}
+              >
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="invite-email" className="text-gray-600">Email</Label>
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      placeholder="ejemplo@email.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="invite-role" className="text-gray-600">Rol</Label>
+                    <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as 'staff' | 'admin')}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="staff">Staff</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="submit"
+                    disabled={createInvitationMutation.isPending}
+                    className="gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    {createInvitationMutation.isPending ? 'Enviando...' : 'Enviar invitación'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Buscar y filtrar */}
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 mb-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="relative sm:col-span-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -284,13 +427,6 @@ export default function SettingsTeamPage() {
             </Select>
           </div>
         </div>
-      </section>
-
-      {/* ── Miembros ── */}
-      <section className="mb-8">
-        <h3 className="text-[0.7rem] text-gray-400 font-medium tracking-wide uppercase mb-3">
-          Miembros
-        </h3>
 
         {isLoading ? (
           <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
@@ -420,6 +556,56 @@ export default function SettingsTeamPage() {
         )}
       </section>
 
+      {/* ── Invitaciones pendientes ── */}
+      {pendingInvitations.length > 0 && (
+        <section className="mb-8">
+          <h3 className="text-[0.7rem] text-gray-400 font-medium tracking-wide uppercase mb-3">
+            Invitaciones pendientes
+          </h3>
+          <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
+            {pendingInvitations.map((inv) => (
+              <div key={inv.id} className="px-4 py-3.5 hover:bg-gray-50/50 transition-colors">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[0.85rem] font-medium text-gray-700 truncate">{inv.email}</p>
+                      <Badge variant={inv.role === 'admin' ? 'default' : 'secondary'} className="text-[0.65rem] py-0 px-1.5">
+                        {inv.role_display}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Invitado por {inv.invited_by_name} · {new Date(inv.created_at).toLocaleDateString('es')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs gap-1"
+                      onClick={() => resendInvitationMutation.mutate(inv.id)}
+                      disabled={resendInvitationMutation.isPending}
+                    >
+                      <Send className="h-3 w-3" />
+                      Reenviar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-destructive gap-1"
+                      onClick={() => cancelInvitationMutation.mutate(inv.id)}
+                      disabled={cancelInvitationMutation.isPending}
+                    >
+                      <X className="h-3 w-3" />
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Dialog de confirmación para desvincular */}
       <AlertDialog
         open={disconnectDialog.open}
@@ -475,6 +661,36 @@ export default function SettingsTeamPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Historial de invitaciones ── */}
+      {pastInvitations.length > 0 && (
+        <section className="mb-8">
+          <h3 className="text-[0.7rem] text-gray-400 font-medium tracking-wide uppercase mb-3">
+            Historial de invitaciones
+          </h3>
+          <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
+            {pastInvitations.map((inv) => {
+              const statusConf = STATUS_CONFIG[inv.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.expired;
+              return (
+                <div key={inv.id} className="px-4 py-3 hover:bg-gray-50/50 transition-colors">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[0.85rem] text-gray-600 truncate">{inv.email}</p>
+                      <p className="text-xs text-gray-400">
+                        {inv.role_display} · {new Date(inv.created_at).toLocaleDateString('es')}
+                      </p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${statusConf.bg} ${statusConf.color}`}>
+                      <statusConf.icon className="h-3 w-3" />
+                      {statusConf.label}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Dialog de confirmación para resetear 2FA */}
       <AlertDialog

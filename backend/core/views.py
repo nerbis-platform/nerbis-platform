@@ -2231,10 +2231,17 @@ class TeamInvitationsView(APIView):
             invited_by=request.user,
         )
 
-        # Enviar email de invitación via Celery
-        from notifications.tasks import send_team_invitation_email
+        # Enviar email de invitación
+        try:
+            from notifications.tasks import send_team_invitation_email
 
-        send_team_invitation_email.delay(invitation.id)
+            if settings.DEBUG:
+                # En desarrollo: ejecutar sincrónicamente (evita desync entre DBs local/Docker)
+                send_team_invitation_email(invitation.id)
+            else:
+                send_team_invitation_email.delay(invitation.id)
+        except Exception:
+            logger.warning("No se pudo enviar email de invitación %s: %s", invitation.id, exc_info=True)
 
         return Response(
             TeamInvitationSerializer(invitation).data,
@@ -2284,9 +2291,15 @@ class ResendInvitationView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from notifications.tasks import send_team_invitation_email
+        try:
+            from notifications.tasks import send_team_invitation_email
 
-        send_team_invitation_email.delay(invitation.id)
+            if settings.DEBUG:
+                send_team_invitation_email(invitation.id)
+            else:
+                send_team_invitation_email.delay(invitation.id)
+        except Exception:
+            logger.warning("No se pudo enviar reenvío de invitación %s", invitation.id, exc_info=True)
 
         return Response({"message": "Invitación reenviada"})
 
