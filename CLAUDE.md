@@ -24,6 +24,33 @@ Plataforma SaaS multi-tenant multi-industria. Lee `docs/SDD.md` antes de hacer c
 - Subject siempre en minúsculas (commitlint lo valida)
 - Incluir co-author: `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
 
+## Flujo SDD — Gate de aprobación humana (ENFORCED POR HOOK)
+
+En worktrees, un hook técnico (`sdd-gate.sh`) **bloquea fisicamente** Edit/Write de código hasta que el usuario apruebe. No es una sugerencia — es un bloqueo real.
+
+### Protocolo obligatorio:
+
+1. **Fases de análisis** (sdd-explore, sdd-propose, sdd-spec, sdd-design, sdd-tasks): ejecutar normalmente (no editan código)
+2. **GATE antes de sdd-apply**: Presentar al usuario un resumen con:
+   - Lista de tasks a implementar
+   - Archivos que se van a crear/modificar
+   - Enfoque técnico elegido
+3. **Pedir al usuario que ejecute `sdd-go`** para desbloquear edits de código
+4. Si el usuario pide cambios → volver a la fase de diseño/tasks
+
+### Comandos del usuario:
+- `sdd-go` — aprueba el plan y desbloquea edits de código
+- `sdd-reset` — vuelve a bloquear edits (para nueva iteración)
+
+### Qué permite el hook SIN aprobación:
+- Archivos en `.claude/`, `.atl/`, `openspec/` (infraestructura SDD)
+- Lectura de cualquier archivo (Read, Grep, Glob)
+- Comandos de terminal (Bash)
+- Herramientas MCP (engram, github, postgres)
+
+### Qué bloquea SIN aprobación:
+- Edit/Write de cualquier archivo de código (backend/, frontend/, mobile/, etc.)
+
 ## Antes de codear
 
 1. Leer el SDD (`docs/SDD.md`) si el cambio toca la arquitectura

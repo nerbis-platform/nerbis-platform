@@ -2,6 +2,12 @@
 # NERBIS .gitignore
 # ======================
 
+# SDD gate marker (worktree-specific, never commit)
+.sdd-approved
+
+# Claude Code local settings (personal permissions, never commit)
+.claude/settings.local.json
+
 # OS files
 .DS_Store
 Thumbs.db
