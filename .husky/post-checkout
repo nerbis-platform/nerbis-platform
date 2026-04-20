@@ -1,0 +1,23 @@
+# Auto-sync local develop with remote after checkout or worktree creation
+# Args: $1=prev_ref, $2=new_ref, $3=branch_flag (1=branch checkout, 0=file checkout)
+
+BRANCH_FLAG="$3"
+
+# Only run on branch checkouts (not file checkouts)
+[ "$BRANCH_FLAG" = "0" ] && exit 0
+
+CURRENT_BRANCH="$(git branch --show-current)"
+
+# If checking out develop, pull latest from remote
+if [ "$CURRENT_BRANCH" = "develop" ]; then
+  echo "🔄 Sincronizando develop local con remoto..."
+  git pull --ff-only origin develop 2>/dev/null && \
+    echo "✅ develop local actualizado ($(git rev-parse --short HEAD))" || \
+    echo "⚠️  No se pudo actualizar develop (posible conflicto). Ejecuta 'git pull origin develop' manualmente."
+fi
+
+# If creating a worktree (new branch from develop), ensure develop is fresh first
+if [ "$CURRENT_BRANCH" != "develop" ] && [ "$CURRENT_BRANCH" != "main" ]; then
+  git fetch origin develop 2>/dev/null && \
+    echo "✅ Fetch de develop completado ($(git rev-parse --short origin/develop))" || true
+fi

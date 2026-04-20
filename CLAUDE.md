@@ -217,10 +217,20 @@ Antes de cualquier otra acción, asegurar que el ambiente local tiene los últim
 
 ```bash
 git fetch origin develop
-echo "✅ Fetch de develop completado ($(git rev-parse --short origin/develop))"
+
+# Actualizar develop local (fast-forward only, sin riesgo de conflictos)
+CURRENT=$(git branch --show-current)
+if [ "$CURRENT" = "develop" ]; then
+  git pull --ff-only origin develop
+elif git show-ref --verify --quiet refs/heads/develop; then
+  git update-ref refs/heads/develop origin/develop
+fi
+
+echo "✅ develop local sincronizado ($(git rev-parse --short origin/develop))"
 ```
 
 Esto garantiza que al crear branches o hacer rebase, se usa el develop más reciente de GitHub.
+El hook `.husky/post-checkout` también ejecuta esta sincronización automáticamente al hacer checkout o crear worktrees.
 
 #### Paso 1 — sdd-init (si no existe skill registry)
 1. Verificar si `.atl/skill-registry.md` existe
