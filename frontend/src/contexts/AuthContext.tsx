@@ -36,13 +36,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const refreshedRef = useRef(false);
 
-  // Auto-refresh: obtener datos frescos del servidor al cargar la app
+  // Auto-refresh: verificar sesión con el servidor al cargar la app.
+  // Las cookies httpOnly se envían automáticamente — si hay sesión válida,
+  // /auth/me/ responde con el usuario; si no, responde 401.
   useEffect(() => {
     if (refreshedRef.current) return;
     if (typeof window === 'undefined') return;
 
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
+    // Si no hay user en localStorage, probablemente no hay sesión
+    const storedUser = authApi.getStoredUser();
+    if (!storedUser) return;
 
     refreshedRef.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -51,12 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authApi.getCurrentUser()
       .then((freshUser) => {
         setUser(freshUser);
-        // Actualizar tenant desde localStorage (se actualiza en getCurrentUser)
         setTenant(getStoredTenant());
       })
       .catch(() => {
-        // Si falla (token expirado, etc), no hacer nada.
-        // El interceptor de 401 se encarga de limpiar la sesión.
+        // Si falla (cookie expirada, etc), limpiar estado local
+        setUser(null);
+        setTenant(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('tenant');
       })
       .finally(() => {
         setIsLoading(false);

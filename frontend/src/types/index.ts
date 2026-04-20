@@ -98,15 +98,9 @@ export interface RegisterTenantData {
   phone?: string;
 }
 
-export interface AuthTokens {
-  access: string;
-  refresh: string;
-}
-
 export interface AuthResponse {
   user: User;
   tenant?: Tenant;
-  tokens: AuthTokens;
   message?: string;
 }
 

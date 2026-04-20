@@ -6,13 +6,12 @@ import { AuthResponse, LoginCredentials, RegisterData, RegisterTenantData, User,
 /**
  * Platform Login (cross-tenant — busca al usuario en todos los tenants)
  * Usado desde el formulario de login de la plataforma NERBIS
+ * Los tokens se setean como cookies httpOnly por el backend.
  */
 export async function platformLogin(credentials: { email: string; password: string }): Promise<AuthResponse> {
   const { data } = await apiClient.post<AuthResponse>('/public/platform-login/', credentials);
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem('access_token', data.tokens.access);
-    localStorage.setItem('refresh_token', data.tokens.refresh);
     localStorage.setItem('user', JSON.stringify(data.user));
     if (data.tenant) {
       localStorage.setItem('tenant', JSON.stringify(data.tenant));
@@ -31,8 +30,6 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
   const response = await apiClient.post<AuthResponse>('/auth/register/', data);
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem('access_token', response.data.tokens.access);
-    localStorage.setItem('refresh_token', response.data.tokens.refresh);
     localStorage.setItem('user', JSON.stringify(response.data.user));
     if (response.data.tenant) {
       localStorage.setItem('tenant', JSON.stringify(response.data.tenant));
@@ -43,21 +40,16 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
 }
 
 /**
- * Logout — invalida refresh token en backend + limpia localStorage
+ * Logout — el backend lee el refresh token de la cookie httpOnly,
+ * lo blacklistea, y borra las cookies.
  */
 export async function logout(): Promise<void> {
+  try {
+    await apiClient.post('/auth/logout/');
+  } catch {
+    // Si falla (token ya expiró, etc), continuar con limpieza local
+  }
   if (typeof window !== 'undefined') {
-    const refreshToken = localStorage.getItem('refresh_token');
-    // Invalidar token en backend (blacklist)
-    if (refreshToken) {
-      try {
-        await apiClient.post('/auth/logout/', { refresh: refreshToken });
-      } catch {
-        // Si falla (token ya expiró, etc), continuar con limpieza local
-      }
-    }
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     localStorage.removeItem('tenant');
   }
@@ -77,14 +69,6 @@ export async function getCurrentUser(): Promise<User> {
   }
 
   return data.user;
-}
-
-/**
- * Check if user is authenticated
- */
-export function isAuthenticated(): boolean {
-  if (typeof window === 'undefined') return false;
-  return !!localStorage.getItem('access_token');
 }
 
 /**
@@ -147,8 +131,6 @@ export async function registerTenant(data: RegisterTenantData): Promise<AuthResp
   const response = await apiClient.post<AuthResponse>('/public/register-tenant/', data);
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem('access_token', response.data.tokens.access);
-    localStorage.setItem('refresh_token', response.data.tokens.refresh);
     localStorage.setItem('user', JSON.stringify(response.data.user));
     if (response.data.tenant) {
       localStorage.setItem('tenant', JSON.stringify(response.data.tenant));
@@ -242,8 +224,6 @@ export async function verifyReactivationOTP(email: string, code: string): Promis
   const { data } = await apiClient.post<AuthResponse>('/auth/verify-reactivation/', { email, code });
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem('access_token', data.tokens.access);
-    localStorage.setItem('refresh_token', data.tokens.refresh);
     localStorage.setItem('user', JSON.stringify(data.user));
     if (data.tenant) {
       localStorage.setItem('tenant', JSON.stringify(data.tenant));

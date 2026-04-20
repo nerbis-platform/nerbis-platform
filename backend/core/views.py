@@ -2,6 +2,8 @@
 
 import logging
 
+from django.conf import settings
+from django.db.models import Q
 from django.shortcuts import render
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
@@ -29,7 +31,42 @@ from .serializers import (
 from .throttles import LoginThrottle, OTPRequestThrottle, OTPVerifyThrottle, PasswordResetThrottle, RegisterThrottle
 
 logger = logging.getLogger(__name__)
-from django.db.models import Q
+
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> Response:
+    """Set httpOnly cookies for JWT tokens on a DRF Response."""
+    response.set_cookie(
+        key=settings.JWT_AUTH_COOKIE,
+        value=access_token,
+        httponly=settings.JWT_AUTH_COOKIE_HTTP_ONLY,
+        secure=settings.JWT_AUTH_COOKIE_SECURE,
+        samesite=settings.JWT_AUTH_COOKIE_SAMESITE,
+        path=settings.JWT_AUTH_COOKIE_PATH,
+        max_age=int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
+    )
+    response.set_cookie(
+        key=settings.JWT_AUTH_REFRESH_COOKIE,
+        value=refresh_token,
+        httponly=settings.JWT_AUTH_COOKIE_HTTP_ONLY,
+        secure=settings.JWT_AUTH_COOKIE_SECURE,
+        samesite=settings.JWT_AUTH_COOKIE_SAMESITE,
+        path=settings.JWT_AUTH_REFRESH_COOKIE_PATH,
+        max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+    )
+    return response
+
+
+def clear_auth_cookies(response: Response) -> Response:
+    """Clear JWT auth cookies from a DRF Response."""
+    response.delete_cookie(
+        key=settings.JWT_AUTH_COOKIE,
+        path=settings.JWT_AUTH_COOKIE_PATH,
+    )
+    response.delete_cookie(
+        key=settings.JWT_AUTH_REFRESH_COOKIE,
+        path=settings.JWT_AUTH_REFRESH_COOKIE_PATH,
+    )
+    return response
 
 # ===================================
 # VISTA DE SUSCRIPCION EXPIRADA
@@ -88,17 +125,14 @@ class RegisterView(generics.CreateAPIView):
             # Generar tokens
             refresh = RefreshToken.for_user(user)
 
-            return Response(
+            response = Response(
                 {
                     "user": UserSessionSerializer(user).data,
-                    "tokens": {
-                        "refresh": str(refresh),
-                        "access": str(refresh.access_token),
-                    },
                     "message": "Cuenta reactivada exitosamente",
                 },
                 status=status.HTTP_200_OK,
             )
+            return set_auth_cookies(response, str(refresh.access_token), str(refresh))
         except User.DoesNotExist:
             # No existe usuario inactivo, crear uno nuevo
             serializer = self.get_serializer(data=request.data)
@@ -111,17 +145,14 @@ class RegisterView(generics.CreateAPIView):
             # Generar tokens
             refresh = RefreshToken.for_user(user)
 
-            return Response(
+            response = Response(
                 {
                     "user": UserSessionSerializer(user).data,
-                    "tokens": {
-                        "refresh": str(refresh),
-                        "access": str(refresh.access_token),
-                    },
                     "message": "Usuario creado exitosamente",
                 },
                 status=status.HTTP_201_CREATED,
             )
+            return set_auth_cookies(response, str(refresh.access_token), str(refresh))
 
     def _send_welcome_email(self, user):
         """Enviar email de bienvenida (sin bloquear el registro si falla)."""
@@ -245,18 +276,15 @@ class TenantRegisterView(generics.CreateAPIView):
         # Generar tokens
         refresh = RefreshToken.for_user(user)
 
-        return Response(
+        response = Response(
             {
                 "user": UserSessionSerializer(user).data,
                 "tenant": TenantSerializer(user.tenant).data,
-                "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                },
                 "message": "Negocio creado exitosamente. Bienvenido a NERBIS!",
             },
             status=status.HTTP_201_CREATED,
         )
+        return set_auth_cookies(response, str(refresh.access_token), str(refresh))
 
     def _send_welcome_email(self, user):
         """Enviar email de bienvenida (sin bloquear el registro si falla)."""
@@ -346,16 +374,13 @@ class LoginView(APIView):
         refresh["tenant_slug"] = user.tenant.slug
         refresh["role"] = user.role
 
-        return Response(
+        response = Response(
             {
                 "user": UserSessionSerializer(user).data,
                 "tenant": TenantSerializer(tenant).data,
-                "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                },
             }
         )
+        return set_auth_cookies(response, str(refresh.access_token), str(refresh))
 
 
 class PlatformLoginView(APIView):
@@ -416,16 +441,13 @@ class PlatformLoginView(APIView):
         refresh["tenant_slug"] = user.tenant.slug
         refresh["role"] = user.role
 
-        return Response(
+        response = Response(
             {
                 "user": UserSessionSerializer(user).data,
                 "tenant": TenantSerializer(user.tenant).data,
-                "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                },
             }
         )
+        return set_auth_cookies(response, str(refresh.access_token), str(refresh))
 
 
 class PlatformForgotPasswordView(APIView):
@@ -552,7 +574,7 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        request=inline_serializer(name="LogoutRequest", fields={"refresh": drf_serializers.CharField()}),
+        request=inline_serializer(name="LogoutRequest", fields={}),
         responses={
             200: inline_serializer(name="LogoutResponse", fields={"message": drf_serializers.CharField()}),
             400: OpenApiResponse(description="Token inválido"),
@@ -560,12 +582,16 @@ class LogoutView(APIView):
     )
     def post(self, request):
         try:
-            refresh_token = request.data.get("refresh")
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response({"message": "Logout exitoso"})
+            # Leer refresh token de la cookie httpOnly
+            refresh_token = request.COOKIES.get(settings.JWT_AUTH_REFRESH_COOKIE)
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
         except Exception:
-            return Response({"error": "Token inválido"}, status=status.HTTP_400_BAD_REQUEST)
+            pass  # Si el token ya expiró o es inválido, continuar con la limpieza
+
+        response = Response({"message": "Logout exitoso"})
+        return clear_auth_cookies(response)
 
 
 class CurrentUserView(APIView):
@@ -777,16 +803,13 @@ class SetPasswordView(APIView):
         refresh["tenant_slug"] = user.tenant.slug
         refresh["role"] = user.role
 
-        return Response(
+        response = Response(
             {
                 "message": "Contraseña establecida exitosamente",
                 "user": UserSessionSerializer(user).data,
-                "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                },
             }
         )
+        return set_auth_cookies(response, str(refresh.access_token), str(refresh))
 
 
 # Vistas de testing (mantener)
@@ -969,17 +992,14 @@ class ReactivateAccountView(APIView):
         refresh["tenant_slug"] = user.tenant.slug
         refresh["role"] = user.role
 
-        return Response(
+        response = Response(
             {
                 "user": UserSessionSerializer(user).data,
-                "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                },
                 "message": "Cuenta reactivada exitosamente",
             },
             status=status.HTTP_200_OK,
         )
+        return set_auth_cookies(response, str(refresh.access_token), str(refresh))
 
 
 class ActiveBannersView(generics.ListAPIView):
@@ -1345,16 +1365,13 @@ class VerifyReactivationOTPView(APIView):
         refresh["tenant_slug"] = user.tenant.slug
         refresh["role"] = user.role
 
-        return Response(
+        response = Response(
             {
                 "message": "Cuenta reactivada exitosamente",
                 "user": UserSessionSerializer(user).data,
-                "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                },
             }
         )
+        return set_auth_cookies(response, str(refresh.access_token), str(refresh))
 
 
 # ===================================
@@ -1569,3 +1586,38 @@ def get_tenant_website_content(request):
         response_data["template_slug"] = config.template.slug
 
     return Response(response_data)
+
+
+class CookieTokenRefreshView(APIView):
+    """POST /api/auth/refresh/ — Refresh access token using httpOnly cookie."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get(settings.JWT_AUTH_REFRESH_COOKIE)
+        if not refresh_token:
+            return Response(
+                {"error": "No refresh token provided"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+
+            # TokenRefreshSerializer maneja rotación y blacklist automáticamente
+            serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
+            serializer.is_valid(raise_exception=True)
+
+            new_access = serializer.validated_data["access"]
+            new_refresh = serializer.validated_data.get("refresh", refresh_token)
+
+            response = Response({"detail": "Token refreshed"})
+            return set_auth_cookies(response, new_access, new_refresh)
+
+        except Exception:
+            response = Response(
+                {"error": "Token inválido o expirado"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            return clear_auth_cookies(response)

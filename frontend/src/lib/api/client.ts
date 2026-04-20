@@ -37,29 +37,23 @@ function getTenantSlug(): string {
 
 /**
  * Cliente Axios configurado para la API
+ * withCredentials: true permite que el browser envíe/reciba cookies httpOnly
  */
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
 
 /**
- * Interceptor para agregar token de autenticación y tenant slug
+ * Interceptor para agregar tenant slug a cada request.
+ * Los tokens de auth se envían automáticamente como cookies httpOnly por el browser.
  */
 apiClient.interceptors.request.use(
   (config) => {
-    // Agregar tenant slug dinámicamente
     config.headers['X-Tenant-Slug'] = getTenantSlug();
-
-    // Obtener token del localStorage
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('access_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
     return config;
   },
   (error) => {
@@ -106,8 +100,6 @@ function processQueue(error: unknown, token: string | null) {
 
 function clearSessionAndRedirect() {
   if (typeof window !== 'undefined') {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     localStorage.removeItem('tenant');
     const currentPath = window.location.pathname;
@@ -167,27 +159,12 @@ apiClient.interceptors.response.use(
         return Promise.reject(authError);
       }
 
-      // Intentar renovar el access token con el refresh token
-      const refreshToken = typeof window !== 'undefined'
-        ? localStorage.getItem('refresh_token')
-        : null;
-
-      if (!refreshToken) {
-        clearSessionAndRedirect();
-        const authError = new ApiError(
-          'Sesión expirada. Por favor, inicia sesión de nuevo.',
-          401,
-          'UNAUTHORIZED'
-        );
-        return Promise.reject(authError);
-      }
-
       // Si ya hay un refresh en curso, encolar este request
       if (isRefreshing) {
         return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        }).then((newToken) => {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        }).then(() => {
+          // Las cookies se actualizaron automáticamente por el browser
           return apiClient(originalRequest);
         });
       }
@@ -195,19 +172,16 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const { data } = await axios.post<{ access: string; refresh?: string }>(
+        // El refresh token se envía automáticamente como cookie httpOnly
+        await axios.post(
           `${API_URL}/auth/refresh/`,
-          { refresh: refreshToken },
-          { headers: { 'Content-Type': 'application/json' } }
+          {},
+          { withCredentials: true, headers: { 'Content-Type': 'application/json' } }
         );
 
-        localStorage.setItem('access_token', data.access);
-        if (data.refresh) {
-          localStorage.setItem('refresh_token', data.refresh);
-        }
-        processQueue(null, data.access);
+        processQueue(null, 'refreshed');
 
-        originalRequest.headers.Authorization = `Bearer ${data.access}`;
+        // Reintentar el request original (las cookies ya se actualizaron)
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);

@@ -293,7 +293,7 @@ LOGGING = {
 REST_FRAMEWORK = {
     # Autenticación
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "core.authentication.CookieJWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     # Permisos por defecto
@@ -349,6 +349,17 @@ SIMPLE_JWT = {
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
 }
+
+# ===================================
+# JWT COOKIE CONFIGURATION
+# ===================================
+JWT_AUTH_COOKIE = "access_token"
+JWT_AUTH_REFRESH_COOKIE = "refresh_token"
+JWT_AUTH_COOKIE_HTTP_ONLY = True
+JWT_AUTH_COOKIE_SECURE = not DEBUG  # True en producción (HTTPS)
+JWT_AUTH_COOKIE_SAMESITE = "Lax"
+JWT_AUTH_COOKIE_PATH = "/"
+JWT_AUTH_REFRESH_COOKIE_PATH = "/api/auth/"  # Refresh cookie solo se envía a endpoints de auth
 
 # ===================================
 # DRF SPECTACULAR (Documentación)
