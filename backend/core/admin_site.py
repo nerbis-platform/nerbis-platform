@@ -1,13 +1,15 @@
 # backend/core/admin_site.py
 """
-AdminSite personalizado para NERBIS con autenticación multi-tenant.
+AdminSite personalizado para NERBIS — restringido exclusivamente a superadmins.
 
 Este módulo define un AdminSite personalizado que:
-1. Usa un formulario de login con campo 'Cliente' (tenant)
-2. Permite que admins de diferentes tenants accedan con el mismo email
+1. Solo permite acceso a superusuarios (is_superuser=True)
+2. Usa un formulario de login simple (email + password, sin campo tenant)
 3. Mantiene el branding de NERBIS
 4. Usa Unfold para UI moderna
 5. Proporciona endpoints de API para el dashboard (activity logs)
+
+Los tenant admins gestionan su negocio desde el frontend Next.js (/dashboard/).
 """
 
 import logging
@@ -20,20 +22,20 @@ from django.views.decorators.cache import never_cache
 from unfold.sites import UnfoldAdminSite
 
 from .dashboard import get_activity_log, get_chart_data
-from .forms import TenantAuthenticationForm
+from .forms import SuperadminAuthenticationForm
 
 logger = logging.getLogger(__name__)
 
 
 class NerbisAdminSite(UnfoldAdminSite):
     """
-    AdminSite personalizado para NERBIS.
+    AdminSite personalizado para NERBIS — solo superadmins.
 
     Características:
-    - Formulario de login con campo tenant
+    - Solo superusuarios (is_superuser=True) pueden acceder
+    - Login simple con email + password
     - Branding personalizado
-    - Autenticación multi-tenant
-    - Badge de suscripción para admins de tenant
+    - Herramienta interna del equipo de plataforma
     """
 
     # Branding
@@ -41,79 +43,47 @@ class NerbisAdminSite(UnfoldAdminSite):
     site_title = "NERBIS Admin"
     index_title = "Panel de Administración"
 
-    # Formulario de login personalizado
-    login_form = TenantAuthenticationForm
+    # Formulario de login para superadmins (sin campo tenant)
+    login_form = SuperadminAuthenticationForm
 
     # Template de login personalizado
     login_template = "admin/login.html"
 
     def each_context(self, request):
-        """
-        Agrega contexto adicional a todas las páginas del admin.
-        Incluye información de suscripción para admins de tenant.
-        """
-        context = super().each_context(request)
-
-        # Debug log
-        logger.info(
-            f"[Subscription Banner] user={request.user}, is_auth={request.user.is_authenticated}, is_super={request.user.is_superuser if request.user.is_authenticated else 'N/A'}"
-        )
-
-        # Solo agregar info de suscripción para usuarios autenticados
-        # que NO sean superusers y tengan un tenant
-        if request.user.is_authenticated:
-            if request.user.is_superuser:
-                logger.info("[Subscription Banner] Skipped: user is superuser")
-            elif not hasattr(request.user, "tenant") or not request.user.tenant:
-                logger.info("[Subscription Banner] Skipped: user has no tenant")
-            else:
-                tenant = request.user.tenant
-                logger.info(
-                    f"[Subscription Banner] Adding context for tenant: {tenant.name}, plan: {tenant.plan}, is_trial: {tenant.is_trial}"
-                )
-                context["subscription_info"] = {
-                    "tenant_name": tenant.name,
-                    "plan": tenant.get_plan_display() if hasattr(tenant, "get_plan_display") else tenant.plan,
-                    "is_trial": tenant.is_trial,
-                    "is_expired": tenant.is_expired,
-                    "days_remaining": tenant.days_remaining,
-                    "subscription_status": tenant.subscription_status,
-                }
-
-        return context
+        """Agrega contexto adicional a todas las páginas del admin."""
+        return super().each_context(request)
 
     @method_decorator(never_cache)
     def login(self, request, extra_context=None):
-        """
-        Override del método login para usar nuestro formulario personalizado.
-        """
+        """Login para superadmins con email + password."""
+        from django.conf import settings
+        from django.http import HttpResponseRedirect
+
+        # Redirigir usuarios autenticados no-superuser al dashboard del frontend
+        if request.user.is_authenticated and not request.user.is_superuser:
+            dashboard_url = f"{settings.FRONTEND_URL}/dashboard/"
+            logger.info("non_superuser_redirected user_id=%s", request.user.pk)
+            return HttpResponseRedirect(dashboard_url)
+
         if request.method == "POST":
             form = self.login_form(request, data=request.POST)
             if form.is_valid():
                 user = form.get_user()
                 if user is not None:
-                    logger.info(f"Login exitoso para usuario: {user.email}")
-                    logger.info(f"  - is_active: {user.is_active}")
-                    logger.info(f"  - is_staff: {user.is_staff}")
-                    logger.info(f"  - is_superuser: {user.is_superuser}")
-                    logger.info(f"  - role: {getattr(user, 'role', 'N/A')}")
-                    # Especificar el backend ya que tenemos múltiples configurados
+                    logger.info("superadmin_login_success user_id=%s", user.pk)
                     auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-                    logger.info(f"Usuario autenticado en sesión: {request.user.is_authenticated}")
-                    # Redirigir al dashboard o a 'next'
                     next_url = request.POST.get("next") or request.GET.get("next")
                     if next_url:
                         return self._redirect_with_next(request, next_url)
                     return self._redirect_to_index(request)
             else:
-                logger.warning(f"Formulario inválido: {form.errors}")
+                error_codes = [e.code for errors in form.errors.as_data().values() for e in errors]
+                logger.warning("superadmin_login_failure error_codes=%s", error_codes)
         else:
             form = self.login_form(request)
 
         context = {
-            **self.each_context(request),
             "title": "Iniciar sesión",
-            "subtitle": None,
             "app_path": request.get_full_path(),
             "form": form,
             "next": request.GET.get("next", ""),
@@ -127,7 +97,6 @@ class NerbisAdminSite(UnfoldAdminSite):
         from django.http import HttpResponseRedirect
         from django.utils.http import url_has_allowed_host_and_scheme
 
-        # Verificar que next_url es segura
         if url_has_allowed_host_and_scheme(
             url=next_url,
             allowed_hosts={request.get_host()},
@@ -147,7 +116,6 @@ class NerbisAdminSite(UnfoldAdminSite):
         """Renderizar el template de login (standalone, sin Unfold)."""
         from django.template.response import TemplateResponse
 
-        # Solo pasar las variables necesarias para el login, sin contexto de Unfold
         login_context = {
             "title": context.get("title", "Iniciar sesión"),
             "app_path": context.get("app_path", request.get_full_path()),
@@ -162,42 +130,16 @@ class NerbisAdminSite(UnfoldAdminSite):
 
     def has_permission(self, request):
         """
-        Verificar si el usuario tiene permiso para acceder al admin.
+        Solo superusuarios (is_superuser=True) pueden acceder al Django admin.
 
-        Permite acceso a:
-        - Superusuarios (is_superuser=True)
-        - Usuarios con is_staff=True
-        - Usuarios con rol 'admin' en su tenant
+        Los tenant admins gestionan su negocio desde /dashboard/ en el frontend.
         """
         user = request.user
 
-        logger.debug(f"has_permission check - user: {user}, authenticated: {user.is_authenticated}")
-
-        if not user.is_authenticated:
-            logger.debug("Usuario no autenticado - sin permiso")
+        if not user.is_authenticated or not user.is_active:
             return False
 
-        if not user.is_active:
-            logger.info(f"Usuario {user.email} inactivo - sin permiso")
-            return False
-
-        logger.debug(f"Verificando permisos para: {user.email}")
-        logger.info(f"  - is_superuser: {user.is_superuser}")
-        logger.info(f"  - is_staff: {user.is_staff}")
-        logger.info(f"  - role: {getattr(user, 'role', 'N/A')}")
-
-        # Superusuarios siempre tienen acceso
-        if user.is_superuser:
-            logger.debug(f"Superusuario {user.email} - acceso permitido")
-            return True
-
-        # Solo usuarios con rol 'admin' tienen acceso al panel
-        if hasattr(user, "role") and user.role == "admin":
-            logger.info(f"Usuario admin de tenant {user.email} - acceso permitido")
-            return True
-
-        logger.info(f"Usuario {user.email} sin permisos suficientes")
-        return False
+        return user.is_superuser
 
     def get_urls(self):
         """Agregar URLs personalizadas al admin."""

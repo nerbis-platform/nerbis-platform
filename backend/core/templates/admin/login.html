@@ -101,7 +101,7 @@
             outline: none;
             border-color: #1C3B57;
             background: white;
-            box-shadow: 0 0 0 4px rgba(118, 75, 162, 0.1);
+            box-shadow: 0 0 0 4px rgba(28, 59, 87, 0.1);
         }
 
         .form-group input::placeholder {
@@ -147,18 +147,17 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0 4px 15px rgba(118, 75, 162, 0.4);
+            box-shadow: 0 4px 15px rgba(28, 59, 87, 0.4);
         }
 
         .submit-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(118, 75, 162, 0.5);
+            box-shadow: 0 6px 20px rgba(28, 59, 87, 0.5);
         }
 
         .submit-btn:active {
             transform: translateY(0);
         }
-
 
         .error-banner {
             background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
@@ -210,6 +209,13 @@
         .password-wrapper input {
             padding-right: 48px;
         }
+
+        .restricted-hint {
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 16px;
+        }
     </style>
 </head>
 <body>
@@ -219,7 +225,7 @@
                 <img src="{% static 'branding/Isotipo_color.png' %}" alt="Logo de la empresa">
             </div>
             <h1 class="login-title">NERBIS</h1>
-            <p class="login-subtitle">Panel de Administracion</p>
+            <p class="login-subtitle">Administracion de Plataforma</p>
         </div>
 
         <div class="login-body">
@@ -286,6 +292,8 @@
                     Iniciar Sesion
                 </button>
             </form>
+
+            <p class="restricted-hint">Acceso restringido al equipo de plataforma</p>
         </div>
     </div>
 

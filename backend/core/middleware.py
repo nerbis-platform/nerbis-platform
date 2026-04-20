@@ -75,9 +75,7 @@ class SubscriptionMiddleware:
 
     # URLs que siempre están permitidas (regex patterns)
     ALLOWED_URLS = [
-        r"^/admin/login/$",
-        r"^/admin/logout/$",
-        r"^/admin/password_change/",
+        r"^/admin/",  # Django admin — acceso controlado por NerbisAdminSite.has_permission()
         r"^/api/auth/",
         r"^/api/v1/auth/",
         r"^/api/admin/auth/",

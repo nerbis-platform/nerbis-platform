@@ -559,53 +559,9 @@ from django.templatetags.static import static
 from django.urls import reverse_lazy
 
 
-def can_view_tenants(request):
-    """Mostrar el item de Tenants solo a superusuarios."""
-    return request.user.is_superuser
-
-
-def can_view_shop(request):
-    """Mostrar Shop solo si el tenant tiene has_shop=True."""
-    user = request.user
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    tenant = getattr(user, "tenant", None)
-    return tenant and tenant.has_shop
-
-
-def can_view_bookings(request):
-    """Mostrar Bookings solo si el tenant tiene has_bookings=True."""
-    user = request.user
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    tenant = getattr(user, "tenant", None)
-    return tenant and tenant.has_bookings
-
-
-def can_view_services(request):
-    """Mostrar Services solo si el tenant tiene has_services=True."""
-    user = request.user
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    tenant = getattr(user, "tenant", None)
-    return tenant and tenant.has_services
-
-
-def can_view_marketing(request):
-    """Mostrar Marketing solo si el tenant tiene has_marketing=True."""
-    user = request.user
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    tenant = getattr(user, "tenant", None)
-    return tenant and tenant.has_marketing
+def is_superadmin(request):
+    """Solo superusuarios activos tienen acceso al Django admin."""
+    return request.user.is_authenticated and request.user.is_active and request.user.is_superuser
 
 
 UNFOLD = {
@@ -673,37 +629,37 @@ UNFOLD = {
                 "icon": "admin_panel_settings",
                 "separator": True,
                 "collapsible": True,
-                "permission": can_view_tenants,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Clientes",
                         "icon": "business",
                         "link": reverse_lazy("admin:core_tenant_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Usuarios",
                         "icon": "people",
                         "link": reverse_lazy("admin:core_user_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Suscripciones",
                         "icon": "card_membership",
                         "link": reverse_lazy("admin:billing_subscription_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Facturas",
                         "icon": "receipt_long",
                         "link": reverse_lazy("admin:billing_invoice_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Servicios",
                         "icon": "widgets",
                         "link": reverse_lazy("admin:billing_module_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                 ],
             },
@@ -714,73 +670,64 @@ UNFOLD = {
                 "title": "Website Builder",
                 "icon": "web",
                 "collapsible": True,
-                "permission": can_view_tenants,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Templates",
                         "icon": "dashboard_customize",
                         "link": reverse_lazy("admin:websites_websitetemplate_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Preguntas Onboarding",
                         "icon": "quiz",
                         "link": reverse_lazy("admin:websites_onboardingquestion_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Sitios de Clientes",
                         "icon": "language",
                         "link": reverse_lazy("admin:websites_websiteconfig_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Logs de IA",
                         "icon": "smart_toy",
                         "link": reverse_lazy("admin:websites_aigenerationlog_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Respuestas Onboarding",
                         "icon": "fact_check",
                         "link": reverse_lazy("admin:websites_onboardingresponse_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Chat IA",
                         "icon": "chat",
                         "link": reverse_lazy("admin:websites_chatmessage_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                 ],
             },
             # ═══════════════════════════════════════
-            # MI NEGOCIO
+            # DATOS DE TENANTS (configuración, websites)
             # ═══════════════════════════════════════
             {
-                "title": "Mi Negocio",
+                "title": "Datos de Tenants",
                 "icon": "settings",
                 "separator": True,
                 "collapsible": True,
+                "permission": is_superadmin,
                 "items": [
                     {
-                        "title": "Configuración",
+                        "title": "Configuraciones",
                         "icon": "tune",
                         "link": reverse_lazy("admin:core_tenantconfig_changelist"),
                     },
-                ],
-            },
-            # ═══════════════════════════════════════
-            # MI WEB
-            # ═══════════════════════════════════════
-            {
-                "title": "Mi Web",
-                "icon": "language",
-                "collapsible": True,
-                "items": [
                     {
-                        "title": "Contenido",
-                        "icon": "article",
+                        "title": "Websites",
+                        "icon": "language",
                         "link": reverse_lazy("admin:core_tenantwebsite_changelist"),
                     },
                 ],
@@ -792,25 +739,25 @@ UNFOLD = {
                 "title": "Shop",
                 "icon": "storefront",
                 "collapsible": True,
-                "permission": can_view_shop,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Productos",
                         "icon": "inventory_2",
                         "link": reverse_lazy("admin:ecommerce_product_changelist"),
-                        "permission": can_view_shop,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Categorías",
                         "icon": "category",
                         "link": reverse_lazy("admin:ecommerce_productcategory_changelist"),
-                        "permission": can_view_shop,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Inventario",
                         "icon": "warehouse",
                         "link": reverse_lazy("admin:ecommerce_inventory_changelist"),
-                        "permission": can_view_shop,
+                        "permission": is_superadmin,
                     },
                 ],
             },
@@ -821,19 +768,19 @@ UNFOLD = {
                 "title": "Facturación",
                 "icon": "receipt",
                 "collapsible": True,
-                "permission": can_view_shop,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Órdenes",
                         "icon": "shopping_cart",
                         "link": reverse_lazy("admin:orders_order_changelist"),
-                        "permission": can_view_shop,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Carritos",
                         "icon": "shopping_basket",
                         "link": reverse_lazy("admin:cart_cart_changelist"),
-                        "permission": can_view_shop,
+                        "permission": is_superadmin,
                     },
                 ],
             },
@@ -844,43 +791,43 @@ UNFOLD = {
                 "title": "Reservas",
                 "icon": "calendar_month",
                 "collapsible": True,
-                "permission": can_view_bookings,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Citas",
                         "icon": "event",
                         "link": reverse_lazy("admin:bookings_appointment_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Servicios",
                         "icon": "spa",
                         "link": reverse_lazy("admin:services_service_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Categorías",
                         "icon": "folder",
                         "link": reverse_lazy("admin:services_servicecategory_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Personal",
                         "icon": "badge",
                         "link": reverse_lazy("admin:services_staffmember_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Horarios",
                         "icon": "schedule",
                         "link": reverse_lazy("admin:bookings_businesshours_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Días Libres",
                         "icon": "event_busy",
                         "link": reverse_lazy("admin:bookings_timeoff_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                 ],
             },
@@ -891,25 +838,25 @@ UNFOLD = {
                 "title": "Planes",
                 "icon": "layers",
                 "collapsible": True,
-                "permission": can_view_services,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Mis Planes",
                         "icon": "layers",
                         "link": reverse_lazy("admin:subscriptions_marketplaceplan_changelist"),
-                        "permission": can_view_services,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Categorías",
                         "icon": "folder_special",
                         "link": reverse_lazy("admin:subscriptions_marketplacecategory_changelist"),
-                        "permission": can_view_services,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Contratos",
                         "icon": "description",
                         "link": reverse_lazy("admin:subscriptions_marketplacecontract_changelist"),
-                        "permission": can_view_services,
+                        "permission": is_superadmin,
                     },
                 ],
             },
@@ -921,31 +868,31 @@ UNFOLD = {
                 "icon": "campaign",
                 "separator": True,
                 "collapsible": True,
-                "permission": can_view_marketing,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Banners",
                         "icon": "image",
                         "link": reverse_lazy("admin:core_banner_changelist"),
-                        "permission": can_view_marketing,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Promociones",
                         "icon": "local_offer",
                         "link": reverse_lazy("admin:promotions_promotion_changelist"),
-                        "permission": can_view_marketing,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Cupones",
                         "icon": "confirmation_number",
                         "link": reverse_lazy("admin:coupons_coupon_changelist"),
-                        "permission": can_view_marketing,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Reseñas",
                         "icon": "star",
                         "link": reverse_lazy("admin:reviews_review_changelist"),
-                        "permission": can_view_marketing,
+                        "permission": is_superadmin,
                     },
                 ],
             },

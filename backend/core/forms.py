@@ -5,18 +5,17 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.utils.translation import gettext_lazy as _
 
 
-class TenantAuthenticationForm(AuthenticationForm):
+class SuperadminAuthenticationForm(AuthenticationForm):
     """
-    Formulario de autenticación para Django Admin de NERBIS.
+    Formulario de autenticación para Django Admin — solo superadmins NERBIS.
 
-    Este admin es exclusivamente para superusuarios de plataforma (sin tenant).
-    Los admins de tenant gestionan su negocio desde el dashboard del frontend,
-    no desde aquí.
+    Login simple con email + password. Solo superusuarios (is_superuser=True)
+    pueden acceder. Los tenant admins usan el frontend Next.js (/dashboard/).
     """
 
-    # Username = email (los users del sistema usan email como identificador)
+    # Redefinir username para que sea email
     username = forms.EmailField(
-        label=_("Correo electrónico"),
+        label=_("Email"),
         max_length=254,
         widget=forms.EmailInput(
             attrs={
@@ -41,22 +40,28 @@ class TenantAuthenticationForm(AuthenticationForm):
     field_order = ["username", "password"]
 
     error_messages = {
-        "invalid_login": _("Credenciales inválidas."),
+        "invalid_login": _("Credenciales inválidas. Verifica tu email y contraseña."),
         "inactive": _("Esta cuenta está inactiva."),
-        "not_superuser": _("Este panel es exclusivo para superusuarios de NERBIS."),
+        "not_superuser": _("Acceso restringido a administradores de plataforma."),
     }
 
     def clean(self):
+        """Validar credenciales y verificar que es superusuario."""
         email = self.cleaned_data.get("username")
         password = self.cleaned_data.get("password")
 
         if email and password:
             from core.models import User
 
-            # Solo superusuarios sin tenant pueden acceder al admin de Django
             try:
                 user = User.objects.get(tenant__isnull=True, email=email)
             except User.DoesNotExist:
+                raise forms.ValidationError(
+                    self.error_messages["invalid_login"],
+                    code="invalid_login",
+                )
+
+            if not user.check_password(password):
                 raise forms.ValidationError(
                     self.error_messages["invalid_login"],
                     code="invalid_login",
@@ -66,12 +71,6 @@ class TenantAuthenticationForm(AuthenticationForm):
                 raise forms.ValidationError(
                     self.error_messages["not_superuser"],
                     code="not_superuser",
-                )
-
-            if not user.check_password(password):
-                raise forms.ValidationError(
-                    self.error_messages["invalid_login"],
-                    code="invalid_login",
                 )
 
             if not user.is_active:
@@ -85,9 +84,11 @@ class TenantAuthenticationForm(AuthenticationForm):
         return self.cleaned_data
 
     def get_user(self):
+        """Retornar el usuario autenticado."""
         return getattr(self, "user_cache", None)
 
     def confirm_login_allowed(self, user):
+        """Solo superusuarios activos pueden acceder."""
         if not user.is_active:
             raise forms.ValidationError(
                 self.error_messages["inactive"],
