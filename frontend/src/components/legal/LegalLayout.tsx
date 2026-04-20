@@ -1,23 +1,28 @@
-// src/app/(platform)/legal-layout.tsx
+// src/components/legal/LegalLayout.tsx
 //
 // Shared layout for platform-level legal pages (terms, privacy, cookies).
 // Uses NERBIS corporate branding — NO tenant theme injection.
 
 import Link from 'next/link';
+import Image from 'next/image';
+import { getContactEmail } from '@/lib/legal';
 
 export function LegalLayout({ children }: { children: React.ReactNode }) {
-  const contactEmail = process.env.NEXT_PUBLIC_NERBIS_EMAIL || 'hola@nerbis.com';
+  const contactEmail = getContactEmail();
 
   return (
     <>
       {/* ─── Header ─── */}
       <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
         <div className="container flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <img
+          <Link href="/" className="flex items-center gap-2" aria-label="NERBIS — Inicio">
+            <Image
               src="/nerbis-logo.svg"
               alt="NERBIS"
-              className="h-8"
+              width={96}
+              height={32}
+              priority
+              className="h-8 w-auto"
             />
           </Link>
           <nav className="flex items-center gap-6 text-sm">
@@ -61,17 +66,13 @@ export function LegalLayout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="text-sm text-neutral-400">
               &copy; {new Date().getFullYear()} NERBIS SAS. Todos los derechos reservados.
-              {contactEmail && (
-                <>
-                  {' · '}
-                  <a
-                    href={`mailto:${contactEmail}`}
-                    className="hover:text-neutral-600 transition-colors"
-                  >
-                    {contactEmail}
-                  </a>
-                </>
-              )}
+              {' · '}
+              <a
+                href={`mailto:${contactEmail}`}
+                className="hover:text-neutral-600 transition-colors"
+              >
+                {contactEmail}
+              </a>
             </div>
           </div>
         </div>

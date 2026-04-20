@@ -1,7 +1,8 @@
 // src/app/(platform)/terms/page.tsx
 
 import type { Metadata } from 'next';
-import { LegalLayout } from '../legal-layout';
+import { LegalLayout } from '@/components/legal/LegalLayout';
+import { getContactEmail } from '@/lib/legal';
 
 export const metadata: Metadata = {
   title: 'Términos de Servicio',
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default function TermsPage() {
-  const contactEmail = process.env.NEXT_PUBLIC_NERBIS_EMAIL || 'hola@nerbis.com';
+  const contactEmail = getContactEmail();
 
   return (
     <LegalLayout>
