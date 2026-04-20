@@ -853,12 +853,11 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
         """Campos de solo lectura."""
         readonly = list(super().get_readonly_fields(request, obj))
 
-        # No permitir que un superadmin se desactive o cambie su propio rol
+        # No permitir que un superadmin se desactive o modifique sus propios permisos
         if obj and obj.pk == request.user.pk:
-            if "role" not in readonly:
-                readonly.append("role")
-            if "is_active" not in readonly:
-                readonly.append("is_active")
+            for field in ("role", "is_active", "is_superuser", "is_staff"):
+                if field not in readonly:
+                    readonly.append(field)
 
         return readonly
 
@@ -874,6 +873,13 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
         if change:
             original_user = User.objects.get(pk=obj.pk)
 
+            # Prevenir que un superadmin se quite sus propios privilegios
+            if obj.pk == request.user.pk:
+                obj.is_superuser = original_user.is_superuser
+                obj.is_staff = original_user.is_staff
+                obj.is_active = original_user.is_active
+                obj.role = original_user.role
+
             # Prevenir que se quite el último admin del tenant
             if obj.tenant and original_user.role == "admin" and obj.role != "admin":
                 admin_count = (
@@ -888,6 +894,9 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
         return is_superadmin(request.user)
 
     def has_delete_permission(self, request, obj=None):
+        # No permitir que un superadmin se elimine a sí mismo
+        if obj and obj.pk == request.user.pk:
+            return False
         return is_superadmin(request.user)
 
     def has_add_permission(self, request):

@@ -62,7 +62,7 @@ class NerbisAdminSite(UnfoldAdminSite):
         # Redirigir usuarios autenticados no-superuser al dashboard del frontend
         if request.user.is_authenticated and not request.user.is_superuser:
             dashboard_url = f"{settings.FRONTEND_URL}/dashboard/"
-            logger.info(f"Tenant admin {request.user.email} redirigido a {dashboard_url}")
+            logger.info("non_superuser_redirected user_id=%s", request.user.pk)
             return HttpResponseRedirect(dashboard_url)
 
         if request.method == "POST":
@@ -70,14 +70,15 @@ class NerbisAdminSite(UnfoldAdminSite):
             if form.is_valid():
                 user = form.get_user()
                 if user is not None:
-                    logger.info(f"Login exitoso para superadmin: {user.email}")
+                    logger.info("superadmin_login_success user_id=%s", user.pk)
                     auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
                     next_url = request.POST.get("next") or request.GET.get("next")
                     if next_url:
                         return self._redirect_with_next(request, next_url)
                     return self._redirect_to_index(request)
             else:
-                logger.warning(f"Login fallido: {form.errors}")
+                error_codes = [e.code for errors in form.errors.as_data().values() for e in errors]
+                logger.warning("superadmin_login_failure error_codes=%s", error_codes)
         else:
             form = self.login_form(request)
 

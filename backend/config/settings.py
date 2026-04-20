@@ -537,8 +537,8 @@ from django.urls import reverse_lazy
 
 
 def is_superadmin(request):
-    """Solo superusuarios tienen acceso al Django admin."""
-    return request.user.is_authenticated and request.user.is_superuser
+    """Solo superusuarios activos tienen acceso al Django admin."""
+    return request.user.is_authenticated and request.user.is_active and request.user.is_superuser
 
 
 UNFOLD = {

@@ -61,16 +61,16 @@ class SuperadminAuthenticationForm(AuthenticationForm):
                     code="invalid_login",
                 )
 
-            if not user.is_superuser:
-                raise forms.ValidationError(
-                    self.error_messages["not_superuser"],
-                    code="not_superuser",
-                )
-
             if not user.check_password(password):
                 raise forms.ValidationError(
                     self.error_messages["invalid_login"],
                     code="invalid_login",
+                )
+
+            if not user.is_superuser:
+                raise forms.ValidationError(
+                    self.error_messages["not_superuser"],
+                    code="not_superuser",
                 )
 
             if not user.is_active:
