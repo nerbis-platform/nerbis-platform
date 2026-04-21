@@ -6,7 +6,7 @@ Cubre:
 - Formato de ``__str__``.
 - Ordenamiento por ``-created_at``.
 - Comportamiento ``SET_NULL`` cuando se elimina el actor.
-- Enum de ``ACTION_CHOICES`` exacto (9 valores).
+- Enum de ``ACTION_CHOICES`` exacto (10 valores).
 - Extracción de IP con ``X-Forwarded-For`` presente, ausente y múltiple.
 """
 
@@ -99,11 +99,12 @@ class AdminAuditLogModelTests(TestCase):
         self.assertEqual(log.details, {})
         self.assertIsNone(log.ip_address)
 
-    def test_action_choices_enum_exact_nine_values(self) -> None:
-        """Verifica que ACTION_CHOICES contiene exactamente los 9 valores del design."""
+    def test_action_choices_enum_exact_values(self) -> None:
+        """Verifica que ACTION_CHOICES contiene exactamente los valores esperados."""
         expected = {
             "deactivate_tenant",
             "activate_tenant",
+            "edit_tenant_data",
             "deactivate_user",
             "activate_user",
             "change_user_role",
@@ -114,7 +115,7 @@ class AdminAuditLogModelTests(TestCase):
         }
         actual = {value for value, _ in AdminAuditLog.ACTION_CHOICES}
         self.assertEqual(actual, expected)
-        self.assertEqual(len(AdminAuditLog.ACTION_CHOICES), 9)
+        self.assertEqual(len(AdminAuditLog.ACTION_CHOICES), 10)
 
     # ------------------------------------------------------------------
     # __str__

@@ -22,6 +22,7 @@ import {
   LogOut,
   Mail,
   MapPin,
+  Pencil,
   Phone,
   Search,
   ShieldCheck,
@@ -40,6 +41,7 @@ import type {
   AdminSubscriptionStatus,
   AdminTenantDetail,
   AdminTenantPlan,
+  AdminTenantUpdatePayload,
   AdminTenantUser,
   AdminTenantUserRole,
   AdminUserFilters,
@@ -61,6 +63,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const USERS_PAGE_SIZE = 20;
 
@@ -83,6 +95,41 @@ const ROLE_LABELS: Record<AdminTenantUserRole, string> = {
   staff: 'Staff',
   customer: 'Cliente',
 };
+
+const INDUSTRY_OPTIONS: { value: string; label: string }[] = [
+  { value: 'beauty', label: 'Salon de Belleza / Barberia' },
+  { value: 'spa', label: 'Spa / Centro de Bienestar' },
+  { value: 'nails', label: 'Unas / Nail Bar' },
+  { value: 'gym', label: 'Gimnasio / Fitness' },
+  { value: 'yoga', label: 'Yoga / Pilates / Danza' },
+  { value: 'clinic', label: 'Clinica / Consultorio Medico' },
+  { value: 'dental', label: 'Odontologia' },
+  { value: 'psychology', label: 'Psicologia / Terapias' },
+  { value: 'nutrition', label: 'Nutricion / Dietetica' },
+  { value: 'veterinary', label: 'Veterinaria / Pet Shop' },
+  { value: 'restaurant', label: 'Restaurante / Cafeteria' },
+  { value: 'bakery', label: 'Panaderia / Pasteleria' },
+  { value: 'store', label: 'Tienda / Retail' },
+  { value: 'fashion', label: 'Moda / Boutique' },
+  { value: 'education', label: 'Educacion / Academia' },
+  { value: 'coworking', label: 'Coworking / Oficina' },
+  { value: 'photography', label: 'Fotografia / Videografia' },
+  { value: 'architecture', label: 'Arquitectura / Diseno' },
+  { value: 'legal', label: 'Abogados / Consultoria Legal' },
+  { value: 'accounting', label: 'Contabilidad / Finanzas' },
+  { value: 'marketing', label: 'Marketing / Publicidad' },
+  { value: 'tech', label: 'Tecnologia / Software' },
+  { value: 'real_estate', label: 'Inmobiliaria' },
+  { value: 'automotive', label: 'Automotriz / Taller Mecanico' },
+  { value: 'events', label: 'Eventos / Wedding Planner' },
+  { value: 'travel', label: 'Turismo / Agencia de Viajes' },
+  { value: 'services', label: 'Servicios Profesionales' },
+  { value: 'other', label: 'Otro' },
+];
+
+const INDUSTRY_LABELS: Record<string, string> = Object.fromEntries(
+  INDUSTRY_OPTIONS.map(({ value, label }) => [value, label]),
+);
 
 type RoleFilter = 'all' | AdminTenantUserRole;
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -260,6 +307,67 @@ export default function AdminTenantDetailPage({
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // ── Edit business data dialog ──────────────────────────────────────
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    industry: '',
+  });
+
+  function openEditDialog() {
+    if (!tenant) return;
+    setEditForm({
+      name: tenant.name,
+      email: tenant.email || '',
+      phone: tenant.phone || '',
+      industry: tenant.industry,
+    });
+    setEditError(null);
+    setEditOpen(true);
+  }
+
+  async function handleEditSubmit() {
+    if (!tenant) return;
+
+    if (!editForm.name.trim()) {
+      setEditError('El nombre del negocio es obligatorio.');
+      return;
+    }
+
+    setEditSubmitting(true);
+    setEditError(null);
+
+    const payload: AdminTenantUpdatePayload = {};
+    if (editForm.name.trim() !== tenant.name) payload.name = editForm.name.trim();
+    if (editForm.email !== (tenant.email || '')) payload.email = editForm.email;
+    if (editForm.phone !== (tenant.phone || '')) payload.phone = editForm.phone;
+    if (editForm.industry !== tenant.industry) payload.industry = editForm.industry;
+
+    if (Object.keys(payload).length === 0) {
+      setEditOpen(false);
+      setEditSubmitting(false);
+      return;
+    }
+
+    try {
+      const updated = await adminUpdateTenant(tenant.id, payload);
+      setTenant(updated);
+      setEditOpen(false);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'No se pudieron guardar los cambios.';
+      setEditError(message);
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
 
   // ── Users embedded table ────────────────────────────────────────────
   const [users, setUsers] = useState<AdminTenantUser[]>([]);
@@ -515,6 +623,14 @@ export default function AdminTenantDetailPage({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openEditDialog}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+                Editar datos
+              </button>
               {tenant.is_active ? (
                 <button
                   type="button"
@@ -594,7 +710,7 @@ export default function AdminTenantDetailPage({
                 <InfoRow
                   icon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
                   label="Industria"
-                  value={tenant.industry_name ?? tenant.industry}
+                  value={INDUSTRY_LABELS[tenant.industry] ?? tenant.industry}
                 />
                 <InfoRow
                   icon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
@@ -955,6 +1071,110 @@ export default function AdminTenantDetailPage({
           )}
         </section>
       </main>
+
+      {/* Edit business data dialog */}
+      <Dialog open={editOpen} onOpenChange={(open) => { if (!open && !editSubmitting) setEditOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar datos del negocio</DialogTitle>
+            <DialogDescription>
+              Modifica los datos de contacto y clasificacion del tenant. El slug no es editable.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              {editError}
+            </div>
+          )}
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nombre del negocio</Label>
+              <Input
+                id="edit-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Nombre comercial"
+                disabled={editSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email de contacto</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="contacto@negocio.com"
+                disabled={editSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">Telefono</Label>
+              <Input
+                id="edit-phone"
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="+57 300 123 4567"
+                disabled={editSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-industry">Industria</Label>
+              <Select
+                value={editForm.industry}
+                onValueChange={(value) => setEditForm((f) => ({ ...f, industry: value }))}
+                disabled={editSubmitting}
+              >
+                <SelectTrigger id="edit-industry" className="h-10 w-full">
+                  <SelectValue placeholder="Selecciona una industria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INDUSTRY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setEditOpen(false)}
+              disabled={editSubmitting}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleEditSubmit()}
+              disabled={editSubmitting}
+              className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-teal-500/25 transition-all hover:bg-teal-400 hover:shadow-teal-400/30 disabled:opacity-50"
+            >
+              {editSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Guardando...
+                </>
+              ) : (
+                'Guardar cambios'
+              )}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Tenant action confirmation */}
       <AlertDialog

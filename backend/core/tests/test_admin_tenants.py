@@ -347,16 +347,71 @@ class AdminTenantUpdateViewTests(_AdminTenantTestBase):
         self.assertEqual(self.tenant.plan, "enterprise")
         self.assertEqual(len(self._audit_logs()), 0)
 
-    def test_patch_ignores_name_field(self) -> None:
-        original_name = self.tenant.name
+    def test_patch_updates_name_field(self) -> None:
         response = self.admin_client.patch(
             self.url,
-            data={"name": "Hacked Name", "is_active": True},
+            data={"name": "New Business Name"},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.tenant.refresh_from_db()
-        self.assertEqual(self.tenant.name, original_name)
+        self.assertEqual(self.tenant.name, "New Business Name")
+        logs = self._audit_logs()
+        self.assertEqual(len(logs), 1)
+        self.assertEqual(logs[0].action, AdminAuditLog.ACTION_EDIT_TENANT_DATA)
+        self.assertEqual(
+            logs[0].details["changes"]["name"],
+            {"old": "Widget Co", "new": "New Business Name"},
+        )
+
+    def test_patch_updates_email_field(self) -> None:
+        response = self.admin_client.patch(
+            self.url,
+            data={"email": "new@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.tenant.refresh_from_db()
+        self.assertEqual(self.tenant.email, "new@example.com")
+        logs = self._audit_logs()
+        self.assertEqual(len(logs), 1)
+        self.assertEqual(logs[0].action, AdminAuditLog.ACTION_EDIT_TENANT_DATA)
+        self.assertEqual(
+            logs[0].details["changes"]["email"],
+            {"old": "contact@widget-co.test", "new": "new@example.com"},
+        )
+
+    def test_patch_updates_phone_and_industry(self) -> None:
+        response = self.admin_client.patch(
+            self.url,
+            data={"phone": "+1234567890", "industry": "tech"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.tenant.refresh_from_db()
+        self.assertEqual(self.tenant.phone, "+1234567890")
+        self.assertEqual(self.tenant.industry, "tech")
+        logs = self._audit_logs()
+        self.assertEqual(len(logs), 1)
+        self.assertEqual(logs[0].action, AdminAuditLog.ACTION_EDIT_TENANT_DATA)
+        self.assertEqual(
+            logs[0].details["changes"]["phone"],
+            {"old": "123456789", "new": "+1234567890"},
+        )
+        self.assertEqual(
+            logs[0].details["changes"]["industry"],
+            {"old": "beauty", "new": "tech"},
+        )
+
+    def test_patch_no_audit_when_business_data_unchanged(self) -> None:
+        """PATCH with same values should not create audit log."""
+        response = self.admin_client.patch(
+            self.url,
+            data={"name": self.tenant.name},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(self._audit_logs()), 0)
 
     def test_patch_ignores_slug_field(self) -> None:
         original_slug = self.tenant.slug

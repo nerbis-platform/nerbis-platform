@@ -154,9 +154,10 @@ class AdminTenantDetailView(generics.RetrieveUpdateAPIView):
       anotados).
     - PATCH acepta únicamente campos del allowlist
       (``AdminTenantUpdateSerializer``). Cambios en ``is_active`` generan
-      una entrada en ``AdminAuditLog``. Otros cambios (plan, feature flags,
-      fecha de suscripción) se persisten pero no son destructivos, por lo que
-      no se registran en el audit log (ver contrato del design doc).
+      entradas ``activate_tenant`` / ``deactivate_tenant`` en ``AdminAuditLog``.
+      Cambios en ``name``, ``email``, ``phone`` e ``industry`` generan
+      ``edit_tenant_data``. Plan, feature flags y fecha de suscripción se
+      persisten sin audit log.
     """
 
     permission_classes = [IsAuthenticated, IsSuperAdmin]
@@ -186,20 +187,33 @@ class AdminTenantDetailView(generics.RetrieveUpdateAPIView):
                 status=status.HTTP_200_OK,
             )
 
+        # Campos de negocio que disparan audit log `edit_tenant_data`.
+        business_fields = {"name", "email", "phone", "industry"}
+
         with transaction.atomic():
             # Re-fetch with lock inside the transaction.
             tenant = Tenant.objects.select_for_update().get(pk=tenant.pk)
 
             previous_is_active = tenant.is_active
             update_fields: list[str] = []
+            business_changes: dict[str, dict[str, str]] = {}
 
             for field, value in validated.items():
+                if field in business_fields:
+                    old_value = getattr(tenant, field, "")
+                    if old_value != value:
+                        business_changes[field] = {
+                            "old": str(old_value),
+                            "new": str(value),
+                        }
                 setattr(tenant, field, value)
                 update_fields.append(field)
 
             tenant.save(update_fields=update_fields)
 
-            # Audit trail sólo para transiciones de is_active.
+            ip = get_client_ip(request)
+
+            # Audit trail para transiciones de is_active.
             if "is_active" in validated and previous_is_active != validated["is_active"]:
                 action = (
                     AdminAuditLog.ACTION_ACTIVATE_TENANT
@@ -216,7 +230,19 @@ class AdminTenantDetailView(generics.RetrieveUpdateAPIView):
                         "previous_is_active": previous_is_active,
                         "new_is_active": validated["is_active"],
                     },
-                    ip_address=get_client_ip(request),
+                    ip_address=ip,
+                )
+
+            # Audit trail para cambios en datos de negocio.
+            if business_changes:
+                AdminAuditLog.objects.create(
+                    actor=request.user,
+                    action=AdminAuditLog.ACTION_EDIT_TENANT_DATA,
+                    target_type="Tenant",
+                    target_id=str(tenant.id),
+                    target_repr=f"tenant: {tenant.slug}",
+                    details={"changes": business_changes},
+                    ip_address=ip,
                 )
 
         # Re-anotar para incluir user_count/admin_count en la respuesta.

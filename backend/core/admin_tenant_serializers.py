@@ -118,15 +118,27 @@ class AdminTenantDetailSerializer(serializers.ModelSerializer):
 class AdminTenantUpdateSerializer(serializers.Serializer):
     """Allowlist estricto de campos editables por un superadmin.
 
-    Sólo ``is_active`` dispara una entrada en ``AdminAuditLog`` (actions
-    ``activate_tenant`` / ``deactivate_tenant``). El resto son actualizaciones
-    silenciosas de configuración de plan y módulos.
+    Cambios en ``is_active`` disparan una entrada en ``AdminAuditLog``
+    (``activate_tenant`` / ``deactivate_tenant``). Cambios en datos de
+    negocio (``name``, ``email``, ``phone``, ``industry``) disparan
+    ``edit_tenant_data``. El resto son actualizaciones silenciosas de
+    configuración de plan y módulos.
 
     Esto no es un ``ModelSerializer`` a propósito: evita que campos del
-    modelo como ``name``, ``slug``, ``schema_name`` o ``email`` puedan
+    modelo como ``slug``, ``schema_name`` o campos sensibles puedan
     filtrarse como editables por accidente.
     """
 
+    # Datos del negocio (Issue #148)
+    name = serializers.CharField(max_length=200, required=False)
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(max_length=20, required=False)
+    industry = serializers.ChoiceField(
+        choices=[c[0] for c in Tenant.INDUSTRY_CHOICES],
+        required=False,
+    )
+
+    # Estado y suscripción
     is_active = serializers.BooleanField(required=False)
     plan = serializers.ChoiceField(
         choices=["trial", "basic", "professional", "enterprise"],

@@ -151,6 +151,13 @@ export interface AdminTenantDetail {
  * Mirrors `AdminTenantUpdateSerializer`.
  */
 export interface AdminTenantUpdatePayload {
+  // Business data (Issue #148)
+  name?: string;
+  email?: string;
+  phone?: string;
+  industry?: string;
+
+  // Status & subscription
   is_active?: boolean;
   plan?: AdminTenantPlan;
   subscription_ends_at?: string | null;
