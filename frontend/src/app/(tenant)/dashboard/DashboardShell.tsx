@@ -39,8 +39,8 @@ const NERBIS_PLATFORM_VARS: Record<string, string> = {
   '--sidebar-accent-foreground': '#334155',
   '--sidebar-border': '#E2E8F0',
   '--sidebar-ring': '#0D9488',
-  '--font-heading': "'Inter', sans-serif",
-  '--font-body': "'Inter', sans-serif",
+  '--font-heading': "var(--font-geist-sans), sans-serif",
+  '--font-body': "var(--font-geist-sans), sans-serif",
 };
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {

@@ -121,8 +121,8 @@
   --sidebar-ring: #0D9488;
 
   /* Fuentes del tema (overrideadas por ThemeInjector dentro de .published-website) */
-  --font-heading: 'Inter', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-heading: var(--font-geist-sans), sans-serif;
+  --font-body: var(--font-geist-sans), sans-serif;
 
   /* ── Auth Design Tokens ────────────────────────────────────── */
 
