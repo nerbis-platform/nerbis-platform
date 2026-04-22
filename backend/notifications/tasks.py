@@ -347,9 +347,7 @@ def send_team_invitation_email(invitation_id):
     from core.models import TeamInvitation
 
     try:
-        invitation = TeamInvitation.objects.select_related(
-            "tenant", "invited_by"
-        ).get(id=invitation_id)
+        invitation = TeamInvitation.objects.select_related("tenant", "invited_by").get(id=invitation_id)
 
         if not invitation.is_valid:
             logger.info("Invitación %s ya no es válida, omitiendo envío de email", invitation_id)

@@ -2389,9 +2389,13 @@ class TeamInvitationsView(APIView):
     def get(self, request):
         from rest_framework.pagination import PageNumberPagination
 
-        invitations = TeamInvitation.objects.filter(
-            tenant=request.tenant,
-        ).select_related("invited_by").order_by("-created_at")
+        invitations = (
+            TeamInvitation.objects.filter(
+                tenant=request.tenant,
+            )
+            .select_related("invited_by")
+            .order_by("-created_at")
+        )
 
         paginator = PageNumberPagination()
         paginator.page_size = 20
@@ -2408,9 +2412,7 @@ class TeamInvitationsView(APIView):
         responses=TeamInvitationSerializer,
     )
     def post(self, request):
-        serializer = CreateTeamInvitationSerializer(
-            data=request.data, context={"request": request}
-        )
+        serializer = CreateTeamInvitationSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data["email"]
@@ -2448,9 +2450,7 @@ class CancelInvitationView(APIView):
 
     def delete(self, request, pk):
         try:
-            invitation = TeamInvitation.objects.get(
-                pk=pk, tenant=request.tenant, status="pending"
-            )
+            invitation = TeamInvitation.objects.get(pk=pk, tenant=request.tenant, status="pending")
         except TeamInvitation.DoesNotExist:
             return Response(
                 {"error": "Invitación no encontrada"},
@@ -2468,9 +2468,7 @@ class ResendInvitationView(APIView):
 
     def post(self, request, pk):
         try:
-            invitation = TeamInvitation.objects.get(
-                pk=pk, tenant=request.tenant, status="pending"
-            )
+            invitation = TeamInvitation.objects.get(pk=pk, tenant=request.tenant, status="pending")
         except TeamInvitation.DoesNotExist:
             return Response(
                 {"error": "Invitación no encontrada"},
@@ -2505,9 +2503,7 @@ class InvitationDetailView(APIView):
 
     def get(self, request, token):
         try:
-            invitation = TeamInvitation.objects.select_related(
-                "tenant", "invited_by"
-            ).get(token=token)
+            invitation = TeamInvitation.objects.select_related("tenant", "invited_by").get(token=token)
         except TeamInvitation.DoesNotExist:
             return Response(
                 {"error": "Invitación no encontrada"},

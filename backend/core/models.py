@@ -1270,9 +1270,7 @@ class TeamInvitation(TenantAwareModel):
 
         with transaction.atomic():
             # Cancelar invitaciones pendientes previas al mismo email
-            cls.objects.filter(
-                tenant=tenant, email__iexact=email, status="pending"
-            ).update(status="cancelled")
+            cls.objects.filter(tenant=tenant, email__iexact=email, status="pending").update(status="cancelled")
 
             token = secrets.token_urlsafe(32)
             expires_at = timezone.now() + timedelta(days=days_valid)

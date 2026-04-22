@@ -527,9 +527,7 @@ class CreateTeamInvitationSerializer(serializers.Serializer):
 
         # No invitar a alguien que ya es miembro del tenant
         if User.objects.filter(tenant=tenant, email__iexact=email, is_active=True).exists():
-            raise serializers.ValidationError(
-                {"email": "Este email ya pertenece a un miembro del equipo"}
-            )
+            raise serializers.ValidationError({"email": "Este email ya pertenece a un miembro del equipo"})
 
         return attrs
 
