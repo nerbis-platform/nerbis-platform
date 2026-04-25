@@ -15,12 +15,14 @@ import {
   ArrowLeft,
   Building2,
   ChevronRight,
+  Filter,
   Loader2,
   LogOut,
   MoreHorizontal,
   Search,
   ShieldCheck,
   ShieldOff,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -41,6 +43,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,7 +73,7 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 
 const PLAN_LABELS: Record<AdminTenantPlan, string> = {
   trial: 'Trial',
-  basic: 'Básico',
+  basic: 'Basico',
   professional: 'Profesional',
   enterprise: 'Enterprise',
 };
@@ -128,6 +135,19 @@ type PendingAction = {
   target: 'activate' | 'deactivate';
 };
 
+// ── Filter chip labels ─────────────────────────────────────────────
+const PLAN_CHIP_LABELS: Record<AdminTenantPlan, string> = {
+  trial: 'Plan: Trial',
+  basic: 'Plan: Basico',
+  professional: 'Plan: Profesional',
+  enterprise: 'Plan: Enterprise',
+};
+
+const STATUS_CHIP_LABELS: Record<Exclude<StatusFilter, 'all'>, string> = {
+  active: 'Estado: Activos',
+  inactive: 'Estado: Suspendidos',
+};
+
 export default function AdminTenantsPage() {
   const { admin, logout } = useAdminAuth();
 
@@ -141,6 +161,7 @@ export default function AdminTenantsPage() {
   const [plan, setPlan] = useState<PlanFilter>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [page, setPage] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // ── Data state ──────────────────────────────────────────────────────
   const [items, setItems] = useState<AdminTenant[]>([]);
@@ -205,6 +226,11 @@ export default function AdminTenantsPage() {
   const hasActiveFilters = useMemo(
     () => search !== '' || plan !== 'all' || status !== 'all',
     [search, plan, status],
+  );
+
+  const activeFilterCount = useMemo(
+    () => (plan !== 'all' ? 1 : 0) + (status !== 'all' ? 1 : 0),
+    [plan, status],
   );
 
   function clearFilters() {
@@ -324,7 +350,7 @@ export default function AdminTenantsPage() {
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
-              Gestión de tenants
+              Gestion de tenants
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {count === 0
@@ -334,67 +360,199 @@ export default function AdminTenantsPage() {
           </div>
         </div>
 
-        {/* Toolbar */}
-        <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-[1fr_180px_180px_auto]">
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, slug o email"
-              aria-label="Buscar tenants"
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 transition-colors focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
-            />
+        {/* ── Search + Filters toolbar ──────────────────────────────── */}
+        <div className="mb-3 space-y-3">
+          {/* Row 1: Search bar + filter toggle (mobile) / filter selects (desktop) */}
+          <div className="flex items-center gap-2">
+            {/* Search — always prominent */}
+            <div className="relative flex-1">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre, slug o email..."
+                aria-label="Buscar tenants"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
+              />
+            </div>
+
+            {/* Desktop: inline filter selects */}
+            <div className="hidden items-center gap-2 md:flex">
+              <div className="w-44">
+                <Select
+                  value={plan}
+                  onValueChange={(value) => setPlan(value as PlanFilter)}
+                >
+                  <SelectTrigger
+                    aria-label="Filtrar por plan"
+                    className="h-10 w-full border-slate-200"
+                  >
+                    <SelectValue placeholder="Todos los planes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los planes</SelectItem>
+                    <SelectItem value="trial">Trial</SelectItem>
+                    <SelectItem value="basic">Basico</SelectItem>
+                    <SelectItem value="professional">Profesional</SelectItem>
+                    <SelectItem value="enterprise">Enterprise</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-44">
+                <Select
+                  value={status}
+                  onValueChange={(value) => setStatus(value as StatusFilter)}
+                >
+                  <SelectTrigger
+                    aria-label="Filtrar por estado"
+                    className="h-10 w-full border-slate-200"
+                  >
+                    <SelectValue placeholder="Todos los estados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los estados</SelectItem>
+                    <SelectItem value="active">Activos</SelectItem>
+                    <SelectItem value="inactive">Suspendidos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Mobile: filter popover */}
+            <div className="md:hidden">
+              <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Abrir filtros"
+                    className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
+                  >
+                    <Filter className="h-4 w-4" aria-hidden="true" />
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-teal-600 text-[10px] font-semibold text-white">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="w-64 p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-900">
+                      Filtros
+                    </span>
+                    {hasActiveFilters && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearFilters();
+                          setFiltersOpen(false);
+                        }}
+                        className="text-xs text-teal-600 transition-colors hover:text-teal-700"
+                      >
+                        Limpiar todo
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-500">Plan</label>
+                      <Select
+                        value={plan}
+                        onValueChange={(value) => setPlan(value as PlanFilter)}
+                      >
+                        <SelectTrigger className="h-9 w-full border-slate-200 text-sm">
+                          <SelectValue placeholder="Todos los planes" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos los planes</SelectItem>
+                          <SelectItem value="trial">Trial</SelectItem>
+                          <SelectItem value="basic">Basico</SelectItem>
+                          <SelectItem value="professional">Profesional</SelectItem>
+                          <SelectItem value="enterprise">Enterprise</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-500">Estado</label>
+                      <Select
+                        value={status}
+                        onValueChange={(value) => setStatus(value as StatusFilter)}
+                      >
+                        <SelectTrigger className="h-9 w-full border-slate-200 text-sm">
+                          <SelectValue placeholder="Todos los estados" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos los estados</SelectItem>
+                          <SelectItem value="active">Activos</SelectItem>
+                          <SelectItem value="inactive">Suspendidos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
-          <Select
-            value={plan}
-            onValueChange={(value) => setPlan(value as PlanFilter)}
-          >
-            <SelectTrigger
-              aria-label="Filtrar por plan"
-              className="h-10 w-full border-slate-200"
-            >
-              <SelectValue placeholder="Todos los planes" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los planes</SelectItem>
-              <SelectItem value="trial">Trial</SelectItem>
-              <SelectItem value="basic">Básico</SelectItem>
-              <SelectItem value="professional">Profesional</SelectItem>
-              <SelectItem value="enterprise">Enterprise</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Row 2: Active filter chips */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-500">Filtros activos:</span>
 
-          <Select
-            value={status}
-            onValueChange={(value) => setStatus(value as StatusFilter)}
-          >
-            <SelectTrigger
-              aria-label="Filtrar por estado"
-              className="h-10 w-full border-slate-200"
-            >
-              <SelectValue placeholder="Todos los estados" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los estados</SelectItem>
-              <SelectItem value="active">Activos</SelectItem>
-              <SelectItem value="inactive">Suspendidos</SelectItem>
-            </SelectContent>
-          </Select>
+              {search !== '' && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="group inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <span className="max-w-[120px] truncate">
+                    Busqueda: &ldquo;{search}&rdquo;
+                  </span>
+                  <X className="h-3 w-3 shrink-0 text-slate-400 transition-colors group-hover:text-slate-600" aria-hidden="true" />
+                </button>
+              )}
 
-          <button
-            type="button"
-            onClick={clearFilters}
-            disabled={!hasActiveFilters}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-400/50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Limpiar
-          </button>
+              {plan !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setPlan('all')}
+                  className="group inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                >
+                  {PLAN_CHIP_LABELS[plan]}
+                  <X className="h-3 w-3 shrink-0 text-slate-400 transition-colors group-hover:text-slate-600" aria-hidden="true" />
+                </button>
+              )}
+
+              {status !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setStatus('all')}
+                  className="group inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                >
+                  {STATUS_CHIP_LABELS[status]}
+                  <X className="h-3 w-3 shrink-0 text-slate-400 transition-colors group-hover:text-slate-600" aria-hidden="true" />
+                </button>
+              )}
+
+              {/* Clear all — only shown when 2+ filters active */}
+              {(plan !== 'all' ? 1 : 0) + (status !== 'all' ? 1 : 0) + (search !== '' ? 1 : 0) > 1 && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="text-xs text-teal-600 transition-colors hover:text-teal-700"
+                >
+                  Limpiar todo
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Errors */}
@@ -453,13 +611,13 @@ export default function AdminTenantsPage() {
             </div>
             <h3 className="text-sm font-semibold text-slate-900">
               {hasActiveFilters
-                ? 'Ningún tenant coincide con los filtros'
-                : 'Aún no hay tenants registrados'}
+                ? 'Ningun tenant coincide con los filtros'
+                : 'Aun no hay tenants registrados'}
             </h3>
             <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
               {hasActiveFilters
-                ? 'Prueba ajustar la búsqueda o limpiar los filtros para ver más resultados.'
-                : 'Cuando se registre un negocio, aparecerá aquí para que puedas gestionarlo.'}
+                ? 'Prueba ajustar la busqueda o limpiar los filtros para ver mas resultados.'
+                : 'Cuando se registre un negocio, aparecera aqui para que puedas gestionarlo.'}
             </p>
             {hasActiveFilters && (
               <button
@@ -607,7 +765,7 @@ export default function AdminTenantsPage() {
         {totalPages > 1 && (
           <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
             <span>
-              Página {page} de {totalPages}
+              Pagina {page} de {totalPages}
             </span>
             <div className="flex gap-2">
               <button
@@ -646,8 +804,8 @@ export default function AdminTenantsPage() {
             <AlertDialogDescription>
               {pending
                 ? pending.target === 'activate'
-                  ? `${pending.tenant.name} recuperará acceso a la plataforma y sus usuarios podrán iniciar sesión de nuevo.`
-                  : `${pending.tenant.name} quedará suspendido: sus usuarios no podrán iniciar sesión. Puedes reactivar el tenant más tarde.`
+                  ? `${pending.tenant.name} recuperara acceso a la plataforma y sus usuarios podran iniciar sesion de nuevo.`
+                  : `${pending.tenant.name} quedara suspendido: sus usuarios no podran iniciar sesion. Puedes reactivar el tenant mas tarde.`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -670,8 +828,8 @@ export default function AdminTenantsPage() {
               {submitting
                 ? 'Procesando...'
                 : pending?.target === 'activate'
-                  ? 'Sí, reactivar'
-                  : 'Sí, suspender'}
+                  ? 'Si, reactivar'
+                  : 'Si, suspender'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
