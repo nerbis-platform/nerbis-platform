@@ -2,18 +2,20 @@
 
 'use client';
 
+// global-error.tsx reemplaza el <html> completo, por eso usa inline styles
+// y no puede importar componentes UI ni CSS externo (limitación de Next.js).
+
 export default function GlobalError({
   error,
   reset,
 }: {
-  error: Error & { digest?: string };
+  error: Error & { digest?: string; code?: string };
   reset: () => void;
 }) {
   const isNetworkError =
-    error.message?.includes('conectar') ||
+    error.code === 'NETWORK_ERROR' ||
     error.message?.includes('NETWORK_ERROR') ||
-    error.message?.includes('fetch') ||
-    error.message?.includes('network');
+    error.message?.includes('fetch failed');
 
   return (
     <html lang="es">
@@ -28,7 +30,7 @@ export default function GlobalError({
             padding: '24px',
           }}
         >
-          <div style={{ textAlign: 'center', maxWidth: '400px' }}>
+          <div role="alert" style={{ textAlign: 'center', maxWidth: '400px' }}>
             {/* Icon */}
             <div
               style={{
@@ -90,6 +92,8 @@ export default function GlobalError({
 
             {/* Retry button */}
             <button
+              type="button"
+              aria-label="Reintentar carga de la aplicacion"
               onClick={reset}
               style={{
                 display: 'inline-flex',

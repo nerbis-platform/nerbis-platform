@@ -6,10 +6,16 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Home, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ApiError } from '@/lib/api/client';
 
 interface ErrorProps {
   error: Error & { digest?: string };
   reset: () => void;
+}
+
+function isNetworkApiError(error: Error): boolean {
+  if (error instanceof ApiError && error.code === 'NETWORK_ERROR') return true;
+  return error.message?.includes('NETWORK_ERROR') || error.message?.includes('fetch failed');
 }
 
 export default function Error({ error, reset }: ErrorProps) {
@@ -17,11 +23,7 @@ export default function Error({ error, reset }: ErrorProps) {
     console.error('Error:', error);
   }, [error]);
 
-  const isNetworkError =
-    error.message?.includes('conectar') ||
-    error.message?.includes('NETWORK_ERROR') ||
-    error.message?.includes('fetch') ||
-    error.message?.includes('network');
+  const isNetworkError = isNetworkApiError(error);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-gray-50 to-white p-6">
