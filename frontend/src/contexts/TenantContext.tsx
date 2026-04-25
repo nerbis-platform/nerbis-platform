@@ -124,7 +124,11 @@ export function TenantProvider({ children }: TenantProviderProps) {
           return;
         }
         console.error('Error loading tenant config:', err);
-        setError('Error al cargar la configuración del tenant');
+        if (err instanceof ApiError && err.code === 'NETWORK_ERROR') {
+          setError('NETWORK_ERROR');
+        } else {
+          setError('Error al cargar la configuración del tenant');
+        }
       } finally {
         setLoading(false);
       }
@@ -158,7 +162,7 @@ export function TenantProvider({ children }: TenantProviderProps) {
   }
 
   if (error || !tenantData) {
-    const isNetworkError = error?.includes('conectar') || error?.includes('internet');
+    const isNetworkError = error === 'NETWORK_ERROR';
     return (
       <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-gray-50 to-white p-6">
         <div className="text-center max-w-sm">
