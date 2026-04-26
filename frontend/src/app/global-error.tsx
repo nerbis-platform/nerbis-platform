@@ -72,8 +72,8 @@ export default function GlobalError({
               }}
             >
               {isNetworkError
-                ? 'Sin conexion al servidor'
-                : 'Algo salio mal'}
+                ? 'Sin conexión al servidor'
+                : 'Algo salió mal'}
             </h2>
 
             {/* Message */}
@@ -86,14 +86,14 @@ export default function GlobalError({
               }}
             >
               {isNetworkError
-                ? 'No pudimos conectar con el servidor. Esto puede pasar si hay un mantenimiento o si tu conexion a internet se perdio.'
-                : 'Hubo un problema al cargar la aplicacion. Por favor intenta de nuevo.'}
+                ? 'No pudimos conectar con el servidor. Esto puede pasar si hay un mantenimiento o si tu conexión a internet se perdió.'
+                : 'Hubo un problema al cargar la aplicación. Por favor intenta de nuevo.'}
             </p>
 
             {/* Retry button */}
             <button
               type="button"
-              aria-label="Reintentar carga de la aplicacion"
+              aria-label="Reintentar carga de la aplicación"
               onClick={reset}
               style={{
                 display: 'inline-flex',
