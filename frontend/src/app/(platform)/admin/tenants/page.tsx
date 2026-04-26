@@ -73,7 +73,7 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 
 const PLAN_LABELS: Record<AdminTenantPlan, string> = {
   trial: 'Trial',
-  basic: 'Basico',
+  basic: 'Básico',
   professional: 'Profesional',
   enterprise: 'Enterprise',
 };
@@ -138,7 +138,7 @@ type PendingAction = {
 // ── Filter chip labels ─────────────────────────────────────────────
 const PLAN_CHIP_LABELS: Record<AdminTenantPlan, string> = {
   trial: 'Plan: Trial',
-  basic: 'Plan: Basico',
+  basic: 'Plan: Básico',
   professional: 'Plan: Profesional',
   enterprise: 'Plan: Enterprise',
 };
@@ -147,6 +147,49 @@ const STATUS_CHIP_LABELS: Record<Exclude<StatusFilter, 'all'>, string> = {
   active: 'Estado: Activos',
   inactive: 'Estado: Suspendidos',
 };
+
+// ── Shared filter selects (used in desktop inline + mobile popover) ──
+function TenantFilterSelects({
+  plan,
+  status,
+  onPlanChange,
+  onStatusChange,
+  size = 'default',
+}: {
+  plan: PlanFilter;
+  status: StatusFilter;
+  onPlanChange: (v: PlanFilter) => void;
+  onStatusChange: (v: StatusFilter) => void;
+  size?: 'default' | 'compact';
+}) {
+  const h = size === 'compact' ? 'h-9' : 'h-10';
+  return (
+    <>
+      <Select value={plan} onValueChange={(v) => onPlanChange(v as PlanFilter)}>
+        <SelectTrigger aria-label="Filtrar por plan" className={`${h} w-full border-slate-200 text-sm`}>
+          <SelectValue placeholder="Todos los planes" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los planes</SelectItem>
+          <SelectItem value="trial">Trial</SelectItem>
+          <SelectItem value="basic">Básico</SelectItem>
+          <SelectItem value="professional">Profesional</SelectItem>
+          <SelectItem value="enterprise">Enterprise</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={status} onValueChange={(v) => onStatusChange(v as StatusFilter)}>
+        <SelectTrigger aria-label="Filtrar por estado" className={`${h} w-full border-slate-200 text-sm`}>
+          <SelectValue placeholder="Todos los estados" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos los estados</SelectItem>
+          <SelectItem value="active">Activos</SelectItem>
+          <SelectItem value="inactive">Suspendidos</SelectItem>
+        </SelectContent>
+      </Select>
+    </>
+  );
+}
 
 export default function AdminTenantsPage() {
   const { admin, logout } = useAdminAuth();
@@ -223,15 +266,15 @@ export default function AdminTenantsPage() {
     [count],
   );
 
-  const hasActiveFilters = useMemo(
-    () => search !== '' || plan !== 'all' || status !== 'all',
+  const totalActiveFilters = useMemo(
+    () =>
+      (search !== '' ? 1 : 0) +
+      (plan !== 'all' ? 1 : 0) +
+      (status !== 'all' ? 1 : 0),
     [search, plan, status],
   );
-
-  const activeFilterCount = useMemo(
-    () => (plan !== 'all' ? 1 : 0) + (status !== 'all' ? 1 : 0),
-    [plan, status],
-  );
+  const hasActiveFilters = totalActiveFilters > 0;
+  const popoverFilterCount = totalActiveFilters - (search !== '' ? 1 : 0);
 
   function clearFilters() {
     setSearch('');
@@ -350,7 +393,7 @@ export default function AdminTenantsPage() {
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
-              Gestion de tenants
+              Gestión de tenants
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {count === 0
@@ -381,45 +424,13 @@ export default function AdminTenantsPage() {
             </div>
 
             {/* Desktop: inline filter selects */}
-            <div className="hidden items-center gap-2 md:flex">
-              <div className="w-44">
-                <Select
-                  value={plan}
-                  onValueChange={(value) => setPlan(value as PlanFilter)}
-                >
-                  <SelectTrigger
-                    aria-label="Filtrar por plan"
-                    className="h-10 w-full border-slate-200"
-                  >
-                    <SelectValue placeholder="Todos los planes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los planes</SelectItem>
-                    <SelectItem value="trial">Trial</SelectItem>
-                    <SelectItem value="basic">Basico</SelectItem>
-                    <SelectItem value="professional">Profesional</SelectItem>
-                    <SelectItem value="enterprise">Enterprise</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-44">
-                <Select
-                  value={status}
-                  onValueChange={(value) => setStatus(value as StatusFilter)}
-                >
-                  <SelectTrigger
-                    aria-label="Filtrar por estado"
-                    className="h-10 w-full border-slate-200"
-                  >
-                    <SelectValue placeholder="Todos los estados" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los estados</SelectItem>
-                    <SelectItem value="active">Activos</SelectItem>
-                    <SelectItem value="inactive">Suspendidos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="hidden items-center gap-2 md:flex [&>*]:w-44">
+              <TenantFilterSelects
+                plan={plan}
+                status={status}
+                onPlanChange={setPlan}
+                onStatusChange={setStatus}
+              />
             </div>
 
             {/* Mobile: filter popover */}
@@ -429,12 +440,12 @@ export default function AdminTenantsPage() {
                   <button
                     type="button"
                     aria-label="Abrir filtros"
-                    className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
+                    className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
                   >
                     <Filter className="h-4 w-4" aria-hidden="true" />
-                    {activeFilterCount > 0 && (
+                    {popoverFilterCount > 0 && (
                       <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-teal-600 text-[10px] font-semibold text-white">
-                        {activeFilterCount}
+                        {popoverFilterCount}
                       </span>
                     )}
                   </button>
@@ -461,40 +472,13 @@ export default function AdminTenantsPage() {
                     )}
                   </div>
                   <div className="mt-3 space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-slate-500">Plan</label>
-                      <Select
-                        value={plan}
-                        onValueChange={(value) => setPlan(value as PlanFilter)}
-                      >
-                        <SelectTrigger className="h-9 w-full border-slate-200 text-sm">
-                          <SelectValue placeholder="Todos los planes" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos los planes</SelectItem>
-                          <SelectItem value="trial">Trial</SelectItem>
-                          <SelectItem value="basic">Basico</SelectItem>
-                          <SelectItem value="professional">Profesional</SelectItem>
-                          <SelectItem value="enterprise">Enterprise</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-slate-500">Estado</label>
-                      <Select
-                        value={status}
-                        onValueChange={(value) => setStatus(value as StatusFilter)}
-                      >
-                        <SelectTrigger className="h-9 w-full border-slate-200 text-sm">
-                          <SelectValue placeholder="Todos los estados" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos los estados</SelectItem>
-                          <SelectItem value="active">Activos</SelectItem>
-                          <SelectItem value="inactive">Suspendidos</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <TenantFilterSelects
+                      plan={plan}
+                      status={status}
+                      onPlanChange={setPlan}
+                      onStatusChange={setStatus}
+                      size="compact"
+                    />
                   </div>
                 </PopoverContent>
               </Popover>
@@ -510,10 +494,11 @@ export default function AdminTenantsPage() {
                 <button
                   type="button"
                   onClick={() => setSearch('')}
+                  aria-label={`Quitar búsqueda "${search}"`}
                   className="group inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
                 >
                   <span className="max-w-[120px] truncate">
-                    Busqueda: &ldquo;{search}&rdquo;
+                    Búsqueda: &ldquo;{search}&rdquo;
                   </span>
                   <X className="h-3 w-3 shrink-0 text-slate-400 transition-colors group-hover:text-slate-600" aria-hidden="true" />
                 </button>
@@ -523,6 +508,7 @@ export default function AdminTenantsPage() {
                 <button
                   type="button"
                   onClick={() => setPlan('all')}
+                  aria-label={`Quitar ${PLAN_CHIP_LABELS[plan]}`}
                   className="group inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
                 >
                   {PLAN_CHIP_LABELS[plan]}
@@ -534,6 +520,7 @@ export default function AdminTenantsPage() {
                 <button
                   type="button"
                   onClick={() => setStatus('all')}
+                  aria-label={`Quitar ${STATUS_CHIP_LABELS[status]}`}
                   className="group inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
                 >
                   {STATUS_CHIP_LABELS[status]}
@@ -541,12 +528,12 @@ export default function AdminTenantsPage() {
                 </button>
               )}
 
-              {/* Clear all — only shown when 2+ filters active */}
-              {(plan !== 'all' ? 1 : 0) + (status !== 'all' ? 1 : 0) + (search !== '' ? 1 : 0) > 1 && (
+              {/* Clear all — desktop only, shown when 2+ filters active */}
+              {totalActiveFilters > 1 && (
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="text-xs text-teal-600 transition-colors hover:text-teal-700"
+                  className="hidden text-xs text-teal-600 transition-colors hover:text-teal-700 md:inline"
                 >
                   Limpiar todo
                 </button>
@@ -611,13 +598,13 @@ export default function AdminTenantsPage() {
             </div>
             <h3 className="text-sm font-semibold text-slate-900">
               {hasActiveFilters
-                ? 'Ningun tenant coincide con los filtros'
-                : 'Aun no hay tenants registrados'}
+                ? 'Ningún tenant coincide con los filtros'
+                : 'Aún no hay tenants registrados'}
             </h3>
             <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
               {hasActiveFilters
-                ? 'Prueba ajustar la busqueda o limpiar los filtros para ver mas resultados.'
-                : 'Cuando se registre un negocio, aparecera aqui para que puedas gestionarlo.'}
+                ? 'Prueba ajustar la búsqueda o limpiar los filtros para ver más resultados.'
+                : 'Cuando se registre un negocio, aparecerá aquí para que puedas gestionarlo.'}
             </p>
             {hasActiveFilters && (
               <button
@@ -765,7 +752,7 @@ export default function AdminTenantsPage() {
         {totalPages > 1 && (
           <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
             <span>
-              Pagina {page} de {totalPages}
+              Página {page} de {totalPages}
             </span>
             <div className="flex gap-2">
               <button
@@ -804,8 +791,8 @@ export default function AdminTenantsPage() {
             <AlertDialogDescription>
               {pending
                 ? pending.target === 'activate'
-                  ? `${pending.tenant.name} recuperara acceso a la plataforma y sus usuarios podran iniciar sesion de nuevo.`
-                  : `${pending.tenant.name} quedara suspendido: sus usuarios no podran iniciar sesion. Puedes reactivar el tenant mas tarde.`
+                  ? `${pending.tenant.name} recuperará acceso a la plataforma y sus usuarios podrán iniciar sesión de nuevo.`
+                  : `${pending.tenant.name} quedará suspendido: sus usuarios no podrán iniciar sesión. Puedes reactivar el tenant más tarde.`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -828,8 +815,8 @@ export default function AdminTenantsPage() {
               {submitting
                 ? 'Procesando...'
                 : pending?.target === 'activate'
-                  ? 'Si, reactivar'
-                  : 'Si, suspender'}
+                  ? 'Sí, reactivar'
+                  : 'Sí, suspender'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
