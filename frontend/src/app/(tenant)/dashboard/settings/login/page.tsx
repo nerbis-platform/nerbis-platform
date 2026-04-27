@@ -608,7 +608,7 @@ export default function LoginSettingsPage() {
   return (
     <div className="max-w-2xl space-y-8">
       <header>
-        <h1 className="text-[1.25rem] font-semibold text-[#1C3B57]">Inicio de sesión</h1>
+        <h1 className="text-[1.25rem] font-semibold text-[var(--stg-primary)]">Inicio de sesión</h1>
       </header>
 
       {/* ═══════════════════════════════════════════════════════ */}
@@ -626,13 +626,13 @@ export default function LoginSettingsPage() {
               <div
                 className={cn(
                   'size-9 rounded-lg flex items-center justify-center shrink-0',
-                  profile?.has_password ? 'bg-[rgba(13,148,136,0.08)]' : 'bg-gray-50',
+                  profile?.has_password ? 'bg-[var(--stg-accent-subtle)]' : 'bg-gray-50',
                 )}
               >
                 <KeyRound
                   className={cn(
                     'size-4',
-                    profile?.has_password ? 'text-[#0D9488]' : 'text-gray-400',
+                    profile?.has_password ? 'text-[var(--stg-accent)]' : 'text-gray-400',
                   )}
                   aria-hidden="true"
                 />
@@ -660,7 +660,7 @@ export default function LoginSettingsPage() {
                   setResetStep('confirm');
                   setIsEditingPassword(true);
                 }}
-                className="text-[0.75rem] font-medium text-[#0D9488] hover:text-[#0D9488] hover:bg-[rgba(13,148,136,0.08)] cursor-pointer"
+                className="text-[0.75rem] font-medium text-[var(--stg-accent)] hover:text-[var(--stg-accent)] hover:bg-[var(--stg-accent-subtle)] cursor-pointer"
               >
                 Crear contraseña
               </Button>
@@ -680,8 +680,8 @@ export default function LoginSettingsPage() {
               {resetStep === 'confirm' && (
                 <div className="flex flex-col gap-3 pt-4">
                   <div className="flex items-start gap-3">
-                    <div className="size-8 rounded-lg flex items-center justify-center shrink-0 bg-[rgba(13,148,136,0.08)]">
-                      <Mail className="size-4 text-[#0D9488]" aria-hidden="true" />
+                    <div className="size-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--stg-accent-subtle)]">
+                      <Mail className="size-4 text-[var(--stg-accent)]" aria-hidden="true" />
                     </div>
                     <div className="flex-1">
                       <p className="text-[0.85rem] font-medium text-gray-700">
@@ -714,7 +714,7 @@ export default function LoginSettingsPage() {
                       type="button"
                       disabled={resetLoading}
                       onClick={handleSendResetOtp}
-                      className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                      className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
                     >
                       {resetLoading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
                       {resetLoading ? 'Enviando...' : 'Enviar codigo'}
@@ -757,7 +757,7 @@ export default function LoginSettingsPage() {
                         type="button"
                         onClick={handleResendOtp}
                         disabled={resetLoading}
-                        className="text-[0.72rem] font-medium text-[#0D9488] hover:underline cursor-pointer disabled:opacity-50"
+                        className="text-[0.72rem] font-medium text-[var(--stg-accent)] hover:underline cursor-pointer disabled:opacity-50"
                       >
                         Reenviar codigo
                       </button>
@@ -785,7 +785,7 @@ export default function LoginSettingsPage() {
                         setResetStep('new-password');
                         setResetError('');
                       }}
-                      className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                      className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
                     >
                       Siguiente
                     </Button>
@@ -863,7 +863,7 @@ export default function LoginSettingsPage() {
                       type="button"
                       disabled={resetLoading || !resetNewPassword || !resetConfirmPassword}
                       onClick={handleVerifyResetOtp}
-                      className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                      className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
                     >
                       {resetLoading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
                       {resetLoading ? 'Creando...' : 'Crear contraseña'}
@@ -887,7 +887,7 @@ export default function LoginSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setIsEditingPassword(true)}
-                  className="text-[0.75rem] font-medium text-[#0D9488] hover:underline cursor-pointer"
+                  className="text-[0.75rem] font-medium text-[var(--stg-accent)] hover:underline cursor-pointer"
                 >
                   Cambiar
                 </button>
@@ -900,8 +900,8 @@ export default function LoginSettingsPage() {
                 {resetStep === 'confirm' && (
                   <div className="flex flex-col gap-3 pt-4">
                     <div className="flex items-start gap-3">
-                      <div className="size-8 rounded-lg flex items-center justify-center shrink-0 bg-[rgba(13,148,136,0.08)]">
-                        <Mail className="size-4 text-[#0D9488]" aria-hidden="true" />
+                      <div className="size-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--stg-accent-subtle)]">
+                        <Mail className="size-4 text-[var(--stg-accent)]" aria-hidden="true" />
                       </div>
                       <div className="flex-1">
                         <p className="text-[0.85rem] font-medium text-gray-700">
@@ -934,7 +934,7 @@ export default function LoginSettingsPage() {
                         type="button"
                         disabled={resetLoading}
                         onClick={handleSendResetOtp}
-                        className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                        className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
                       >
                         {resetLoading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
                         {resetLoading ? 'Enviando...' : 'Enviar codigo'}
@@ -977,7 +977,7 @@ export default function LoginSettingsPage() {
                           type="button"
                           onClick={handleResendOtp}
                           disabled={resetLoading}
-                          className="text-[0.72rem] font-medium text-[#0D9488] hover:underline cursor-pointer disabled:opacity-50"
+                          className="text-[0.72rem] font-medium text-[var(--stg-accent)] hover:underline cursor-pointer disabled:opacity-50"
                         >
                           Reenviar codigo
                         </button>
@@ -1005,7 +1005,7 @@ export default function LoginSettingsPage() {
                           setResetStep('new-password');
                           setResetError('');
                         }}
-                        className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                        className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
                       >
                         Siguiente
                       </Button>
@@ -1083,7 +1083,7 @@ export default function LoginSettingsPage() {
                         type="button"
                         disabled={resetLoading || !resetNewPassword || !resetConfirmPassword}
                         onClick={handleVerifyResetOtp}
-                        className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                        className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
                       >
                         {resetLoading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
                         {resetLoading ? 'Restableciendo...' : 'Restablecer contraseña'}
@@ -1107,7 +1107,7 @@ export default function LoginSettingsPage() {
                     <button
                       type="button"
                       onClick={() => setResetStep('confirm')}
-                      className="text-[0.7rem] font-medium text-[#0D9488] hover:underline cursor-pointer"
+                      className="text-[0.7rem] font-medium text-[var(--stg-accent)] hover:underline cursor-pointer"
                     >
                       ¿La olvidaste?
                     </button>
@@ -1202,7 +1202,7 @@ export default function LoginSettingsPage() {
                   <Button
                     type="submit"
                     disabled={changePasswordMutation.isPending}
-                    className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                    className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
                   >
                     <Lock className="size-3.5" aria-hidden="true" />
                     {changePasswordMutation.isPending ? 'Actualizando…' : 'Actualizar'}
@@ -1317,7 +1317,7 @@ export default function LoginSettingsPage() {
                         `Para vincular ${config.name}, inicia sesión con esa cuenta desde la pantalla de login.`
                       )
                     }
-                    className="text-[0.75rem] font-medium text-[#0D9488] hover:underline transition-colors cursor-pointer"
+                    className="text-[0.75rem] font-medium text-[var(--stg-accent)] hover:underline transition-colors cursor-pointer"
                   >
                     Vincular
                   </button>
@@ -1338,8 +1338,8 @@ export default function LoginSettingsPage() {
 
         <div className="rounded-xl border border-gray-200 bg-white p-5">
           <div className="flex items-center gap-2 mb-1">
-            <Fingerprint className="w-4 h-4 text-[#0D9488]" aria-hidden="true" />
-            <h4 className="text-[0.9rem] font-medium text-[#1C3B57]">Llaves de acceso</h4>
+            <Fingerprint className="w-4 h-4 text-[var(--stg-accent)]" aria-hidden="true" />
+            <h4 className="text-[0.9rem] font-medium text-[var(--stg-primary)]">Llaves de acceso</h4>
           </div>
           <p className="text-[0.8rem] text-gray-500 mb-5">
             Usa tu huella, Face ID o una llave de seguridad para iniciar sesión sin contraseña.
@@ -1358,14 +1358,14 @@ export default function LoginSettingsPage() {
                 value={newPasskeyName}
                 onChange={(e) => setNewPasskeyName(e.target.value)}
                 disabled={registering}
-                className="h-10 focus-visible:border-[#0D9488] focus-visible:ring-[#0D9488]/20"
+                className="h-10 focus-visible:border-[var(--stg-accent)] focus-visible:ring-[var(--stg-accent)]/20"
                 maxLength={100}
               />
               <Button
                 type="button"
                 onClick={handleRegisterPasskey}
                 disabled={registering}
-                className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98] text-white"
+                className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98] text-white"
               >
                 {registering ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
@@ -1436,7 +1436,7 @@ export default function LoginSettingsPage() {
                       </div>
                     ) : (
                       <>
-                        <p className="text-[0.875rem] font-medium text-[#1C3B57] truncate">
+                        <p className="text-[0.875rem] font-medium text-[var(--stg-primary)] truncate">
                           {p.name}
                         </p>
                         <p className="text-[0.72rem] text-gray-400 mt-0.5">
@@ -1452,7 +1452,7 @@ export default function LoginSettingsPage() {
                     <button
                       type="button"
                       onClick={() => startRenamePasskey(p)}
-                      className="p-2 rounded-md text-gray-400 hover:text-[#1C3B57] hover:bg-gray-50 transition-colors"
+                      className="p-2 rounded-md text-gray-400 hover:text-[var(--stg-primary)] hover:bg-gray-50 transition-colors"
                       aria-label={`Renombrar ${p.name}`}
                     >
                       <Pencil className="w-4 h-4" aria-hidden="true" />
@@ -1549,7 +1549,7 @@ function TwoFactorDisabledState({
     <div className="rounded-xl border border-gray-200 bg-white p-5">
       <div className="flex items-center gap-2 mb-1">
         <ShieldAlert className="w-4 h-4 text-gray-400" aria-hidden="true" />
-        <h4 className="text-[0.9rem] font-medium text-[#1C3B57]">Verificación en dos pasos</h4>
+        <h4 className="text-[0.9rem] font-medium text-[var(--stg-primary)]">Verificación en dos pasos</h4>
       </div>
       <p className="text-[0.8rem] text-gray-500 mb-5">
         Protege tu cuenta con un segundo paso de verificación usando una app
@@ -1559,7 +1559,7 @@ function TwoFactorDisabledState({
         type="button"
         onClick={onActivate}
         disabled={isLoading}
-        className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+        className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
       >
         <ShieldCheck className="size-3.5" aria-hidden="true" />
         {isLoading ? 'Preparando\u2026' : 'Activar autenticación de dos pasos'}
@@ -1607,8 +1607,8 @@ function TwoFactorEnablingState({
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-5">
       <div className="flex items-start gap-3">
-        <div className="size-9 rounded-lg bg-[rgba(13,148,136,0.08)] flex items-center justify-center shrink-0">
-          <Smartphone className="size-4 text-[#0D9488]" aria-hidden="true" />
+        <div className="size-9 rounded-lg bg-[var(--stg-accent-subtle)] flex items-center justify-center shrink-0">
+          <Smartphone className="size-4 text-[var(--stg-accent)]" aria-hidden="true" />
         </div>
         <div>
           <p className="text-[0.9rem] font-medium text-gray-800">
@@ -1680,7 +1680,7 @@ function TwoFactorEnablingState({
           type="button"
           onClick={onSubmit}
           disabled={isSubmitting || code.length !== 6}
-          className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+          className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
         >
           {isSubmitting ? 'Verificando\u2026' : 'Verificar y activar'}
         </Button>
@@ -1760,7 +1760,7 @@ function TwoFactorShowCodesState({
         <Button
           type="button"
           onClick={onDone}
-          className="ml-auto rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+          className="ml-auto rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
         >
           Listo, ya los guardé
         </Button>
@@ -1779,8 +1779,8 @@ function TwoFactorEnabledState({
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
       <div className="flex items-center gap-2 mb-1">
-        <ShieldCheck className="w-4 h-4 text-[#0D9488]" aria-hidden="true" />
-        <h4 className="text-[0.9rem] font-medium text-[#1C3B57]">Verificación en dos pasos</h4>
+        <ShieldCheck className="w-4 h-4 text-[var(--stg-accent)]" aria-hidden="true" />
+        <h4 className="text-[0.9rem] font-medium text-[var(--stg-primary)]">Verificación en dos pasos</h4>
         <Badge
           variant="outline"
           className="gap-1 text-[0.68rem] text-emerald-600 border-emerald-200 bg-emerald-50/80"
@@ -1869,7 +1869,7 @@ function RegenerateBackupCodesDialog({
             type="button"
             onClick={() => onSubmit(code)}
             disabled={isSubmitting || code.length !== 6}
-            className="flex-1 rounded-lg text-[0.8rem] h-9 bg-[#1C3B57] hover:bg-[#15304a] text-white"
+            className="flex-1 rounded-lg text-[0.8rem] h-9 bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] text-white"
           >
             {isSubmitting ? 'Generando\u2026' : 'Regenerar'}
           </Button>

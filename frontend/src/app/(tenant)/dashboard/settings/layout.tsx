@@ -61,11 +61,20 @@ export default function SettingsLayout({
 
   return (
     <>
-      <div className="min-h-screen bg-[#fafbfc]">
+      <div
+        className="min-h-screen bg-[#fafbfc]"
+        style={{
+          '--stg-primary': '#1C3B57',
+          '--stg-primary-hover': '#15304a',
+          '--stg-accent': '#0D9488',
+          '--stg-accent-hover': '#0B7A70',
+          '--stg-accent-subtle': 'rgba(13,148,136,0.08)',
+        } as React.CSSProperties}
+      >
         {/* Skip link */}
         <a
           href="#settings-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-white focus:text-[#1C3B57] focus:rounded-md focus:shadow-md focus:text-sm focus:font-medium"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-white focus:text-[var(--stg-primary)] focus:rounded-md focus:shadow-md focus:text-sm focus:font-medium"
         >
           Ir al contenido
         </a>
@@ -77,7 +86,7 @@ export default function SettingsLayout({
             <div className="flex items-center gap-1.5">
               <Link
                 href="/dashboard"
-                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[0.72rem] text-gray-500 hover:text-[#1C3B57] hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[0.72rem] text-gray-500 hover:text-[var(--stg-primary)] hover:bg-gray-50 transition-colors"
               >
                 <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
                 <span className="hidden sm:inline">Volver al panel</span>
@@ -114,7 +123,7 @@ export default function SettingsLayout({
                       className={cn(
                         'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[0.8rem] font-medium whitespace-nowrap transition-all',
                         isActive
-                          ? 'bg-white text-[#1C3B57] shadow-sm border border-gray-200'
+                          ? 'bg-white text-[var(--stg-primary)] shadow-sm border border-gray-200'
                           : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'
                       )}
                     >
@@ -136,14 +145,14 @@ export default function SettingsLayout({
                       className={cn(
                         'flex items-center gap-2.5 px-3 py-2 rounded-lg text-[0.8rem] font-medium transition-all',
                         isActive
-                          ? 'bg-white text-[#1C3B57] shadow-sm border border-gray-200'
+                          ? 'bg-white text-[var(--stg-primary)] shadow-sm border border-gray-200'
                           : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'
                       )}
                     >
                       <item.icon
                         className={cn(
                           'w-4 h-4',
-                          isActive ? 'text-[#0D9488]' : ''
+                          isActive ? 'text-[var(--stg-accent)]' : ''
                         )}
                         aria-hidden="true"
                       />
