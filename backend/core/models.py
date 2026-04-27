@@ -1119,20 +1119,21 @@ class OTPToken(models.Model):
         Verificar el código OTP con comparación timing-safe.
 
         Returns:
-            tuple: (success: bool, error_message: str or None)
+            tuple: (success: bool, error_message: str, error_code: str | None)
+                error_code values: OTP_USED, OTP_EXPIRED, OTP_MAX_ATTEMPTS, OTP_INVALID
         """
         import secrets as secrets_mod
 
         from django.utils import timezone
 
         if self.used_at is not None:
-            return False, "Este código ya fue utilizado"
+            return False, "Este código ya fue utilizado", "OTP_USED"
 
         if self.expires_at < timezone.now():
-            return False, "El código ha expirado"
+            return False, "El código ha expirado", "OTP_EXPIRED"
 
         if self.attempts >= self.MAX_ATTEMPTS:
-            return False, "Demasiados intentos fallidos. Solicita un nuevo código"
+            return False, "Demasiados intentos fallidos. Solicita un nuevo código", "OTP_MAX_ATTEMPTS"
 
         # Coerce to str to prevent TypeError from compare_digest
         code_str = str(code) if code is not None else ""
@@ -1142,13 +1143,13 @@ class OTPToken(models.Model):
             self.save()
             remaining = self.MAX_ATTEMPTS - self.attempts
             if remaining > 0:
-                return False, f"Código incorrecto. Te quedan {remaining} intentos"
-            return False, "Demasiados intentos fallidos. Solicita un nuevo código"
+                return False, f"Código incorrecto. Te quedan {remaining} intentos", "OTP_INVALID"
+            return False, "Demasiados intentos fallidos. Solicita un nuevo código", "OTP_MAX_ATTEMPTS"
 
         # Código correcto
         self.used_at = timezone.now()
         self.save()
-        return True, None
+        return True, None, None
 
     def mark_as_used(self):
         """Marcar el OTP como usado"""

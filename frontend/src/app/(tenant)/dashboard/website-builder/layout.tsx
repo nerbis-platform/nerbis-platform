@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import { BrandHeader } from '@/components/layout/BrandHeader';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LogOut, ArrowLeft } from 'lucide-react';
@@ -114,30 +114,7 @@ export default function WebsiteBuilderLayout({
       {/* Header — misma identidad que Setup */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          {/* Logo + NERBIS + tenant name */}
-          <div className="flex items-center gap-2">
-            <Image
-              src="/Isotipo_color_NERBIS.png"
-              alt="Nerbis"
-              width={36}
-              height={36}
-              className="g-pendulum"
-            />
-            <span
-              className="text-[0.85rem] font-semibold tracking-wide"
-              style={{ color: '#1C3B57' }}
-            >
-              NERBIS
-            </span>
-            {tenant?.name && (
-              <>
-                <span className="text-gray-300 text-[0.75rem]" aria-hidden="true">·</span>
-                <span className="text-[0.8rem] text-gray-500 font-medium truncate max-w-[160px]">
-                  {tenant.name}
-                </span>
-              </>
-            )}
-          </div>
+          <BrandHeader tenantName={tenant?.name} />
 
           {/* Step indicator */}
           <span className="text-[0.72rem] text-gray-400 font-medium tracking-wide">

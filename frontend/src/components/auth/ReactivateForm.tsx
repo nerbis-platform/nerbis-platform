@@ -21,7 +21,7 @@ import { reactivateSchema, type ReactivateFormValues } from './schemas';
 import { useAuthForm } from './hooks/useAuthForm';
 import { OtpInput } from './OtpInput';
 import { SubmitButton } from './SubmitButton';
-import { LABEL_CLASS, LABEL_STYLE } from './constants';
+import { LABEL_CLASS, LABEL_STYLE, OTP_LENGTH } from './constants';
 
 // ─── Props ──────────────────────────────────────────────────────
 
@@ -123,7 +123,7 @@ export function ReactivateForm() {
             fontFamily: 'var(--auth-font-body)',
           }}
         >
-          Ingresa el código de 8 dígitos enviado a{' '}
+          Ingresa el código de {OTP_LENGTH} dígitos enviado a{' '}
           <span
             className="font-medium"
             style={{ color: 'var(--auth-primary)' }}

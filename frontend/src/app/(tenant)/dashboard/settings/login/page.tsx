@@ -59,6 +59,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { OtpInput } from '@/components/auth/OtpInput';
+import { OTP_LENGTH } from '@/components/auth/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { requestPasswordResetOTP, verifyPasswordResetOTP } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
@@ -325,8 +326,9 @@ export default function LoginSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
     } catch (error) {
       const msg = extractErrorMessage(error, 'Error al restablecer la contraseña');
-      // Si el OTP expiró o no existe, volver al paso de envío
-      if (msg.toLowerCase().includes('código') && (msg.toLowerCase().includes('activo') || msg.toLowerCase().includes('expirado') || msg.toLowerCase().includes('inválido'))) {
+      const errorCode = error instanceof ApiError ? error.code : undefined;
+      // Si el OTP expiró, fue usado o se agotaron los intentos, volver al paso de envío
+      if (errorCode === 'OTP_EXPIRED' || errorCode === 'OTP_USED' || errorCode === 'OTP_MAX_ATTEMPTS') {
         setResetStep('confirm');
         setResetOtp('');
         setResetNewPassword('');
@@ -729,7 +731,7 @@ export default function LoginSettingsPage() {
                       Ingresa el codigo de verificacion
                     </p>
                     <p className="text-[0.75rem] text-gray-400 mt-0.5">
-                      Enviamos un codigo de 6 digitos a{' '}
+                      Enviamos un codigo de {OTP_LENGTH} digitos a{' '}
                       <span className="font-medium text-gray-500">
                         {user?.email ? maskEmail(user.email) : ''}
                       </span>
@@ -778,7 +780,7 @@ export default function LoginSettingsPage() {
                     </Button>
                     <Button
                       type="button"
-                      disabled={resetOtp.length < 6}
+                      disabled={resetOtp.length < OTP_LENGTH}
                       onClick={() => {
                         setResetStep('new-password');
                         setResetError('');
@@ -949,7 +951,7 @@ export default function LoginSettingsPage() {
                         Ingresa el codigo de verificacion
                       </p>
                       <p className="text-[0.75rem] text-gray-400 mt-0.5">
-                        Enviamos un codigo de 6 digitos a{' '}
+                        Enviamos un codigo de {OTP_LENGTH} digitos a{' '}
                         <span className="font-medium text-gray-500">
                           {user?.email ? maskEmail(user.email) : ''}
                         </span>
@@ -998,7 +1000,7 @@ export default function LoginSettingsPage() {
                       </Button>
                       <Button
                         type="button"
-                        disabled={resetOtp.length < 6}
+                        disabled={resetOtp.length < OTP_LENGTH}
                         onClick={() => {
                           setResetStep('new-password');
                           setResetError('');

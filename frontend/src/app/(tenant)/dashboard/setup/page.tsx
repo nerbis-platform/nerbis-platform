@@ -25,7 +25,7 @@ import {
   Lock,
   UserCircle,
 } from 'lucide-react';
-import Image from 'next/image';
+import { BrandHeader } from '@/components/layout/BrandHeader';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -272,29 +272,7 @@ export default function SetupPage() {
         {/* Header — misma identidad que Website Builder */}
         <div className="bg-white border-b border-gray-100">
           <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Image
-                src="/Isotipo_color_NERBIS.png"
-                alt="Nerbis"
-                width={36}
-                height={36}
-                className="g-pendulum"
-              />
-              <span
-                className="text-[0.85rem] font-semibold tracking-wide"
-                style={{ color: '#1C3B57' }}
-              >
-                NERBIS
-              </span>
-              {tenant?.name && (
-                <>
-                  <span className="text-gray-300 text-[0.75rem]" aria-hidden="true">·</span>
-                  <span className="text-[0.8rem] text-gray-500 font-medium truncate max-w-[160px]">
-                    {tenant.name}
-                  </span>
-                </>
-              )}
-            </div>
+            <BrandHeader tenantName={tenant?.name} />
             <span className="text-[0.72rem] text-gray-400 font-medium tracking-wide" role="status" aria-label="Paso 1 de 2">
               PASO 1 DE 2
             </span>

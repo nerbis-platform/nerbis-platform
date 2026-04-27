@@ -583,8 +583,8 @@ class PlatformVerifyResetOTPView(APIView):
             # Si hay OTPs, verificar contra el primero para incrementar intentos
             first_otp = active_otps.first()
             if first_otp and first_otp.is_valid:
-                success, error = first_otp.verify(str(code) if code else "")
-                return Response({"error": error or "Código incorrecto"}, status=status.HTTP_400_BAD_REQUEST)
+                success, error, error_code = first_otp.verify(str(code) if code else "")
+                return Response({"error": error or "Código incorrecto", "error_code": error_code}, status=status.HTTP_400_BAD_REQUEST)
             return Response(
                 {"error": "Solicitud inválida. Solicita un nuevo código."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1371,9 +1371,9 @@ class VerifyPasswordResetOTPView(APIView):
             )
 
         # Verificar OTP
-        success, error = otp.verify(code)
+        success, error, error_code = otp.verify(code)
         if not success:
-            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": error, "error_code": error_code}, status=status.HTTP_400_BAD_REQUEST)
 
         user = otp.user
 
@@ -1532,9 +1532,9 @@ class VerifyReactivationOTPView(APIView):
             return generic_error
 
         # Verificar OTP
-        success, error = otp.verify(code)
+        success, error, error_code = otp.verify(code)
         if not success:
-            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": error, "error_code": error_code}, status=status.HTTP_400_BAD_REQUEST)
 
         # Reactivar cuenta
         user.is_active = True
