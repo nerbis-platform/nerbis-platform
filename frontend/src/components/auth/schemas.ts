@@ -2,6 +2,7 @@
 // Shared Zod validation schemas for auth forms.
 
 import * as z from 'zod';
+import { OTP_LENGTH } from './constants';
 
 // ─── Shared Rules ───────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ export type ForgotEmailFormValues = z.infer<typeof forgotEmailSchema>;
 
 export const forgotResetSchema = z
   .object({
-    code: z.string().length(6, 'El código debe tener 6 dígitos').regex(/^\d+$/, 'El código solo debe contener números'),
+    code: z.string().length(OTP_LENGTH, `El código debe tener ${OTP_LENGTH} dígitos`).regex(/^\d+$/, 'El código solo debe contener números'),
     newPassword: z
       .string()
       .min(8, 'La contraseña debe tener al menos 8 caracteres')
@@ -79,7 +80,7 @@ export type ForgotResetFormValues = z.infer<typeof forgotResetSchema>;
 // ─── Reactivate Account ──────────────────────────────────────
 
 export const reactivateSchema = z.object({
-  code: z.string().length(6, 'El código debe tener 6 dígitos').regex(/^\d+$/, 'El código solo debe contener números'),
+  code: z.string().length(OTP_LENGTH, `El código debe tener ${OTP_LENGTH} dígitos`).regex(/^\d+$/, 'El código solo debe contener números'),
 });
 
 export type ReactivateFormValues = z.infer<typeof reactivateSchema>;

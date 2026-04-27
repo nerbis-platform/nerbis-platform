@@ -56,7 +56,7 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, tenant, logout } = useAuth();
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => !item.adminOnly || user?.role === 'admin'
@@ -89,6 +89,14 @@ export default function SettingsLayout({
               >
                 NERBIS
               </span>
+              {tenant?.name && (
+                <>
+                  <span className="text-gray-300 text-[0.75rem]" aria-hidden="true">·</span>
+                  <span className="text-[0.8rem] text-gray-500 font-medium truncate max-w-[160px]">
+                    {tenant.name}
+                  </span>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <Link

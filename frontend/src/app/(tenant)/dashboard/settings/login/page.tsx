@@ -607,9 +607,6 @@ export default function LoginSettingsPage() {
     <div className="max-w-2xl space-y-8">
       <header>
         <h1 className="text-[1.25rem] font-semibold text-[#1C3B57]">Inicio de sesión</h1>
-        <p className="text-[0.85rem] text-gray-500 mt-1">
-          Administra cómo accedes a tu cuenta NERBIS.
-        </p>
       </header>
 
       {/* ═══════════════════════════════════════════════════════ */}
@@ -1366,7 +1363,7 @@ export default function LoginSettingsPage() {
                 type="button"
                 onClick={handleRegisterPasskey}
                 disabled={registering}
-                className="bg-[#0D9488] hover:bg-[#0B7A70] text-white"
+                className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98] text-white"
               >
                 {registering ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
@@ -1548,21 +1545,14 @@ function TwoFactorDisabledState({
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <div className="flex items-start gap-3 mb-4">
-        <div className="size-9 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
-          <ShieldAlert className="size-4 text-gray-400" aria-hidden="true" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[0.9rem] font-medium text-gray-800">
-            Aún no tienes 2FA activo
-          </p>
-          <p className="text-[0.78rem] text-gray-500 leading-relaxed mt-1">
-            Protege tu cuenta con un segundo paso de verificación. Usaremos una app
-            autenticadora (Google Authenticator, 1Password, Authy) para generar un
-            código temporal cada vez que inicies sesión.
-          </p>
-        </div>
+      <div className="flex items-center gap-2 mb-1">
+        <ShieldAlert className="w-4 h-4 text-gray-400" aria-hidden="true" />
+        <h4 className="text-[0.9rem] font-medium text-[#1C3B57]">Verificación en dos pasos</h4>
       </div>
+      <p className="text-[0.8rem] text-gray-500 mb-5">
+        Protege tu cuenta con un segundo paso de verificación usando una app
+        autenticadora (Google Authenticator, 1Password, Authy).
+      </p>
       <Button
         type="button"
         onClick={onActivate}
@@ -1786,29 +1776,23 @@ function TwoFactorEnabledState({
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <div className="flex items-start gap-3 mb-4">
-        <div className="size-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-          <ShieldCheck className="size-4 text-emerald-600" aria-hidden="true" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-[0.9rem] font-medium text-gray-800">2FA activo</p>
-            <Badge
-              variant="outline"
-              className="gap-1 text-[0.68rem] text-emerald-600 border-emerald-200 bg-emerald-50/80"
-            >
-              <Check className="size-3" aria-hidden="true" />
-              Activo
-            </Badge>
-          </div>
-          <p className="text-[0.78rem] text-gray-500 leading-relaxed mt-1">
-            Cada vez que inicies sesión te pediremos un código de 6 dígitos de tu app
-            autenticadora. Guarda tus códigos de respaldo por si pierdes el acceso.
-          </p>
-        </div>
+      <div className="flex items-center gap-2 mb-1">
+        <ShieldCheck className="w-4 h-4 text-[#0D9488]" aria-hidden="true" />
+        <h4 className="text-[0.9rem] font-medium text-[#1C3B57]">Verificación en dos pasos</h4>
+        <Badge
+          variant="outline"
+          className="gap-1 text-[0.68rem] text-emerald-600 border-emerald-200 bg-emerald-50/80"
+        >
+          <Check className="size-3" aria-hidden="true" />
+          Activo
+        </Badge>
       </div>
+      <p className="text-[0.8rem] text-gray-500 mb-5">
+        Cada vez que inicies sesión te pediremos un código de 6 dígitos de tu app
+        autenticadora. Guarda tus códigos de respaldo por si pierdes el acceso.
+      </p>
 
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 mt-2">
+      <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
         <Button
           type="button"
           variant="outline"

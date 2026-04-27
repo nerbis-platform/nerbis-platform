@@ -114,7 +114,7 @@ export default function WebsiteBuilderLayout({
       {/* Header — misma identidad que Setup */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          {/* Logo + NERBIS — misma posición que Setup */}
+          {/* Logo + NERBIS + tenant name */}
           <div className="flex items-center gap-2">
             <Image
               src="/Isotipo_color_NERBIS.png"
@@ -129,6 +129,14 @@ export default function WebsiteBuilderLayout({
             >
               NERBIS
             </span>
+            {tenant?.name && (
+              <>
+                <span className="text-gray-300 text-[0.75rem]" aria-hidden="true">·</span>
+                <span className="text-[0.8rem] text-gray-500 font-medium truncate max-w-[160px]">
+                  {tenant.name}
+                </span>
+              </>
+            )}
           </div>
 
           {/* Step indicator */}

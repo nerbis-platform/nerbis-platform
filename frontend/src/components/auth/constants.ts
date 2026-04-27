@@ -79,8 +79,8 @@ export const DEFAULT_PHONE_COUNTRY = 'Colombia';
 /** API debounce delay in ms for name/email existence checks */
 export const DEBOUNCE_DELAY_MS = 600;
 
-/** OTP code length */
-export const OTP_LENGTH = 6;
+/** OTP code length — matches backend OTPCode.OTP_LENGTH */
+export const OTP_LENGTH = 8;
 
 /** Shared form label styling for all auth forms */
 export const LABEL_CLASS = 'text-[0.8125rem] font-normal';

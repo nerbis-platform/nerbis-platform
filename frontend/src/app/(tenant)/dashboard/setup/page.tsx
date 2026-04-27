@@ -286,6 +286,14 @@ export default function SetupPage() {
               >
                 NERBIS
               </span>
+              {tenant?.name && (
+                <>
+                  <span className="text-gray-300 text-[0.75rem]" aria-hidden="true">·</span>
+                  <span className="text-[0.8rem] text-gray-500 font-medium truncate max-w-[160px]">
+                    {tenant.name}
+                  </span>
+                </>
+              )}
             </div>
             <span className="text-[0.72rem] text-gray-400 font-medium tracking-wide" role="status" aria-label="Paso 1 de 2">
               PASO 1 DE 2

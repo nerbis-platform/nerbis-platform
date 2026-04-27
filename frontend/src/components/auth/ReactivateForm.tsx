@@ -123,7 +123,7 @@ export function ReactivateForm() {
             fontFamily: 'var(--auth-font-body)',
           }}
         >
-          Ingresa el código de 6 dígitos enviado a{' '}
+          Ingresa el código de 8 dígitos enviado a{' '}
           <span
             className="font-medium"
             style={{ color: 'var(--auth-primary)' }}

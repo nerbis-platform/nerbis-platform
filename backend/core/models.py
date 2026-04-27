@@ -1009,7 +1009,7 @@ class OTPToken(models.Model):
     - Reactivar cuenta
 
     Security hardening (#142):
-    - Código de 8 dígitos (10× más resistente a brute force que 6)
+    - Código de 8 dígitos (100M combinaciones vs 1M con 6)
     - Máximo 5 intentos antes de bloqueo
     - Rate limit de reenvío: máximo 5 OTPs por usuario por hora
     - Comparación timing-safe con secrets.compare_digest
