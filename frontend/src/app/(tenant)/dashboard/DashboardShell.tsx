@@ -108,7 +108,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (isCleanLayout) {
     return (
       <>
-        {!mounted ? (
+        {!mounted || isLoading ? (
           <div className="min-h-screen flex items-center justify-center">
             <Skeleton className="h-10 w-64" />
           </div>

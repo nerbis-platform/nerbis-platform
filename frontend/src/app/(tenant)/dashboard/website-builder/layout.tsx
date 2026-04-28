@@ -3,7 +3,7 @@
 import { BrandHeader } from '@/components/layout/BrandHeader';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogOut, ArrowLeft } from 'lucide-react';
+import { LogOut, ArrowLeft, UserCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -121,15 +121,25 @@ export default function WebsiteBuilderLayout({
             PASO 2 DE 2
           </span>
 
-          {/* Salir */}
-          <button
-            type="button"
-            onClick={() => logout('/register-business')}
-            className="flex items-center gap-1.5 text-[0.72rem] text-gray-400 hover:text-red-400 transition-colors cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Salir
-          </button>
+          <div className="flex items-center gap-1.5">
+            <Link
+              href="/dashboard/settings"
+              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[0.72rem] text-gray-500 hover:text-primary hover:bg-gray-50 transition-colors"
+              aria-label="Mi Cuenta"
+            >
+              <UserCircle className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Mi Cuenta</span>
+            </Link>
+            <div className="w-px h-4 bg-gray-200" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={() => logout('/register-business')}
+              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[0.72rem] text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
+              Salir
+            </button>
+          </div>
         </div>
       </div>
 
