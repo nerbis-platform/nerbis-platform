@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "git fetch origin develop 2>/dev/null || { echo 'Could not fetch origin/develop (offline?)'; exit 0; }; if git rev-parse --git-common-dir 2>/dev/null | grep -q '/worktrees/'; then BRANCH=$(git branch --show-current 2>/dev/null); OWN_COMMITS=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 999); if [ \"$OWN_COMMITS\" -eq 0 ]; then git reset --hard origin/develop 2>/dev/null && echo \"Worktree rebased: branch $BRANCH was at origin/main with 0 own commits — reset to origin/develop ($(git rev-parse --short origin/develop))\"; else BEHIND=$(git rev-list --count HEAD..origin/develop 2>/dev/null || echo 0); if [ \"$BEHIND\" -gt 0 ]; then if git merge origin/develop --no-edit 2>/dev/null; then echo \"Worktree synced: merged $BEHIND commits from origin/develop into $BRANCH\"; else git merge --abort 2>/dev/null; echo \"WARNING: $BRANCH is $BEHIND commits behind origin/develop but merge has conflicts. Run: git merge origin/develop\"; fi; else echo \"Synced with origin/develop (already up to date)\"; fi; fi; else echo 'Synced with origin/develop'; fi",
+            "command": ".claude/hooks/worktree-develop-sync.sh",
             "timeout": 30
           },
           {
