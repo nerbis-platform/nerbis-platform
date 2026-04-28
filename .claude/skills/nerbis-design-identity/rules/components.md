@@ -121,7 +121,7 @@
     placeholder="you@example.com"
     className="
       h-10 rounded-md border border-default bg-surface-default px-3
-      text-sm placeholder:text-muted
+      text-sm placeholder:text-gray-500 placeholder:italic dark:placeholder:text-gray-600
       transition-all duration-150
       focus-visible:border-focus focus-visible:ring-2 focus-visible:ring-focus/25
       aria-[invalid=true]:border-error aria-[invalid=true]:ring-error/25
@@ -136,6 +136,7 @@
 
 ### Form Rules
 - **Labels are mandatory.** Never use placeholder-only fields.
+- **Placeholder styling** — `placeholder:text-gray-500 placeholder:italic` (light), `dark:placeholder:text-gray-600` (dark). Italic + lighter color distinguishes placeholders from real values. Defined in base components (`Input`, `Textarea`, `CommandInput`).
 - **Inline validation** — validate on blur, show errors immediately.
 - **Error messages below the field**, not in tooltips or toasts.
 - **Focus ring visible and styled** — 2px brand color + subtle ring shadow.
