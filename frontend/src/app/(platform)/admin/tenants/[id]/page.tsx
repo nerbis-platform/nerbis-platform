@@ -274,7 +274,6 @@ function FeatureFlag({
 // ── Phase stepper constants ───────────────────────────────────────────
 
 const PHASE_META: Record<AdminTenantPhase, { label: string; color: string; bgColor: string; ringColor: string }> = {
-  registered: { label: 'Registrado', color: 'text-slate-600', bgColor: 'bg-slate-100', ringColor: 'ring-slate-200' },
   onboarding: { label: 'En Onboarding', color: 'text-amber-700', bgColor: 'bg-amber-50', ringColor: 'ring-amber-200' },
   modules_configured: { label: 'Modulos OK', color: 'text-blue-700', bgColor: 'bg-blue-50', ringColor: 'ring-blue-200' },
   website_building: { label: 'Construyendo', color: 'text-violet-700', bgColor: 'bg-violet-50', ringColor: 'ring-violet-200' },
@@ -285,7 +284,6 @@ const PHASE_META: Record<AdminTenantPhase, { label: string; color: string; bgCol
 };
 
 const PHASE_ORDER: AdminTenantPhase[] = [
-  'registered',
   'onboarding',
   'modules_configured',
   'website_building',
@@ -1210,7 +1208,7 @@ export default function AdminTenantDetailPage({
                       El tenant sera suspendido y sus usuarios no podran acceder a la plataforma.
                     </p>
                   )}
-                  {targetPhase && ['registered', 'onboarding'].includes(targetPhase) && (
+                  {targetPhase === 'onboarding' && (
                     <p className="text-xs font-medium text-amber-600">
                       Esto eliminara el sitio web del tenant si existe. Esta accion no se puede deshacer.
                     </p>

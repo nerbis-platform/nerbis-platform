@@ -92,8 +92,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         // Fase: website_building / website_generated → Builder
         router.push('/dashboard/website-builder');
       } else {
-        // Fase: modules_configured sin website → Quick Start
-        router.push('/dashboard/website-builder/quick-start');
+        // Fase: modules_configured sin website → Website Builder
+        router.push('/dashboard/website-builder');
       }
     }
   }, [mounted, isAuthenticated, isLoading, tenant, user, isBypassRoute, router]);

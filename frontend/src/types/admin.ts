@@ -49,7 +49,6 @@ export type AdminSubscriptionStatus =
 
 /** Tenant lifecycle phase computed by the backend (Tenant.onboarding_phase). */
 export type AdminTenantPhase =
-  | 'registered'
   | 'onboarding'
   | 'modules_configured'
   | 'website_building'

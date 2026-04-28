@@ -2,7 +2,8 @@
 
 import { BrandHeader } from '@/components/layout/BrandHeader';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { LogOut, ArrowLeft, UserCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -66,12 +67,21 @@ export default function WebsiteBuilderLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { logout, tenant } = useAuth();
   const currentIndex = getCurrentStepIndex(pathname);
   const maxReached = getMaxStepFromStatus(tenant?.website_status);
 
   const isEditorPage = pathname.startsWith('/dashboard/website-builder/editor');
   const isQuickStartPage = pathname.startsWith('/dashboard/website-builder/quick-start');
+
+  // Phase guard: users who haven't configured modules belong in Quick Start
+  useEffect(() => {
+    if (!tenant) return;
+    if (!tenant.modules_configured && !isQuickStartPage) {
+      router.replace('/dashboard/website-builder/quick-start');
+    }
+  }, [tenant, isQuickStartPage, router]);
 
   // ─── Quick Start: has its own full layout (Pipe chat UI) ───
   if (isQuickStartPage) {

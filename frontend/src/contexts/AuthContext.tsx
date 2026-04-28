@@ -89,8 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Fase: website_building / website_generated → Website Builder
       router.push('/dashboard/website-builder');
     } else {
-      // Fase: modules_configured (sin website creado aún) → Quick Start
-      router.push('/dashboard/website-builder/quick-start');
+      // Fase: modules_configured (sin website creado aún) → Website Builder
+      router.push('/dashboard/website-builder');
     }
   };
 

@@ -200,7 +200,7 @@ export default function DashboardPage() {
       } else if (tenant.has_website) {
         router.push('/dashboard/website-builder');
       } else {
-        router.push('/dashboard/website-builder/quick-start');
+        router.push('/dashboard/website-builder');
       }
     }
   }, [user, tenant, router]);

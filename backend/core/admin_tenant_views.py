@@ -359,10 +359,6 @@ class AdminSetPhaseView(APIView):
     # Mapping: phase → (tenant flag changes, website_status change)
     # None for website_status means "don't touch"; "delete" means remove WebsiteConfig.
     PHASE_FLAGS: dict[str, dict] = {
-        "registered": {
-            "tenant": {"modules_configured": False, "has_website": False, "is_active": True},
-            "website": "delete",
-        },
         "onboarding": {
             "tenant": {"modules_configured": False, "has_website": False, "is_active": True},
             "website": "delete",

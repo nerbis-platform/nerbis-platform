@@ -451,6 +451,19 @@ export default function QuickStartPage() {
   const { user, tenant, logout, setTenant } = useAuth();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // ─── Phase guard: si ya pasó onboarding, redirigir ────────
+  useEffect(() => {
+    if (!tenant) return;
+    if (tenant.modules_configured) {
+      // Ya configuró módulos — no debería estar en Quick Start
+      if (tenant.website_status === 'published') {
+        router.replace('/dashboard');
+      } else {
+        router.replace('/dashboard/website-builder');
+      }
+    }
+  }, [tenant, router]);
+
   // ─── Conversation state ───────────────────────────────────
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});

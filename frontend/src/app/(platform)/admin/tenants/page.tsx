@@ -119,7 +119,6 @@ function subscriptionBadgeClass(
 }
 
 const PHASE_BADGE_META: Record<AdminTenantPhase, { label: string; cls: string }> = {
-  registered: { label: 'Registrado', cls: 'bg-slate-100 text-slate-600 ring-slate-200' },
   onboarding: { label: 'Onboarding', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
   modules_configured: { label: 'Modulos OK', cls: 'bg-blue-50 text-blue-700 ring-blue-200' },
   website_building: { label: 'Construyendo', cls: 'bg-violet-50 text-violet-700 ring-violet-200' },
@@ -696,7 +695,7 @@ export default function AdminTenantsPage() {
                     </td>
                     <td className="px-4 py-3">
                       {(() => {
-                        const pm = PHASE_BADGE_META[tenant.onboarding_phase] ?? PHASE_BADGE_META.registered;
+                        const pm = PHASE_BADGE_META[tenant.onboarding_phase] ?? PHASE_BADGE_META.onboarding;
                         return (
                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${pm.cls}`}>
                             <span className={`h-1.5 w-1.5 rounded-full bg-current ${tenant.onboarding_phase !== 'suspended' && tenant.onboarding_phase !== 'operational' ? 'animate-pulse' : ''}`} />

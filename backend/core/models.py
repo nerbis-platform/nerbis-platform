@@ -499,7 +499,6 @@ class Tenant(models.Model):
     # ===========================================
 
     PHASE_CHOICES = [
-        ("registered", "Registrado"),
         ("onboarding", "En Onboarding"),
         ("modules_configured", "Módulos Configurados"),
         ("website_building", "Construyendo Sitio"),
@@ -520,8 +519,7 @@ class Tenant(models.Model):
         - website_generated: WebsiteConfig.status == 'review'
         - website_building: WebsiteConfig.status in ('draft', 'onboarding', 'generating')
         - modules_configured: modules_configured = True (sin website)
-        - onboarding: tiene usuario admin (ya empezó quick start)
-        - registered: solo existe el tenant
+        - onboarding: registro + quick start (fase inicial)
         """
         if not self.is_active:
             return "suspended"
@@ -556,16 +554,7 @@ class Tenant(models.Model):
         if self.modules_configured:
             return "modules_configured"
 
-        # Si tiene al menos un usuario admin, asumimos que ya inició onboarding
-        if hasattr(self, "_user_count"):
-            has_users = self._user_count > 0
-        else:
-            has_users = self.users.exists()
-
-        if has_users:
-            return "onboarding"
-
-        return "registered"
+        return "onboarding"
 
 
 class TenantConfig(Tenant):
