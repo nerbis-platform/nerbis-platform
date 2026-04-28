@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Fase: registered / onboarding → Quick Start con Pipe
       router.push('/dashboard/website-builder/quick-start');
     } else if (tenant && tenant.website_status === 'published') {
-      // Fase: website_published / operational → Dashboard
+      // Fase: operational → Dashboard
       router.push('/dashboard');
     } else if (tenant && tenant.has_website) {
       // Fase: website_building / website_generated → Website Builder

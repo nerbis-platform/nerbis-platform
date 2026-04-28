@@ -278,7 +278,6 @@ const PHASE_META: Record<AdminTenantPhase, { label: string; color: string; bgCol
   modules_configured: { label: 'Modulos OK', color: 'text-blue-700', bgColor: 'bg-blue-50', ringColor: 'ring-blue-200' },
   website_building: { label: 'Construyendo', color: 'text-violet-700', bgColor: 'bg-violet-50', ringColor: 'ring-violet-200' },
   website_generated: { label: 'Generado', color: 'text-indigo-700', bgColor: 'bg-indigo-50', ringColor: 'ring-indigo-200' },
-  website_published: { label: 'Publicado', color: 'text-teal-700', bgColor: 'bg-teal-50', ringColor: 'ring-teal-200' },
   operational: { label: 'Operativo', color: 'text-emerald-700', bgColor: 'bg-emerald-50', ringColor: 'ring-emerald-200' },
   suspended: { label: 'Suspendido', color: 'text-red-700', bgColor: 'bg-red-50', ringColor: 'ring-red-200' },
 };
@@ -288,7 +287,6 @@ const PHASE_ORDER: AdminTenantPhase[] = [
   'modules_configured',
   'website_building',
   'website_generated',
-  'website_published',
   'operational',
 ];
 

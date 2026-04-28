@@ -503,7 +503,6 @@ class Tenant(models.Model):
         ("modules_configured", "Módulos Configurados"),
         ("website_building", "Construyendo Sitio"),
         ("website_generated", "Sitio Generado"),
-        ("website_published", "Sitio Publicado"),
         ("operational", "Operativo"),
         ("suspended", "Suspendido"),
     ]
@@ -514,8 +513,7 @@ class Tenant(models.Model):
 
         Orden de prioridad (de mayor a menor):
         - suspended: is_active = False
-        - operational: sitio publicado + módulos configurados
-        - website_published: WebsiteConfig.status == 'published'
+        - operational: sitio publicado (fase final)
         - website_generated: WebsiteConfig.status == 'review'
         - website_building: WebsiteConfig.status in ('draft', 'onboarding', 'generating')
         - modules_configured: modules_configured = True (sin website)
@@ -539,11 +537,8 @@ class Tenant(models.Model):
         if config:
             website_status = config.status
 
-        if website_status == "published" and self.modules_configured:
-            return "operational"
-
         if website_status == "published":
-            return "website_published"
+            return "operational"
 
         if website_status == "review":
             return "website_generated"

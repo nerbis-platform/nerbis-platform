@@ -375,10 +375,6 @@ class AdminSetPhaseView(APIView):
             "tenant": {"modules_configured": True, "has_website": True, "is_active": True},
             "website": "review",
         },
-        "website_published": {
-            "tenant": {"modules_configured": True, "has_website": True, "is_active": True},
-            "website": "published",
-        },
         "operational": {
             "tenant": {"modules_configured": True, "has_website": True, "is_active": True},
             "website": "published",

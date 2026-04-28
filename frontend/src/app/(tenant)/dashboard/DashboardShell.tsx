@@ -87,7 +87,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         // Fase: registered / onboarding → Quick Start
         router.push('/dashboard/website-builder/quick-start');
       } else if (tenant.website_status === 'published') {
-        // Fase: website_published / operational → allow dashboard
+        // Fase: operational → allow dashboard
       } else if (tenant.has_website) {
         // Fase: website_building / website_generated → Builder
         router.push('/dashboard/website-builder');

@@ -53,7 +53,6 @@ export type AdminTenantPhase =
   | 'modules_configured'
   | 'website_building'
   | 'website_generated'
-  | 'website_published'
   | 'operational'
   | 'suspended';
 

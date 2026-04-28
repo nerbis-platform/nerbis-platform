@@ -123,7 +123,6 @@ const PHASE_BADGE_META: Record<AdminTenantPhase, { label: string; cls: string }>
   modules_configured: { label: 'Modulos OK', cls: 'bg-blue-50 text-blue-700 ring-blue-200' },
   website_building: { label: 'Construyendo', cls: 'bg-violet-50 text-violet-700 ring-violet-200' },
   website_generated: { label: 'Generado', cls: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
-  website_published: { label: 'Publicado', cls: 'bg-teal-50 text-teal-700 ring-teal-200' },
   operational: { label: 'Operativo', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
   suspended: { label: 'Suspendido', cls: 'bg-red-50 text-red-700 ring-red-200' },
 };
