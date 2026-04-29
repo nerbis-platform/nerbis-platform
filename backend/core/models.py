@@ -1686,7 +1686,7 @@ class TenantPhaseLog(models.Model):
         verbose_name="Fase nueva",
     )
     triggered_by = models.CharField(
-        max_length=50,
+        max_length=254,
         default="system",
         verbose_name="Disparador",
         help_text="Quién disparó el cambio: 'system', 'admin:<email>', 'user:<email>'",

@@ -15,9 +15,9 @@ class Migration(migrations.Migration):
             name='TenantPhaseLog',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('from_phase', models.CharField(choices=[('registered', 'Registrado'), ('onboarding', 'En Onboarding'), ('modules_configured', 'Módulos Configurados'), ('website_building', 'Construyendo Sitio'), ('website_generated', 'Sitio Generado'), ('website_published', 'Sitio Publicado'), ('operational', 'Operativo'), ('suspended', 'Suspendido')], max_length=30, verbose_name='Fase anterior')),
-                ('to_phase', models.CharField(choices=[('registered', 'Registrado'), ('onboarding', 'En Onboarding'), ('modules_configured', 'Módulos Configurados'), ('website_building', 'Construyendo Sitio'), ('website_generated', 'Sitio Generado'), ('website_published', 'Sitio Publicado'), ('operational', 'Operativo'), ('suspended', 'Suspendido')], max_length=30, verbose_name='Fase nueva')),
-                ('triggered_by', models.CharField(default='system', help_text="Quién disparó el cambio: 'system', 'admin:<email>', 'user:<email>'", max_length=50, verbose_name='Disparador')),
+                ('from_phase', models.CharField(choices=[('onboarding', 'En Onboarding'), ('modules_configured', 'Módulos Configurados'), ('website_building', 'Construyendo Sitio'), ('website_generated', 'Sitio Generado'), ('operational', 'Operativo'), ('suspended', 'Suspendido')], max_length=30, verbose_name='Fase anterior')),
+                ('to_phase', models.CharField(choices=[('onboarding', 'En Onboarding'), ('modules_configured', 'Módulos Configurados'), ('website_building', 'Construyendo Sitio'), ('website_generated', 'Sitio Generado'), ('operational', 'Operativo'), ('suspended', 'Suspendido')], max_length=30, verbose_name='Fase nueva')),
+                ('triggered_by', models.CharField(default='system', help_text="Quién disparó el cambio: 'system', 'admin:<email>', 'user:<email>'", max_length=254, verbose_name='Disparador')),
                 ('note', models.TextField(blank=True, default='', help_text='Contexto adicional opcional sobre la transición.', verbose_name='Nota')),
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Fecha')),
                 ('tenant', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='phase_logs', to='core.tenant', verbose_name='Tenant')),

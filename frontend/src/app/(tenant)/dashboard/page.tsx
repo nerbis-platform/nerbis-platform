@@ -192,18 +192,21 @@ export default function DashboardPage() {
   const { user, tenant } = useAuth();
   const router = useRouter();
 
+  // Admin sin sitio publicado → redirigir antes de renderizar
+  const shouldRedirect =
+    user?.role === 'admin' && tenant && tenant.website_status !== 'published';
+
   useEffect(() => {
-    // Admin sin sitio publicado → no debería estar en el dashboard
-    if (user?.role === 'admin' && tenant && tenant.website_status !== 'published') {
-      if (!tenant.modules_configured) {
-        router.push('/dashboard/website-builder/quick-start');
-      } else if (tenant.has_website) {
-        router.push('/dashboard/website-builder');
-      } else {
-        router.push('/dashboard/website-builder');
-      }
+    if (!shouldRedirect) return;
+    if (!tenant!.modules_configured) {
+      router.replace('/dashboard/website-builder/quick-start');
+    } else {
+      router.replace('/dashboard/website-builder');
     }
-  }, [user, tenant, router]);
+  }, [shouldRedirect, tenant, router]);
+
+  // Bloquear render mientras se decide el destino
+  if (shouldRedirect) return null;
 
   if (user?.role === 'staff') {
     return <StaffDashboard />;

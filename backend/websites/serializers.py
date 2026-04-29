@@ -281,12 +281,30 @@ class QuickStartSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Numero de WhatsApp (opcional, se pre-llena con phone del tenant)",
     )
+    ALLOWED_SECTIONS = [
+        "Sobre nosotros",
+        "Servicios",
+        "Productos",
+        "Servicios / Productos",
+        "Galería de fotos",
+        "Testimonios / Reseñas",
+        "Precios / Tarifas",
+        "Preguntas frecuentes",
+    ]
+
     website_sections = serializers.ListField(
-        child=serializers.CharField(max_length=50),
+        child=serializers.ChoiceField(choices=[]),  # choices set in __init__
         required=False,
-        help_text="Secciones seleccionadas por el usuario (ej: ['Servicios', 'Sobre nosotros']). "
+        max_length=8,
+        help_text="Secciones seleccionadas por el usuario (ej: ['Sobre nosotros', 'Testimonios / Reseñas']). "
         "Si no se envia, se usan los defaults del vertical.",
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["website_sections"].child.choices = [
+            (s, s) for s in self.ALLOWED_SECTIONS
+        ]
 
 
 # ===================================

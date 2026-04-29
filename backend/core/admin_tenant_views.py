@@ -400,18 +400,10 @@ class AdminSetPhaseView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        tenant = Tenant.objects.filter(pk=pk).first()
-        if tenant is None:
+        if not Tenant.objects.filter(pk=pk).exists():
             return Response(
                 {"detail": "Tenant not found."},
                 status=status.HTTP_404_NOT_FOUND,
-            )
-
-        previous_phase = tenant.onboarding_phase
-        if previous_phase == target_phase:
-            return Response(
-                {"detail": f"Tenant already in phase '{target_phase}'.", "phase": target_phase},
-                status=status.HTTP_200_OK,
             )
 
         flags = self.PHASE_FLAGS[target_phase]
@@ -420,6 +412,13 @@ class AdminSetPhaseView(APIView):
 
         with transaction.atomic():
             tenant = Tenant.objects.select_for_update().get(pk=pk)
+            previous_phase = tenant.onboarding_phase
+
+            if previous_phase == target_phase:
+                return Response(
+                    {"detail": f"Tenant already in phase '{target_phase}'.", "phase": target_phase},
+                    status=status.HTTP_200_OK,
+                )
             update_fields: list[str] = []
 
             for field, value in tenant_flags.items():

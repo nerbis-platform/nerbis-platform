@@ -23,9 +23,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { quickStartGenerate, QuickStartResponse } from '@/lib/api/websites';
-import { configureModules, ModuleSelection } from '@/lib/api/auth';
+import { configureModules, ModuleSelection, getCurrentUser } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api/client';
+import { Tenant } from '@/types';
 
 // ─── Brand constants ──────────────────────────────────────
 const NAVY = '#1C3B57';
@@ -155,7 +156,7 @@ const PIPE_KEYFRAMES = `
 @keyframes pipe-jump { 0%{transform:translateY(0) scale(1)} 40%{transform:translateY(-5px) scale(1.08)} 70%{transform:translateY(-2px) scale(1.03)} 100%{transform:translateY(0) scale(1)} }
 @keyframes pipe-nod { 0%,100%{transform:rotate(0) translateY(0)} 30%{transform:rotate(0) translateY(1px)} 50%{transform:rotate(0) translateY(-1px)} 70%{transform:rotate(0) translateY(1px)} }
 @keyframes pipe-nudge { 0%{transform:translateX(0) rotate(0)} 15%{transform:translateX(-3px) rotate(-6deg)} 30%{transform:translateX(3px) rotate(6deg)} 45%{transform:translateX(-2px) rotate(-4deg)} 60%{transform:translateX(2px) rotate(4deg)} 75%{transform:translateX(-1px) rotate(-2deg)} 100%{transform:translateX(0) rotate(0)} }
-@media(prefers-reduced-motion:reduce){svg,div{animation:none!important}}
+@media(prefers-reduced-motion:reduce){.pipe-avatar,.pipe-avatar *{animation:none!important}}
 `;
 
 // ─── Pipe Avatar Component ────────────────────────────────
@@ -205,7 +206,7 @@ function PipeAvatar({
   return (
     <div
       ref={containerRef}
-      className="relative flex-shrink-0"
+      className="pipe-avatar relative flex-shrink-0"
       style={{ width: s, height: s }}
     >
       {/* Glow ring — pulses when thinking */}
@@ -545,6 +546,11 @@ export default function QuickStartPage() {
       }),
     onSuccess: (data) => {
       setProgress(100);
+      // Refresh tenant in context so phase guards see updated website_status
+      getCurrentUser().then(() => {
+        const stored = localStorage.getItem('tenant');
+        if (stored) setTenant(JSON.parse(stored) as Tenant);
+      }).catch(() => {});
       setTimeout(() => {
         setResult(data);
         setPageState('success');
@@ -612,7 +618,8 @@ export default function QuickStartPage() {
         const updatedTenant = await configureModules(payload);
         setTenant(updatedTenant);
       } catch {
-        // Non-blocking — continue even if config fails
+        setPageState('error');
+        return;
       }
 
       setCurrentStepIdx((prev) => prev + 1);
