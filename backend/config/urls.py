@@ -70,6 +70,7 @@ urlpatterns = [
                 path("coupons/", include("coupons.urls")),
                 path("reviews/", include("reviews.urls")),
                 path("websites/", include("websites.urls")),
+                path("management/", include("management.urls")),
             ]
         ),
     ),

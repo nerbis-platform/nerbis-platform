@@ -32,6 +32,7 @@ export interface Tenant {
   has_bookings: boolean;
   has_services: boolean;
   has_marketing: boolean;
+  has_management: boolean;
   has_website: boolean;
   modules_configured: boolean;
   // Website

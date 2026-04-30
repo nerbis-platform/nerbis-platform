@@ -56,6 +56,7 @@ class TenantSerializer(serializers.ModelSerializer):
             "has_bookings",
             "has_services",
             "has_marketing",
+            "has_management",
             "has_website",
             "modules_configured",
             # Suscripción

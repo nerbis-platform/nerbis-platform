@@ -1024,7 +1024,7 @@ def configure_modules(request):
         return Response({"error": "Solo el administrador puede configurar módulos"}, status=403)
 
     tenant = request.tenant
-    module_fields = {"has_website", "has_shop", "has_bookings", "has_services", "has_marketing"}
+    module_fields = {"has_website", "has_shop", "has_bookings", "has_services", "has_marketing", "has_management"}
     updated_fields = ["modules_configured"]
 
     # Guardar campos del tenant si se envían
@@ -1656,6 +1656,7 @@ def get_tenant_config(request):
                 "bookings": tenant.has_bookings,
                 "services": tenant.has_services,
                 "marketing": tenant.has_marketing,
+                "management": tenant.has_management,
             },
             "config": {
                 "primary_color": tenant.primary_color,

@@ -127,6 +127,7 @@ class Module(models.Model):
         ("bookings", "Bookings"),
         ("services", "Services"),
         ("marketing", "Marketing"),
+        ("management", "Management"),
     ]
 
     # Identificación
@@ -570,8 +571,17 @@ class Subscription(models.Model):
         tenant.has_bookings = "bookings" in active_modules
         tenant.has_services = "services" in active_modules
         tenant.has_marketing = "marketing" in active_modules
+        tenant.has_management = "management" in active_modules
 
-        tenant.save(update_fields=["has_shop", "has_bookings", "has_services", "has_marketing"])
+        tenant.save(
+            update_fields=[
+                "has_shop",
+                "has_bookings",
+                "has_services",
+                "has_marketing",
+                "has_management",
+            ]
+        )
 
     # ===================================
     # LÍMITES
@@ -949,4 +959,6 @@ class Plan(models.Model):
         tenant.has_bookings = self.includes_bookings
         tenant.has_services = self.includes_services
         tenant.has_marketing = self.includes_marketing
-        tenant.save(update_fields=["has_shop", "has_bookings", "has_services", "has_marketing"])
+        tenant.save(
+            update_fields=["has_shop", "has_bookings", "has_services", "has_marketing"]
+        )
