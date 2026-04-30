@@ -72,6 +72,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
@@ -161,9 +162,11 @@ function AuthMethodBadge({ method }: { method: TeamMember['auth_method'] }) {
 
 // ─── Página de equipo ─────────────────────────────────────
 export default function SettingsTeamPage() {
-  const { user } = useAuth();
+  const { user, tenant } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const canInvite = tenant?.website_status === 'published' || tenant?.website_status === 'review';
 
   const [filters, setFilters] = useState<TeamFilters>({
     ordering: '-date_joined',
@@ -230,7 +233,11 @@ export default function SettingsTeamPage() {
       setInviteEmail('');
       setInviteRole('staff');
     },
-    onError: (error: Error & { response?: { data?: { email?: string[]; detail?: string; error?: string } } }) => {
+    onError: (error: Error & { response?: { status?: number; data?: { email?: string[]; detail?: string; error?: string } } }) => {
+      if (error.response?.status === 403) {
+        toast.error(error.response.data?.detail || error.response.data?.error || 'No tienes permiso para enviar invitaciones en este momento.');
+        return;
+      }
       const msg = error.response?.data?.email?.[0]
         || error.response?.data?.detail
         || error.response?.data?.error
@@ -323,7 +330,7 @@ export default function SettingsTeamPage() {
           </h3>
           <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5 text-xs">
+              <Button size="sm" className="gap-1.5 text-xs" disabled={!canInvite}>
                 <UserPlus className="h-3.5 w-3.5" />
                 Invitar
               </Button>
@@ -381,54 +388,68 @@ export default function SettingsTeamPage() {
           </Dialog>
         </div>
 
-        {/* Buscar y filtrar */}
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 mb-3">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="relative sm:col-span-3">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar por nombre o email..."
-                value={filters.search || ''}
-                onChange={(e) =>
-                  setFilters({ ...filters, search: e.target.value })
-                }
-                className="pl-9 h-10"
-              />
+        {/* Buscar, filtrar y banner */}
+        <div className="rounded-xl border border-gray-200 bg-white mb-3 overflow-hidden">
+          {!canInvite && (
+            <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-4 py-3">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full" style={navyIconBg}>
+                <Info className="h-3 w-3" style={{ color: '#1C3B57' }} />
+              </div>
+              <p className="text-xs text-gray-500">
+                <span className="font-medium text-gray-700">Tu equipo estará listo pronto</span>
+                {' — '}podrás invitar miembros una vez que tu sitio web esté publicado o en revisión.
+              </p>
             </div>
+          )}
 
-            <Select
-              value={filters.role || 'all'}
-              onValueChange={(v) =>
-                setFilters({ ...filters, role: v === 'all' ? undefined : v })
-              }
-            >
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Rol" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los roles</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="staff">Staff</SelectItem>
-                <SelectItem value="customer">Cliente</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="px-4 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="relative sm:col-span-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por nombre o email..."
+                  value={filters.search || ''}
+                  onChange={(e) =>
+                    setFilters({ ...filters, search: e.target.value })
+                  }
+                  className="pl-9 h-10"
+                />
+              </div>
 
-            <Select
-              value={filters.auth_method || 'all'}
-              onValueChange={(v) =>
-                setFilters({ ...filters, auth_method: v === 'all' ? undefined : v })
-              }
-            >
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Método de acceso" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los métodos</SelectItem>
-                <SelectItem value="email_only">Solo email</SelectItem>
-                <SelectItem value="social_only">Solo social</SelectItem>
-                <SelectItem value="both">Email + Social</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select
+                value={filters.role || 'all'}
+                onValueChange={(v) =>
+                  setFilters({ ...filters, role: v === 'all' ? undefined : v })
+                }
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los roles</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="customer">Cliente</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={filters.auth_method || 'all'}
+                onValueChange={(v) =>
+                  setFilters({ ...filters, auth_method: v === 'all' ? undefined : v })
+                }
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Método de acceso" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los métodos</SelectItem>
+                  <SelectItem value="email_only">Solo email</SelectItem>
+                  <SelectItem value="social_only">Solo social</SelectItem>
+                  <SelectItem value="both">Email + Social</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 

@@ -2397,6 +2397,15 @@ class TeamReset2FAView(APIView):
 # ===================================
 
 
+def _tenant_can_invite(tenant) -> bool:
+    """Verifica si el estado del sitio web del tenant permite invitaciones al equipo."""
+    try:
+        website_config = tenant.website_config
+        return website_config.status in ("published", "review")
+    except Exception:
+        return False
+
+
 class TeamInvitationsView(APIView):
     """
     GET  /api/core/team/invitations/ — listar invitaciones
@@ -2432,6 +2441,14 @@ class TeamInvitationsView(APIView):
         responses=TeamInvitationSerializer,
     )
     def post(self, request):
+        if not _tenant_can_invite(request.tenant):
+            return Response(
+                {
+                    "detail": "Las invitaciones al equipo están disponibles una vez que tu sitio web esté publicado o en revisión."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = CreateTeamInvitationSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
@@ -2487,6 +2504,14 @@ class ResendInvitationView(APIView):
     permission_classes = [IsAuthenticated, IsTenantAdmin]
 
     def post(self, request, pk):
+        if not _tenant_can_invite(request.tenant):
+            return Response(
+                {
+                    "detail": "Las invitaciones al equipo están disponibles una vez que tu sitio web esté publicado o en revisión."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         try:
             invitation = TeamInvitation.objects.get(pk=pk, tenant=request.tenant, status="pending")
         except TeamInvitation.DoesNotExist:
