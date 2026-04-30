@@ -27,6 +27,7 @@ def _make_superadmin(email: str = "root@nerbis.test", password: str = "Sup3rStr0
         is_superuser=True,
         is_staff=True,
         is_active=is_active,
+        superadmin_status="active" if is_active else "deactivated",
         role="admin",
         uid=f"admin:{email}",
     )

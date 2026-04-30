@@ -9,6 +9,9 @@ Este módulo está aislado por diseño:
   que ningún claim de tenant se filtre en los tokens de superadmin.
 """
 
+from django.db import models
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.pagination import PageNumberPagination
@@ -19,9 +22,13 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.cookies import clear_auth_cookies, set_auth_cookies
-from core.models import User
-from core.permissions import IsSuperAdmin
+from core.models import AdminAuditLog, User
+from core.permissions import HasInternalRole, IsSuperAdmin
 from core.serializers import (
+    AdminAuditLogSerializer,
+    AdminBlockSerializer,
+    AdminChangeRoleSerializer,
+    AdminDeleteSerializer,
     AdminLoginSerializer,
     AdminRegisterSerializer,
     AdminUserSerializer,
@@ -79,10 +86,62 @@ class AdminLoginView(APIView):
             is_active=True,
         ).first()
         if user is None or not user.check_password(password):
-            return Response(
-                {"detail": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            # Try to find the user regardless of is_active to provide block info
+            blocked_user = User.objects.filter(
+                email__iexact=email,
+                is_superuser=True,
+                tenant__isnull=True,
+            ).first()
+
+            if blocked_user and blocked_user.superadmin_status == "blocked":
+                # Check auto-unblock
+                if blocked_user.blocked_until and blocked_user.blocked_until <= timezone.now():
+                    blocked_user.superadmin_status = "active"
+                    blocked_user.block_reason = ""
+                    blocked_user.blocked_until = None
+                    blocked_user.blocked_by = None
+                    blocked_user.save(
+                        update_fields=[
+                            "superadmin_status",
+                            "block_reason",
+                            "blocked_until",
+                            "blocked_by",
+                            "is_active",
+                        ]
+                    )
+                    AdminAuditLog.objects.create(
+                        actor=None,
+                        action=AdminAuditLog.ACTION_UNBLOCK_SUPERADMIN,
+                        target_type="User",
+                        target_id=str(blocked_user.pk),
+                        target_repr=f"user: {blocked_user.email}",
+                        details={"auto_unblock": True, "reason": "blocked_until expired"},
+                        ip_address=request.META.get("REMOTE_ADDR"),
+                    )
+                    # Let the login proceed if password matches
+                    if blocked_user.check_password(password):
+                        user = blocked_user
+                    else:
+                        return Response(
+                            {"detail": "Invalid credentials"},
+                            status=status.HTTP_401_UNAUTHORIZED,
+                        )
+                else:
+                    return Response(
+                        {
+                            "detail": "Tu cuenta está bloqueada.",
+                            "block_reason": blocked_user.block_reason,
+                            "blocked_until": (
+                                blocked_user.blocked_until.isoformat() if blocked_user.blocked_until else None
+                            ),
+                        },
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+            else:
+                return Response(
+                    {"detail": "Invalid credentials"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
 
         tokens = build_superadmin_tokens(user)
         response = Response(
@@ -111,6 +170,15 @@ class AdminRegisterView(APIView):
         serializer = AdminRegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            action=AdminAuditLog.ACTION_CREATE_SUPERADMIN,
+            target_type="User",
+            target_id=str(user.pk),
+            target_repr=f"user: {user.email}",
+            details={"internal_role": user.internal_role},
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
         return Response(
             AdminUserSerializer(user).data,
             status=status.HTTP_201_CREATED,
@@ -248,9 +316,9 @@ class AdminSuperadminListView(GenericAPIView):
 
 
 class AdminSuperadminDetailView(APIView):
-    """PATCH /api/admin/superadmins/<id>/ — (de)activar un superadmin."""
+    """PATCH/DELETE /api/admin/superadmins/<id>/ — (de)activar o eliminar un superadmin."""
 
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsSuperAdmin, HasInternalRole("owner", "admin")]
 
     def patch(self, request, pk: int):
         user = User.objects.filter(
@@ -266,11 +334,272 @@ class AdminSuperadminDetailView(APIView):
         serializer = AdminUserUpdateSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         if "is_active" in serializer.validated_data:
+            if user.is_owner:
+                return Response(
+                    {"detail": "No se puede desactivar al owner de la plataforma."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if user.pk == request.user.pk and serializer.validated_data["is_active"] is False:
                 return Response(
                     {"detail": "No puedes desactivar tu propia cuenta."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            user.is_active = serializer.validated_data["is_active"]
-            user.save(update_fields=["is_active"])
+            new_active = serializer.validated_data["is_active"]
+            user.is_active = new_active
+            if new_active:
+                user.superadmin_status = "active"
+                user.block_reason = ""
+                user.blocked_until = None
+                user.blocked_by = None
+                user.save(
+                    update_fields=[
+                        "is_active",
+                        "superadmin_status",
+                        "block_reason",
+                        "blocked_until",
+                        "blocked_by",
+                    ]
+                )
+                action = AdminAuditLog.ACTION_ACTIVATE_USER
+            else:
+                user.superadmin_status = "deactivated"
+                user.save(update_fields=["is_active", "superadmin_status"])
+                action = AdminAuditLog.ACTION_DEACTIVATE_USER
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                action=action,
+                target_type="User",
+                target_id=str(user.pk),
+                target_repr=f"user: {user.email}",
+                details={"is_active": new_active},
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
         return Response(AdminUserSerializer(user).data, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        target = get_object_or_404(User, pk=pk, is_superuser=True, tenant__isnull=True)
+
+        if target.pk == request.user.pk:
+            return Response(
+                {"detail": "No puedes eliminar tu propia cuenta."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if target.is_owner:
+            return Response(
+                {"detail": "No se puede eliminar al owner de la plataforma."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = AdminDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not request.user.check_password(serializer.validated_data["password"]):
+            return Response(
+                {"detail": "Contraseña incorrecta."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Snapshot for audit log before deletion
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            action=AdminAuditLog.ACTION_DELETE_SUPERADMIN,
+            target_type="User",
+            target_id=str(target.pk),
+            target_repr=f"user: {target.email}",
+            details={
+                "email": target.email,
+                "first_name": target.first_name,
+                "last_name": target.last_name,
+                "internal_role": target.internal_role,
+            },
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
+        try:
+            target.delete()
+        except models.ProtectedError as e:
+            # Build a summary of what's blocking deletion
+            blocking = {}
+            for obj in e.protected_objects:
+                model_name = obj._meta.verbose_name_plural or obj._meta.model_name
+                blocking[model_name] = blocking.get(model_name, 0) + 1
+            detail_parts = [f"{count} {name}" for name, count in blocking.items()]
+            return Response(
+                {
+                    "detail": "No se puede eliminar este usuario porque tiene "
+                    "registros asociados. Desactívalo en su lugar.",
+                    "blocking": blocking,
+                    "blocking_summary": ", ".join(detail_parts),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminBlockSuperadminView(APIView):
+    """POST /api/admin/superadmins/<id>/block/ — Bloquear un superadmin."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin, HasInternalRole("owner", "admin")]
+
+    def post(self, request, pk):
+        target = get_object_or_404(User, pk=pk, is_superuser=True, tenant__isnull=True)
+
+        if target.pk == request.user.pk:
+            return Response(
+                {"detail": "No puedes bloquear tu propia cuenta."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if target.is_owner:
+            return Response(
+                {"detail": "No se puede bloquear al owner de la plataforma."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if target.superadmin_status == "blocked":
+            return Response(
+                {"detail": "Este usuario ya está bloqueado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = AdminBlockSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        target.superadmin_status = "blocked"
+        target.block_reason = serializer.validated_data["reason"]
+        target.blocked_until = serializer.validated_data.get("blocked_until")
+        target.blocked_by = request.user
+        target.save(
+            update_fields=[
+                "superadmin_status",
+                "block_reason",
+                "blocked_until",
+                "blocked_by",
+                "is_active",
+            ]
+        )
+
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            action=AdminAuditLog.ACTION_BLOCK_SUPERADMIN,
+            target_type="User",
+            target_id=str(target.pk),
+            target_repr=f"user: {target.email}",
+            details={
+                "reason": target.block_reason,
+                "blocked_until": str(target.blocked_until) if target.blocked_until else None,
+            },
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
+        return Response(AdminUserSerializer(target).data, status=status.HTTP_200_OK)
+
+
+class AdminUnblockSuperadminView(APIView):
+    """POST /api/admin/superadmins/<id>/unblock/ — Desbloquear un superadmin."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin, HasInternalRole("owner", "admin")]
+
+    def post(self, request, pk):
+        target = get_object_or_404(User, pk=pk, is_superuser=True, tenant__isnull=True)
+
+        if target.superadmin_status != "blocked":
+            return Response(
+                {"detail": "Este usuario no está bloqueado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target.superadmin_status = "active"
+        target.block_reason = ""
+        target.blocked_until = None
+        target.blocked_by = None
+        target.save(
+            update_fields=[
+                "superadmin_status",
+                "block_reason",
+                "blocked_until",
+                "blocked_by",
+                "is_active",
+            ]
+        )
+
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            action=AdminAuditLog.ACTION_UNBLOCK_SUPERADMIN,
+            target_type="User",
+            target_id=str(target.pk),
+            target_repr=f"user: {target.email}",
+            details={},
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
+        return Response(AdminUserSerializer(target).data, status=status.HTTP_200_OK)
+
+
+class AdminChangeRoleView(APIView):
+    """PATCH /api/admin/superadmins/<id>/role/ — Cambiar rol interno de un superadmin."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin, HasInternalRole("owner")]
+
+    def patch(self, request, pk):
+        target = get_object_or_404(User, pk=pk, is_superuser=True, tenant__isnull=True)
+
+        if target.pk == request.user.pk:
+            return Response(
+                {"detail": "No puedes cambiar tu propio rol."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = AdminChangeRoleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        old_role = target.internal_role
+        new_role = serializer.validated_data["internal_role"]
+
+        target.internal_role = new_role
+        target.save(update_fields=["internal_role"])
+
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            action=AdminAuditLog.ACTION_CHANGE_SUPERADMIN_ROLE,
+            target_type="User",
+            target_id=str(target.pk),
+            target_repr=f"user: {target.email}",
+            details={"old_role": old_role, "new_role": new_role},
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
+        return Response(AdminUserSerializer(target).data, status=status.HTTP_200_OK)
+
+
+class AdminAuditLogListView(APIView):
+    """GET /api/admin/audit-log/ — Listado paginado del log de auditoría."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        queryset = AdminAuditLog.objects.select_related("actor").order_by("-created_at")
+
+        # Filters
+        action = request.query_params.get("action")
+        if action:
+            queryset = queryset.filter(action=action)
+
+        actor_id = request.query_params.get("actor_id")
+        if actor_id:
+            queryset = queryset.filter(actor_id=actor_id)
+
+        target_type = request.query_params.get("target_type")
+        if target_type:
+            queryset = queryset.filter(target_type=target_type)
+
+        paginator = PageNumberPagination()
+        paginator.page_size = int(request.query_params.get("page_size", 20))
+        paginator.page_size_query_param = "page_size"
+        paginator.max_page_size = 100
+
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = AdminAuditLogSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)

@@ -666,6 +666,41 @@ class User(AbstractUser):
         help_text="True si la cuenta fue creada automáticamente al reservar como invitado",
     )
 
+    # --- Superadmin management fields ---
+    SUPERADMIN_STATUS_CHOICES = [
+        ("active", "Activo"),
+        ("blocked", "Bloqueado"),
+        ("deactivated", "Desactivado"),
+    ]
+
+    INTERNAL_ROLE_CHOICES = [
+        ("owner", "Owner"),
+        ("admin", "Admin"),
+        ("support", "Soporte"),
+        ("viewer", "Viewer"),
+    ]
+
+    superadmin_status = models.CharField(
+        max_length=20,
+        choices=SUPERADMIN_STATUS_CHOICES,
+        default="active",
+    )
+    block_reason = models.CharField(max_length=500, blank=True, default="")
+    blocked_until = models.DateTimeField(null=True, blank=True)
+    blocked_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="blocked_superadmins",
+    )
+    is_owner = models.BooleanField(default=False)
+    internal_role = models.CharField(
+        max_length=20,
+        choices=INTERNAL_ROLE_CHOICES,
+        default="admin",
+    )
+
     # Manager personalizado (filtra por tenant + métodos de UserManager)
     objects = TenantAwareUserManager()
 
@@ -683,6 +718,7 @@ class User(AbstractUser):
             models.Index(fields=["tenant", "email"]),
             models.Index(fields=["tenant", "role"]),
             models.Index(fields=["tenant", "username"]),
+            models.Index(fields=["superadmin_status"], name="core_user_sa_status_idx"),
         ]
         # Constraints: username y email únicos por tenant
         constraints = [
@@ -693,6 +729,12 @@ class User(AbstractUser):
                 Lower("email"),
                 condition=models.Q(tenant__isnull=True),
                 name="core_user_superadmin_email_uq",
+            ),
+            # Solo un owner entre superadmins de plataforma
+            models.UniqueConstraint(
+                fields=["is_owner"],
+                condition=models.Q(is_superuser=True, tenant__isnull=True, is_owner=True),
+                name="core_user_single_owner_uq",
             ),
         ]
 
@@ -738,6 +780,33 @@ class User(AbstractUser):
                 self.is_staff = True
             else:
                 self.is_staff = False
+
+        # Guard: prevent promoting a user with tenant data to superadmin
+        if self.is_superuser and self.tenant_id is None and self.pk:
+            from django.db import connection
+
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT EXISTS("
+                    "SELECT 1 FROM orders_order WHERE customer_id = %s "
+                    "UNION ALL "
+                    "SELECT 1 FROM bookings_appointment WHERE customer_id = %s"
+                    ")",
+                    [self.pk, self.pk],
+                )
+                has_tenant_data = cursor.fetchone()[0]
+            if has_tenant_data:
+                raise ValueError(
+                    "No se puede promover a superadmin un usuario con datos de "
+                    "tenant (órdenes, citas). Crea una cuenta nueva."
+                )
+
+        # Sync superadmin_status → is_active (only for superadmins)
+        if self.is_superuser and self.tenant_id is None:
+            if self.superadmin_status == "active":
+                self.is_active = True
+            elif self.superadmin_status in ("blocked", "deactivated"):
+                self.is_active = False
 
         super().save(*args, **kwargs)
 
@@ -1584,6 +1653,11 @@ class AdminAuditLog(models.Model):
     ACTION_UNLINK_SOCIAL = "unlink_social"
     ACTION_RESET_PASSWORD = "reset_password"
     ACTION_EDIT_TENANT_DATA = "edit_tenant_data"
+    ACTION_BLOCK_SUPERADMIN = "block_superadmin"
+    ACTION_UNBLOCK_SUPERADMIN = "unblock_superadmin"
+    ACTION_DELETE_SUPERADMIN = "delete_superadmin"
+    ACTION_CHANGE_SUPERADMIN_ROLE = "change_superadmin_role"
+    ACTION_CREATE_SUPERADMIN = "create_superadmin"
 
     ACTION_CHOICES = [
         (ACTION_DEACTIVATE_TENANT, "Deactivate tenant"),
@@ -1596,6 +1670,11 @@ class AdminAuditLog(models.Model):
         (ACTION_DISABLE_2FA, "Disable 2FA"),
         (ACTION_UNLINK_SOCIAL, "Unlink social account"),
         (ACTION_RESET_PASSWORD, "Reset password"),
+        (ACTION_BLOCK_SUPERADMIN, "Bloquear superadmin"),
+        (ACTION_UNBLOCK_SUPERADMIN, "Desbloquear superadmin"),
+        (ACTION_DELETE_SUPERADMIN, "Eliminar superadmin"),
+        (ACTION_CHANGE_SUPERADMIN_ROLE, "Cambiar rol de superadmin"),
+        (ACTION_CREATE_SUPERADMIN, "Crear superadmin"),
     ]
 
     actor = models.ForeignKey(
@@ -1608,7 +1687,7 @@ class AdminAuditLog(models.Model):
         help_text="Superadmin que ejecutó la acción. NULL si el actor fue eliminado o fue una acción de sistema.",
     )
     action = models.CharField(
-        max_length=30,
+        max_length=40,
         choices=ACTION_CHOICES,
         verbose_name="Acción",
     )

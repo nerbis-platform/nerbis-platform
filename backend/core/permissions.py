@@ -63,6 +63,22 @@ class IsSuperAdmin(permissions.BasePermission):
         return True
 
 
+def HasInternalRole(*allowed_roles: str):
+    """Factory that returns a DRF permission class checking internal_role."""
+
+    class _HasInternalRole(permissions.BasePermission):
+        message = f"Requires internal role: {', '.join(allowed_roles)}"
+
+        def has_permission(self, request, view) -> bool:
+            user = getattr(request, "user", None)
+            if user is None or not user.is_authenticated:
+                return False
+            return getattr(user, "internal_role", None) in allowed_roles
+
+    _HasInternalRole.__name__ = f"HasInternalRole_{'_'.join(allowed_roles)}"
+    return _HasInternalRole
+
+
 class IsOwnerOrStaff(permissions.BasePermission):
     """Dueño del objeto o staff/admin"""
 

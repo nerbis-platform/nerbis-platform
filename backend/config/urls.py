@@ -22,6 +22,9 @@ from core.admin_tenant_views import (
     AdminUserDetailView,
 )
 from core.admin_views import (
+    AdminAuditLogListView,
+    AdminBlockSuperadminView,
+    AdminChangeRoleView,
     AdminLoginView,
     AdminLogoutView,
     AdminMeView,
@@ -29,6 +32,7 @@ from core.admin_views import (
     AdminSuperadminDetailView,
     AdminSuperadminListView,
     AdminTokenRefreshView,
+    AdminUnblockSuperadminView,
 )
 from core.views import (
     AcceptInvitationView,
@@ -94,6 +98,22 @@ urlpatterns = [
         AdminSuperadminDetailView.as_view(),
         name="admin-superadmins-detail",
     ),
+    path(
+        "api/admin/superadmins/<int:pk>/block/",
+        AdminBlockSuperadminView.as_view(),
+        name="admin-superadmins-block",
+    ),
+    path(
+        "api/admin/superadmins/<int:pk>/unblock/",
+        AdminUnblockSuperadminView.as_view(),
+        name="admin-superadmins-unblock",
+    ),
+    path(
+        "api/admin/superadmins/<int:pk>/role/",
+        AdminChangeRoleView.as_view(),
+        name="admin-superadmins-role",
+    ),
+    path("api/admin/audit-log/", AdminAuditLogListView.as_view(), name="admin-audit-log"),
     path("api/admin/tenants/", AdminTenantListView.as_view(), name="admin-tenants-list"),
     path(
         "api/admin/tenants/<uuid:pk>/",

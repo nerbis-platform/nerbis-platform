@@ -189,6 +189,9 @@ adminClient.interceptors.response.use(
       case 404:
         userMessage = serverMessage || 'Recurso no encontrado.';
         break;
+      case 409:
+        userMessage = serverMessage || 'Conflicto: el recurso tiene dependencias.';
+        break;
       case 429:
         userMessage =
           'Demasiados intentos. Espera un momento antes de intentar de nuevo.';

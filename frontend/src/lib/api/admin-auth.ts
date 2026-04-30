@@ -5,6 +5,7 @@
 // localStorage keys via ADMIN_STORAGE_KEYS.
 import { adminClient, ADMIN_STORAGE_KEYS } from './admin-client';
 import type {
+  AdminAuditLogEntry,
   AdminLoginResponse,
   AdminPaginatedResponse,
   AdminUser,
@@ -121,5 +122,56 @@ export async function adminReactivateSuperadmin(
     `/admin/superadmins/${id}/`,
     { is_active: true },
   );
+  return data;
+}
+
+export async function adminBlockSuperadmin(
+  id: number,
+  payload: { reason: string; blocked_until?: string | null },
+): Promise<AdminUser> {
+  const { data } = await adminClient.post<AdminUser>(
+    `/admin/superadmins/${id}/block/`,
+    payload,
+  );
+  return data;
+}
+
+export async function adminUnblockSuperadmin(
+  id: number,
+): Promise<AdminUser> {
+  const { data } = await adminClient.post<AdminUser>(
+    `/admin/superadmins/${id}/unblock/`,
+    {},
+  );
+  return data;
+}
+
+export async function adminDeleteSuperadmin(
+  id: number,
+  payload: { password: string },
+): Promise<void> {
+  await adminClient.delete(`/admin/superadmins/${id}/`, { data: payload });
+}
+
+export async function adminChangeRole(
+  id: number,
+  payload: { internal_role: string },
+): Promise<AdminUser> {
+  const { data } = await adminClient.patch<AdminUser>(
+    `/admin/superadmins/${id}/role/`,
+    payload,
+  );
+  return data;
+}
+
+export async function adminListAuditLog(params?: {
+  action?: string;
+  actor_id?: number;
+  page?: number;
+  page_size?: number;
+}): Promise<AdminPaginatedResponse<AdminAuditLogEntry>> {
+  const { data } = await adminClient.get<
+    AdminPaginatedResponse<AdminAuditLogEntry>
+  >('/admin/audit-log/', { params });
   return data;
 }

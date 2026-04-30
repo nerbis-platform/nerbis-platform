@@ -11,6 +11,12 @@
 // `backend/core/admin_tenant_serializers.py` so the wire contract is
 // re-checkable at compile time.
 
+/** Computed status for superadmin accounts. */
+export type SuperadminStatus = 'active' | 'blocked' | 'deactivated';
+
+/** Internal role within the superadmin surface. */
+export type InternalRole = 'owner' | 'admin' | 'support' | 'viewer';
+
 export interface AdminUser {
   id: number;
   email: string;
@@ -21,6 +27,11 @@ export interface AdminUser {
   is_active: boolean;
   date_joined: string;
   last_login: string | null;
+  superadmin_status: SuperadminStatus;
+  block_reason: string;
+  blocked_until: string | null;
+  is_owner: boolean;
+  internal_role: InternalRole;
 }
 
 export interface AdminLoginResponse {
@@ -316,4 +327,25 @@ export interface AdminUserFilters {
     | '-date_joined'
     | 'email'
     | '-email';
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Audit log — superadmin activity tracking (Issue #182)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Single entry returned by `GET /api/admin/audit-log/`.
+ * Mirrors `AdminAuditLogSerializer`.
+ */
+export interface AdminAuditLogEntry {
+  id: number;
+  actor: number | null;
+  actor_email: string | null;
+  action: string;
+  target_type: string;
+  target_id: string;
+  target_repr: string;
+  details: Record<string, unknown>;
+  ip_address: string | null;
+  created_at: string;
 }

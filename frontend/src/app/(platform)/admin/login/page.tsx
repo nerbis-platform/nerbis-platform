@@ -7,7 +7,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 export default function AdminLoginPage() {
@@ -17,6 +17,10 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [blockInfo, setBlockInfo] = useState<{
+    reason: string;
+    blocked_until: string | null;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -32,16 +36,30 @@ export default function AdminLoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setBlockInfo(null);
     setSubmitting(true);
     try {
       await login(email.trim().toLowerCase(), password);
     } catch (err: unknown) {
-      let message = 'Credenciales inválidas. Verifica tu correo y contraseña.';
-      if (err && typeof err === 'object' && 'response' in err) {
-        const axiosErr = err as {
-          response?: { data?: { detail?: string } };
-        };
-        message = axiosErr.response?.data?.detail ?? message;
+      let message = 'Credenciales invalidas. Verifica tu correo y contrasena.';
+
+      // Check for block_reason in the error response data
+      const errData = (err && typeof err === 'object' && 'data' in err)
+        ? (err as { data?: { block_reason?: string; blocked_until?: string | null; detail?: string } }).data
+        : undefined;
+
+      if (errData?.block_reason) {
+        setBlockInfo({
+          reason: errData.block_reason,
+          blocked_until: errData.blocked_until ?? null,
+        });
+        // Don't set a generic error — the block info alert handles the display
+        setSubmitting(false);
+        return;
+      }
+
+      if (errData?.detail) {
+        message = errData.detail;
       } else if (err instanceof Error) {
         message = err.message;
       }
@@ -178,6 +196,33 @@ export default function AdminLoginPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Block info */}
+              {blockInfo && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-200"
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                    <div className="flex flex-col gap-1">
+                      <p>Tu cuenta esta bloqueada. Motivo: {blockInfo.reason}</p>
+                      {blockInfo.blocked_until && (
+                        <p className="text-xs text-amber-300/80">
+                          Se desbloqueara el:{' '}
+                          {new Date(blockInfo.blocked_until).toLocaleString('es-CO', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Error */}
               {error && (

@@ -8,7 +8,7 @@ from django.contrib.auth.password_validation import (
 )
 from rest_framework import serializers
 
-from .models import Banner, SocialAccount, TeamInvitation, Tenant, User
+from .models import AdminAuditLog, Banner, SocialAccount, TeamInvitation, Tenant, User
 
 
 class TenantSerializer(serializers.ModelSerializer):
@@ -620,6 +620,7 @@ class AdminRegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, min_length=8, trim_whitespace=False)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    internal_role = serializers.ChoiceField(choices=["admin", "support", "viewer"], default="admin", required=False)
 
     def validate_email(self, value: str) -> str:
         normalized = value.strip().lower()
@@ -644,6 +645,7 @@ class AdminRegisterSerializer(serializers.Serializer):
             is_active=True,
             role="admin",
             uid=f"admin:{email}",
+            internal_role=validated_data.get("internal_role", "admin"),
         )
         user.set_password(validated_data["password"])
         user.save()
@@ -665,6 +667,11 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "is_active",
             "date_joined",
             "last_login",
+            "superadmin_status",
+            "block_reason",
+            "blocked_until",
+            "is_owner",
+            "internal_role",
         ]
         read_only_fields = fields
 
@@ -673,6 +680,39 @@ class AdminUserUpdateSerializer(serializers.Serializer):
     """Serializer para PATCH parcial de un superadmin (solo is_active)."""
 
     is_active = serializers.BooleanField()
+
+
+class AdminBlockSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=500)
+    blocked_until = serializers.DateTimeField(required=False, allow_null=True)
+
+
+class AdminDeleteSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+
+class AdminChangeRoleSerializer(serializers.Serializer):
+    internal_role = serializers.ChoiceField(choices=["admin", "support", "viewer"])
+
+
+class AdminAuditLogSerializer(serializers.ModelSerializer):
+    actor_email = serializers.CharField(source="actor.email", default=None, read_only=True)
+
+    class Meta:
+        model = AdminAuditLog
+        fields = [
+            "id",
+            "actor",
+            "actor_email",
+            "action",
+            "target_type",
+            "target_id",
+            "target_repr",
+            "details",
+            "ip_address",
+            "created_at",
+        ]
+        read_only_fields = fields
 
 
 class BannerSerializer(serializers.ModelSerializer):

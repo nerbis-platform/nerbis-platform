@@ -112,10 +112,15 @@ class AdminAuditLogModelTests(TestCase):
             "disable_2fa",
             "unlink_social",
             "reset_password",
+            "block_superadmin",
+            "unblock_superadmin",
+            "delete_superadmin",
+            "change_superadmin_role",
+            "create_superadmin",
         }
         actual = {value for value, _ in AdminAuditLog.ACTION_CHOICES}
         self.assertEqual(actual, expected)
-        self.assertEqual(len(AdminAuditLog.ACTION_CHOICES), 10)
+        self.assertEqual(len(AdminAuditLog.ACTION_CHOICES), 15)
 
     # ------------------------------------------------------------------
     # __str__
