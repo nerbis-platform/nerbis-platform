@@ -89,6 +89,7 @@ INSTALLED_APPS = [
     "coupons",
     "reviews",
     "websites",
+    "management",
 ]
 
 MIDDLEWARE = [

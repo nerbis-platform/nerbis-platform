@@ -17,6 +17,7 @@ export interface TenantModules {
   bookings: boolean;
   services: boolean;
   marketing: boolean;
+  management: boolean;
 }
 
 export interface TenantInfo {

@@ -359,6 +359,12 @@ class Tenant(models.Model):
         help_text="Habilita: Cupones, Promociones, Reseñas (requiere Shop, Bookings o Services)",
     )
 
+    has_management = models.BooleanField(
+        default=False,
+        verbose_name="Gestion Comercial",
+        help_text="Habilita: Ventas, Compras, Gastos, Proveedores, Movimientos de inventario",
+    )
+
     modules_configured = models.BooleanField(
         default=False,
         verbose_name="Módulos configurados",

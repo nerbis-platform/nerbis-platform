@@ -197,6 +197,11 @@ export function Header() {
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard/appointments">Mis Citas</Link>
                     </DropdownMenuItem>
+                    <ModuleShow module="management">
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard/management">Gestion Comercial</Link>
+                      </DropdownMenuItem>
+                    </ModuleShow>
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard/team">Equipo</Link>
                     </DropdownMenuItem>
