@@ -44,6 +44,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import Link from 'next/link';
+import { PipeBubble } from '@/components/pipe';
 
 type TabFilter = 'all' | 'pending' | 'confirmed' | 'in_progress' | 'completed';
 
@@ -236,6 +237,13 @@ export default function StaffAppointmentsPage() {
                 ? 'No hay citas completadas'
                 : 'No se encontraron citas'}
             </p>
+            <div className="mt-6 max-w-sm mx-auto">
+              <PipeBubble
+                message="Cuando tus clientes agenden, sus citas aparecerán aquí."
+                mood="idle"
+                storageKey="staff-appointments-empty"
+              />
+            </div>
           </CardContent>
         </Card>
       ) : (

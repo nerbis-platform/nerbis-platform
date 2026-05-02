@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Calendar, Package, User } from 'lucide-react';
 import Link from 'next/link';
+import { PipeBubble } from '@/components/pipe';
 
 function CustomerDashboard() {
   const { user } = useAuth();
@@ -103,9 +104,17 @@ function CustomerDashboard() {
                 ))}
               </div>
             ) : appointments?.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                No tienes citas próximas
-              </p>
+              <div className="py-4 space-y-3">
+                <p className="text-muted-foreground text-center">
+                  No tienes citas próximas
+                </p>
+                <PipeBubble
+                  message="Cuando agendes una cita, aparecerá aquí."
+                  mood="idle"
+                  size="sm"
+                  storageKey="dashboard-appointments-empty"
+                />
+              </div>
             ) : (
               <div className="space-y-3">
                 {appointments?.slice(0, 3).map((appointment) => (
@@ -148,9 +157,17 @@ function CustomerDashboard() {
                 ))}
               </div>
             ) : orders?.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                No tienes órdenes
-              </p>
+              <div className="py-4 space-y-3">
+                <p className="text-muted-foreground text-center">
+                  No tienes órdenes
+                </p>
+                <PipeBubble
+                  message="Tu historial de compras aparecerá aquí."
+                  mood="idle"
+                  size="sm"
+                  storageKey="dashboard-orders-empty"
+                />
+              </div>
             ) : (
               <div className="space-y-3">
                 {orders?.slice(0, 3).map((order) => (

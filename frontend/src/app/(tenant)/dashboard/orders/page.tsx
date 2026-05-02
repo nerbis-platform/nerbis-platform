@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatPrice, formatDateTime } from '@/lib/utils';
 import { Package, ArrowLeft, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
+import { PipeBubble } from '@/components/pipe';
 
 export default function OrdersPage() {
   const { data: orders, isLoading } = useQuery({
@@ -69,6 +70,13 @@ export default function OrdersPage() {
               <Button variant="outline" asChild>
                 <Link href="/services">Ver Servicios</Link>
               </Button>
+            </div>
+            <div className="mt-6 max-w-sm mx-auto">
+              <PipeBubble
+                message="Cuando lleguen tus primeros pedidos, los verás aquí."
+                mood="encouraging"
+                storageKey="orders-empty"
+              />
             </div>
           </CardContent>
         </Card>

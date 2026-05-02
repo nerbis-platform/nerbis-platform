@@ -76,6 +76,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import type { ProductCategory } from '@/types';
+import { PipeBubble } from '@/components/pipe';
 
 // ─── Schema ─────────────────────────────────────────────────
 const categorySchema = z.object({
@@ -262,6 +263,13 @@ export default function CategoriesPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Nueva Categoría
               </Button>
+              <div className="mt-6 max-w-sm mx-auto">
+                <PipeBubble
+                  message="Las categorías ayudan a tus clientes a encontrar lo que buscan más rápido."
+                  mood="encouraging"
+                  storageKey="categories-empty"
+                />
+              </div>
             </div>
           ) : (
             <Table>
