@@ -52,6 +52,7 @@ import SectionManager from '@/components/website-builder/SectionManager';
 import PageManager from '@/components/website-builder/PageManager';
 import SettingsPanel, { type SiteSettings, type SeoSuggestion } from '@/components/website-builder/SettingsPanel';
 import { useTenantContact, useTenant } from '@/contexts/TenantContext';
+import { PipeEditorSidebar } from '@/components/pipe';
 
 
 // ─── Types ───────────────────────────────────────────────────
@@ -1649,6 +1650,9 @@ export default function EditorPage() {
           </div>
         </div>
       )}
+
+      {/* ─── Pipe Editor Companion ─────────────────────────── */}
+      <PipeEditorSidebar activeSection={activeSection} />
     </div>
   );
 }

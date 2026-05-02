@@ -6,7 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 import Image from 'next/image';
 import {
   Check,
-  AlertCircle,
+
   ArrowRight,
   Send,
   FileText,
@@ -27,17 +27,16 @@ import { configureModules, ModuleSelection, getCurrentUser } from '@/lib/api/aut
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api/client';
 import { Tenant } from '@/types';
+import {
+  PipeAvatar,
+  PipeMessage,
+  PipeMessageLoading,
+  usePipeMood,
+  AGENT_NAME,
+  PIPE_COLORS,
 
-// ─── Brand constants ──────────────────────────────────────
-const NAVY = '#1C3B57';
-const TEAL = '#0D9488';
-const WARM_GRAY_50 = '#FAFAF8';
-const WARM_GRAY_100 = '#F5F5F0';
-const WARM_GRAY_200 = '#E8E6E1';
-const WARM_GRAY_400 = '#A8A29E';
-const WARM_GRAY_500 = '#78716C';
-const WARM_GRAY_600 = '#57534E';
-const WARM_GRAY_800 = '#292524';
+} from '@/components/pipe';
+
 
 // ─── Conversational steps ─────────────────────────────────
 interface ConversationStep {
@@ -67,7 +66,7 @@ const NERBIS_MODULES: NerbisModule[] = [
     label: 'Sitio Web',
     subtitle: 'Presencia online con IA',
     icon: Globe,
-    accentColor: NAVY,
+    accentColor: PIPE_COLORS.navy,
     alwaysOn: true,
   },
   {
@@ -102,335 +101,80 @@ interface SectionOption {
 
 const SECTION_OPTIONS: SectionOption[] = [
   { label: 'Sobre nosotros', value: 'Sobre nosotros', defaultOn: true },
-  { label: 'Testimonios', value: 'Testimonios / Reseñas', defaultOn: true },
+  { label: 'Testimonios', value: 'Testimonios / Resenas', defaultOn: true },
   { label: 'Preguntas frecuentes', value: 'Preguntas frecuentes', defaultOn: true },
-  { label: 'Galería de fotos', value: 'Galería de fotos', defaultOn: false },
+  { label: 'Galeria de fotos', value: 'Galeria de fotos', defaultOn: false },
   { label: 'Precios / Tarifas', value: 'Precios / Tarifas', defaultOn: false },
 ];
 
-// ─── Agent identity ───────────────────────────────────────
-const AGENT_NAME = 'Pipe';
-
+// ─── Pipe's conversation messages ─────────────────────────
+// Following PIPE_CHARACTER: onboarding warmth 0.9, formality 0.2,
+// short sentences, tuteo, no marketing language, no excessive exclamation
 const STEPS: ConversationStep[] = [
   {
     id: 'modules',
-    message: '¿Qué necesitas para tu negocio?',
+    message: 'Primero lo primero — elige las herramientas que necesitas para tu negocio.',
     type: 'modules',
-    hint: 'Incluye 14 días gratis. Puedes cambiar después.',
+    hint: 'Incluye 14 dias gratis. Puedes cambiar despues.',
   },
   {
     id: 'description',
-    message: 'Perfecto. Cuéntame sobre tu negocio — ¿a qué se dedican y qué los hace únicos?',
+    message: 'Dale, vamos con eso. Cuentame sobre tu negocio — entre mas detalles, mejor queda tu sitio.',
     type: 'textarea',
-    placeholder: 'Ej: Somos un centro de estética en Pedrezuela con 6 años de experiencia, especializados en tratamientos faciales y corporales con productos Germaine de Capuccini...',
-    hint: 'Entre más detalles, mejor queda tu sitio.',
+    placeholder: 'Ej: Somos un centro de estetica en Pedrezuela con 6 anos de experiencia, especializados en tratamientos faciales y corporales con productos Germaine de Capuccini...',
+    hint: 'Se especifico: tipo de negocio, ubicacion, lo que te hace diferente.',
     minLength: 20,
     rows: 3,
   },
   {
     id: 'services',
-    message: 'Genial. ¿Qué servicios ofreces?',
+    message: 'Buena pregunta... bueno, la buena pregunta es mia. Que servicios ofreces?',
     type: 'textarea',
-    placeholder: 'Ej:\nLimpieza facial profunda\nRadiofrecuencia facial\nPresoterapia corporal\nDepilación láser diodo',
-    hint: 'Uno por línea o separados por coma.',
+    placeholder: 'Ej:\nLimpieza facial profunda\nRadiofrecuencia facial\nPresoterapia corporal\nDepilacion laser diodo',
+    hint: 'Uno por linea o separados por coma.',
     minLength: 5,
     rows: 4,
   },
   {
     id: 'sections',
-    message: 'Última pregunta — ¿qué páginas adicionales quieres?',
+    message: 'Ya casi — un detalle mas. Que paginas adicionales quieres en tu sitio?',
     type: 'multiselect',
-    hint: 'Puedes agregar más después.',
+    hint: 'Puedes agregar mas despues.',
   },
 ];
 
-// ─── Pipe keyframe animations (avoids styled-jsx / Turbopack hang) ──
-const PIPE_KEYFRAMES = `
-@keyframes pipe-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
-@keyframes pipe-bob { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-3px) scale(1.03)} }
-@keyframes pipe-tilt { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(4deg)} 75%{transform:rotate(-3deg)} }
-@keyframes pipe-blink { 0%,42%,44%,100%{transform:scaleY(1)} 43%{transform:scaleY(0.1)} }
-@keyframes pipe-antenna { 0%,100%{opacity:.5;filter:drop-shadow(0 0 1px #5EEAD4)} 50%{opacity:1;filter:drop-shadow(0 0 4px #5EEAD4)} }
-@keyframes pipe-glow { 0%,100%{opacity:.3;transform:scale(1)} 50%{opacity:.7;transform:scale(1.1)} }
-@keyframes pipe-mouth-think { 0%,100%{transform:scale(1)} 50%{transform:scale(0.8)} }
-@keyframes pipe-jump { 0%{transform:translateY(0) scale(1)} 40%{transform:translateY(-5px) scale(1.08)} 70%{transform:translateY(-2px) scale(1.03)} 100%{transform:translateY(0) scale(1)} }
-@keyframes pipe-nod { 0%,100%{transform:rotate(0) translateY(0)} 30%{transform:rotate(0) translateY(1px)} 50%{transform:rotate(0) translateY(-1px)} 70%{transform:rotate(0) translateY(1px)} }
-@keyframes pipe-nudge { 0%{transform:translateX(0) rotate(0)} 15%{transform:translateX(-3px) rotate(-6deg)} 30%{transform:translateX(3px) rotate(6deg)} 45%{transform:translateX(-2px) rotate(-4deg)} 60%{transform:translateX(2px) rotate(4deg)} 75%{transform:translateX(-1px) rotate(-2deg)} 100%{transform:translateX(0) rotate(0)} }
-@media(prefers-reduced-motion:reduce){.pipe-avatar,.pipe-avatar *{animation:none!important}}
-`;
-
-// ─── Pipe Avatar Component ────────────────────────────────
-type PipeAvatarMood = 'idle' | 'listening' | 'thinking' | 'happy' | 'surprised' | 'reading' | 'nudge';
-
-function PipeAvatar({
-  mood = 'idle',
-  size = 36,
-}: {
-  mood?: PipeAvatarMood;
-  size?: number;
-}) {
-  const s = size;
-  const eyeW = s * 0.11;
-  const eyeH = s * 0.13;
-  const eyeY = s * 0.42;
-  const eyeLeftX = s * 0.36;
-  const eyeRightX = s * 0.64;
-  const mouthY = s * 0.64;
-  const [uid] = useState(() => `pipe-${size}-${Math.random().toString(36).slice(2, 6)}`);
-  const maxPupilMove = s * 0.025;
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [pupilOffset, setPupilOffset] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const dx = e.clientX - centerX;
-      const dy = e.clientY - centerY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist === 0) return;
-      const clamp = Math.min(dist / 200, 1);
-      setPupilOffset({
-        x: (dx / dist) * maxPupilMove * clamp,
-        y: (dy / dist) * maxPupilMove * clamp,
-      });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [maxPupilMove]);
-
-  return (
-    <div
-      ref={containerRef}
-      className="pipe-avatar relative flex-shrink-0"
-      style={{ width: s, height: s }}
-    >
-      {/* Glow ring — pulses when thinking */}
-      {mood === 'thinking' && (
-        <div
-          className="absolute rounded-full"
-          style={{
-            inset: -4,
-            background: `radial-gradient(circle, ${TEAL}25 0%, transparent 70%)`,
-            animation: 'pipe-glow 2s ease-in-out infinite',
-          }}
-        />
-      )}
-
-      <svg
-        width={s}
-        height={s}
-        viewBox={`0 0 ${s} ${s}`}
-        fill="none"
-        style={{
-          animation:
-            mood === 'thinking'
-              ? 'pipe-bob 2s ease-in-out infinite'
-              : mood === 'surprised'
-                ? 'pipe-jump 0.4s ease-out'
-                : mood === 'nudge'
-                  ? 'pipe-nudge 0.8s ease-in-out'
-                  : mood === 'reading'
-                    ? 'pipe-nod 2.5s ease-in-out infinite'
-                    : mood === 'listening'
-                      ? 'pipe-tilt 3s ease-in-out infinite'
-                      : 'pipe-float 4s ease-in-out infinite',
-        }}
-      >
-        <defs>
-          <linearGradient id={`${uid}-face`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#14B8A6" />
-            <stop offset="100%" stopColor="#0D9488" />
-          </linearGradient>
-          <linearGradient id={`${uid}-shine`} x1="0.3" y1="0" x2="0.7" y2="1">
-            <stop offset="0%" stopColor="#fff" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
-        {/* Shadow */}
-        <rect
-          x={s * 0.15}
-          y={s * 0.16}
-          width={s * 0.74}
-          height={s * 0.74}
-          rx={s * 0.24}
-          fill={NAVY}
-          opacity={0.15}
-        />
-
-        {/* Head — teal gradient */}
-        <rect
-          x={s * 0.12}
-          y={s * 0.13}
-          width={s * 0.76}
-          height={s * 0.76}
-          rx={s * 0.24}
-          fill={`url(#${uid}-face)`}
-        />
-
-        {/* Shine overlay */}
-        <rect
-          x={s * 0.12}
-          y={s * 0.13}
-          width={s * 0.76}
-          height={s * 0.76}
-          rx={s * 0.24}
-          fill={`url(#${uid}-shine)`}
-        />
-
-        {/* Left eye */}
-        <ellipse
-          cx={eyeLeftX}
-          cy={eyeY}
-          rx={mood === 'surprised' || mood === 'nudge' ? eyeW * 0.7 : eyeW / 2}
-          ry={mood === 'surprised' || mood === 'nudge' ? eyeH * 0.8 : mood === 'reading' ? eyeH * 0.3 : eyeH / 2}
-          fill="#fff"
-          style={{
-            animation: mood === 'surprised' || mood === 'reading' || mood === 'nudge' ? 'none' : 'pipe-blink 3.5s ease-in-out infinite',
-            transformOrigin: `${eyeLeftX}px ${eyeY}px`,
-            transition: 'rx 0.2s ease-out, ry 0.2s ease-out',
-          }}
-        />
-        {/* Left pupil — follows cursor */}
-        <circle
-          cx={eyeLeftX + pupilOffset.x}
-          cy={eyeY + (mood === 'reading' ? s * 0.01 : 0) + pupilOffset.y}
-          r={mood === 'surprised' || mood === 'nudge' ? s * 0.04 : s * 0.035}
-          fill={NAVY}
-          style={{
-            animation: mood === 'surprised' || mood === 'reading' || mood === 'nudge' ? 'none' : 'pipe-blink 3.5s ease-in-out infinite',
-            transformOrigin: `${eyeLeftX}px ${eyeY}px`,
-            transition: 'cx 0.1s ease-out, cy 0.1s ease-out, r 0.2s ease-out',
-          }}
-        />
-
-        {/* Right eye */}
-        <ellipse
-          cx={eyeRightX}
-          cy={eyeY}
-          rx={mood === 'surprised' || mood === 'nudge' ? eyeW * 0.7 : eyeW / 2}
-          ry={mood === 'surprised' || mood === 'nudge' ? eyeH * 0.8 : mood === 'reading' ? eyeH * 0.3 : eyeH / 2}
-          fill="#fff"
-          style={{
-            animation: mood === 'surprised' || mood === 'reading' || mood === 'nudge' ? 'none' : 'pipe-blink 3.5s ease-in-out infinite',
-            transformOrigin: `${eyeRightX}px ${eyeY}px`,
-            transition: 'rx 0.2s ease-out, ry 0.2s ease-out',
-          }}
-        />
-        {/* Right pupil — follows cursor */}
-        <circle
-          cx={eyeRightX + pupilOffset.x}
-          cy={eyeY + (mood === 'reading' ? s * 0.01 : 0) + pupilOffset.y}
-          r={mood === 'surprised' || mood === 'nudge' ? s * 0.04 : s * 0.035}
-          fill={NAVY}
-          style={{
-            animation: mood === 'surprised' || mood === 'reading' || mood === 'nudge' ? 'none' : 'pipe-blink 3.5s ease-in-out infinite',
-            transformOrigin: `${eyeRightX}px ${eyeY}px`,
-            transition: 'cx 0.1s ease-out, cy 0.1s ease-out, r 0.2s ease-out',
-          }}
-        />
-
-        {/* Mouth — changes with mood */}
-        {mood === 'nudge' ? (
-          /* Playful open smile — "hey!" */
-          <path
-            d={`M ${s * 0.37} ${mouthY} Q ${s * 0.5} ${mouthY + s * 0.12} ${s * 0.63} ${mouthY}`}
-            stroke="#fff"
-            strokeWidth={s * 0.038}
-            strokeLinecap="round"
-            fill="rgba(255,255,255,0.3)"
-          />
-        ) : mood === 'happy' ? (
-          /* Big smile */
-          <path
-            d={`M ${s * 0.35} ${mouthY} Q ${s * 0.5} ${mouthY + s * 0.15} ${s * 0.65} ${mouthY}`}
-            stroke="#fff"
-            strokeWidth={s * 0.04}
-            strokeLinecap="round"
-            fill="none"
-          />
-        ) : mood === 'surprised' ? (
-          /* Open mouth — "oh!" */
-          <ellipse
-            cx={s * 0.5}
-            cy={mouthY + s * 0.02}
-            rx={s * 0.06}
-            ry={s * 0.07}
-            fill="#fff"
-            opacity={0.9}
-          />
-        ) : mood === 'thinking' ? (
-          /* Small "o" — processing */
-          <ellipse
-            cx={s * 0.5}
-            cy={mouthY + s * 0.02}
-            rx={s * 0.045}
-            ry={s * 0.04}
-            fill="#fff"
-            opacity={0.9}
-            style={{ animation: 'pipe-mouth-think 2s ease-in-out infinite' }}
-          />
-        ) : mood === 'reading' ? (
-          /* Flat line — concentrated */
-          <line
-            x1={s * 0.42}
-            y1={mouthY + s * 0.02}
-            x2={s * 0.58}
-            y2={mouthY + s * 0.02}
-            stroke="#fff"
-            strokeWidth={s * 0.035}
-            strokeLinecap="round"
-            opacity={0.8}
-          />
-        ) : (
-          /* Gentle smile — default */
-          <path
-            d={`M ${s * 0.4} ${mouthY} Q ${s * 0.5} ${mouthY + s * 0.08} ${s * 0.6} ${mouthY}`}
-            stroke="#fff"
-            strokeWidth={s * 0.035}
-            strokeLinecap="round"
-            fill="none"
-          />
-        )}
-
-        {/* Antenna — stalk + glowing dot */}
-        <line
-          x1={s * 0.5}
-          y1={s * 0.13}
-          x2={s * 0.5}
-          y2={s * 0.03}
-          stroke="#5EEAD4"
-          strokeWidth={s * 0.03}
-          strokeLinecap="round"
-          opacity={0.8}
-        />
-        <circle
-          cx={s * 0.5}
-          cy={s * 0.02}
-          r={s * 0.045}
-          fill="#5EEAD4"
-          style={{ animation: 'pipe-antenna 2s ease-in-out infinite' }}
-        />
-      </svg>
-
-      {/* CSS Animations */}
-      <style dangerouslySetInnerHTML={{ __html: PIPE_KEYFRAMES }} />
-    </div>
-  );
+// ─── Contextual reactions when Pipe receives answers ──────
+function getReactionMessage(stepId: string, answer: string): string | null {
+  if (stepId === 'modules') {
+    const hasShop = answer.toLowerCase().includes('tienda');
+    const hasBookings = answer.toLowerCase().includes('reservas');
+    if (hasShop && hasBookings) return 'Tienda y reservas, vas con todo.';
+    if (hasShop) return 'Buena eleccion con la tienda online.';
+    if (hasBookings) return 'Las reservas online ahorran mucho tiempo.';
+    return 'Perfecto, siguiente paso.';
+  }
+  if (stepId === 'description') {
+    // Detect industry keywords for contextual reactions
+    const lower = answer.toLowerCase();
+    if (lower.includes('belleza') || lower.includes('estetica') || lower.includes('salon') || lower.includes('spa'))
+      return 'Se nota que conoces tu negocio. Un sitio web va a hacer que te encuentren mas clientes.';
+    if (lower.includes('restaurante') || lower.includes('comida') || lower.includes('cocina'))
+      return 'Buen contenido. Un sitio web con tu menu va a hacer la diferencia.';
+    if (lower.includes('gimnasio') || lower.includes('fitness') || lower.includes('entrenamiento'))
+      return 'Eso quedo muy bien. Vamos a armar algo que refleje la energia de tu negocio.';
+    return 'Buen contenido, se nota que conoces tu negocio.';
+  }
+  return null;
 }
 
 // ─── Generation progress steps ────────────────────────────
+// Using Pipe's voice: first person, warm, specific
 const GENERATION_STEPS = [
-  { message: 'Estoy conociendo tu negocio', icon: FileText },
-  { message: 'Eligiendo el diseño ideal para ti', icon: Layout },
-  { message: 'Escribiendo el contenido de tu sitio', icon: MessageSquare },
+  { message: 'Estoy leyendo lo que me contaste de tu negocio', icon: FileText },
+  { message: 'Eligiendo el diseno que mejor va con tu estilo', icon: Layout },
+  { message: 'Escribiendo el contenido de cada seccion', icon: MessageSquare },
   { message: 'Optimizando para que te encuentren en Google', icon: Search },
-  { message: 'Últimos detalles, ya casi', icon: Sparkles },
+  { message: 'Ultimos detalles, ya casi queda', icon: Sparkles },
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -440,10 +184,36 @@ const SECTION_LABELS: Record<string, string> = {
   products: 'Productos',
   contact: 'Contacto',
   testimonials: 'Testimonios',
-  gallery: 'Galería',
+  gallery: 'Galeria',
   pricing: 'Precios',
   faq: 'Preguntas frecuentes',
 };
+
+// ─── Progressive nudge system ─────────────────────────────
+// 3-step nudge: subtle animation, hint message, offer help
+const NUDGE_THRESHOLDS = {
+  first: 5000,   // 5s — subtle mood change
+  second: 8000,  // 8s — contextual hint
+  third: 15000,  // 15s — offer help
+} as const;
+
+function getNudgeHint(stepId: string): string {
+  switch (stepId) {
+    case 'modules': return 'Sitio Web ya esta incluido. Activa los que necesites.';
+    case 'description': return 'No tiene que ser perfecto — con un par de oraciones me alcanza.';
+    case 'services': return 'Puedes poner solo los principales, despues agregas mas.';
+    case 'sections': return 'Las marcadas ya son un buen inicio.';
+    default: return '';
+  }
+}
+
+function getNudgeOffer(stepId: string): string {
+  switch (stepId) {
+    case 'description': return 'Necesitas una mano? Puedo sugerirte algo si me dices a que se dedica tu negocio en una palabra.';
+    case 'services': return 'Si no tienes la lista a la mano, escribe los que recuerdes. Siempre puedes editar despues.';
+    default: return 'Toma el tiempo que necesites. Estoy aqui.';
+  }
+}
 
 type PageState = 'chat' | 'generating' | 'success' | 'error' | 'limit-reached';
 
@@ -452,11 +222,10 @@ export default function QuickStartPage() {
   const { user, tenant, logout, setTenant } = useAuth();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // ─── Phase guard: si ya pasó onboarding, redirigir ────────
+  // ─── Phase guard: si ya paso onboarding, redirigir ────────
   useEffect(() => {
     if (!tenant) return;
     if (tenant.modules_configured) {
-      // Ya configuró módulos — no debería estar en Quick Start
       if (tenant.website_status === 'published') {
         router.replace('/dashboard');
       } else {
@@ -464,6 +233,12 @@ export default function QuickStartPage() {
       }
     }
   }, [tenant, router]);
+
+  // ─── Pipe mood management via hook ─────────────────────────
+  const { mood: pipeMood, setMood: setPipeMood } = usePipeMood({
+    initialMood: 'happy',
+    idleTimeoutMs: 0, // We manage idle manually via nudge system
+  });
 
   // ─── Conversation state ───────────────────────────────────
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
@@ -477,21 +252,32 @@ export default function QuickStartPage() {
     () => new Set(SECTION_OPTIONS.filter((o) => o.defaultOn).map((o) => o.value))
   );
 
+  // ─── Reaction messages (contextual responses from Pipe) ────
+  const [reactionMessages, setReactionMessages] = useState<Record<string, string>>({});
+
   // ─── Generation state ─────────────────────────────────────
   const [pageState, setPageState] = useState<PageState>('chat');
-  const [activeMood, setActiveMood] = useState<PipeAvatarMood>('listening');
   const [genStep, setGenStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<QuickStartResponse | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
+  // ─── Progressive nudge state ───────────────────────────────
+  const [nudgeLevel, setNudgeLevel] = useState(0); // 0=none, 1=subtle, 2=hint, 3=offer
+  const lastInteractionRef = useRef(0);
+
+  // Initialize interaction timestamp
+  useEffect(() => { lastInteractionRef.current = Date.now(); }, []);
 
   // ─── Simulate typing delay for each new message ──────────
   useEffect(() => {
     if (pageState !== 'chat') return;
     setIsTyping(true);
+    setPipeMood('thinking');
     const delay = currentStepIdx === 0 ? 800 : 500;
     const timer = setTimeout(() => {
       setIsTyping(false);
+      setPipeMood('listening');
     }, delay);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -500,41 +286,49 @@ export default function QuickStartPage() {
   // ─── Active mood reacts to user typing ───────────────────
   useEffect(() => {
     if (pageState !== 'chat' || isTyping) return;
-    const newMood = currentInput.trim().length > 0 ? 'reading' : 'listening';
-    setActiveMood((prev: string) => prev === newMood ? prev : newMood);
-  }, [currentInput, pageState, isTyping]);
+    if (currentInput.trim().length > 0) {
+      setPipeMood('reading');
+    } else if (nudgeLevel === 0) {
+      setPipeMood('listening');
+    }
+  }, [currentInput, pageState, isTyping, nudgeLevel, setPipeMood]);
 
-  // ─── Idle nudge — Pipe calls for attention after inactivity ──
-  const lastInteractionRef = useRef(0);
-  // Initialize on mount
-  useEffect(() => { lastInteractionRef.current = Date.now(); }, []);
-
-  // Reset timer on any interaction
+  // ─── Reset nudge on any interaction ────────────────────────
   useEffect(() => {
     lastInteractionRef.current = Date.now();
-  }, [currentInput, currentStepIdx]);
+    setNudgeLevel(0);
+  }, [currentInput, currentStepIdx, selectedModules, selectedSections]);
 
+  // ─── Progressive nudge system (3 steps) ────────────────────
   useEffect(() => {
     if (pageState !== 'chat' || isTyping) return;
 
     const interval = setInterval(() => {
       const elapsed = Date.now() - lastInteractionRef.current;
-      if (elapsed >= 3000 && activeMood !== 'nudge' && activeMood !== 'reading') {
-        setActiveMood('nudge');
-        // Return to listening after the nudge animation
+
+      if (elapsed >= NUDGE_THRESHOLDS.third && nudgeLevel < 3) {
+        setNudgeLevel(3);
+        setPipeMood('sleepy');
+      } else if (elapsed >= NUDGE_THRESHOLDS.second && nudgeLevel < 2) {
+        setNudgeLevel(2);
+        setPipeMood('nudge');
+      } else if (elapsed >= NUDGE_THRESHOLDS.first && nudgeLevel < 1) {
+        setNudgeLevel(1);
+        setPipeMood('nudge');
+        // Return to listening after nudge animation
         setTimeout(() => {
-          setActiveMood('listening');
-          lastInteractionRef.current = Date.now(); // avoid re-nudging immediately
+          setPipeMood('listening');
         }, 1200);
       }
-    }, 2000);
+    }, 1000);
+
     return () => clearInterval(interval);
-  }, [pageState, isTyping, activeMood]);
+  }, [pageState, isTyping, nudgeLevel, setPipeMood]);
 
   // ─── Auto-scroll to bottom ───────────────────────────────
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [currentStepIdx, isTyping, pageState]);
+  }, [currentStepIdx, isTyping, pageState, nudgeLevel]);
 
   // ─── Mutation ─────────────────────────────────────────────
   const generateMutation = useMutation({
@@ -560,6 +354,7 @@ export default function QuickStartPage() {
       if (error instanceof ApiError && error.status === 402) {
         setPageState('limit-reached');
       } else {
+        setRetryCount((prev) => prev + 1);
         setPageState('error');
       }
     },
@@ -596,15 +391,22 @@ export default function QuickStartPage() {
 
     // Handle modules step — call configureModules API
     if (step.type === 'modules') {
-      setActiveMood('surprised');
-      setTimeout(() => setActiveMood('listening'), 600);
+      setPipeMood('surprised');
+      setTimeout(() => setPipeMood('listening'), 600);
 
       // Save display string
       const labels = NERBIS_MODULES
         .filter((m) => selectedModules.has(m.key))
         .map((m) => m.label);
-      const newAnswers = { ...answers, [step.id]: labels.join(', ') };
+      const answerStr = labels.join(', ');
+      const newAnswers = { ...answers, [step.id]: answerStr };
       setAnswers(newAnswers);
+
+      // Generate reaction
+      const reaction = getReactionMessage(step.id, answerStr);
+      if (reaction) {
+        setReactionMessages((prev) => ({ ...prev, [step.id]: reaction }));
+      }
 
       // Call configure-modules API
       try {
@@ -630,8 +432,8 @@ export default function QuickStartPage() {
     if (step.type === 'multiselect') {
       if (selectedSections.size === 0) return;
 
-      setActiveMood('surprised');
-      setTimeout(() => setActiveMood('listening'), 600);
+      setPipeMood('surprised');
+      setTimeout(() => setPipeMood('listening'), 600);
 
       const labels = SECTION_OPTIONS
         .filter((o) => selectedSections.has(o.value))
@@ -653,13 +455,18 @@ export default function QuickStartPage() {
     if (value.length < minLen) return;
 
     // Pipe reacts — surprised briefly, then moves on
-    setActiveMood('surprised');
-    setTimeout(() => setActiveMood('listening'), 600);
+    setPipeMood('surprised');
+    setTimeout(() => setPipeMood('listening'), 600);
 
-    // Save answer
+    // Save answer & generate reaction
     const newAnswers = { ...answers, [step.id]: value };
     setAnswers(newAnswers);
     setCurrentInput('');
+
+    const reaction = getReactionMessage(step.id, value);
+    if (reaction) {
+      setReactionMessages((prev) => ({ ...prev, [step.id]: reaction }));
+    }
 
     // Next step
     if (currentStepIdx < STEPS.length - 1) {
@@ -671,7 +478,7 @@ export default function QuickStartPage() {
       setProgress(0);
       setTimeout(() => generateMutation.mutate(), 100);
     }
-  }, [currentStepIdx, currentInput, answers, selectedModules, selectedSections, generateMutation, setTenant]);
+  }, [currentStepIdx, currentInput, answers, selectedModules, selectedSections, generateMutation, setTenant, setPipeMood]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -684,6 +491,20 @@ export default function QuickStartPage() {
   );
 
   const handleRetry = useCallback(() => {
+    if (retryCount >= 2) {
+      // After 2 failures, go back to chat with data preserved
+      setPageState('chat');
+      setCurrentStepIdx(STEPS.length - 1); // Go to last step
+    } else {
+      // Retry generation with same data
+      setPageState('generating');
+      setGenStep(0);
+      setProgress(0);
+      setTimeout(() => generateMutation.mutate(), 100);
+    }
+  }, [retryCount, generateMutation]);
+
+  const handleRestart = useCallback(() => {
     setPageState('chat');
     setCurrentStepIdx(0);
     setAnswers({});
@@ -691,6 +512,8 @@ export default function QuickStartPage() {
     setGenStep(0);
     setProgress(0);
     setResult(null);
+    setRetryCount(0);
+    setReactionMessages({});
   }, []);
 
   const firstName = user?.first_name || tenant?.name?.split(' ')[0] || '';
@@ -701,7 +524,7 @@ export default function QuickStartPage() {
       className="sticky top-0 z-10 border-b"
       style={{
         backgroundColor: '#fff',
-        borderColor: WARM_GRAY_100,
+        borderColor: PIPE_COLORS.warmGray100,
       }}
     >
       <div className="max-w-2xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -715,7 +538,7 @@ export default function QuickStartPage() {
           />
           <span
             className="text-[0.82rem] font-semibold tracking-wider"
-            style={{ color: NAVY }}
+            style={{ color: PIPE_COLORS.navy }}
           >
             NERBIS
           </span>
@@ -724,21 +547,21 @@ export default function QuickStartPage() {
           <Link
             href="/dashboard/profile"
             className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors"
-            style={{ color: WARM_GRAY_400 }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = NAVY)}
-            onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
+            style={{ color: PIPE_COLORS.warmGray400 }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = PIPE_COLORS.navy)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = PIPE_COLORS.warmGray400)}
           >
             <UserCircle className="w-3.5 h-3.5" />
             Mi cuenta
           </Link>
-          <span style={{ color: WARM_GRAY_200 }}>|</span>
+          <span style={{ color: PIPE_COLORS.warmGray200 }}>|</span>
           <button
             type="button"
             onClick={() => logout('/register-business')}
             className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors cursor-pointer"
-            style={{ color: WARM_GRAY_400 }}
+            style={{ color: PIPE_COLORS.warmGray400 }}
             onMouseEnter={(e) => (e.currentTarget.style.color = '#EF4444')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = PIPE_COLORS.warmGray400)}
           >
             <LogOut className="w-3.5 h-3.5" />
             Salir
@@ -761,336 +584,327 @@ export default function QuickStartPage() {
     return (
       <div
         className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(170deg, ${TEAL}06 0%, ${WARM_GRAY_50} 35%, #fff 100%)` }}
+        style={{ background: `linear-gradient(170deg, ${PIPE_COLORS.teal}06 0%, ${PIPE_COLORS.warmGray50} 35%, #fff 100%)` }}
       >
         {header}
 
         {/* Chat area */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
+          <div className="max-w-2xl mx-auto px-6 py-8 flex flex-col gap-4">
             {/* Welcome message (always visible) */}
-            <div className="flex gap-3">
-              <PipeAvatar mood="happy" size={36} />
-              <div
-                className="flex-1 rounded-2xl rounded-tl-md px-4 py-3"
-                style={{ backgroundColor: '#fff', border: `1px solid ${WARM_GRAY_100}` }}
-              >
-                <p className="text-[0.72rem] font-semibold mb-1.5">
-                  <span
-                    style={{
-                      color: TEAL,
-                      fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace",
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      fontSize: '0.68rem',
-                    }}
-                  >
-                    {AGENT_NAME}
-                  </span>
-                  <span style={{ color: WARM_GRAY_400 }}> · </span>
-                  <span style={{ color: WARM_GRAY_500, fontWeight: 500 }}>
-                    Asistente inteligente
-                  </span>
-                </p>
-                <p
-                  className="text-[0.92rem] leading-relaxed"
-                  style={{ color: WARM_GRAY_800 }}
+            <PipeMessage variant="pipe" animate={false}>
+              <p className="text-[0.72rem] font-semibold mb-1.5">
+                <span
+                  style={{
+                    color: PIPE_COLORS.teal,
+                    fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace",
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    fontSize: '0.68rem',
+                  }}
                 >
-                  Hola{firstName ? ', ' : ''}
-                  {firstName && <strong>{firstName}</strong>}
-                  {firstName ? '.' : '.'} Soy{' '}
-                  <span
-                    style={{
-                      fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace",
-                      letterSpacing: '0.04em',
-                      fontWeight: 600,
-                      color: TEAL,
-                    }}
-                  >
-                    {AGENT_NAME}
-                  </span>, tu asistente
-                  inteligente. Voy a crear tu sitio web en menos de un
-                  minuto — solo necesito conocerte un poco.
-                </p>
-              </div>
-            </div>
+                  {AGENT_NAME}
+                </span>
+                <span style={{ color: PIPE_COLORS.warmGray400 }}> · </span>
+                <span style={{ color: PIPE_COLORS.warmGray500, fontWeight: 500 }}>
+                  Tu asistente
+                </span>
+              </p>
+              <p
+                className="text-[0.92rem] leading-relaxed"
+                style={{ color: PIPE_COLORS.warmGray800 }}
+              >
+                Hola{firstName ? ', ' : ''}
+                {firstName && <strong>{firstName}</strong>}
+                {firstName ? '.' : '.'} Soy{' '}
+                <span
+                  style={{
+                    fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace",
+                    letterSpacing: '0.04em',
+                    fontWeight: 600,
+                    color: PIPE_COLORS.teal,
+                  }}
+                >
+                  {AGENT_NAME}
+                </span>. Vamos a crear tu sitio web en menos de un
+                minuto — solo necesito conocerte un poco.
+              </p>
+            </PipeMessage>
 
             {/* Previous answered steps */}
             {STEPS.slice(0, currentStepIdx).map((s) => (
-              <div key={s.id} className="space-y-3">
-                {/* Bot question — bubble without avatar */}
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0" style={{ width: 36 }} />
-                  <div
-                    className="flex-1 rounded-2xl rounded-tl-md px-4 py-3"
-                    style={{ backgroundColor: '#fff', border: `1px solid ${WARM_GRAY_100}` }}
+              <div key={s.id} className="flex flex-col gap-3">
+                {/* Pipe's question */}
+                <PipeMessage variant="pipe" animate={false}>
+                  <p
+                    className="text-[0.92rem] leading-relaxed"
+                    style={{ color: PIPE_COLORS.warmGray800 }}
                   >
-                    <p
-                      className="text-[0.92rem] leading-relaxed"
-                      style={{ color: WARM_GRAY_800 }}
-                    >
-                      {s.message}
-                    </p>
-                  </div>
-                </div>
+                    {s.message}
+                  </p>
+                </PipeMessage>
                 {/* User answer */}
-                <div className="flex justify-end">
-                  <div
-                    className="max-w-[75%] px-4 py-2.5 rounded-2xl rounded-br-md text-[0.86rem] leading-relaxed whitespace-pre-wrap"
-                    style={{
-                      backgroundColor: NAVY,
-                      color: '#fff',
-                    }}
-                  >
+                <PipeMessage variant="user" animate={false}>
+                  <span className="text-[0.86rem] leading-relaxed whitespace-pre-wrap">
                     {answers[s.id] || (
                       <span style={{ opacity: 0.6 }}>Omitido</span>
                     )}
-                  </div>
-                </div>
+                  </span>
+                </PipeMessage>
+                {/* Pipe's contextual reaction (if any) */}
+                {reactionMessages[s.id] && (
+                  <PipeMessage variant="pipe" animate={false}>
+                    <p
+                      className="text-[0.88rem] leading-relaxed"
+                      style={{ color: PIPE_COLORS.warmGray600 }}
+                    >
+                      {reactionMessages[s.id]}
+                    </p>
+                  </PipeMessage>
+                )}
               </div>
             ))}
 
             {/* Current step */}
             {step && (
-              <div className="space-y-4">
-                {/* Bot question with typing indicator */}
-                <div className="flex gap-3">
-                  <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={36} />
-                  <div
-                    className="flex-1 rounded-2xl rounded-tl-md px-4 py-3"
-                    style={{ backgroundColor: '#fff', border: `1px solid ${WARM_GRAY_100}` }}
-                  >
-                    {isTyping ? (
-                      <div className="flex gap-1 py-1">
-                        {[0, 1, 2].map((i) => (
-                          <div
-                            key={i}
-                            className="w-2 h-2 rounded-full animate-bounce"
-                            style={{
-                              backgroundColor: WARM_GRAY_400,
-                              animationDelay: `${i * 150}ms`,
-                              animationDuration: '0.8s',
-                            }}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <p
-                        className="text-[0.92rem] leading-relaxed animate-in fade-in slide-in-from-bottom-1 duration-300"
-                        style={{ color: WARM_GRAY_800 }}
-                      >
-                        {step.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
+              <div className="flex flex-col gap-4">
+                {/* Pipe's question with typing indicator */}
+                {isTyping ? (
+                  <PipeMessageLoading />
+                ) : (
+                  <PipeMessage variant="pipe">
+                    <p
+                      className="text-[0.92rem] leading-relaxed"
+                      style={{ color: PIPE_COLORS.warmGray800 }}
+                    >
+                      {step.message}
+                    </p>
+                  </PipeMessage>
+                )}
 
-                {/* Input area (appears after typing) */}
+                {/* Progressive nudge messages */}
+                {!isTyping && nudgeLevel >= 2 && (
+                  <PipeMessage variant="pipe">
+                    <p
+                      className="text-[0.85rem] leading-relaxed"
+                      style={{ color: PIPE_COLORS.warmGray500 }}
+                    >
+                      {nudgeLevel >= 3
+                        ? getNudgeOffer(step.id)
+                        : getNudgeHint(step.id)}
+                    </p>
+                  </PipeMessage>
+                )}
+
+                {/* Pipe avatar for current step (with mood) */}
                 {!isTyping && (
-                  <div className="pl-11 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-100">
-                    {/* ── Module selection cards ── */}
-                    {step.type === 'modules' && (
-                      <div className="grid grid-cols-2 gap-2.5">
-                        {NERBIS_MODULES.map((mod) => {
-                          const isSelected = selectedModules.has(mod.key);
-                          const ModIcon = mod.icon;
-                          return (
-                            <button
-                              key={mod.key}
-                              type="button"
-                              onClick={() => {
-                                if (mod.alwaysOn) return; // Can't deselect website
-                                const next = new Set(selectedModules);
-                                if (isSelected) {
-                                  next.delete(mod.key);
-                                } else {
-                                  next.add(mod.key);
-                                  next.add('has_website'); // Auto-enable website
-                                }
-                                setSelectedModules(next);
-                              }}
-                              className="flex items-start gap-3 px-3.5 py-3.5 rounded-xl border transition-all duration-150 text-left"
-                              style={{
-                                backgroundColor: isSelected ? `${mod.accentColor}08` : '#fff',
-                                borderColor: isSelected ? mod.accentColor : WARM_GRAY_200,
-                                cursor: mod.alwaysOn ? 'default' : 'pointer',
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!isSelected && !mod.alwaysOn) {
-                                  e.currentTarget.style.borderColor = `${mod.accentColor}80`;
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!isSelected && !mod.alwaysOn) {
-                                  e.currentTarget.style.borderColor = WARM_GRAY_200;
-                                }
-                              }}
-                            >
-                              <div
-                                className="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
-                                style={{ backgroundColor: `${mod.accentColor}12` }}
+                  <div className="flex items-start gap-3 pl-1">
+                    <PipeAvatar mood={pipeMood} size="sm" />
+                    <div className="flex-1 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-100">
+                      {/* ── Module selection cards ── */}
+                      {step.type === 'modules' && (
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {NERBIS_MODULES.map((mod) => {
+                            const isSelected = selectedModules.has(mod.key);
+                            const ModIcon = mod.icon;
+                            return (
+                              <button
+                                key={mod.key}
+                                type="button"
+                                onClick={() => {
+                                  if (mod.alwaysOn) return;
+                                  const next = new Set(selectedModules);
+                                  if (isSelected) {
+                                    next.delete(mod.key);
+                                  } else {
+                                    next.add(mod.key);
+                                    next.add('has_website');
+                                  }
+                                  setSelectedModules(next);
+                                }}
+                                className="flex items-start gap-3 px-3.5 py-3.5 rounded-xl border transition-all duration-150 text-left"
+                                style={{
+                                  backgroundColor: isSelected ? `${mod.accentColor}08` : '#fff',
+                                  borderColor: isSelected ? mod.accentColor : PIPE_COLORS.warmGray200,
+                                  cursor: mod.alwaysOn ? 'default' : 'pointer',
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isSelected && !mod.alwaysOn) {
+                                    e.currentTarget.style.borderColor = `${mod.accentColor}80`;
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isSelected && !mod.alwaysOn) {
+                                    e.currentTarget.style.borderColor = PIPE_COLORS.warmGray200;
+                                  }
+                                }}
                               >
-                                <ModIcon
-                                  className="w-4 h-4"
-                                  style={{ color: mod.accentColor }}
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span
-                                    className="text-[0.84rem] font-semibold"
-                                    style={{ color: isSelected ? NAVY : WARM_GRAY_600 }}
-                                  >
-                                    {mod.label}
-                                  </span>
-                                  {mod.alwaysOn && (
-                                    <span
-                                      className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full"
-                                      style={{ backgroundColor: `${TEAL}15`, color: TEAL }}
-                                    >
-                                      Incluido
-                                    </span>
-                                  )}
-                                </div>
-                                <p
-                                  className="text-[0.72rem] mt-0.5"
-                                  style={{ color: WARM_GRAY_500 }}
-                                >
-                                  {mod.subtitle}
-                                </p>
-                              </div>
-                              {!mod.alwaysOn && (
                                 <div
-                                  className="flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0 mt-1 transition-colors duration-150"
+                                  className="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
+                                  style={{ backgroundColor: `${mod.accentColor}12` }}
+                                >
+                                  <ModIcon
+                                    className="w-4 h-4"
+                                    style={{ color: mod.accentColor }}
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className="text-[0.84rem] font-semibold"
+                                      style={{ color: isSelected ? PIPE_COLORS.navy : PIPE_COLORS.warmGray600 }}
+                                    >
+                                      {mod.label}
+                                    </span>
+                                    {mod.alwaysOn && (
+                                      <span
+                                        className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full"
+                                        style={{ backgroundColor: `${PIPE_COLORS.teal}15`, color: PIPE_COLORS.teal }}
+                                      >
+                                        Incluido
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p
+                                    className="text-[0.72rem] mt-0.5"
+                                    style={{ color: PIPE_COLORS.warmGray500 }}
+                                  >
+                                    {mod.subtitle}
+                                  </p>
+                                </div>
+                                {!mod.alwaysOn && (
+                                  <div
+                                    className="flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0 mt-1 transition-colors duration-150"
+                                    style={{
+                                      backgroundColor: isSelected ? mod.accentColor : 'transparent',
+                                      borderWidth: isSelected ? 0 : 1.5,
+                                      borderColor: PIPE_COLORS.warmGray200,
+                                    }}
+                                  >
+                                    {isSelected && (
+                                      <Check className="w-3 h-3 text-white" />
+                                    )}
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* ── Section multi-select ── */}
+                      {step.type === 'multiselect' && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {SECTION_OPTIONS.map((option) => {
+                            const isSelected = selectedSections.has(option.value);
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => {
+                                  const next = new Set(selectedSections);
+                                  if (isSelected) {
+                                    next.delete(option.value);
+                                  } else {
+                                    next.add(option.value);
+                                  }
+                                  setSelectedSections(next);
+                                }}
+                                className="flex items-center gap-2 px-3.5 py-3 rounded-xl text-[0.84rem] font-medium border transition-all duration-150 cursor-pointer text-left"
+                                style={{
+                                  backgroundColor: isSelected ? `${PIPE_COLORS.teal}0A` : '#fff',
+                                  borderColor: isSelected ? PIPE_COLORS.teal : PIPE_COLORS.warmGray200,
+                                  color: isSelected ? PIPE_COLORS.navy : PIPE_COLORS.warmGray600,
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isSelected) {
+                                    e.currentTarget.style.borderColor = `${PIPE_COLORS.teal}80`;
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isSelected) {
+                                    e.currentTarget.style.borderColor = PIPE_COLORS.warmGray200;
+                                  }
+                                }}
+                              >
+                                <div
+                                  className="flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0 transition-colors duration-150"
                                   style={{
-                                    backgroundColor: isSelected ? mod.accentColor : 'transparent',
+                                    backgroundColor: isSelected ? PIPE_COLORS.teal : 'transparent',
                                     borderWidth: isSelected ? 0 : 1.5,
-                                    borderColor: WARM_GRAY_200,
+                                    borderColor: PIPE_COLORS.warmGray200,
                                   }}
                                 >
                                   {isSelected && (
                                     <Check className="w-3 h-3 text-white" />
                                   )}
                                 </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                                {option.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
 
-                    {/* ── Section multi-select ── */}
-                    {step.type === 'multiselect' && (
-                      <div className="grid grid-cols-2 gap-2">
-                        {SECTION_OPTIONS.map((option) => {
-                          const isSelected = selectedSections.has(option.value);
-                          return (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onClick={() => {
-                                const next = new Set(selectedSections);
-                                if (isSelected) {
-                                  next.delete(option.value);
-                                } else {
-                                  next.add(option.value);
-                                }
-                                setSelectedSections(next);
-                              }}
-                              className="flex items-center gap-2 px-3.5 py-3 rounded-xl text-[0.84rem] font-medium border transition-all duration-150 cursor-pointer text-left"
-                              style={{
-                                backgroundColor: isSelected ? `${TEAL}0A` : '#fff',
-                                borderColor: isSelected ? TEAL : WARM_GRAY_200,
-                                color: isSelected ? NAVY : WARM_GRAY_600,
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!isSelected) {
-                                  e.currentTarget.style.borderColor = `${TEAL}80`;
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!isSelected) {
-                                  e.currentTarget.style.borderColor = WARM_GRAY_200;
-                                }
-                              }}
-                            >
-                              <div
-                                className="flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0 transition-colors duration-150"
-                                style={{
-                                  backgroundColor: isSelected ? TEAL : 'transparent',
-                                  borderWidth: isSelected ? 0 : 1.5,
-                                  borderColor: WARM_GRAY_200,
-                                }}
-                              >
-                                {isSelected && (
-                                  <Check className="w-3 h-3 text-white" />
-                                )}
-                              </div>
-                              {option.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* ── Textarea ── */}
-                    {step.type === 'textarea' && (
-                      <textarea
-                        value={currentInput}
-                        onChange={(e) => setCurrentInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder={step.placeholder}
-                        rows={step.rows || 3}
-                        autoFocus
-                        className="w-full rounded-xl border px-4 py-3 text-[0.88rem] leading-relaxed resize-none transition-all duration-150 focus:outline-none focus:ring-2"
-                        style={{
-                          backgroundColor: '#fff',
-                          borderColor: WARM_GRAY_200,
-                          color: WARM_GRAY_800,
-                          // @ts-expect-error -- CSS custom property
-                          '--tw-ring-color': `${TEAL}40`,
-                        }}
-                      />
-                    )}
-
-                    {/* Hint + actions */}
-                    <div className="flex items-center justify-between mt-3">
-                      <p
-                        className="text-[0.75rem]"
-                        style={{ color: WARM_GRAY_500 }}
-                      >
-                        {step.hint}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleSend}
-                          disabled={!canSend}
-                          className={`flex items-center justify-center rounded-xl transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed ${
-                            step.type === 'modules' || step.type === 'multiselect'
-                              ? 'h-9 px-4 gap-1.5 text-[0.82rem] font-medium'
-                              : 'w-9 h-9'
-                          }`}
+                      {/* ── Textarea ── */}
+                      {step.type === 'textarea' && (
+                        <textarea
+                          value={currentInput}
+                          onChange={(e) => setCurrentInput(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder={step.placeholder}
+                          rows={step.rows || 3}
+                          autoFocus
+                          className="w-full rounded-xl border px-4 py-3 text-[0.88rem] leading-relaxed resize-none transition-all duration-150 focus:outline-none focus:ring-2"
                           style={{
-                            backgroundColor: canSend ? TEAL : WARM_GRAY_200,
-                            color: '#fff',
+                            backgroundColor: '#fff',
+                            borderColor: PIPE_COLORS.warmGray200,
+                            color: PIPE_COLORS.warmGray800,
+                            // @ts-expect-error -- CSS custom property
+                            '--tw-ring-color': `${PIPE_COLORS.teal}40`,
                           }}
-                          onMouseEnter={(e) => {
-                            if (canSend) e.currentTarget.style.opacity = '0.85';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = '1';
-                          }}
+                        />
+                      )}
+
+                      {/* Hint + actions */}
+                      <div className="flex items-center justify-between mt-3">
+                        <p
+                          className="text-[0.75rem]"
+                          style={{ color: PIPE_COLORS.warmGray500 }}
                         >
-                          {step.type === 'modules' || step.type === 'multiselect' ? (
-                            <>
-                              Continuar
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </>
-                          ) : (
-                            <Send className="w-4 h-4" />
-                          )}
-                        </button>
+                          {step.hint}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSend}
+                            disabled={!canSend}
+                            className={`flex items-center justify-center rounded-xl transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed ${
+                              step.type === 'modules' || step.type === 'multiselect'
+                                ? 'h-9 px-4 gap-1.5 text-[0.82rem] font-medium'
+                                : 'w-9 h-9'
+                            }`}
+                            style={{
+                              backgroundColor: canSend ? PIPE_COLORS.teal : PIPE_COLORS.warmGray200,
+                              color: '#fff',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (canSend) e.currentTarget.style.opacity = '0.85';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.opacity = '1';
+                            }}
+                          >
+                            {step.type === 'modules' || step.type === 'multiselect' ? (
+                              <>
+                                Continuar
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </>
+                            ) : (
+                              <Send className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1107,7 +921,7 @@ export default function QuickStartPage() {
           className="border-t px-6 py-3"
           style={{
             backgroundColor: '#fff',
-            borderColor: WARM_GRAY_100,
+            borderColor: PIPE_COLORS.warmGray100,
           }}
         >
           <div className="max-w-2xl mx-auto flex items-center justify-center gap-4">
@@ -1119,12 +933,12 @@ export default function QuickStartPage() {
                     style={{
                       backgroundColor:
                         i < currentStepIdx
-                          ? TEAL
+                          ? PIPE_COLORS.teal
                           : i === currentStepIdx
-                            ? NAVY
-                            : WARM_GRAY_200,
+                            ? PIPE_COLORS.navy
+                            : PIPE_COLORS.warmGray200,
                       color:
-                        i <= currentStepIdx ? '#fff' : WARM_GRAY_500,
+                        i <= currentStepIdx ? '#fff' : PIPE_COLORS.warmGray500,
                     }}
                   >
                     {i < currentStepIdx ? (
@@ -1136,17 +950,17 @@ export default function QuickStartPage() {
                   <span
                     className="text-[0.72rem] font-medium hidden sm:inline"
                     style={{
-                      color: i <= currentStepIdx ? NAVY : WARM_GRAY_400,
+                      color: i <= currentStepIdx ? PIPE_COLORS.navy : PIPE_COLORS.warmGray400,
                     }}
                   >
-                    {s.id === 'modules' ? 'Herramientas' : s.id === 'description' ? 'Tu negocio' : s.id === 'services' ? 'Servicios' : 'Páginas'}
+                    {s.id === 'modules' ? 'Herramientas' : s.id === 'description' ? 'Tu negocio' : s.id === 'services' ? 'Servicios' : 'Paginas'}
                   </span>
                 </div>
                 {i < STEPS.length - 1 && (
                   <div
                     className="w-8 h-[2px] rounded-full transition-colors duration-300"
                     style={{
-                      backgroundColor: i < currentStepIdx ? TEAL : WARM_GRAY_200,
+                      backgroundColor: i < currentStepIdx ? PIPE_COLORS.teal : PIPE_COLORS.warmGray200,
                     }}
                   />
                 )}
@@ -1160,12 +974,10 @@ export default function QuickStartPage() {
 
   // ─── GENERATING STATE ─────────────────────────────────────
   if (pageState === 'generating') {
-    const StepIcon = GENERATION_STEPS[genStep].icon;
-
     return (
       <div
         className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(170deg, ${TEAL}06 0%, ${WARM_GRAY_50} 35%, #fff 100%)` }}
+        style={{ background: `linear-gradient(170deg, ${PIPE_COLORS.teal}06 0%, ${PIPE_COLORS.warmGray50} 35%, #fff 100%)` }}
       >
         {header}
 
@@ -1173,18 +985,18 @@ export default function QuickStartPage() {
           <div className="w-full max-w-md text-center">
             {/* Pipe thinking */}
             <div className="flex justify-center mb-8">
-              <PipeAvatar mood="thinking" size={72} />
+              <PipeAvatar mood="thinking" size="xl" />
             </div>
 
             <h2
               className="text-xl font-semibold mb-2"
-              style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
+              style={{ color: PIPE_COLORS.warmGray800, letterSpacing: '-0.02em' }}
             >
-              {AGENT_NAME} está creando tu sitio
+              Ahi va, estoy armando tu sitio
             </h2>
             <p
               className="mb-8 transition-all duration-500 text-[0.92rem]"
-              style={{ color: WARM_GRAY_500 }}
+              style={{ color: PIPE_COLORS.warmGray500 }}
             >
               {GENERATION_STEPS[genStep].message}...
             </p>
@@ -1192,19 +1004,19 @@ export default function QuickStartPage() {
             {/* Progress bar */}
             <div
               className="w-full rounded-full h-1.5 mb-2"
-              style={{ backgroundColor: WARM_GRAY_200 }}
+              style={{ backgroundColor: PIPE_COLORS.warmGray200 }}
             >
               <div
                 className="h-1.5 rounded-full transition-all duration-500 ease-out"
                 style={{
                   width: `${progress}%`,
-                  backgroundColor: TEAL,
+                  backgroundColor: PIPE_COLORS.teal,
                 }}
               />
             </div>
             <p
               className="text-[0.72rem] font-medium"
-              style={{ color: WARM_GRAY_400 }}
+              style={{ color: PIPE_COLORS.warmGray400 }}
             >
               {Math.round(progress)}%
             </p>
@@ -1223,26 +1035,26 @@ export default function QuickStartPage() {
     return (
       <div
         className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(170deg, ${TEAL}06 0%, ${WARM_GRAY_50} 35%, #fff 100%)` }}
+        style={{ background: `linear-gradient(170deg, ${PIPE_COLORS.teal}06 0%, ${PIPE_COLORS.warmGray50} 35%, #fff 100%)` }}
       >
         {header}
 
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <div className="w-full max-w-lg text-center">
-            {/* Pipe happy */}
+            {/* Pipe celebrating */}
             <div className="flex justify-center mb-6 animate-in zoom-in duration-300">
-              <PipeAvatar mood="happy" size={64} />
+              <PipeAvatar mood="celebrating" size="lg" />
             </div>
 
             <h2
               className="text-2xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500"
-              style={{ color: WARM_GRAY_800, letterSpacing: '-0.03em' }}
+              style={{ color: PIPE_COLORS.warmGray800, letterSpacing: '-0.03em' }}
             >
-              Tu sitio web está listo
+              Listo, ya quedo.
             </h2>
             <p
               className="mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500 text-[0.92rem]"
-              style={{ color: WARM_GRAY_500, animationDelay: '100ms' }}
+              style={{ color: PIPE_COLORS.warmGray500, animationDelay: '100ms' }}
             >
               {result.template.name} · {sections.length} secciones generadas
             </p>
@@ -1255,8 +1067,8 @@ export default function QuickStartPage() {
                   className="flex items-center gap-2 px-3 py-2.5 rounded-lg border text-[0.82rem] animate-in fade-in slide-in-from-bottom-2"
                   style={{
                     backgroundColor: '#fff',
-                    borderColor: WARM_GRAY_200,
-                    color: WARM_GRAY_800,
+                    borderColor: PIPE_COLORS.warmGray200,
+                    color: PIPE_COLORS.warmGray800,
                     animationDelay: `${150 + i * 80}ms`,
                   }}
                 >
@@ -1277,7 +1089,7 @@ export default function QuickStartPage() {
               onClick={() => router.push('/dashboard/website-builder/editor')}
               className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-lg font-medium text-[0.88rem] transition-all duration-150"
               style={{
-                backgroundColor: NAVY,
+                backgroundColor: PIPE_COLORS.navy,
                 color: '#fff',
               }}
               onMouseEnter={(e) => {
@@ -1299,74 +1111,110 @@ export default function QuickStartPage() {
   }
 
   // ─── ERROR / LIMIT STATES ─────────────────────────────────
+  // Pipe shows confused mood and uses empathetic, actionable language
+  const isLimitReached = pageState === 'limit-reached';
+  const hasRetriedTooMuch = retryCount >= 2;
+
   return (
     <div
       className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-      style={{ backgroundColor: WARM_GRAY_50 }}
+      style={{ backgroundColor: PIPE_COLORS.warmGray50 }}
     >
       {header}
 
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         <div className="w-full max-w-md text-center">
-          <div
-            className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6"
-            style={{ backgroundColor: '#FEE2E2' }}
-          >
-            <AlertCircle className="w-8 h-8" style={{ color: '#DC2626' }} />
+          {/* Pipe with confused mood instead of generic error icon */}
+          <div className="flex justify-center mb-6">
+            <PipeAvatar mood="confused" size="lg" />
           </div>
 
-          {pageState === 'limit-reached' ? (
+          {isLimitReached ? (
             <>
               <h2
                 className="text-xl font-semibold mb-2"
-                style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
+                style={{ color: PIPE_COLORS.warmGray800, letterSpacing: '-0.02em' }}
               >
-                Límite de generaciones alcanzado
+                Limite de generaciones alcanzado
               </h2>
               <p
                 className="mb-6 text-[0.92rem]"
-                style={{ color: WARM_GRAY_500 }}
+                style={{ color: PIPE_COLORS.warmGray500 }}
               >
-                Usaste todas las generaciones de este mes.
-                Mejora tu plan para continuar.
+                Usaste todas las generaciones de este mes. Mejora tu plan para continuar.
+              </p>
+            </>
+          ) : hasRetriedTooMuch ? (
+            <>
+              <h2
+                className="text-xl font-semibold mb-2"
+                style={{ color: PIPE_COLORS.warmGray800, letterSpacing: '-0.02em' }}
+              >
+                No pude generar tu sitio
+              </h2>
+              <p
+                className="mb-6 text-[0.92rem]"
+                style={{ color: PIPE_COLORS.warmGray500 }}
+              >
+                A veces la tecnologia nos juega malas pasadas. Vamos a intentar de nuevo con datos frescos.
               </p>
             </>
           ) : (
             <>
               <h2
                 className="text-xl font-semibold mb-2"
-                style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
+                style={{ color: PIPE_COLORS.warmGray800, letterSpacing: '-0.02em' }}
               >
-                No pudimos generar tu sitio
+                Algo salio mal con la generacion
               </h2>
               <p
                 className="mb-6 text-[0.92rem]"
-                style={{ color: WARM_GRAY_500 }}
+                style={{ color: PIPE_COLORS.warmGray500 }}
               >
-                Hubo un problema con la generación. Puedes intentar de nuevo
-                con los mismos datos.
+                No te preocupes, tus datos estan guardados. Puedo intentar de nuevo.
               </p>
             </>
           )}
 
-          <button
-            type="button"
-            onClick={handleRetry}
-            className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-all duration-150"
-            style={{
-              borderColor: WARM_GRAY_200,
-              backgroundColor: '#fff',
-              color: WARM_GRAY_800,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = WARM_GRAY_100;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#fff';
-            }}
-          >
-            Intentar de nuevo
-          </button>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={hasRetriedTooMuch ? handleRestart : handleRetry}
+              className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
+              style={{
+                backgroundColor: PIPE_COLORS.navy,
+                color: '#fff',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.92';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
+            >
+              {hasRetriedTooMuch ? 'Empezar de nuevo' : 'Intentar de nuevo'}
+            </button>
+            {!isLimitReached && !hasRetriedTooMuch && (
+              <button
+                type="button"
+                onClick={handleRestart}
+                className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-all duration-150"
+                style={{
+                  borderColor: PIPE_COLORS.warmGray200,
+                  backgroundColor: '#fff',
+                  color: PIPE_COLORS.warmGray800,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = PIPE_COLORS.warmGray100;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fff';
+                }}
+              >
+                Empezar de nuevo
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

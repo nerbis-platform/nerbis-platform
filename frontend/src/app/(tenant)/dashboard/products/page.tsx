@@ -54,6 +54,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import type { Product, ProductFilters } from '@/types';
+import { PipeBubble } from '@/components/pipe';
 
 export default function ProductsPage() {
   const { user } = useAuth();
@@ -220,6 +221,13 @@ export default function ProductsPage() {
                 Nuevo Producto
               </Link>
             </Button>
+            <div className="mt-6 max-w-sm mx-auto">
+              <PipeBubble
+                message="Agrega tu primer producto y te ayudo a que se vea genial."
+                mood="encouraging"
+                storageKey="products-empty"
+              />
+            </div>
           </CardContent>
         </Card>
       ) : (
