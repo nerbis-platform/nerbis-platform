@@ -86,6 +86,10 @@ urlpatterns = [
         views.TeamReset2FAView.as_view(),
         name="team_reset_2fa",
     ),
+    # Gestión de miembros (CRUD + bloqueo)
+    path("team/<int:user_id>/block/", views.TeamBlockMemberView.as_view(), name="team_block_member"),
+    path("team/<int:user_id>/unblock/", views.TeamUnblockMemberView.as_view(), name="team_unblock_member"),
+    path("team/<int:user_id>/", views.TeamMemberDetailView.as_view(), name="team_member_detail"),
     # Banners
     path("banners/", views.ActiveBannersView.as_view(), name="active_banners"),
     # Configuración del tenant

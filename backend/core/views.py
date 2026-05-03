@@ -31,6 +31,7 @@ from .serializers import (
     SocialLoginSerializer,
     TeamInvitationSerializer,
     TeamMemberSerializer,
+    TeamUpdateMemberSerializer,
     TenantRegisterSerializer,
     TenantSerializer,
     UpdateProfileSerializer,
@@ -2390,6 +2391,223 @@ class TeamReset2FAView(APIView):
 
         target_name = target_user.get_full_name() or target_user.email
         return Response({"message": f"2FA reseteado para {target_name}"})
+
+
+# ===================================
+# EQUIPO — CRUD de miembros
+# ===================================
+
+
+class TeamMemberDetailView(APIView):
+    """
+    PATCH  /api/team/{user_id}/ — Modificar rol y datos de un miembro.
+    DELETE /api/team/{user_id}/ — Eliminar miembro (soft delete).
+
+    Solo accesible para admins del tenant.
+    """
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    def _get_target_user(self, request, user_id):
+        try:
+            return User.objects.get(id=user_id, tenant=request.user.tenant)
+        except User.DoesNotExist:
+            return None
+
+    def _audit_log(self, request, target_user, message):
+        from django.contrib.admin.models import CHANGE, LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        ct = ContentType.objects.get_for_model(User)
+        LogEntry.objects.log_action(
+            user_id=request.user.pk,
+            content_type_id=ct.pk,
+            object_id=str(target_user.pk),
+            object_repr=target_user.get_full_name() or target_user.email,
+            action_flag=CHANGE,
+            change_message=message,
+        )
+
+    def patch(self, request, user_id):
+        target_user = self._get_target_user(request, user_id)
+        if not target_user:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        new_role = request.data.get("role")
+
+        # No permitir cambiar su propio rol
+        if new_role and target_user.id == request.user.id:
+            return Response(
+                {"error": "No puedes cambiar tu propio rol"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validar que no quede sin admins
+        if new_role and new_role != "admin" and target_user.role == "admin":
+            other_admins = User.objects.filter(tenant=request.user.tenant, role="admin", is_active=True).exclude(
+                id=target_user.id
+            )
+            if not other_admins.exists():
+                return Response(
+                    {"error": "Debe haber al menos un administrador activo en el equipo"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        serializer = TeamUpdateMemberSerializer(target_user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        changes = ", ".join(f"{k}={v}" for k, v in request.data.items())
+        self._audit_log(request, target_user, f"Admin id={request.user.pk} actualizó miembro: {changes}")
+        logger.info(
+            f"Team update: usuario_id={target_user.pk} actualizado ({changes}) "
+            f"por admin_id={request.user.pk} (tenant: {request.user.tenant.slug})"
+        )
+
+        return Response(TeamMemberSerializer(target_user).data)
+
+    def delete(self, request, user_id):
+        target_user = self._get_target_user(request, user_id)
+        if not target_user:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.id == request.user.id:
+            return Response(
+                {"error": "No puedes eliminarte a ti mismo del equipo"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validar que no quede sin admins
+        if target_user.role == "admin":
+            other_admins = User.objects.filter(tenant=request.user.tenant, role="admin", is_active=True).exclude(
+                id=target_user.id
+            )
+            if not other_admins.exists():
+                return Response(
+                    {"error": "Debe haber al menos un administrador activo en el equipo"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        target_user.is_active = False
+        target_user.role = "customer"
+        target_user.save(update_fields=["is_active", "role"])
+
+        self._audit_log(
+            request, target_user, f"Admin id={request.user.pk} eliminó (soft) al miembro id={target_user.pk}"
+        )
+        logger.info(
+            f"Team delete: usuario_id={target_user.pk} eliminado (soft) "
+            f"por admin_id={request.user.pk} (tenant: {request.user.tenant.slug})"
+        )
+
+        return Response({"message": "Miembro eliminado del equipo"})
+
+
+class TeamBlockMemberView(APIView):
+    """
+    POST /api/team/{user_id}/block/ — Bloquear un miembro del equipo.
+
+    Desactiva al usuario (is_active=False), pierde acceso al sistema.
+    Solo accesible para admins del tenant.
+    """
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    def post(self, request, user_id):
+        try:
+            target_user = User.objects.get(id=user_id, tenant=request.user.tenant)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.id == request.user.id:
+            return Response(
+                {"error": "No puedes bloquearte a ti mismo"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not target_user.is_active:
+            return Response(
+                {"error": "El usuario ya está bloqueado"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validar que no quede sin admins
+        if target_user.role == "admin":
+            other_admins = User.objects.filter(tenant=request.user.tenant, role="admin", is_active=True).exclude(
+                id=target_user.id
+            )
+            if not other_admins.exists():
+                return Response(
+                    {"error": "Debe haber al menos un administrador activo en el equipo"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        target_user.is_active = False
+        target_user.save(update_fields=["is_active"])
+
+        from django.contrib.admin.models import CHANGE, LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        ct = ContentType.objects.get_for_model(User)
+        LogEntry.objects.log_action(
+            user_id=request.user.pk,
+            content_type_id=ct.pk,
+            object_id=str(target_user.pk),
+            object_repr=target_user.get_full_name() or target_user.email,
+            action_flag=CHANGE,
+            change_message=f"Admin id={request.user.pk} bloqueó al usuario id={target_user.pk}",
+        )
+        logger.info(
+            f"Team block: usuario_id={target_user.pk} bloqueado "
+            f"por admin_id={request.user.pk} (tenant: {request.user.tenant.slug})"
+        )
+
+        return Response({"message": "Usuario bloqueado"})
+
+
+class TeamUnblockMemberView(APIView):
+    """
+    POST /api/team/{user_id}/unblock/ — Desbloquear un miembro del equipo.
+
+    Reactiva al usuario (is_active=True).
+    Solo accesible para admins del tenant.
+    """
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    def post(self, request, user_id):
+        try:
+            target_user = User.objects.get(id=user_id, tenant=request.user.tenant)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.is_active:
+            return Response(
+                {"error": "El usuario ya está activo"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_user.is_active = True
+        target_user.save(update_fields=["is_active"])
+
+        from django.contrib.admin.models import CHANGE, LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        ct = ContentType.objects.get_for_model(User)
+        LogEntry.objects.log_action(
+            user_id=request.user.pk,
+            content_type_id=ct.pk,
+            object_id=str(target_user.pk),
+            object_repr=target_user.get_full_name() or target_user.email,
+            action_flag=CHANGE,
+            change_message=f"Admin id={request.user.pk} desbloqueó al usuario id={target_user.pk}",
+        )
+        logger.info(
+            f"Team unblock: usuario_id={target_user.pk} desbloqueado "
+            f"por admin_id={request.user.pk} (tenant: {request.user.tenant.slug})"
+        )
+
+        return Response({"message": "Usuario desbloqueado"})
 
 
 # ===================================

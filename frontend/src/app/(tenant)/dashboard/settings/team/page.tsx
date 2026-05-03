@@ -13,8 +13,12 @@ import {
   createTeamInvitation,
   cancelTeamInvitation,
   resendTeamInvitation,
+  updateTeamMember,
+  blockTeamMember,
+  unblockTeamMember,
+  deleteTeamMember,
 } from '@/lib/api/team';
-import type { TeamMember, TeamFilters, SocialAccountDetail } from '@/lib/api/team';
+import type { TeamMember, TeamFilters, SocialAccountDetail, UpdateMemberData } from '@/lib/api/team';
 import type { CreateInvitationData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +56,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -66,6 +71,10 @@ import {
   Mail,
   KeyRound,
   UserPlus,
+  Ban,
+  UserCheck,
+  UserX,
+  RefreshCw,
   Clock,
   Send,
   X,
@@ -180,6 +189,19 @@ export default function SettingsTeamPage() {
     open: boolean;
     member: TeamMember | null;
   }>({ open: false, member: null });
+  const [roleDialog, setRoleDialog] = useState<{
+    open: boolean;
+    member: TeamMember | null;
+  }>({ open: false, member: null });
+  const [blockDialog, setBlockDialog] = useState<{
+    open: boolean;
+    member: TeamMember | null;
+  }>({ open: false, member: null });
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    member: TeamMember | null;
+  }>({ open: false, member: null });
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'staff'>('staff');
 
   // Invitation state
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -214,6 +236,54 @@ export default function SettingsTeamPage() {
     },
     onError: (error: Error & { data?: { error?: string } }) => {
       toast.error(error.data?.error || error.message || 'Error al resetear 2FA');
+    },
+  });
+
+  const updateMemberMutation = useMutation({
+    mutationFn: ({ userId, data }: { userId: number; data: UpdateMemberData }) =>
+      updateTeamMember(userId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['team-members'] });
+      toast.success('Miembro actualizado');
+      setRoleDialog({ open: false, member: null });
+    },
+    onError: (error: Error & { response?: { data?: { error?: string } } }) => {
+      toast.error(error.response?.data?.error || error.message || 'Error al actualizar el miembro');
+    },
+  });
+
+  const blockMemberMutation = useMutation({
+    mutationFn: (userId: number) => blockTeamMember(userId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['team-members'] });
+      toast.success(data.message);
+      setBlockDialog({ open: false, member: null });
+    },
+    onError: (error: Error & { response?: { data?: { error?: string } } }) => {
+      toast.error(error.response?.data?.error || error.message || 'Error al bloquear el usuario');
+    },
+  });
+
+  const unblockMemberMutation = useMutation({
+    mutationFn: (userId: number) => unblockTeamMember(userId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['team-members'] });
+      toast.success(data.message);
+    },
+    onError: (error: Error & { response?: { data?: { error?: string } } }) => {
+      toast.error(error.response?.data?.error || error.message || 'Error al desbloquear el usuario');
+    },
+  });
+
+  const deleteMemberMutation = useMutation({
+    mutationFn: (userId: number) => deleteTeamMember(userId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['team-members'] });
+      toast.success(data.message);
+      setDeleteDialog({ open: false, member: null });
+    },
+    onError: (error: Error & { response?: { data?: { error?: string } } }) => {
+      toast.error(error.response?.data?.error || error.message || 'Error al eliminar el miembro');
     },
   });
 
@@ -502,8 +572,8 @@ export default function SettingsTeamPage() {
                           {ROLE_CONFIG[member.role].label}
                         </Badge>
                         {!member.is_active && (
-                          <Badge variant="secondary" className="text-[0.65rem] py-0 px-1.5">
-                            Inactivo
+                          <Badge variant="destructive" className="text-[0.65rem] py-0 px-1.5">
+                            Bloqueado
                           </Badge>
                         )}
                       </div>
@@ -520,7 +590,7 @@ export default function SettingsTeamPage() {
                         2FA
                       </Badge>
                     )}
-                    {(member.social_accounts.length > 0 || (member.has_2fa && member.id !== user?.id)) && (
+                    {member.id !== user?.id && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon-sm" className="text-gray-300 hover:text-gray-500">
@@ -528,30 +598,68 @@ export default function SettingsTeamPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {member.social_accounts.map((sa) => (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedRole(member.role === 'admin' ? 'admin' : 'staff');
+                              setRoleDialog({ open: true, member });
+                            }}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Cambiar rol
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {member.is_active ? (
                             <DropdownMenuItem
-                              key={sa.id}
-                              onClick={() =>
-                                setDisconnectDialog({
-                                  open: true,
-                                  member,
-                                  social: sa,
-                                })
-                              }
-                              className="text-destructive"
+                              onClick={() => setBlockDialog({ open: true, member })}
+                              variant="destructive"
                             >
-                              <Unlink className="h-4 w-4 mr-2" />
-                              Desvincular {(PROVIDER_CONFIG[sa.provider] ?? DEFAULT_PROVIDER_CONFIG).label}
+                              <Ban className="h-4 w-4 mr-2" />
+                              Bloquear usuario
                             </DropdownMenuItem>
-                          ))}
-                          {member.has_2fa && member.id !== user?.id && (
+                          ) : (
                             <DropdownMenuItem
-                              onClick={() => setReset2faDialog({ open: true, member })}
-                              className="text-destructive"
+                              onClick={() => unblockMemberMutation.mutate(member.id)}
                             >
-                              <ShieldOff className="h-4 w-4 mr-2" />
-                              Resetear 2FA
+                              <UserCheck className="h-4 w-4 mr-2" />
+                              Desbloquear usuario
                             </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onClick={() => setDeleteDialog({ open: true, member })}
+                            variant="destructive"
+                          >
+                            <UserX className="h-4 w-4 mr-2" />
+                            Eliminar del equipo
+                          </DropdownMenuItem>
+                          {(member.social_accounts.length > 0 || member.has_2fa) && (
+                            <>
+                              <DropdownMenuSeparator />
+                              {member.social_accounts.map((sa) => (
+                                <DropdownMenuItem
+                                  key={sa.id}
+                                  onClick={() =>
+                                    setDisconnectDialog({
+                                      open: true,
+                                      member,
+                                      social: sa,
+                                    })
+                                  }
+                                  variant="destructive"
+                                >
+                                  <Unlink className="h-4 w-4 mr-2" />
+                                  Desvincular {(PROVIDER_CONFIG[sa.provider] ?? DEFAULT_PROVIDER_CONFIG).label}
+                                </DropdownMenuItem>
+                              ))}
+                              {member.has_2fa && (
+                                <DropdownMenuItem
+                                  onClick={() => setReset2faDialog({ open: true, member })}
+                                  variant="destructive"
+                                >
+                                  <ShieldOff className="h-4 w-4 mr-2" />
+                                  Resetear 2FA
+                                </DropdownMenuItem>
+                              )}
+                            </>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -753,6 +861,132 @@ export default function SettingsTeamPage() {
               disabled={reset2faMutation.isPending}
             >
               {reset2faMutation.isPending ? 'Reseteando...' : 'Resetear 2FA'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para cambiar rol */}
+      <Dialog
+        open={roleDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setRoleDialog({ open: false, member: null });
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold" style={navyText}>Cambiar rol</DialogTitle>
+            <DialogDescription>
+              {roleDialog.member && (
+                <>
+                  Cambiar el rol de <strong>{roleDialog.member.full_name}</strong>.
+                  Rol actual: {ROLE_CONFIG[roleDialog.member.role].label}.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <Label htmlFor="role-select" className="text-gray-600">Nuevo rol</Label>
+              <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as 'admin' | 'staff')}>
+                <SelectTrigger id="role-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                if (roleDialog.member) {
+                  updateMemberMutation.mutate({
+                    userId: roleDialog.member.id,
+                    data: { role: selectedRole },
+                  });
+                }
+              }}
+              disabled={updateMemberMutation.isPending || selectedRole === roleDialog.member?.role}
+            >
+              {updateMemberMutation.isPending ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de confirmación para bloquear */}
+      <AlertDialog
+        open={blockDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setBlockDialog({ open: false, member: null });
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bloquear usuario</AlertDialogTitle>
+            <AlertDialogDescription>
+              {blockDialog.member && (
+                <>
+                  ¿Bloquear a <strong>{blockDialog.member.full_name}</strong>?
+                  <br /><br />
+                  El usuario no podrá iniciar sesión hasta que lo desbloquees.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (blockDialog.member) {
+                  blockMemberMutation.mutate(blockDialog.member.id);
+                }
+              }}
+              variant="destructive"
+              disabled={blockMemberMutation.isPending}
+            >
+              {blockMemberMutation.isPending ? 'Bloqueando...' : 'Bloquear'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmación para eliminar */}
+      <AlertDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog({ open: false, member: null });
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar del equipo</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteDialog.member && (
+                <>
+                  ¿Eliminar a <strong>{deleteDialog.member.full_name}</strong> del equipo?
+                  <br /><br />
+                  Se desactivará su cuenta y su rol cambiará a cliente.
+                  Puedes reactivarlo más tarde desde esta misma sección.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteDialog.member) {
+                  deleteMemberMutation.mutate(deleteDialog.member.id);
+                }
+              }}
+              variant="destructive"
+              disabled={deleteMemberMutation.isPending}
+            >
+              {deleteMemberMutation.isPending ? 'Eliminando...' : 'Eliminar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
