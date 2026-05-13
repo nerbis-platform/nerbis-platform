@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
+// tanstack/react-query no longer needed — polling via setInterval
 import Image from 'next/image';
 import {
   Check,
@@ -22,7 +22,12 @@ import {
   UserCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { quickStartGenerate, QuickStartResponse } from '@/lib/api/websites';
+import {
+  quickStartGenerate,
+  QuickStartResponse,
+  getGenerationStatus,
+  GenerationStatusResponse,
+} from '@/lib/api/websites';
 import { configureModules, ModuleSelection, getCurrentUser } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api/client';
@@ -536,34 +541,93 @@ export default function QuickStartPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentStepIdx, isTyping, pageState]);
 
-  // ─── Mutation ─────────────────────────────────────────────
-  const generateMutation = useMutation({
-    mutationFn: () =>
-      quickStartGenerate({
-        business_description: answers.description || '',
-        main_services: answers.services || '',
-        website_sections: Array.from(selectedSections),
-      }),
-    onSuccess: (data) => {
-      setProgress(100);
-      // Refresh tenant in context so phase guards see updated website_status
-      getCurrentUser().then(() => {
-        const stored = localStorage.getItem('tenant');
-        if (stored) setTenant(JSON.parse(stored) as Tenant);
-      }).catch(() => {});
-      setTimeout(() => {
-        setResult(data);
-        setPageState('success');
-      }, 600);
-    },
-    onError: (error) => {
-      if (error instanceof ApiError && error.status === 402) {
+  // ─── Polling ref para limpiar al desmontar ────────────────
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
+  // Iniciar polling del estado de generacion
+  const startPolling = useCallback(() => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const status: GenerationStatusResponse = await getGenerationStatus();
+
+        if (status.status === 'review') {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          pollingRef.current = null;
+
+          setProgress(100);
+          // Refresh tenant in context so phase guards see updated website_status
+          getCurrentUser().then(() => {
+            const stored = localStorage.getItem('tenant');
+            if (stored) setTenant(JSON.parse(stored) as Tenant);
+          }).catch(() => {});
+          setTimeout(() => {
+            setResult({
+              content_data: status.content_data ?? {},
+              seo_data: status.seo_data ?? {},
+              theme_data: status.theme_data ?? {},
+              status: 'review',
+              template: { slug: '', name: 'Tu sitio' },
+            });
+            setPageState('success');
+          }, 600);
+        }
+      } catch {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        pollingRef.current = null;
+        setPageState('error');
+      }
+    }, 2000);
+  }, [setTenant]);
+
+  // ─── Resume on refresh: si ya hay generacion activa, retomar polling ──
+  const hasResumed = useRef(false);
+  useEffect(() => {
+    if (hasResumed.current) return;
+    hasResumed.current = true;
+
+    getGenerationStatus()
+      .then((status) => {
+        if (status.status === 'generating') {
+          setPageState('generating');
+          startPolling();
+        }
+      })
+      .catch(() => {
+        // No hay config o error — continuar con el chat normal
+      });
+  }, [startPolling]);
+
+  // Disparar generacion asincrona y empezar polling
+  const triggerQuickStartGeneration = useCallback(async (
+    answersData: Record<string, string>,
+    sections: Set<string>,
+  ) => {
+    try {
+      await quickStartGenerate({
+        business_description: answersData.description || '',
+        main_services: answersData.services || '',
+        website_sections: Array.from(sections),
+      });
+      startPolling();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        // Ya hay generacion en progreso — empezar polling
+        startPolling();
+      } else if (error instanceof ApiError && error.status === 402) {
         setPageState('limit-reached');
       } else {
         setPageState('error');
       }
-    },
-  });
+    }
+  }, [startPolling]);
 
   // ─── Rotating generation messages ─────────────────────────
   useEffect(() => {
@@ -643,7 +707,7 @@ export default function QuickStartPage() {
       setPageState('generating');
       setGenStep(0);
       setProgress(0);
-      setTimeout(() => generateMutation.mutate(), 100);
+      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedSections), 100);
       return;
     }
 
@@ -669,9 +733,9 @@ export default function QuickStartPage() {
       setPageState('generating');
       setGenStep(0);
       setProgress(0);
-      setTimeout(() => generateMutation.mutate(), 100);
+      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedSections), 100);
     }
-  }, [currentStepIdx, currentInput, answers, selectedModules, selectedSections, generateMutation, setTenant]);
+  }, [currentStepIdx, currentInput, answers, selectedModules, selectedSections, triggerQuickStartGeneration, setTenant]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Sparkles,
   Check,
@@ -15,7 +15,13 @@ import {
   FileText,
   MessageSquare,
 } from 'lucide-react';
-import { getOnboardingStatus, generateContent, getWebsiteConfig } from '@/lib/api/websites';
+import {
+  getOnboardingStatus,
+  generateContent,
+  getWebsiteConfig,
+  getGenerationStatus,
+  GenerationStatusResponse,
+} from '@/lib/api/websites';
 import { GenerateContentResponse } from '@/types';
 import { ApiError } from '@/lib/api/client';
 
@@ -63,6 +69,7 @@ export default function GeneratePage() {
   const [result, setResult] = useState<GenerateContentResponse | null>(null);
   const [limitError, setLimitError] = useState<LimitError | null>(null);
   const hasTriggered = useRef(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Check onboarding status
   const { data: statusData, isLoading } = useQuery({
@@ -70,28 +77,70 @@ export default function GeneratePage() {
     queryFn: getOnboardingStatus,
   });
 
-  // Generate mutation
-  const generateMutation = useMutation({
-    mutationFn: () => generateContent(),
-    onSuccess: (data) => {
-      // Invalidate so editor reads the updated status ('review') instead of stale 'generating'
-      queryClient.invalidateQueries({ queryKey: ['onboardingStatus'] });
-      setProgress(100);
-      setTimeout(() => {
-        setResult(data);
-        setPageState('success');
-      }, 600);
-    },
-    onError: (error) => {
-      if (error instanceof ApiError && error.status === 402) {
+  // Limpiar polling al desmontar
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
+  // Iniciar polling del estado de generacion
+  const startPolling = useCallback(() => {
+    // Evitar multiples intervalos
+    if (pollingRef.current) clearInterval(pollingRef.current);
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const status: GenerationStatusResponse = await getGenerationStatus();
+
+        if (status.status === 'review') {
+          // Generacion completada
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          pollingRef.current = null;
+
+          queryClient.invalidateQueries({ queryKey: ['onboardingStatus'] });
+          setProgress(100);
+          setTimeout(() => {
+            setResult({
+              content_data: status.content_data ?? {},
+              seo_data: status.seo_data ?? {},
+              status: 'review',
+            });
+            setPageState('success');
+          }, 600);
+        }
+        // Si sigue en 'generating', el intervalo continua
+      } catch {
+        // Error de polling — detener y mostrar error
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        pollingRef.current = null;
+        setPageState('error');
+      }
+    }, 2000);
+  }, [queryClient]);
+
+  // Disparar generacion y empezar polling
+  const triggerGeneration = useCallback(async () => {
+    setPageState('generating');
+    setCurrentStep(0);
+    setProgress(0);
+
+    try {
+      await generateContent();
+      startPolling();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        // Ya hay generacion en progreso — empezar polling directamente
+        startPolling();
+      } else if (error instanceof ApiError && error.status === 402) {
         const data = error.data as Record<string, number> | undefined;
         setLimitError({ used: data?.used ?? 0, limit: data?.limit ?? 0 });
         setPageState('limit-reached');
       } else {
         setPageState('error');
       }
-    },
-  });
+    }
+  }, [startPolling]);
 
   // Redirect based on status (skip forward-redirect if user navigated back via stepper)
   useEffect(() => {
@@ -123,16 +172,22 @@ export default function GeneratePage() {
           }
         });
       }
-    } else if (status === 'onboarding' || status === 'generating') {
-      // Ready to generate
+    } else if (status === 'generating') {
+      // Generacion en progreso (resume on refresh) — empezar polling sin disparar nueva generacion
       if (!hasTriggered.current) {
         hasTriggered.current = true;
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setPageState('generating');
-        generateMutation.mutate();
+        startPolling();
+      }
+    } else if (status === 'onboarding') {
+      // Listo para generar — disparar generacion
+      if (!hasTriggered.current) {
+        hasTriggered.current = true;
+        triggerGeneration();
       }
     }
-  }, [statusData, isLoading, router, generateMutation, isNavBack]);
+  }, [statusData, isLoading, router, isNavBack, startPolling, triggerGeneration]);
 
   // Rotate status messages during generation
   useEffect(() => {
@@ -165,13 +220,10 @@ export default function GeneratePage() {
 
   // Retry generation
   const handleRetry = useCallback(() => {
-    setPageState('generating');
-    setCurrentStep(0);
-    setProgress(0);
     setResult(null);
     setLimitError(null);
-    generateMutation.mutate();
-  }, [generateMutation]);
+    triggerGeneration();
+  }, [triggerGeneration]);
 
   // ─── Checking state ──────────────────────────────────────
   if (pageState === 'checking') {

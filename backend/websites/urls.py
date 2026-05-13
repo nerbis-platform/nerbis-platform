@@ -13,6 +13,7 @@ from .views import (
     ChatView,
     DuplicateSectionView,
     GenerateContentView,
+    GenerationStatusView,
     OnboardingStatusView,
     PreviewRenderView,
     PreviewWebsiteView,
@@ -43,6 +44,7 @@ urlpatterns = [
     path("onboarding/quick-start/", QuickStartView.as_view(), name="onboarding-quick-start"),
     # AI Generation
     path("generate/", GenerateContentView.as_view(), name="generate-content"),
+    path("generation-status/", GenerationStatusView.as_view(), name="generation-status"),
     # Chat
     path("chat/", ChatView.as_view(), name="chat"),
     # SEO AI Suggestions

@@ -294,6 +294,15 @@ class WebsiteConfig(models.Model):
         "Subdominio", max_length=50, blank=True, help_text="Subdominio en nerbis (ej: minegocio.nerbis.com)"
     )
 
+    # Celery task tracking
+    generation_task_id = models.CharField(
+        "ID de tarea Celery",
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="ID de la tarea Celery activa de generación",
+    )
+
     # Tracking
     ai_generations_count = models.PositiveIntegerField(
         "Generaciones IA usadas", default=0, help_text="Contador de generaciones de IA este mes"

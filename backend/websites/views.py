@@ -11,7 +11,6 @@ Endpoints para:
 """
 
 import logging
-import random
 
 from django.conf import settings as django_settings
 from django.db import models, transaction
@@ -41,7 +40,7 @@ from .serializers import (
     WebsiteTemplateDetailSerializer,
     WebsiteTemplateListSerializer,
 )
-from .services import AIService, UnsplashService
+from .services import AIService
 
 logger = logging.getLogger(__name__)
 
@@ -333,9 +332,11 @@ class QuickStartView(APIView):
     """
     POST /api/websites/onboarding/quick-start/
 
-    Flujo acelerado post-registro: recibe 3 campos y genera el sitio completo.
-    Combina en un solo request: auto-resolucion de template + guardar respuestas
-    minimas + generacion con IA + Unsplash + guardado en WebsiteConfig.
+    Flujo acelerado post-registro: recibe 3 campos y despacha la generacion
+    del sitio completo a una tarea de Celery.
+
+    Combina: auto-resolucion de template + guardar respuestas minimas +
+    despacho asincrono de generacion con IA.
 
     Campos:
     - business_description (obligatorio): que hace el negocio + que lo diferencia.
@@ -346,6 +347,10 @@ class QuickStartView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from celery.result import AsyncResult
+
+        from .tasks import generate_website_content
+
         tenant = self._get_tenant(request)
         if not tenant:
             return Response({"error": "Usuario no asociado a un tenant"}, status=status.HTTP_400_BAD_REQUEST)
@@ -382,6 +387,19 @@ class QuickStartView(APIView):
             },
         )
 
+        # Guard: no permitir generacion duplicada si ya hay una tarea activa
+        if config.generation_task_id:
+            result = AsyncResult(config.generation_task_id)
+            if result.state not in ("SUCCESS", "FAILURE", "REVOKED"):
+                return Response(
+                    {
+                        "error": "Ya hay una generación en progreso",
+                        "task_id": config.generation_task_id,
+                        "status": "generating",
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
         # 3. Armar onboarding_responses a partir de los 3 campos + tenant data
         data = serializer.validated_data
         responses_dict = {
@@ -411,150 +429,30 @@ class QuickStartView(APIView):
                 status=status.HTTP_402_PAYMENT_REQUIRED,
             )
 
-        try:
-            # 5. Generar contenido con IA
-            content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response = (
-                ai_service.generate_initial_content(
-                    template=template,
-                    onboarding_responses=responses_dict,
-                )
-            )
+        # 5. Despachar tarea asincrona
+        task = generate_website_content.delay(
+            website_config_id=config.id,
+            tenant_id=tenant.id,
+            user_id=request.user.id,
+            onboarding_responses=responses_dict,
+            is_quick_start=True,
+        )
 
-            # 6. Enriquecer con imagenes de Unsplash
-            try:
-                unsplash = UnsplashService()
-                section_ids = [k for k in content_data.keys() if not k.startswith("_")]
-                images = unsplash.get_images_for_generation(
-                    sections=section_ids,
-                    onboarding_responses=responses_dict,
-                    tenant_industry=tenant.industry,
-                    template_industry=template.industry or "generic",
-                )
-                self._inject_images_and_variants(content_data, images)
-            except Exception as e:
-                logger.warning(f"Unsplash enrichment failed (non-fatal): {e}")
+        # Guardar task_id y confirmar estado
+        config.generation_task_id = task.id
+        config.save(update_fields=["generation_task_id"])
 
-            # 7. Theme, media, header/footer, section order
-            theme_data = dict(template.default_theme or {})
-            media_data = dict(config.media_data or {})
-
-            if "header" not in content_data:
-                content_data["header"] = {
-                    "logo_text": tenant.name,
-                    "cta_text": "",
-                    "cta_link": "#contact",
-                }
-            if "footer" not in content_data:
-                content_data["footer"] = {}
-
-            section_keys = [k for k in content_data.keys() if not k.startswith("_") and k not in ("header", "footer")]
-            ordered = []
-            if "hero" in section_keys:
-                ordered.append("hero")
-                section_keys.remove("hero")
-            contact_at_end = "contact" in section_keys
-            if contact_at_end:
-                section_keys.remove("contact")
-            ordered.extend(section_keys)
-            if contact_at_end:
-                ordered.append("contact")
-            content_data["_section_order"] = ordered
-
-            config.enabled_pages = [
-                k for k in content_data.keys() if not k.startswith("_") and k not in ("hero", "header", "footer")
-            ]
-
-            # 8. Guardar
-            config.content_data = content_data
-            config.seo_data = seo_data
-            config.theme_data = theme_data
-            config.media_data = media_data
-            config.status = "review"
-            config.save(
-                update_fields=[
-                    "content_data",
-                    "seo_data",
-                    "theme_data",
-                    "media_data",
-                    "status",
-                    "enabled_pages",
-                ]
-            )
-
-            # 9. Log de generacion
-            ai_service.log_generation(
-                generation_type="quick_start",
-                tokens_input=tokens_in,
-                tokens_output=tokens_out,
-                is_successful=True,
-                full_prompt=full_prompt,
-                raw_response=raw_response,
-                onboarding_snapshot=responses_dict,
-            )
-
-            _, new_used, new_limit = ai_service.check_usage_limit(tenant)
-
-            return Response(
-                {
-                    "content_data": content_data,
-                    "seo_data": seo_data,
-                    "theme_data": theme_data,
-                    "tokens_used": tokens_in + tokens_out,
-                    "remaining_generations": max(0, new_limit - new_used),
-                    "status": config.status,
-                    "template": {
-                        "slug": template.slug,
-                        "name": template.name,
-                    },
+        return Response(
+            {
+                "task_id": task.id,
+                "status": "generating",
+                "template": {
+                    "slug": template.slug,
+                    "name": template.name,
                 },
-                status=status.HTTP_201_CREATED,
-            )
-
-        except Exception as e:
-            logger.error(f"Error en quick-start generation: {e}")
-            config.status = "onboarding"
-            config.save(update_fields=["status"])
-            ai_service.log_generation(
-                generation_type="quick_start",
-                tokens_input=0,
-                tokens_output=0,
-                is_successful=False,
-                error_message=str(e),
-            )
-            return Response(
-                {"error": "Error generando contenido. Intenta de nuevo."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    def _inject_images_and_variants(self, content, images):
-        """Inyecta imagenes de Unsplash (misma logica que GenerateContentView)."""
-        unsplash = UnsplashService()
-
-        if "hero" in content:
-            hero_imgs = images.get("hero", [])
-            if hero_imgs:
-                content["hero"]["_image"] = hero_imgs[0]
-                content["hero"]["_image_alternatives"] = hero_imgs[1:]
-                unsplash.trigger_download(hero_imgs[0].get("download_location", ""))
-                variant = random.choice(["split-image", "fullwidth-image", "diagonal-split"])
-            else:
-                variant = random.choice(["centered", "bold-typography", "glassmorphism"])
-            content["hero"]["_variant"] = variant
-            content["hero"]["_variant_ai_recommended"] = variant
-
-        if "about" in content:
-            about_imgs = images.get("about", [])
-            if about_imgs:
-                content["about"]["_image"] = about_imgs[0]
-                content["about"]["_image_alternatives"] = about_imgs[1:]
-                unsplash.trigger_download(about_imgs[0].get("download_location", ""))
-
-        if "services" in content:
-            svc_imgs = images.get("services", [])
-            for idx, item in enumerate(content["services"].get("items", [])):
-                if idx < len(svc_imgs):
-                    item["_image"] = svc_imgs[idx]
-                    unsplash.trigger_download(svc_imgs[idx].get("download_location", ""))
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
 
     def _get_tenant(self, request):
         if not hasattr(request.user, "tenant") or not request.user.tenant:
@@ -571,13 +469,17 @@ class GenerateContentView(APIView):
     """
     POST /api/websites/generate/
 
-    Genera el contenido del sitio web usando IA.
-    Puede generar todo el sitio o regenerar una sección específica.
+    Despacha la generacion de contenido del sitio web a una tarea de Celery.
+    Retorna 202 Accepted con el task_id para que el frontend haga polling.
     """
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from celery.result import AsyncResult
+
+        from .tasks import generate_website_content
+
         tenant = self._get_tenant(request)
         if not tenant:
             return Response({"error": "Usuario no asociado a un tenant"}, status=status.HTTP_400_BAD_REQUEST)
@@ -590,7 +492,20 @@ class GenerateContentView(APIView):
         serializer = GenerateContentRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Verificar límite de uso
+        # Guard: no permitir generacion duplicada si ya hay una tarea activa
+        if config.generation_task_id:
+            result = AsyncResult(config.generation_task_id)
+            if result.state not in ("SUCCESS", "FAILURE", "REVOKED"):
+                return Response(
+                    {
+                        "error": "Ya hay una generación en progreso",
+                        "task_id": config.generation_task_id,
+                        "status": "generating",
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        # Verificar limite de uso
         ai_service = AIService(tenant=tenant, website_config=config)
         can_generate, used, limit = ai_service.check_usage_limit(tenant)
 
@@ -607,196 +522,73 @@ class GenerateContentView(APIView):
 
         # Obtener respuestas del onboarding
         responses = OnboardingResponse.objects.filter(website_config=config).select_related("question")
-
         responses_dict = {r.question.question_key: r.response_value for r in responses}
 
-        # Actualizar estado
+        regenerate_section = serializer.validated_data.get("regenerate_section")
+        additional_instructions = serializer.validated_data.get("additional_instructions", "")
+
+        # Despachar tarea asincrona
+        task = generate_website_content.delay(
+            website_config_id=config.id,
+            tenant_id=tenant.id,
+            user_id=request.user.id,
+            onboarding_responses=responses_dict,
+            additional_instructions=additional_instructions,
+            regenerate_section=regenerate_section,
+            is_quick_start=False,
+        )
+
+        # Guardar task_id y actualizar estado
+        config.generation_task_id = task.id
         config.status = "generating"
-        config.save(update_fields=["status"])
+        config.save(update_fields=["status", "generation_task_id"])
+
+        return Response(
+            {
+                "task_id": task.id,
+                "status": "generating",
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    def _get_tenant(self, request):
+        if not hasattr(request.user, "tenant") or not request.user.tenant:
+            return None
+        return request.user.tenant
+
+
+class GenerationStatusView(APIView):
+    """
+    GET /api/websites/generation-status/
+
+    Retorna el estado actual de la generacion de contenido.
+    El frontend hace polling a este endpoint mientras status == "generating".
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant = self._get_tenant(request)
+        if not tenant:
+            return Response({"error": "Usuario no asociado a un tenant"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Generar contenido
-            regenerate_section = serializer.validated_data.get("regenerate_section")
-            additional_instructions = serializer.validated_data.get("additional_instructions", "")
+            config = WebsiteConfig.objects.get(tenant=tenant)
+        except WebsiteConfig.DoesNotExist:
+            return Response({"error": "No tienes un sitio web configurado"}, status=status.HTTP_404_NOT_FOUND)
 
-            if regenerate_section:
-                generation_type = "regenerate_section"
-            else:
-                generation_type = "initial"
+        response_data = {
+            "status": config.status,
+            "task_id": config.generation_task_id,
+        }
 
-            content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response = (
-                ai_service.generate_initial_content(
-                    template=config.template,
-                    onboarding_responses=responses_dict,
-                    additional_instructions=additional_instructions,
-                )
-            )
+        # Incluir datos generados solo cuando la generacion termino exitosamente
+        if config.status == "review":
+            response_data["content_data"] = config.content_data
+            response_data["seo_data"] = config.seo_data
+            response_data["theme_data"] = config.theme_data
 
-            # ── Enriquecer con imágenes de Unsplash ──
-            try:
-                unsplash = UnsplashService()
-                section_ids = [k for k in content_data.keys() if not k.startswith("_")]
-                images = unsplash.get_images_for_generation(
-                    sections=section_ids,
-                    onboarding_responses=responses_dict,
-                    tenant_industry=tenant.industry if tenant else "",
-                    template_industry=config.template.industry or "generic",
-                )
-                self._inject_images_and_variants(content_data, images)
-            except Exception as e:
-                logger.warning(f"Unsplash enrichment failed (non-fatal): {e}")
-
-            # ── Aplicar branding del onboarding al theme_data ──
-            theme_data = dict(config.template.default_theme or {})
-            if responses_dict.get("primary_color"):
-                theme_data["primary_color"] = responses_dict["primary_color"]
-            if responses_dict.get("secondary_color"):
-                theme_data["secondary_color"] = responses_dict["secondary_color"]
-
-            # ── Logo y media ──
-            media_data = dict(config.media_data or {})
-            if responses_dict.get("logo_upload"):
-                media_data["logo_url"] = responses_dict["logo_upload"]
-
-            # ── Asegurar que header y footer existan en content_data ──
-            if "header" not in content_data:
-                content_data["header"] = {
-                    "logo_text": tenant.name,
-                    "cta_text": "",
-                    "cta_link": "#contact",
-                }
-            if "footer" not in content_data:
-                content_data["footer"] = {}
-
-            # ── Agregar _section_order al content ──
-            section_keys = [k for k in content_data.keys() if not k.startswith("_") and k not in ("header", "footer")]
-            ordered = []
-            if "hero" in section_keys:
-                ordered.append("hero")
-                section_keys.remove("hero")
-            contact_at_end = "contact" in section_keys
-            if contact_at_end:
-                section_keys.remove("contact")
-            ordered.extend(section_keys)
-            if contact_at_end:
-                ordered.append("contact")
-            content_data["_section_order"] = ordered
-
-            # Derivar páginas habilitadas de las secciones generadas
-            config.enabled_pages = [
-                k for k in content_data.keys() if not k.startswith("_") and k not in ("hero", "header", "footer")
-            ]
-
-            # Guardar contenido generado + branding
-            config.content_data = content_data
-            config.seo_data = seo_data
-            config.theme_data = theme_data
-            config.media_data = media_data
-            config.status = "review"
-            config.save(
-                update_fields=[
-                    "content_data",
-                    "seo_data",
-                    "theme_data",
-                    "media_data",
-                    "status",
-                    "enabled_pages",
-                ]
-            )
-
-            # Registrar uso con prompt y respuesta completos
-            ai_service.log_generation(
-                generation_type=generation_type,
-                tokens_input=tokens_in,
-                tokens_output=tokens_out,
-                section_id=regenerate_section or "",
-                is_successful=True,
-                full_prompt=full_prompt,
-                raw_response=raw_response,
-                onboarding_snapshot=responses_dict,
-            )
-
-            # Calcular restantes
-            _, new_used, new_limit = ai_service.check_usage_limit(tenant)
-
-            return Response(
-                {
-                    "content_data": content_data,
-                    "seo_data": seo_data,
-                    "tokens_used": tokens_in + tokens_out,
-                    "remaining_generations": max(0, new_limit - new_used),
-                    "is_billable": new_used > new_limit,
-                    "status": config.status,
-                }
-            )
-
-        except Exception as e:
-            logger.error(f"Error generando contenido: {e}")
-            config.status = "onboarding"
-            config.save(update_fields=["status"])
-
-            ai_service.log_generation(
-                generation_type="initial", tokens_input=0, tokens_output=0, is_successful=False, error_message=str(e)
-            )
-
-            return Response(
-                {"error": "Error generando contenido. Intenta de nuevo."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    def _inject_images_and_variants(self, content, images):
-        """Inyecta imágenes de Unsplash y auto-selecciona variantes."""
-        unsplash = UnsplashService()
-
-        # Hero — variantes que necesitan imagen vs las que no
-        if "hero" in content:
-            hero_imgs = images.get("hero", [])
-            if hero_imgs:
-                content["hero"]["_image"] = hero_imgs[0]
-                content["hero"]["_image_alternatives"] = hero_imgs[1:]
-                unsplash.trigger_download(hero_imgs[0].get("download_location", ""))
-                variant = random.choice(["split-image", "fullwidth-image", "diagonal-split"])
-            else:
-                variant = random.choice(["centered", "bold-typography", "glassmorphism"])
-            content["hero"]["_variant"] = variant
-            content["hero"]["_variant_ai_recommended"] = variant
-
-        # About — la mayoría no necesita imagen
-        if "about" in content:
-            about_imgs = images.get("about", [])
-            if about_imgs:
-                content["about"]["_image"] = about_imgs[0]
-                content["about"]["_image_alternatives"] = about_imgs[1:]
-                unsplash.trigger_download(about_imgs[0].get("download_location", ""))
-                variant = random.choice(["split-image", "stats-banner", "fullwidth-banner"])
-            else:
-                variant = random.choice(
-                    ["text-only", "stats-banner", "timeline", "overlapping-cards", "fullwidth-banner"]
-                )
-            content["about"]["_variant"] = variant
-            content["about"]["_variant_ai_recommended"] = variant
-
-        # Services — imágenes en items individuales
-        if "services" in content:
-            section_imgs = images.get("services", [])
-            items = content["services"].get("items", [])
-            has_images = False
-            for i, item in enumerate(items):
-                if i < len(section_imgs):
-                    item["_image"] = section_imgs[i]
-                    unsplash.trigger_download(section_imgs[i].get("download_location", ""))
-                    has_images = True
-            if has_images:
-                variant = random.choice(["grid-cards-image", "featured-highlight"])
-            else:
-                variant = random.choice(["grid-cards", "list-detailed", "horizontal-scroll", "icon-minimal"])
-            content["services"]["_variant"] = variant
-            content["services"]["_variant_ai_recommended"] = variant
-
-        # Products — sin imágenes stock (el usuario sube las suyas)
-        if "products" in content:
-            variant = random.choice(["grid-cards", "price-table"])
-            content["products"]["_variant"] = variant
-            content["products"]["_variant_ai_recommended"] = variant
+        return Response(response_data)
 
     def _get_tenant(self, request):
         if not hasattr(request.user, "tenant") or not request.user.tenant:
