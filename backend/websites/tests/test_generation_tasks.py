@@ -196,8 +196,7 @@ class TestGenerateContentView:
     @patch("websites.services.UnsplashService")
     @patch("websites.services.AIService")
     def test_generate_content_returns_202(
-        self, mock_ai_cls, mock_unsplash_cls,
-        auth_admin_client, website_config, tenant, mock_ai_content
+        self, mock_ai_cls, mock_unsplash_cls, auth_admin_client, website_config, tenant, mock_ai_content
     ):
         """POST retorna 202 con task_id cuando se despacha exitosamente."""
         content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response = mock_ai_content
@@ -206,7 +205,12 @@ class TestGenerateContentView:
         mock_ai = MagicMock()
         mock_ai.check_usage_limit.return_value = (True, 0, 10)
         mock_ai.generate_initial_content.return_value = (
-            content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response
+            content_data,
+            seo_data,
+            tokens_in,
+            tokens_out,
+            full_prompt,
+            raw_response,
         )
         mock_ai.log_generation.return_value = None
         mock_ai_cls.return_value = mock_ai
@@ -314,9 +318,7 @@ class TestRecoverStuckGenerations:
         website_config.save(update_fields=["status", "generation_task_id"])
 
         # Forzar updated_at a hace 10 minutos
-        WebsiteConfig.objects.filter(id=website_config.id).update(
-            updated_at=timezone.now() - timedelta(minutes=10)
-        )
+        WebsiteConfig.objects.filter(id=website_config.id).update(updated_at=timezone.now() - timedelta(minutes=10))
 
         from websites.tasks import recover_stuck_generations
 
@@ -337,9 +339,7 @@ class TestRecoverStuckGenerations:
 class TestGenerationTenantIsolation:
     """Tests de aislamiento de tenant para generacion."""
 
-    def test_generation_status_tenant_isolation(
-        self, auth_admin_client, second_tenant, template
-    ):
+    def test_generation_status_tenant_isolation(self, auth_admin_client, second_tenant, template):
         """Usuario de tenant A no puede ver generation status de tenant B."""
         # Crear config para el segundo tenant
         WebsiteConfig.objects.create(
@@ -357,9 +357,7 @@ class TestGenerationTenantIsolation:
         # No debe ver datos del otro tenant
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_generation_status_shows_own_tenant_data(
-        self, auth_admin_client, website_config
-    ):
+    def test_generation_status_shows_own_tenant_data(self, auth_admin_client, website_config):
         """Usuario ve solo los datos de su propio tenant."""
         website_config.status = "review"
         website_config.content_data = {"hero": {"title": "My Data"}}

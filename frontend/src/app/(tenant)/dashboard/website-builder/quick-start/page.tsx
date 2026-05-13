@@ -573,8 +573,6 @@ export default function QuickStartPage() {
               content_data: status.content_data ?? {},
               seo_data: status.seo_data ?? {},
               theme_data: status.theme_data ?? {},
-              tokens_used: 0,
-              remaining_generations: 0,
               status: 'review',
               template: { slug: '', name: 'Tu sitio' },
             });
@@ -588,6 +586,24 @@ export default function QuickStartPage() {
       }
     }, 2000);
   }, [setTenant]);
+
+  // ─── Resume on refresh: si ya hay generacion activa, retomar polling ──
+  const hasResumed = useRef(false);
+  useEffect(() => {
+    if (hasResumed.current) return;
+    hasResumed.current = true;
+
+    getGenerationStatus()
+      .then((status) => {
+        if (status.status === 'generating') {
+          setPageState('generating');
+          startPolling();
+        }
+      })
+      .catch(() => {
+        // No hay config o error — continuar con el chat normal
+      });
+  }, [startPolling]);
 
   // Disparar generacion asincrona y empezar polling
   const triggerQuickStartGeneration = useCallback(async (

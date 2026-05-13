@@ -65,12 +65,10 @@ def generate_website_content(
             generation_type = "initial"
 
         # Generar contenido con IA
-        content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response = (
-            ai_service.generate_initial_content(
-                template=config.template,
-                onboarding_responses=onboarding_responses,
-                additional_instructions=additional_instructions,
-            )
+        content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response = ai_service.generate_initial_content(
+            template=config.template,
+            onboarding_responses=onboarding_responses,
+            additional_instructions=additional_instructions,
         )
 
         # Enriquecer con imagenes de Unsplash
@@ -111,9 +109,7 @@ def generate_website_content(
             content_data["footer"] = {}
 
         # Ordenar secciones
-        section_keys = [
-            k for k in content_data.keys() if not k.startswith("_") and k not in ("header", "footer")
-        ]
+        section_keys = [k for k in content_data.keys() if not k.startswith("_") and k not in ("header", "footer")]
         ordered = []
         if "hero" in section_keys:
             ordered.append("hero")
@@ -163,8 +159,7 @@ def generate_website_content(
         )
 
         logger.info(
-            f"generate_website_content: success for config {website_config_id} "
-            f"(tokens: {tokens_in + tokens_out})"
+            f"generate_website_content: success for config {website_config_id} (tokens: {tokens_in + tokens_out})"
         )
         return {"success": True, "config_id": website_config_id}
 
@@ -286,9 +281,7 @@ def _inject_images_and_variants(content: dict, images: dict) -> None:
             unsplash.trigger_download(about_imgs[0].get("download_location", ""))
             variant = random.choice(["split-image", "stats-banner", "fullwidth-banner"])
         else:
-            variant = random.choice(
-                ["text-only", "stats-banner", "timeline", "overlapping-cards", "fullwidth-banner"]
-            )
+            variant = random.choice(["text-only", "stats-banner", "timeline", "overlapping-cards", "fullwidth-banner"])
         content["about"]["_variant"] = variant
         content["about"]["_variant_ai_recommended"] = variant
 

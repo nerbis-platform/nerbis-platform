@@ -143,8 +143,8 @@ export interface QuickStartResponse {
   content_data: Record<string, unknown>;
   seo_data: Record<string, unknown>;
   theme_data: Record<string, unknown>;
-  tokens_used: number;
-  remaining_generations: number;
+  tokens_used?: number;
+  remaining_generations?: number;
   status: string;
   template: {
     slug: string;

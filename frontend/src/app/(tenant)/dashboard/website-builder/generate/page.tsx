@@ -104,9 +104,6 @@ export default function GeneratePage() {
             setResult({
               content_data: status.content_data ?? {},
               seo_data: status.seo_data ?? {},
-              tokens_used: 0,
-              remaining_generations: 0,
-              is_billable: false,
               status: 'review',
             });
             setPageState('success');
