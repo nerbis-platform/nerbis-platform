@@ -9,7 +9,7 @@ from bookings.models import Appointment
 from cart.models import Cart, CartItem
 from core.test_base import TenantAwareTestCase
 from ecommerce.models import Inventory, Product, ProductCategory
-from orders.models import Order, OrderItem, Payment
+from orders.models import Order, OrderItem, Payment, PaymentGateway
 from services.models import Service, ServiceCategory, StaffMember
 
 
@@ -417,6 +417,16 @@ class StripeConfirmPaymentTest(OrderTestMixin, TenantAwareTestCase):
             cls.tenant, name="Producto Pago", price=Decimal("80.00"), stock=10
         )
         cls.service, cls.staff = cls.create_service_with_staff(cls.tenant, name="Servicio Pago", price=Decimal("50.00"))
+        # Crear PaymentGateway requerida por el checkout multi-pasarela
+        PaymentGateway.objects.create(
+            tenant=cls.tenant,
+            provider="stripe",
+            is_active=True,
+            is_default=True,
+            public_key="pk_test_xxx",
+            secret_key="sk_test_xxx",
+            webhook_secret="whsec_test_xxx",
+        )
 
     def _create_pending_order(self):
         """Helper: crea una orden pendiente con 1 producto y 1 servicio."""

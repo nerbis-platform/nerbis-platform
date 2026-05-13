@@ -137,7 +137,7 @@ class CreateOrderSerializer(serializers.Serializer):
     billing_address = serializers.CharField(required=False, allow_blank=True)
     billing_city = serializers.CharField(required=False, max_length=100, allow_blank=True)
     billing_postal_code = serializers.CharField(required=False, max_length=20, allow_blank=True)
-    billing_country = serializers.CharField(required=False, max_length=2, default="ES")
+    billing_country = serializers.CharField(required=False, max_length=2, default="")
 
     # Información de envío (opcional, si es diferente a facturación)
     shipping_name = serializers.CharField(required=False, max_length=200, allow_blank=True)

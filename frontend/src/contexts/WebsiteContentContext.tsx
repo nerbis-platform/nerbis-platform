@@ -48,7 +48,13 @@ export interface WebsiteContentData {
 // ─── Context ───────────────────────────────────────────────
 const WebsiteContentContext = createContext<WebsiteContentData | null>(null);
 
-export function WebsiteContentProvider({ children }: { children: ReactNode }) {
+export function WebsiteContentProvider({
+  children,
+  initialData,
+}: {
+  children: ReactNode;
+  initialData?: WebsiteContentData | null;
+}) {
   const tenantReady = useTenantReady();
 
   const { data } = useQuery<WebsiteContentData>({
@@ -59,6 +65,7 @@ export function WebsiteContentProvider({ children }: { children: ReactNode }) {
     },
     enabled: tenantReady,
     staleTime: 5 * 60 * 1000,
+    initialData: initialData ?? undefined,
   });
 
   return (
