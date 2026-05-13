@@ -188,6 +188,19 @@ class TeamMemberSerializer(serializers.ModelSerializer):
         return obj.webauthn_credentials.exists()
 
 
+class TeamUpdateMemberSerializer(serializers.ModelSerializer):
+    """Serializer para actualizar datos de un miembro del equipo (solo admin)."""
+
+    class Meta:
+        model = User
+        fields = ["role", "first_name", "last_name", "phone"]
+
+    def validate_role(self, value):
+        if value not in ("admin", "staff"):
+            raise serializers.ValidationError("Solo se puede asignar rol admin o staff")
+        return value
+
+
 class UserPublicSerializer(serializers.ModelSerializer):
     """Serializer para User (información pública - sin datos sensibles)"""
 
