@@ -1,8 +1,5 @@
 # backend/orders/views.py
 
-from decimal import Decimal
-
-from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -13,7 +10,7 @@ from rest_framework.response import Response
 from cart.models import Cart
 from notifications.tasks import send_order_confirmation_email
 
-from .models import Order, OrderItem, OrderServiceItem, Payment
+from .models import Order, OrderItem, OrderServiceItem, Payment, PaymentGateway
 from .serializers import (
     CreateOrderSerializer,
     OrderDetailSerializer,
@@ -119,7 +116,7 @@ class CheckoutViewSet(viewsets.ViewSet):
                 customer=request.user,
                 status="pending",
                 subtotal=subtotal,
-                tax_rate=Decimal(str(settings.TAX_RATE)),
+                tax_rate=request.tenant.tax_rate,
                 tax_amount=tax_amount,
                 total=total,
                 billing_name=serializer.validated_data["billing_name"],
@@ -128,7 +125,7 @@ class CheckoutViewSet(viewsets.ViewSet):
                 billing_address=serializer.validated_data.get("billing_address", ""),
                 billing_city=serializer.validated_data.get("billing_city", ""),
                 billing_postal_code=serializer.validated_data.get("billing_postal_code", ""),
-                billing_country=serializer.validated_data.get("billing_country", "ES"),
+                billing_country=serializer.validated_data.get("billing_country", request.tenant.country[:2]),
                 customer_notes=serializer.validated_data.get("customer_notes", ""),
             )
 
@@ -213,17 +210,29 @@ class CheckoutViewSet(viewsets.ViewSet):
             return Response({"error": "Esta orden ya está pagada"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Crear Payment Intent en Stripe
-            payment_data = create_payment_intent(order)
+            # Obtener pasarela del tenant
+            gateway = PaymentGateway.objects.filter(tenant=request.tenant, provider="stripe", is_active=True).first()
+
+            if not gateway:
+                return Response(
+                    {"error": "No hay pasarela de pago configurada"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Crear Payment Intent en Stripe con la config del tenant
+            payment_data = create_payment_intent(order, gateway=gateway)
 
             # Crear registro de pago
+            currency = request.tenant.currency
             payment = Payment.objects.create(
                 tenant=request.tenant,
                 order=order,
+                gateway=gateway,
+                external_id=payment_data["payment_intent_id"],
                 stripe_payment_intent_id=payment_data["payment_intent_id"],
                 payment_method="stripe",
                 amount=order.total,
-                currency="EUR",
+                currency=currency,
                 status="pending",
             )
 
@@ -232,7 +241,7 @@ class CheckoutViewSet(viewsets.ViewSet):
                     "client_secret": payment_data["client_secret"],
                     "payment_intent_id": payment_data["payment_intent_id"],
                     "amount": int(order.total * 100),
-                    "currency": settings.STRIPE_CURRENCY,
+                    "currency": currency.lower(),
                     "payment_id": payment.id,
                 }
             )
@@ -282,8 +291,16 @@ class CheckoutViewSet(viewsets.ViewSet):
                     }
                 )
 
+            # Obtener API key de la pasarela del tenant
+            gateway = PaymentGateway.objects.filter(tenant=request.tenant, provider="stripe", is_active=True).first()
+            if not gateway:
+                return Response(
+                    {"error": "No hay pasarela de pago configurada"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Verificar estado del Payment Intent en Stripe
-            stripe.api_key = settings.STRIPE_SECRET_KEY
+            stripe.api_key = gateway.secret_key
             payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
             print(f"💳 Estado del Payment Intent: {payment_intent.status}")
 

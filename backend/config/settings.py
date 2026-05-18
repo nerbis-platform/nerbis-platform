@@ -252,53 +252,65 @@ if not DEBUG:
 # ===================================
 # LOGGING
 # ===================================
+_log_formatters = {
+    "verbose": {
+        "format": "[{levelname}] {asctime} {name} {message}",
+        "style": "{",
+    },
+}
+_log_handler_class = "logging.StreamHandler"
+_log_handler_formatter = "verbose"
+
+# En producción: JSON estructurado (ideal para CloudWatch/Datadog/ELK)
+if not DEBUG:
+    _log_formatters["json"] = {
+        "()": "pythonjsonlogger.json.JsonFormatter",
+        "format": "%(asctime)s %(name)s %(levelname)s %(message)s",
+        "rename_fields": {"asctime": "timestamp", "levelname": "level"},
+    }
+    _log_handler_formatter = "json"
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "[{levelname}] {asctime} {name} {message}",
-            "style": "{",
-        },
-    },
+    "formatters": _log_formatters,
     "handlers": {
         "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "class": _log_handler_class,
+            "formatter": _log_handler_formatter,
         },
     },
     "root": {
         "handlers": ["console"],
-        # Desarrollo: INFO, Producción: WARNING
         "level": os.getenv("LOG_LEVEL", "WARNING" if not DEBUG else "INFO"),
     },
     "loggers": {
         "core.middleware": {
             "handlers": ["console"],
-            "level": "WARNING",  # Solo errores/warnings
+            "level": "WARNING",
             "propagate": False,
         },
         "core.admin_site": {
             "handlers": ["console"],
-            "level": "WARNING",  # Solo errores/warnings
+            "level": "WARNING",
             "propagate": False,
         },
         "middleware.tenant": {
             "handlers": ["console"],
-            "level": "WARNING",  # Solo errores/warnings
+            "level": "WARNING",
             "propagate": False,
         },
         "django.contrib.auth": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": "DEBUG" if DEBUG else "WARNING",
         },
         "cart": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": "DEBUG" if DEBUG else "WARNING",
         },
         "cart.views": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": "DEBUG" if DEBUG else "WARNING",
         },
     },
 }
@@ -334,24 +346,33 @@ REST_FRAMEWORK = {
     # Documentación
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # Rate Limiting (throttling)
+    "DEFAULT_THROTTLE_CLASSES": [
+        "core.throttles.TenantRateThrottle",
+        "core.throttles.UserRateThrottle",
+    ],
     "DEFAULT_THROTTLE_HANDLERS": {
         "THROTTLED_CACHE": "throttle",
     },
     # Proxies — para que los throttles usen la IP real del cliente
     "NUM_PROXIES": int(os.getenv("NUM_PROXIES", "1")),
     "DEFAULT_THROTTLE_RATES": {
-        "login": "5/min",  # Login: 5 intentos por minuto por IP
-        "login_email": "10/hour",  # Login: 10 intentos por hora por email
-        "register": "3/min",  # Registro: 3 por minuto por IP
-        "otp_request": "3/min",  # Solicitar OTP: 3 por minuto por IP
-        "otp_verify": "5/min",  # Verificar OTP: 5 por minuto por IP
-        "password_reset": "3/min",  # Reset password: 3 por minuto por IP
-        "social_login": "5/min",  # Social login: 5 por minuto por IP
-        "two_factor_challenge": "10/min",  # 2FA challenge: 10 por minuto por IP
-        "two_factor_verify": "10/min",  # 2FA verify/disable: 10 por minuto por IP
-        "admin_login": "5/min",  # Superadmin login: 5 por minuto por IP
-        "token_refresh": "30/min",  # Refresh token: 30 por minuto por IP
-        "public_check": "20/min",  # Check endpoints públicos: 20 por minuto por IP
+        # Auth endpoints (por IP)
+        "login": "5/min",
+        "login_email": "10/hour",
+        "register": "3/min",
+        "otp_request": "3/min",
+        "otp_verify": "5/min",
+        "password_reset": "3/min",
+        "social_login": "5/min",
+        "two_factor_challenge": "10/min",
+        "two_factor_verify": "10/min",
+        "admin_login": "5/min",
+        "token_refresh": "30/min",
+        "public_check": "20/min",
+        # API general (por usuario autenticado)
+        "user": "120/min",
+        # Por tenant: se configura dinámicamente según el plan
+        # (ver core/throttles.py PLAN_RATE_LIMITS)
     },
 }
 
@@ -470,12 +491,12 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 if not STRIPE_SECRET_KEY:
     print("⚠️  WARNING: STRIPE_SECRET_KEY no está configurada")
 
-# Configuración de moneda y país
-STRIPE_CURRENCY = "eur"  # Euro (España)
+# DEPRECADO: Ahora cada tenant tiene su propia moneda (Tenant.currency),
+# tasa de impuesto (Tenant.tax_rate), y pasarela (PaymentGateway).
+# Estos valores se mantienen como fallback temporal.
+STRIPE_CURRENCY = "eur"
 STRIPE_COUNTRY = "ES"
-
-# IVA España
-TAX_RATE = 0.21  # 21% IVA
+TAX_RATE = 0.21
 
 # ===================================
 # BOOKINGS
@@ -486,23 +507,31 @@ BOOKING_HOLD_MINUTES = int(os.getenv("BOOKING_HOLD_MINUTES", "15"))
 # ===================================
 # CACHE CONFIGURATION (Redis — compartido con Celery)
 # ===================================
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-    },
-    "throttle": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "throttle-cache",
-    },
-}
+_REDIS_URL = os.getenv("REDIS_URL", "")
 
-# En producción usar Redis (descomentar si redis-cache está disponible):
-# CACHES = {
-#     "default": {
-#         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-#         "LOCATION": os.getenv("REDIS_URL", "redis://redis:6379/1"),
-#     },
-# }
+if _REDIS_URL:
+    # Produccion/Docker: Redis real (usa DB 1 para no colisionar con Celery en DB 0)
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _REDIS_URL.replace("/0", "/1") if _REDIS_URL.endswith("/0") else _REDIS_URL,
+        },
+        "throttle": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _REDIS_URL.replace("/0", "/2") if _REDIS_URL.endswith("/0") else _REDIS_URL,
+        },
+    }
+else:
+    # Desarrollo local sin Redis
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        },
+        "throttle": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "throttle-cache",
+        },
+    }
 
 # ===================================
 # CELERY CONFIGURATION
@@ -512,7 +541,7 @@ CELERY_RESULT_BACKEND = os.getenv("REDIS_URL", "redis://redis:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = "Europe/Madrid"
+CELERY_TIMEZONE = TIME_ZONE  # Usar el mismo timezone que Django
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutos
 CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "").lower() in ("true", "1")
@@ -554,6 +583,32 @@ APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID", "")
 APPLE_TEAM_ID = os.getenv("APPLE_TEAM_ID", "")
 FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", "")
 FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", "")
+
+# ===================================
+# STORAGE (S3 para produccion, local para desarrollo)
+# ===================================
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
+
+if AWS_STORAGE_BUCKET_NAME:
+    # Produccion: S3 + CloudFront
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3boto3.S3StaticStorage",
+        },
+    }
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
+    AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_CLOUDFRONT_DOMAIN", "")
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = False  # URLs publicas (CloudFront se encarga del acceso)
+    AWS_LOCATION = "media"
+
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
+        STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
 
 # ===================================
 # UNFOLD ADMIN CONFIGURATION

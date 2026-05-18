@@ -60,13 +60,11 @@ class Cart(TenantAwareModel):
 
     @property
     def tax_amount(self):
-        """Monto del IVA"""
+        """Monto del impuesto (IVA/IGV/etc.) según la tasa del tenant."""
         try:
-            from django.conf import settings
-
-            tax_rate = getattr(settings, "TAX_RATE", 0.21)
+            tax_rate = self.tenant.tax_rate
             subtotal_after_discount = self.subtotal - self.discount_amount
-            return subtotal_after_discount * Decimal(str(tax_rate))
+            return subtotal_after_discount * tax_rate
         except Exception:
             return Decimal("0.00")
 

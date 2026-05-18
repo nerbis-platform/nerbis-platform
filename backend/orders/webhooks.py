@@ -1,14 +1,17 @@
 # backend/orders/webhooks.py
 
+import logging
+
 import stripe
-from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from notifications.tasks import send_payment_confirmation_email
 
-from .models import Payment
+from .models import Payment, PaymentGateway
+
+logger = logging.getLogger(__name__)
 
 
 @csrf_exempt
@@ -23,61 +26,67 @@ def stripe_webhook(request):
     - payment_intent.succeeded: Pago exitoso
     - payment_intent.payment_failed: Pago fallido
     - charge.refunded: Reembolso
-    """
 
+    Nota: El webhook verifica la firma usando el webhook_secret de la pasarela
+    del tenant. Si no se puede verificar, intenta con todas las pasarelas activas.
+    """
     payload = request.body
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
 
-    try:
-        # Verificar firma del webhook
-        event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
-    except ValueError:
-        # Payload inválido
-        return HttpResponse(status=400)
-    except stripe.error.SignatureVerificationError:
-        # Firma inválida
+    # Intentar verificar con cada gateway activa de Stripe
+    event = None
+    validated_gateway = None
+    gateways = PaymentGateway.objects.filter(provider="stripe", is_active=True).exclude(webhook_secret="")
+
+    for gateway in gateways:
+        try:
+            event = stripe.Webhook.construct_event(payload, sig_header, gateway.webhook_secret)
+            validated_gateway = gateway
+            break
+        except (ValueError, stripe.error.SignatureVerificationError):
+            continue
+
+    if event is None:
+        logger.warning("Stripe webhook: firma no válida para ninguna pasarela")
         return HttpResponse(status=400)
 
-    # Manejar el evento
+    # Manejar el evento (scoped al gateway/tenant validado)
     event_type = event["type"]
 
     if event_type == "payment_intent.succeeded":
-        # Pago exitoso
         payment_intent = event["data"]["object"]
-        handle_payment_success(payment_intent)
+        handle_payment_success(payment_intent, validated_gateway)
 
     elif event_type == "payment_intent.payment_failed":
-        # Pago fallido
         payment_intent = event["data"]["object"]
-        handle_payment_failure(payment_intent)
+        handle_payment_failure(payment_intent, validated_gateway)
 
     elif event_type == "charge.refunded":
-        # Reembolso
         charge = event["data"]["object"]
-        handle_refund(charge)
+        handle_refund(charge, validated_gateway)
 
     return JsonResponse({"status": "success"})
 
 
-def handle_payment_success(payment_intent):
+def handle_payment_success(payment_intent, gateway):
     """
     Manejar pago exitoso.
 
     1. Marcar pago como succeeded
     2. Marcar orden como paid
     3. Confirmar citas automáticamente
-    4. ENVIAR EMAIL DE CONFIRMACIÓN ← NUEVO
+    4. Enviar email de confirmación
     """
     payment_intent_id = payment_intent["id"]
 
     try:
-        # Buscar el pago
-        payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
+        payment = Payment.objects.get(
+            stripe_payment_intent_id=payment_intent_id,
+            gateway=gateway,
+        )
 
-        # Marcar pago como exitoso
         payment.mark_as_succeeded()
 
-        # Marcar orden como pagada
         order = payment.order
         order.mark_as_paid()
 
@@ -88,42 +97,43 @@ def handle_payment_success(payment_intent):
             appointment.is_paid = True
             appointment.save()
 
-        # ENVIAR EMAIL DE CONFIRMACIÓN ← NUEVO
         send_payment_confirmation_email.delay(order.id)
 
-        print(f"✅ Pago exitoso para orden {order.order_number}")
+        logger.info("Pago exitoso para orden %s", order.order_number)
 
     except Payment.DoesNotExist:
-        print(f"⚠️ Pago no encontrado: {payment_intent_id}")
+        logger.warning("Pago no encontrado: %s (gateway=%s)", payment_intent_id, gateway.id)
     except Exception as e:
-        print(f"❌ Error en handle_payment_success: {str(e)}")
+        logger.error("Error en handle_payment_success: %s", e)
 
 
-def handle_payment_failure(payment_intent):
-    """
-    Manejar pago fallido.
-    """
+def handle_payment_failure(payment_intent, gateway):
+    """Manejar pago fallido."""
     payment_intent_id = payment_intent["id"]
 
     try:
-        payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
+        payment = Payment.objects.get(
+            stripe_payment_intent_id=payment_intent_id,
+            gateway=gateway,
+        )
         payment.status = "failed"
         payment.save()
 
-        print(f"❌ Pago fallido para orden {payment.order.order_number}")
+        logger.info("Pago fallido para orden %s", payment.order.order_number)
 
     except Payment.DoesNotExist:
-        print(f"⚠️ Pago no encontrado: {payment_intent_id}")
+        logger.warning("Pago no encontrado: %s (gateway=%s)", payment_intent_id, gateway.id)
 
 
-def handle_refund(charge):
-    """
-    Manejar reembolso.
-    """
+def handle_refund(charge, gateway):
+    """Manejar reembolso."""
     charge_id = charge["id"]
 
     try:
-        payment = Payment.objects.get(stripe_charge_id=charge_id)
+        payment = Payment.objects.get(
+            stripe_charge_id=charge_id,
+            gateway=gateway,
+        )
         payment.status = "refunded"
         payment.save()
 
@@ -131,7 +141,7 @@ def handle_refund(charge):
         order.status = "refunded"
         order.save()
 
-        print(f"💰 Reembolso procesado para orden {order.order_number}")
+        logger.info("Reembolso procesado para orden %s", order.order_number)
 
     except Payment.DoesNotExist:
-        print(f"⚠️ Pago no encontrado: {charge_id}")
+        logger.warning("Pago no encontrado para charge: %s (gateway=%s)", charge_id, gateway.id)

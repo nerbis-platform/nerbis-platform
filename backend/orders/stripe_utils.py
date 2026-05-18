@@ -1,62 +1,74 @@
 # backend/orders/stripe_utils.py
 
 import stripe
-from django.conf import settings
-
-# Configurar Stripe con la clave secreta
-stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-def get_or_create_stripe_customer(user):
+def _get_stripe_gateway(tenant):
+    """Obtener la pasarela Stripe configurada para el tenant."""
+    from .models import PaymentGateway
+
+    gateway = PaymentGateway.objects.filter(tenant=tenant, provider="stripe", is_active=True).first()
+
+    if not gateway:
+        raise Exception(f"Stripe no está configurado para {tenant.name}")
+
+    return gateway
+
+
+def get_or_create_stripe_customer(user, gateway):
     """
     Obtener o crear un Customer en Stripe para el usuario.
 
     Args:
         user: Instancia de User
+        gateway: Instancia de PaymentGateway (Stripe)
 
     Returns:
         stripe.Customer
     """
-    # Buscar si ya existe un customer con este email
+    stripe.api_key = gateway.secret_key
+
     existing_customers = stripe.Customer.list(email=user.email, limit=1)
 
     if existing_customers.data:
-        # Ya existe, retornar el primero
         return existing_customers.data[0]
 
-    # Crear nuevo customer
     customer = stripe.Customer.create(
         email=user.email,
         name=user.get_full_name() or f"{user.first_name} {user.last_name}".strip(),
         phone=getattr(user, "phone", None),
         metadata={
             "user_id": str(user.id),
+            "tenant_id": str(user.tenant_id),
         },
     )
 
     return customer
 
 
-def create_payment_intent(order):
+def create_payment_intent(order, gateway=None):
     """
     Crear un Payment Intent en Stripe.
 
     Args:
         order: Instancia de Order
+        gateway: Instancia de PaymentGateway (opcional, se busca por tenant)
 
     Returns:
         dict con client_secret y payment_intent_id
     """
+    if gateway is None:
+        gateway = _get_stripe_gateway(order.tenant)
+
+    stripe.api_key = gateway.secret_key
 
     try:
-        # Obtener o crear el customer en Stripe
-        stripe_customer = get_or_create_stripe_customer(order.customer)
+        stripe_customer = get_or_create_stripe_customer(order.customer, gateway)
 
-        # Crear Payment Intent
         payment_intent = stripe.PaymentIntent.create(
-            amount=int(order.total * 100),  # Stripe usa centavos
-            currency=settings.STRIPE_CURRENCY,
-            customer=stripe_customer.id,  # Asociar al customer de Stripe
+            amount=int(order.total * 100),
+            currency=order.tenant.currency.lower(),
+            customer=stripe_customer.id,
             metadata={
                 "order_id": order.id,
                 "order_number": order.order_number,
@@ -70,30 +82,32 @@ def create_payment_intent(order):
         return {
             "client_secret": payment_intent["client_secret"],
             "payment_intent_id": payment_intent["id"],
+            "gateway_id": gateway.id,
         }
 
     except stripe.error.StripeError as e:
         raise Exception(f"Error de Stripe: {str(e)}")
 
 
-def retrieve_payment_intent(payment_intent_id):
-    """
-    Obtener un Payment Intent de Stripe.
-    """
+def retrieve_payment_intent(payment_intent_id, gateway):
+    """Obtener un Payment Intent de Stripe."""
+    stripe.api_key = gateway.secret_key
     try:
         return stripe.PaymentIntent.retrieve(payment_intent_id)
     except stripe.error.StripeError as e:
         raise Exception(f"Error de Stripe: {str(e)}")
 
 
-def create_refund(charge_id, amount=None):
+def create_refund(charge_id, gateway, amount=None):
     """
     Crear un reembolso en Stripe.
 
     Args:
         charge_id: ID del cargo a reembolsar
+        gateway: Instancia de PaymentGateway (Stripe)
         amount: Monto a reembolsar (en centavos). Si es None, reembolsa todo.
     """
+    stripe.api_key = gateway.secret_key
     try:
         refund_data = {"charge": charge_id}
         if amount:

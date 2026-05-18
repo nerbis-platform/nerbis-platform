@@ -2,9 +2,42 @@
 
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from django.urls import include, path
 from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+
+def health_check(request):
+    """Health check para ALB/ECS/Kubernetes. Verifica DB y cache."""
+    from django.db import connection
+
+    checks = {"status": "ok", "database": "ok", "cache": "ok"}
+    http_status = 200
+
+    # Verificar DB
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except Exception as e:
+        checks["database"] = f"error: {e}"
+        checks["status"] = "degraded"
+        http_status = 503
+
+    # Verificar Cache
+    try:
+        from django.core.cache import cache
+
+        cache.set("_health", "ok", 10)
+        if cache.get("_health") != "ok":
+            raise Exception("cache read failed")
+    except Exception as e:
+        checks["cache"] = f"error: {e}"
+        checks["status"] = "degraded"
+        http_status = 503
+
+    return JsonResponse(checks, status=http_status)
+
 
 # Importar el admin site personalizado de NERBIS
 from core.admin_site import nerbis_admin_site
@@ -49,6 +82,8 @@ from core.views import (
 from orders.webhooks import stripe_webhook
 
 urlpatterns = [
+    # Health check (para ALB/ECS)
+    path("health/", health_check, name="health-check"),
     # Redirigir la raíz a la documentación de la API
     path("", RedirectView.as_view(url="/api/docs/", permanent=False)),
     # Suscripcion expirada
