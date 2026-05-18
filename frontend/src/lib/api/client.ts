@@ -198,7 +198,12 @@ apiClient.interceptors.response.use(
         const { data } = await axios.post<{ access: string; refresh?: string }>(
           `${API_URL}/auth/refresh/`,
           { refresh: refreshToken },
-          { headers: { 'Content-Type': 'application/json' } }
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Tenant-Slug': getTenantSlug(),
+            },
+          }
         );
 
         localStorage.setItem('access_token', data.access);

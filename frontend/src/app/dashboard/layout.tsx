@@ -48,11 +48,14 @@ export default function DashboardLayout({
     }
   }, [mounted, isAuthenticated, isLoading, tenant, isSetupRoute, isBuilderRoute, router]);
 
+  // Mostrar skeleton mientras se valida la sesión
+  const showSkeleton = !mounted || isLoading;
+
   // Layout limpio para Setup y Website Builder
   if (isCleanLayout) {
     return (
       <>
-        {!mounted ? (
+        {showSkeleton ? (
           <div className="min-h-screen flex items-center justify-center">
             <Skeleton className="h-10 w-64" />
           </div>
@@ -67,7 +70,7 @@ export default function DashboardLayout({
     <>
       <Header />
       <main className="container py-8">
-        {!mounted ? (
+        {showSkeleton ? (
           <div className="space-y-4">
             <Skeleton className="h-10 w-64" />
             <Skeleton className="h-6 w-48" />

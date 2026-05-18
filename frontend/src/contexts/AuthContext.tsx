@@ -32,7 +32,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => authApi.getStoredUser());
   const [tenant, setTenant] = useState<Tenant | null>(() => getStoredTenant());
-  const [isLoading, setIsLoading] = useState(false);
+  // Iniciar en true si hay tokens — evita que rutas protegidas redirijan
+  // antes de validar la sesión con el servidor
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return !!localStorage.getItem('access_token');
+  });
   const router = useRouter();
   const refreshedRef = useRef(false);
 
@@ -42,11 +47,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === 'undefined') return;
 
     const token = localStorage.getItem('access_token');
-    if (!token) return;
+    if (!token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsLoading(false);
+      return;
+    }
 
     refreshedRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoading(true);
 
     authApi.getCurrentUser()
       .then((freshUser) => {
@@ -55,8 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTenant(getStoredTenant());
       })
       .catch(() => {
-        // Si falla (token expirado, etc), no hacer nada.
-        // El interceptor de 401 se encarga de limpiar la sesión.
+        // Si el interceptor no pudo refrescar, limpiar estado de React
+        // para mantener consistencia (el interceptor ya limpió localStorage)
+        setUser(null);
+        setTenant(null);
       })
       .finally(() => {
         setIsLoading(false);
