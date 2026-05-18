@@ -68,7 +68,6 @@ const NERBIS_MODULES: NerbisModule[] = [
     subtitle: 'Presencia online con IA',
     icon: Globe,
     accentColor: NAVY,
-    alwaysOn: true,
   },
   {
     key: 'has_services',
@@ -298,8 +297,9 @@ function PipeAvatar({
   const [uid] = useState(() => `pipe-${Math.random().toString(36).slice(2, 6)}`);
   const containerRef = useRef<HTMLDivElement>(null);
   const [lookOffset, setLookOffset] = useState({ x: 0, y: 0 });
+  const [tapped, setTapped] = useState(false);
 
-  const maxLook = s * 0.025;
+  const maxLook = s * 0.06;
 
   // Cursor tracking — moves eyes within the face subtly
   useEffect(() => {
@@ -311,23 +311,34 @@ function PipeAvatar({
       const dy = e.clientY - (rect.top + rect.height / 2);
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist === 0) return;
-      const t = Math.min(dist / 250, 1);
+      const t = Math.min(dist / 150, 1);
       setLookOffset({
         x: (dx / dist) * maxLook * t,
-        y: (dy / dist) * maxLook * t * 0.6,
+        y: (dy / dist) * maxLook * t,
       });
     };
     window.addEventListener('mousemove', onMove);
     return () => window.removeEventListener('mousemove', onMove);
   }, [maxLook]);
 
-  // Computed eye values
-  const eyeRx = eyeBaseRx * eyes.rxScale;
-  const eyeRy = eyeBaseRy * eyes.ryScale;
-  const eyeSpread = baseEyeSpread * eyes.gap;
-  const eyeOffY = eyes.offsetY * s;
-  const eyeRot = eyes.rotation;
-  const blinkAnim = eyes.blinks ? 'pipe-blink 4s ease-in-out infinite' : 'none';
+  // Tapped = cute squish reaction
+  const handleTap = () => {
+    if (tapped) return;
+    setTapped(true);
+    setTimeout(() => setTapped(false), 600);
+  };
+
+  // Computed eye values — override when tapped for cute expression
+  const activeEyes = tapped
+    ? { rxScale: 1.3, ryScale: 0.3, offsetY: -0.01, rotation: 0, blinks: false, gap: 1.15 }
+    : eyes;
+
+  const eyeRx = eyeBaseRx * activeEyes.rxScale;
+  const eyeRy = eyeBaseRy * activeEyes.ryScale;
+  const eyeSpread = baseEyeSpread * activeEyes.gap;
+  const eyeOffY = activeEyes.offsetY * s;
+  const eyeRot = activeEyes.rotation;
+  const blinkAnim = !tapped && eyes.blinks ? 'pipe-blink 4s ease-in-out infinite' : 'none';
 
   const eyeLeftX = cx - eyeSpread + lookOffset.x;
   const eyeRightX = cx + eyeSpread + lookOffset.x;
@@ -360,8 +371,9 @@ function PipeAvatar({
   return (
     <div
       ref={containerRef}
-      className="pipe-dot relative flex-shrink-0"
+      className="pipe-dot relative flex-shrink-0 cursor-pointer"
       style={{ width: s, height: s }}
+      onClick={handleTap}
     >
       {/* Pulse ring — thinking */}
       {mood === 'thinking' && (
@@ -383,7 +395,9 @@ function PipeAvatar({
         role="img"
         aria-label="Pipe"
         style={{
-          animation: MOOD_ANIM[mood],
+          animation: tapped ? 'none' : MOOD_ANIM[mood],
+          transform: tapped ? 'scaleX(1.15) scaleY(0.85) translateY(2px)' : undefined,
+          transition: tapped ? 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' : 'transform 0.3s ease-out',
           transformOrigin: `${cx}px ${s * 0.85}px`,
         }}
       >
@@ -484,7 +498,7 @@ export default function QuickStartPage() {
   const [currentInput, setCurrentInput] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const [selectedModules, setSelectedModules] = useState<Set<keyof ModuleSelection>>(
-    () => new Set(['has_website'] as (keyof ModuleSelection)[])
+    () => new Set()
   );
   const [selectedSections, setSelectedSections] = useState<Set<string>>(
     () => new Set(SECTION_OPTIONS.filter((o) => o.defaultOn).map((o) => o.value))
@@ -796,11 +810,14 @@ export default function QuickStartPage() {
           {header}
 
           <div className="flex-1 flex flex-col items-center justify-center px-4">
-            {/* Greeting — centered like Claude */}
-            <div className="text-center mb-8">
-              <div className="flex justify-center mb-4">
+            {/* Everything in one container with consistent width */}
+            <div className="w-full max-w-sm flex flex-col items-center">
+              {/* Avatar */}
+              <div className="mb-5">
                 <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={48} />
               </div>
+
+              {/* Greeting */}
               {isTyping ? (
                 <div className="flex gap-1.5 justify-center py-2">
                   {[0, 1, 2].map((i) => (
@@ -816,88 +833,102 @@ export default function QuickStartPage() {
                   ))}
                 </div>
               ) : (
-                <h1
-                  className="text-xl sm:text-2xl font-semibold animate-in fade-in duration-500"
-                  style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
-                >
-                  Hola{firstName ? ' ' : ''}
-                  {firstName && <>{firstName}</>}
-                  {firstName ? ', s' : '. S'}oy{' '}
-                  <span style={{ color: TEAL }}>{AGENT_NAME}</span>.{' '}
-                  {step.message}
-                </h1>
-              )}
-            </div>
+                <>
+                  <h1
+                    className="text-xl sm:text-2xl font-semibold text-center mb-14 animate-in fade-in duration-500"
+                    style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
+                  >
+                    Hola{firstName ? ' ' : ''}
+                    {firstName && <>{firstName}</>}
+                    {firstName ? ', s' : '. S'}oy{' '}
+                    <span style={{ color: TEAL }}>{AGENT_NAME}</span>.{' '}
+                    {step.message}
+                  </h1>
 
-            {/* Input area — below greeting, centered */}
-            {!isTyping && (
-              <div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
-                {step.type === 'modules' && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {NERBIS_MODULES.map((mod) => {
-                        const isSelected = selectedModules.has(mod.key);
-                        const ModIcon = mod.icon;
-                        return (
-                          <button
-                            key={mod.key}
-                            type="button"
-                            onClick={() => {
-                              if (mod.alwaysOn) return;
-                              const next = new Set(selectedModules);
-                              if (isSelected) next.delete(mod.key);
-                              else { next.add(mod.key); next.add('has_website'); }
-                              setSelectedModules(next);
-                            }}
-                            className="relative flex items-center gap-3 px-3.5 py-3 rounded-xl border text-left transition-all duration-150"
-                            style={{
-                              backgroundColor: isSelected ? `${mod.accentColor}06` : '#fff',
-                              borderColor: isSelected ? mod.accentColor : WARM_GRAY_200,
-                              cursor: mod.alwaysOn ? 'default' : 'pointer',
-                            }}
-                          >
-                            <div
-                              className="flex items-center justify-center rounded-lg flex-shrink-0"
-                              style={{ width: 36, height: 36, backgroundColor: `${mod.accentColor}10` }}
+                  {/* Module grid + continue — same width as title */}
+                  {step.type === 'modules' && (
+                    <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100 space-y-12">
+                      <div className="grid grid-cols-4 gap-3">
+                        {NERBIS_MODULES.map((mod) => {
+                          const isSelected = selectedModules.has(mod.key);
+                          const ModIcon = mod.icon;
+                          return (
+                            <button
+                              key={mod.key}
+                              type="button"
+                              onClick={() => {
+                                const next = new Set(selectedModules);
+                                if (isSelected) {
+                                  next.delete(mod.key);
+                                  if (mod.key !== 'has_website') {
+                                    const othersActive = NERBIS_MODULES.some(
+                                      (m) => m.key !== 'has_website' && m.key !== mod.key && next.has(m.key)
+                                    );
+                                    if (!othersActive) next.delete('has_website');
+                                  }
+                                  setActiveMood('listening');
+                                } else {
+                                  next.add(mod.key);
+                                  if (mod.key !== 'has_website') next.add('has_website');
+                                  setActiveMood('happy');
+                                  setTimeout(() => setActiveMood('listening'), 900);
+                                }
+                                setSelectedModules(next);
+                              }}
+                              className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                              style={{
+                                backgroundColor: isSelected ? `${mod.accentColor}08` : '#fff',
+                                borderColor: isSelected ? mod.accentColor : WARM_GRAY_200,
+                              }}
                             >
-                              <ModIcon className="w-4.5 h-4.5" style={{ color: mod.accentColor }} />
-                            </div>
-                            <div className="min-w-0">
-                              <span className="text-[0.82rem] font-semibold block" style={{ color: isSelected ? NAVY : WARM_GRAY_600 }}>
-                                {mod.label}
-                              </span>
-                              <span className="text-[0.68rem]" style={{ color: WARM_GRAY_400 }}>{mod.subtitle}</span>
-                            </div>
-                            {mod.alwaysOn && (
-                              <span className="text-[0.58rem] font-medium px-1.5 py-0.5 rounded-full ml-auto flex-shrink-0" style={{ backgroundColor: `${TEAL}12`, color: TEAL }}>
-                                Incluido
-                              </span>
-                            )}
-                            {!mod.alwaysOn && isSelected && (
-                              <div className="w-5 h-5 rounded-full flex items-center justify-center ml-auto flex-shrink-0" style={{ backgroundColor: mod.accentColor }}>
-                                <Check className="w-3 h-3 text-white" />
+                              <div
+                                className="relative flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-300"
+                                style={{ backgroundColor: `${mod.accentColor}${isSelected ? '18' : '10'}` }}
+                              >
+                                <ModIcon className="w-[18px] h-[18px]" style={{ color: mod.accentColor }} />
+                                {isSelected && (
+                                  <div
+                                    className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center"
+                                    style={{ backgroundColor: mod.accentColor }}
+                                  >
+                                    <Check className="w-2 h-2 text-white" />
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[0.72rem]" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                              <div>
+                                <span
+                                  className="text-[0.72rem] font-medium leading-tight text-center block"
+                                  style={{ color: isSelected ? NAVY : WARM_GRAY_600 }}
+                                >
+                                  {mod.label}
+                                </span>
+                                <span
+                                  className="text-[0.58rem] leading-snug block text-center mt-0.5"
+                                  style={{ color: WARM_GRAY_400 }}
+                                >
+                                  {mod.subtitle}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
                       <button
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
                         style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
                       </button>
+                      <p className="text-[0.68rem] text-center -mt-6" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       );
