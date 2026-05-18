@@ -179,7 +179,10 @@ apiClient.interceptors.response.use(
           {},
           {
             withCredentials: true,
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Tenant-Slug': getTenantSlug(),
+            },
           }
         );
 

@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User, RegisterData, RegisterTenantData, Tenant, SocialProvider } from '@/types';
 import * as authApi from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/client';
 import { useRouter } from 'next/navigation';
 
 // Helper para obtener tenant del localStorage
@@ -43,31 +44,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => authApi.getStoredUser());
   const [tenant, setTenant] = useState<Tenant | null>(() => getStoredTenant());
-  const [isLoading, setIsLoading] = useState(false);
+  // Siempre iniciar en true — con httpOnly cookies, el cliente no puede
+  // saber si hay sesión válida; getCurrentUser() lo valida con el servidor
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const refreshedRef = useRef(false);
 
-  // Auto-refresh: obtener datos frescos del servidor al cargar la app
+  // Auto-refresh: validar sesión con el servidor al cargar la app.
+  // Con httpOnly cookies, siempre debemos consultar al servidor.
   useEffect(() => {
     if (refreshedRef.current) return;
-    if (typeof window === 'undefined') return;
-
-    const hasUser = localStorage.getItem('user');
-    if (!hasUser) return;
-
     refreshedRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoading(true);
 
     authApi.getCurrentUser()
       .then((freshUser) => {
         setUser(freshUser);
-        // Actualizar tenant desde localStorage (se actualiza en getCurrentUser)
         setTenant(getStoredTenant());
       })
-      .catch(() => {
-        // Si falla (token expirado, etc), no hacer nada.
-        // El interceptor de 401 se encarga de limpiar la sesión.
+      .catch((error: unknown) => {
+        // Solo limpiar estado en errores de autorización (sesión inválida).
+        // Errores de red/servidor no deben cerrar la sesión del usuario.
+        const isAuthError = error instanceof ApiError
+          && (error.status === 401 || error.status === 403);
+        if (isAuthError) {
+          setUser(null);
+          setTenant(null);
+        }
       })
       .finally(() => {
         setIsLoading(false);
