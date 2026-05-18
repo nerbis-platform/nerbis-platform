@@ -127,7 +127,7 @@ function StyleMockup({ style, color }: { style: string; color: string }) {
 const PRESET_COLORS = [
   '#1C3B57', '#0F172A', '#1A1A2E', '#2D2D2D', '#4A1942',
   '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#EF4444',
-  '#F59E0B', '#10B981', '#14B8A6', '#95D0C9', '#06B6D4',
+  '#F59E0B', '#10B981', '#14B8A6', '#0D9488', '#06B6D4',
 ];
 
 const SPACING_OPTIONS = [
@@ -413,7 +413,7 @@ function FontDropdown({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar fuente..."
-                className="w-full px-2 py-1.5 text-[0.7rem] rounded-md border border-gray-200 focus:outline-none focus:border-[#95D0C9]"
+                className="w-full px-2 py-1.5 text-[0.7rem] rounded-md border border-gray-200 focus:outline-none focus:border-[#0D9488]"
                 autoFocus
               />
             </div>
@@ -518,7 +518,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
         {/* Color Harmony — suggest secondary from primary */}
         <div className="mt-3 pt-3 border-t border-gray-100">
           <div className="flex items-center gap-1.5 mb-2">
-            <Wand2 className="h-3 w-3 text-[#95D0C9]" />
+            <Wand2 className="h-3 w-3 text-[#0D9488]" />
             <label className="text-[0.65rem] font-medium text-gray-400 uppercase tracking-wider">
               Colores que combinan
             </label>
@@ -742,7 +742,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                   onClick={() => onChange({ ...themeData, font_heading: pair.heading, font_body: pair.body })}
                   className={`p-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                     isActive
-                      ? themeData.color_mode === 'dark' ? 'border-[#95D0C9] bg-[#1e293b]' : 'border-[#1C3B57] bg-[#E2F3F1]/30'
+                      ? themeData.color_mode === 'dark' ? 'border-[#0D9488] bg-[#1e293b]' : 'border-[#1C3B57] bg-[#E2F3F1]/30'
                       : themeData.color_mode === 'dark' ? 'border-gray-700 bg-gray-800/50 hover:border-gray-600' : 'border-gray-100 hover:border-gray-200'
                   }`}
                 >
@@ -758,7 +758,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                   </p>
                   <p className={`text-[0.65rem] font-medium ${
                     isActive
-                      ? themeData.color_mode === 'dark' ? 'text-[#95D0C9]' : 'text-[#1C3B57]'
+                      ? themeData.color_mode === 'dark' ? 'text-[#0D9488]' : 'text-[#1C3B57]'
                       : themeData.color_mode === 'dark' ? 'text-gray-300' : 'text-gray-600'
                   }`}>
                     {pair.label}

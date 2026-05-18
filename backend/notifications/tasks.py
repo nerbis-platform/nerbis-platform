@@ -248,13 +248,63 @@ def send_welcome_email(user_id):
 
 
 @shared_task
+def send_admin_password_reset_email(user_id: int, token: str) -> None:
+    """
+    Enviar email de restablecimiento de contraseña disparado por un superadmin.
+
+    A diferencia de ``send_otp_email``, este flujo entrega un enlace (no un OTP)
+    que el usuario sigue para fijar una nueva contraseña. El enlace apunta al
+    subdominio del tenant cuando el usuario pertenece a uno, o al dominio
+    principal de la plataforma en caso contrario.
+
+    Args:
+        user_id: ID del usuario destinatario.
+        token: Token ``PasswordSetToken.token`` (secreto) a incluir en el enlace.
+    """
+    from django.conf import settings
+
+    from core.models import User
+
+    try:
+        user = User.objects.select_related("tenant").get(id=user_id)
+
+        base_domain = getattr(settings, "PLATFORM_BASE_DOMAIN", "nerbis.com")
+        if user.tenant and user.tenant.slug:
+            reset_url = f"https://{user.tenant.slug}.{base_domain}/set-password?token={token}"
+        else:
+            # Fallback: caer al FRONTEND_URL (por ejemplo para accounts sin tenant).
+            frontend_url = getattr(settings, "FRONTEND_URL", f"https://{base_domain}").rstrip("/")
+            reset_url = f"{frontend_url}/set-password?token={token}"
+
+        send_email(
+            user=user,
+            subject="Restablecimiento de contraseña solicitado por un administrador",
+            template_name="admin_password_reset",
+            context={
+                "reset_url": reset_url,
+                "metadata": {"user_id": user.id, "purpose": "admin_password_reset"},
+            },
+        )
+
+        logger.info(
+            "Admin password reset email enviado para user_id=%s tenant_id=%s",
+            user.id,
+            getattr(user, "tenant_id", None),
+        )
+
+    except Exception as e:
+        logger.error("Error enviando admin password reset email para user_id=%s: %s", user_id, str(e))
+        raise
+
+
+@shared_task
 def send_otp_email(user_id, otp_code, purpose):
     """
     Enviar email con código OTP.
 
     Args:
         user_id: ID del usuario
-        otp_code: Código OTP de 6 dígitos
+        otp_code: Código OTP de 8 dígitos
         purpose: 'password_reset' o 'account_reactivation'
     """
     from core.models import User
@@ -284,4 +334,56 @@ def send_otp_email(user_id, otp_code, purpose):
 
     except Exception as e:
         logger.error(f"Error enviando OTP email a usuario {user_id}: {str(e)}")
+        raise
+
+
+@shared_task
+def send_team_invitation_email(invitation_id):
+    """
+    Enviar email de invitación de equipo.
+    """
+    from django.conf import settings
+
+    from core.models import TeamInvitation
+
+    try:
+        invitation = TeamInvitation.objects.select_related("tenant", "invited_by").get(id=invitation_id)
+
+        if not invitation.is_valid:
+            logger.info("Invitación %s ya no es válida, omitiendo envío de email", invitation_id)
+            return
+
+        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
+        invite_url = f"{frontend_url}/accept-invitation/{invitation.token}"
+
+        invited_by_name = ""
+        if invitation.invited_by:
+            invited_by_name = invitation.invited_by.get_full_name() or invitation.invited_by.email
+
+        # send_email requiere un user, pero el invitado aún no tiene cuenta.
+        # Usamos al invitador como user para que el Notification record quede ligado al tenant.
+        # Si invited_by fue eliminado (SET_NULL), usamos None y send_email debe manejarlo.
+        sender_user = invitation.invited_by
+        if sender_user is None:
+            logger.warning("Invitación %s no tiene invited_by (usuario eliminado)", invitation_id)
+            return
+
+        send_email(
+            user=sender_user,
+            subject=f"Te han invitado a unirte a {invitation.tenant.name}",
+            template_name="team_invitation",
+            recipient_email=invitation.email,
+            context={
+                "invite_url": invite_url,
+                "invited_by_name": invited_by_name,
+                "role_display": invitation.get_role_display(),
+                "tenant_name": invitation.tenant.name,
+                "metadata": {"invitation_id": invitation.id},
+            },
+        )
+
+        logger.info("Email de invitación enviado para invitation_id=%s", invitation_id)
+
+    except Exception as e:
+        logger.error("Error enviando email de invitación %s: %s", invitation_id, str(e))
         raise

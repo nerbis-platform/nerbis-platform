@@ -3,7 +3,9 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
 from django.db import models
+from django.db.models import Q
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
@@ -12,7 +14,15 @@ from unfold.forms import AdminPasswordChangeForm, UserChangeForm
 from unfold.forms import UserCreationForm as UnfoldUserCreationForm
 from unfold.widgets import UnfoldAdminTextareaWidget
 
-from .models import Banner, Tenant, TenantConfig, TenantWebsite, User
+from .models import (
+    Banner,
+    SocialAccount,
+    Tenant,
+    TenantConfig,
+    TenantWebsite,
+    User,
+    WebAuthnCredential,
+)
 
 
 class CustomUserCreationForm(UnfoldUserCreationForm):
@@ -92,342 +102,66 @@ class TenantAdminForm(forms.ModelForm):
         self.fields["city"].widget = UnfoldAdminSelectWidget(attrs={"id": "id_city"}, choices=city_choices)
 
 
-def is_tenant_admin(user):
-    """
-    Verificar si el usuario tiene acceso de admin al panel.
-    Returns True si es superuser, is_staff, o tiene role='admin'.
-    """
-    if not user.is_authenticated or not user.is_active:
-        return False
-    if user.is_superuser:
-        return True
-    if user.is_staff:
-        return True
-    if hasattr(user, "role") and user.role == "admin":
-        return True
-    return False
-
-
-def tenant_has_module(user, module_name):
-    """
-    Verificar si el tenant del usuario tiene un módulo habilitado.
-
-    Args:
-        user: Usuario autenticado
-        module_name: 'shop', 'bookings', 'services', o 'marketing'
-
-    Returns:
-        True si:
-        - El usuario es superusuario (ve todo)
-        - El tenant del usuario tiene el módulo habilitado
-    """
-    if not user.is_authenticated:
-        return False
-
-    # Superusuarios ven todo
-    if user.is_superuser:
-        return True
-
-    # Verificar feature flag del tenant
-    tenant = getattr(user, "tenant", None)
-    if not tenant:
-        return False
-
-    flag_map = {
-        "shop": "has_shop",
-        "bookings": "has_bookings",
-        "services": "has_services",
-        "marketing": "has_marketing",
-    }
-
-    flag_name = flag_map.get(module_name)
-    if not flag_name:
-        return True  # Módulo desconocido, permitir por defecto
-
-    return getattr(tenant, flag_name, False)
+def is_superadmin(user):
+    """Solo superusuarios tienen acceso al Django admin."""
+    return user.is_authenticated and user.is_active and user.is_superuser
 
 
 class TenantFilteredAdmin(UnfoldModelAdmin):
     """
-    Clase base para admins que filtran por tenant.
+    Clase base para admins con visibilidad global — solo superadmins.
 
-    - Superusuarios (is_superuser=True): Ven todo
-    - Admins de tenant (is_staff=True o role=admin): Solo ven su tenant
-
-    Esta clase sobrescribe todos los métodos de permisos para permitir
-    acceso a usuarios con role='admin' aunque no tengan permisos Django asignados.
-
-    Extiende UnfoldModelAdmin para obtener la UI moderna de Unfold.
+    Los superusuarios ven todos los datos de todos los tenants.
+    Los tenant admins ya no acceden al Django admin (usan /dashboard/ en frontend).
     """
 
-    # Placeholder de búsqueda en español para todos los admins
     search_help_text = "Buscar..."
 
     def has_module_permission(self, request):
-        """Permitir ver el módulo en el index del admin"""
-        return is_tenant_admin(request.user)
+        return is_superadmin(request.user)
 
     def has_view_permission(self, request, obj=None):
-        """Permitir ver objetos"""
-        if not is_tenant_admin(request.user):
-            return False
-        if request.user.is_superuser:
-            return True
-        # Admins de tenant solo pueden ver objetos de su tenant
-        if obj and hasattr(obj, "tenant"):
-            return obj.tenant == getattr(request.user, "tenant", None)
-        return True
+        return is_superadmin(request.user)
 
     def has_add_permission(self, request):
-        """Permitir agregar objetos"""
-        return is_tenant_admin(request.user)
+        return is_superadmin(request.user)
 
     def has_change_permission(self, request, obj=None):
-        """Verificar permiso de edición"""
-        if not is_tenant_admin(request.user):
-            return False
-        if request.user.is_superuser:
-            return True
-        if obj and hasattr(obj, "tenant"):
-            return obj.tenant == getattr(request.user, "tenant", None)
-        return True
+        return is_superadmin(request.user)
 
     def has_delete_permission(self, request, obj=None):
-        """Verificar permiso de eliminación"""
-        if not is_tenant_admin(request.user):
-            return False
-        if request.user.is_superuser:
-            return True
-        if obj and hasattr(obj, "tenant"):
-            return obj.tenant == getattr(request.user, "tenant", None)
-        return True
-
-    def get_queryset(self, request):
-        """Filtrar queryset por tenant del usuario"""
-        qs = super().get_queryset(request)
-
-        # Superusuarios ven todo
-        if request.user.is_superuser:
-            return qs
-
-        # Admins de tenant solo ven su tenant
-        if hasattr(request.user, "tenant") and request.user.tenant:
-            return qs.filter(tenant=request.user.tenant)
-
-        return qs.none()
+        return is_superadmin(request.user)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        """Limitar opciones de FK de tenant y ocultar botón de view"""
-        if db_field.name == "tenant":
-            if not request.user.is_superuser:
-                # Solo mostrar el tenant del usuario
-                if hasattr(request.user, "tenant") and request.user.tenant:
-                    kwargs["queryset"] = Tenant.objects.filter(id=request.user.tenant.id)
-
+        """Ocultar botón de view en ForeignKey para mejor UX."""
         formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
-
-        # Ocultar el botón de "view related" (ojo) en todos los ForeignKey
-        # Solo dejar el lápiz (change) y el + (add) para mejor UX
         if formfield and hasattr(formfield, "widget"):
             formfield.widget.can_view_related = False
-
         return formfield
-
-    def save_model(self, request, obj, form, change):
-        """Asignar tenant automáticamente si no es superuser"""
-        if not request.user.is_superuser:
-            # Siempre forzar el tenant del usuario (crear y editar)
-            # Esto previene que un usuario malicioso intente cambiar el tenant
-            if hasattr(request.user, "tenant") and request.user.tenant:
-                obj.tenant = request.user.tenant
-        super().save_model(request, obj, form, change)
-
-    def get_exclude(self, request, obj=None):
-        """Ocultar campo tenant para usuarios no-superusuarios"""
-        exclude = list(super().get_exclude(request, obj) or [])
-        if not request.user.is_superuser:
-            # Ocultar el campo tenant - se asigna automáticamente
-            if "tenant" not in exclude:
-                exclude.append("tenant")
-        return exclude
-
-    def get_list_display(self, request):
-        """Ocultar columna tenant en la lista para usuarios no-superusuarios"""
-        list_display = list(super().get_list_display(request))
-        if not request.user.is_superuser:
-            # Remover tenant de la lista si está presente
-            if "tenant" in list_display:
-                list_display.remove("tenant")
-        return list_display
-
-    def get_list_filter(self, request):
-        """Ocultar filtro de tenant para usuarios no-superusuarios"""
-        list_filter = list(super().get_list_filter(request))
-        if not request.user.is_superuser:
-            # Remover tenant del filtro si está presente
-            if "tenant" in list_filter:
-                list_filter.remove("tenant")
-        return list_filter
-
-    def get_fieldsets(self, request, obj=None):
-        """Ocultar campo tenant de fieldsets para usuarios no-superusuarios"""
-        fieldsets = super().get_fieldsets(request, obj)
-        if not request.user.is_superuser and fieldsets:
-            # Crear una copia modificada de fieldsets sin el campo tenant
-            new_fieldsets = []
-            for name, options in fieldsets:
-                fields = list(options.get("fields", []))
-                if "tenant" in fields:
-                    fields.remove("tenant")
-                # Solo agregar el fieldset si aún tiene campos
-                if fields:
-                    new_options = options.copy()
-                    new_options["fields"] = tuple(fields)
-                    new_fieldsets.append((name, new_options))
-            return new_fieldsets
-        return fieldsets
-
-
-# ===================================
-# CLASES BASE PARA MÓDULOS CON FEATURE FLAGS
-# ===================================
 
 
 class ShopModuleAdmin(TenantFilteredAdmin):
-    """
-    Admin base para modelos del módulo SHOP.
-    Solo visible si el tenant tiene has_shop=True.
+    """Admin base para modelos del módulo SHOP."""
 
-    Usar para: Product, ProductCategory, Order, Cart, etc.
-    """
-
-    def has_module_permission(self, request):
-        if not super().has_module_permission(request):
-            return False
-        return tenant_has_module(request.user, "shop")
-
-    def has_view_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "shop"):
-            return False
-        return super().has_view_permission(request, obj)
-
-    def has_add_permission(self, request):
-        if not tenant_has_module(request.user, "shop"):
-            return False
-        return super().has_add_permission(request)
-
-    def has_change_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "shop"):
-            return False
-        return super().has_change_permission(request, obj)
-
-    def has_delete_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "shop"):
-            return False
-        return super().has_delete_permission(request, obj)
+    pass
 
 
 class BookingsModuleAdmin(TenantFilteredAdmin):
-    """
-    Admin base para modelos del módulo BOOKINGS.
-    Solo visible si el tenant tiene has_bookings=True.
+    """Admin base para modelos del módulo BOOKINGS."""
 
-    Usar para: Service, ServiceCategory, Appointment, StaffMember, etc.
-    """
-
-    def has_module_permission(self, request):
-        if not super().has_module_permission(request):
-            return False
-        return tenant_has_module(request.user, "bookings")
-
-    def has_view_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "bookings"):
-            return False
-        return super().has_view_permission(request, obj)
-
-    def has_add_permission(self, request):
-        if not tenant_has_module(request.user, "bookings"):
-            return False
-        return super().has_add_permission(request)
-
-    def has_change_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "bookings"):
-            return False
-        return super().has_change_permission(request, obj)
-
-    def has_delete_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "bookings"):
-            return False
-        return super().has_delete_permission(request, obj)
+    pass
 
 
 class MarketingModuleAdmin(TenantFilteredAdmin):
-    """
-    Admin base para modelos del módulo MARKETING.
-    Solo visible si el tenant tiene has_marketing=True.
+    """Admin base para modelos del módulo MARKETING."""
 
-    Usar para: Coupon, Promotion, Review, etc.
-    """
-
-    def has_module_permission(self, request):
-        if not super().has_module_permission(request):
-            return False
-        return tenant_has_module(request.user, "marketing")
-
-    def has_view_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "marketing"):
-            return False
-        return super().has_view_permission(request, obj)
-
-    def has_add_permission(self, request):
-        if not tenant_has_module(request.user, "marketing"):
-            return False
-        return super().has_add_permission(request)
-
-    def has_change_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "marketing"):
-            return False
-        return super().has_change_permission(request, obj)
-
-    def has_delete_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "marketing"):
-            return False
-        return super().has_delete_permission(request, obj)
+    pass
 
 
 class ServicesModuleAdmin(TenantFilteredAdmin):
-    """
-    Admin base para modelos del módulo SERVICES.
-    Solo visible si el tenant tiene has_services=True.
+    """Admin base para modelos del módulo SERVICES."""
 
-    Usar para: ServicePlan, ServiceContract, Insurance, Membership, etc.
-    Servicios que se venden directamente sin necesidad de agendar cita.
-    """
-
-    def has_module_permission(self, request):
-        if not super().has_module_permission(request):
-            return False
-        return tenant_has_module(request.user, "services")
-
-    def has_view_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "services"):
-            return False
-        return super().has_view_permission(request, obj)
-
-    def has_add_permission(self, request):
-        if not tenant_has_module(request.user, "services"):
-            return False
-        return super().has_add_permission(request)
-
-    def has_change_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "services"):
-            return False
-        return super().has_change_permission(request, obj)
-
-    def has_delete_permission(self, request, obj=None):
-        if not tenant_has_module(request.user, "services"):
-            return False
-        return super().has_delete_permission(request, obj)
+    pass
 
 
 # Registrar en el admin site personalizado de NERBIS
@@ -770,43 +504,26 @@ class TenantAdmin(UnfoldModelAdmin):
 @admin.register(TenantConfig, site=nerbis_admin_site)
 class TenantConfigAdmin(UnfoldModelAdmin):
     """
-    Panel "Mi Negocio" para que el admin del tenant edite
-    su propia configuración (métricas, contacto, logo).
-    Solo ve su propio tenant, sin poder crear ni eliminar.
+    Configuración de tenants — solo superadmins.
+    Permite ver y editar la configuración de cualquier tenant.
     """
 
     form = TenantAdminForm
 
     def has_module_permission(self, request):
-        if request.user.is_superuser:
-            return False  # Superusuarios usan TenantAdmin
-        return is_tenant_admin(request.user)
+        return is_superadmin(request.user)
 
     def has_view_permission(self, request, obj=None):
-        if not is_tenant_admin(request.user):
-            return False
-        if obj and hasattr(request.user, "tenant"):
-            return obj.pk == request.user.tenant_id
-        return True
+        return is_superadmin(request.user)
 
     def has_change_permission(self, request, obj=None):
-        if not is_tenant_admin(request.user) or request.user.role != "admin":
-            return False
-        if obj and hasattr(request.user, "tenant"):
-            return obj.pk == request.user.tenant_id
-        return True
+        return is_superadmin(request.user)
 
     def has_add_permission(self, request):
-        return False  # No se pueden crear tenants desde aquí
+        return False
 
     def has_delete_permission(self, request, obj=None):
-        return False  # No se pueden eliminar tenants desde aquí
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if hasattr(request.user, "tenant") and request.user.tenant:
-            return qs.filter(pk=request.user.tenant_id)
-        return qs.none()
+        return False
 
     list_display = [
         "name",
@@ -894,35 +611,19 @@ class TenantWebsiteAdmin(UnfoldModelAdmin):
     form = TenantWebsiteForm
 
     def has_module_permission(self, request):
-        if request.user.is_superuser:
-            return False  # Superusuarios no necesitan esto
-        return is_tenant_admin(request.user)
+        return is_superadmin(request.user)
 
     def has_view_permission(self, request, obj=None):
-        if not is_tenant_admin(request.user):
-            return False
-        if obj and hasattr(request.user, "tenant"):
-            return obj.pk == request.user.tenant_id
-        return True
+        return is_superadmin(request.user)
 
     def has_change_permission(self, request, obj=None):
-        if not is_tenant_admin(request.user) or request.user.role != "admin":
-            return False
-        if obj and hasattr(request.user, "tenant"):
-            return obj.pk == request.user.tenant_id
-        return True
+        return is_superadmin(request.user)
 
     def has_add_permission(self, request):
         return False
 
     def has_delete_permission(self, request, obj=None):
         return False
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if hasattr(request.user, "tenant") and request.user.tenant:
-            return qs.filter(pk=request.user.tenant_id)
-        return qs.none()
 
     list_display = ["name", "primary_color", "secondary_color"]
 
@@ -963,6 +664,66 @@ class TenantWebsiteAdmin(UnfoldModelAdmin):
     )
 
 
+class AuthMethodFilter(admin.SimpleListFilter):
+    """Filtrar usuarios por método de autenticación."""
+
+    title = "Método de acceso"
+    parameter_name = "auth_method"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("email_only", "Solo email"),
+            ("social_only", "Solo social"),
+            ("both", "Email + Social"),
+        ]
+
+    def queryset(self, request, queryset):
+        has_social = queryset.filter(social_accounts__isnull=False).distinct()
+        no_social = queryset.exclude(pk__in=has_social)
+
+        if self.value() == "email_only":
+            return no_social.exclude(password__startswith=UNUSABLE_PASSWORD_PREFIX).exclude(password="")
+        if self.value() == "social_only":
+            # Usuarios sin password usable
+            return has_social.filter(Q(password__startswith=UNUSABLE_PASSWORD_PREFIX) | Q(password=""))
+        if self.value() == "both":
+            # Usuarios con password usable Y social
+            return has_social.exclude(password__startswith=UNUSABLE_PASSWORD_PREFIX).exclude(password="")
+        return queryset
+
+
+class SocialAccountInline(admin.TabularInline):
+    """Cuentas sociales vinculadas al usuario."""
+
+    model = SocialAccount
+    extra = 0
+    fields = ["provider", "email", "provider_uid", "created_at"]
+    readonly_fields = ["provider", "email", "provider_uid", "created_at"]
+    can_delete = True
+    show_change_link = False
+
+    verbose_name = "Cuenta social"
+    verbose_name_plural = "Cuentas sociales vinculadas"
+
+
+class WebAuthnCredentialInline(admin.TabularInline):
+    """Passkeys (WebAuthn) registrados por el usuario."""
+
+    model = WebAuthnCredential
+    extra = 0
+    fields = ["name", "transports", "sign_count", "created_at", "last_used_at"]
+    readonly_fields = ["name", "transports", "sign_count", "created_at", "last_used_at"]
+    can_delete = True
+    show_change_link = True
+
+    verbose_name = "Passkey"
+    verbose_name_plural = "Passkeys (WebAuthn)"
+
+    def has_add_permission(self, request, obj=None):
+        # Los passkeys solo pueden crearse vía flujo WebAuthn del usuario.
+        return False
+
+
 @admin.register(User, site=nerbis_admin_site)
 class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
     """
@@ -979,19 +740,14 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
     add_form = CustomUserCreationForm
     change_password_form = AdminPasswordChangeForm
 
+    inlines = [SocialAccountInline, WebAuthnCredentialInline]
+
     def has_module_permission(self, request):
         """Permitir ver el módulo Users"""
-        return is_tenant_admin(request.user)
+        return is_superadmin(request.user)
 
     def has_view_permission(self, request, obj=None):
-        """Permitir ver usuarios"""
-        if not is_tenant_admin(request.user):
-            return False
-        if request.user.is_superuser:
-            return True
-        if obj and hasattr(obj, "tenant"):
-            return obj.tenant == getattr(request.user, "tenant", None)
-        return True
+        return is_superadmin(request.user)
 
     list_display = [
         "username",
@@ -999,45 +755,15 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
         "full_name_display",
         "tenant",
         "role_badge",
+        "auth_method_display",
         "is_active",
         "created_at",
     ]
 
-    list_filter = [
-        "role",
-        "is_active",
-    ]
-
-    def get_list_filter(self, request):
-        """Mostrar más filtros solo a superusuarios"""
-        if request.user.is_superuser:
-            return ["role", "is_active", "is_staff", "tenant", "created_at"]
-        return ["role", "is_active"]
-
-    def get_list_display_links(self, request, list_display):
-        """
-        Staff no puede hacer clic para editar usuarios (excepto desde su perfil).
-        Solo ve la lista sin enlaces.
-        """
-        if request.user.role == "staff":
-            return None  # Sin enlaces en la lista
-        return super().get_list_display_links(request, list_display)
-
-    def has_delete_permission_for_changelist(self, request):
-        """Helper para verificar permiso de delete en la lista"""
-        if request.user.role == "staff":
-            return False
-        return True
+    list_filter = ["role", "is_active", "is_staff", "tenant", AuthMethodFilter, "created_at"]
 
     def get_actions(self, request):
-        """
-        Staff no tiene acciones disponibles.
-        """
-        actions = super().get_actions(request)
-        if request.user.role == "staff":
-            # Remover todas las acciones para staff
-            return {}
-        return actions
+        return super().get_actions(request)
 
     search_fields = [
         "username",
@@ -1117,152 +843,42 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
 
     readonly_fields = ["created_at", "updated_at", "last_login", "date_joined", "assigned_services_display"]
 
-    def get_add_fieldsets(self, request):
-        """Personalizar formulario de creación según tipo de usuario"""
-        if request.user.is_superuser:
-            return self.add_fieldsets
-        # Para admins de tenant: sin campo tenant (se asigna automáticamente)
-        return (
-            (
-                "Credenciales",
-                {
-                    "classes": ("wide",),
-                    "fields": ("email", "password1", "password2"),
-                },
-            ),
-            (
-                "Información Personal",
-                {
-                    "fields": ("first_name", "last_name", "phone"),
-                },
-            ),
-            (
-                "Rol",
-                {
-                    "fields": ("role",),
-                },
-            ),
-        )
-
     def get_fieldsets(self, request, obj=None):
-        """Personalizar fieldsets según contexto"""
-        # Para CREACIÓN de usuarios
+        """Superadmins ven todos los campos."""
         if not obj:
-            return self.get_add_fieldsets(request)
-
-        # Para EDICIÓN de usuarios
-        if not request.user.is_superuser:
-            # Staff editando su propio perfil
-            if request.user.role == "staff" and obj and obj.pk == request.user.pk:
-                fieldsets = [
-                    (
-                        "Información Personal",
-                        {"fields": ("email", "first_name", "last_name", "phone", "avatar")},
-                    ),
-                ]
-                # Agregar sección de servicios si tiene perfil de staff
-                if hasattr(obj, "staff_profile"):
-                    fieldsets.append(
-                        (
-                            "Mis Servicios Asignados",
-                            {
-                                "fields": ("assigned_services_display",),
-                                "description": "Servicios que puedes realizar según tu perfil de empleado.",
-                            },
-                        )
-                    )
-                return fieldsets
-
-            # Versión simplificada para admins de tenant
-            return (
-                (
-                    "Información Personal",
-                    {"fields": ("email", "first_name", "last_name", "phone", "avatar")},
-                ),
-                (
-                    "Permisos",
-                    {
-                        "fields": ("role", "is_active"),
-                    },
-                ),
-            )
-        # Superusuarios ven todos los campos
+            return self.add_fieldsets
         return super().get_fieldsets(request, obj)
 
-    def get_queryset(self, request):
-        """Filtrar usuarios por tenant"""
-        qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-        if hasattr(request.user, "tenant") and request.user.tenant:
-            return qs.filter(tenant=request.user.tenant)
-        return qs.none()
-
     def get_readonly_fields(self, request, obj=None):
-        """Campos de solo lectura según permisos"""
+        """Campos de solo lectura."""
         readonly = list(super().get_readonly_fields(request, obj))
 
-        if not request.user.is_superuser:
-            # Admins de tenant no pueden cambiar el tenant
-            readonly.append("tenant")
-            # No pueden crear superusuarios
-            if obj and obj.is_superuser:
-                readonly.extend(["is_staff", "is_superuser"])
-
-        # Nadie puede cambiar su propio rol ni desactivarse
+        # No permitir que un superadmin se desactive o modifique sus propios permisos
         if obj and obj.pk == request.user.pk:
-            if "role" not in readonly:
-                readonly.append("role")
-            if "is_active" not in readonly:
-                readonly.append("is_active")
-
-        # Staff NO puede cambiar roles de ningún usuario (solo admin puede)
-        # Solo admins (role='admin') y superusuarios pueden cambiar roles
-        if not request.user.is_superuser and request.user.role != "admin":
-            if "role" not in readonly:
-                readonly.append("role")
+            for field in ("role", "is_active", "is_superuser", "is_staff"):
+                if field not in readonly:
+                    readonly.append(field)
 
         return readonly
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        """Limitar opciones de tenant y ocultar botón de view"""
-        if db_field.name == "tenant" and not request.user.is_superuser:
-            if hasattr(request.user, "tenant") and request.user.tenant:
-                kwargs["queryset"] = Tenant.objects.filter(id=request.user.tenant.id)
-
+        """Ocultar botón de view en ForeignKey para mejor UX."""
         formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
-
-        # Ocultar el botón de "view related" (ojo) en todos los ForeignKey
-        # Solo dejar el lápiz (change) y el + (add) para mejor UX
         if formfield and hasattr(formfield, "widget"):
             formfield.widget.can_view_related = False
-
         return formfield
 
     def save_model(self, request, obj, form, change):
-        """Asignar tenant y limitar permisos"""
-        if not request.user.is_superuser:
-            # Siempre asignar el tenant del admin
-            if hasattr(request.user, "tenant") and request.user.tenant:
-                obj.tenant = request.user.tenant
-            # No permitir crear superusuarios
-            obj.is_superuser = False
-            # Solo permitir roles admin, staff, customer
-            if obj.role not in ["admin", "staff", "customer"]:
-                obj.role = "customer"
-
-        # Si es edición, obtener el usuario original para comparar
+        """Guardar usuario con protecciones de seguridad."""
         if change:
             original_user = User.objects.get(pk=obj.pk)
 
-            # Nadie puede cambiar su propio rol
-            if obj.pk == request.user.pk and original_user.role != obj.role:
+            # Prevenir que un superadmin se quite sus propios privilegios
+            if obj.pk == request.user.pk:
+                obj.is_superuser = original_user.is_superuser
+                obj.is_staff = original_user.is_staff
+                obj.is_active = original_user.is_active
                 obj.role = original_user.role
-
-            # Staff NO puede cambiar roles (solo admin y superuser pueden)
-            if not request.user.is_superuser and request.user.role != "admin":
-                if original_user.role != obj.role:
-                    obj.role = original_user.role  # Revertir cambio de rol
 
             # Prevenir que se quite el último admin del tenant
             if obj.tenant and original_user.role == "admin" and obj.role != "admin":
@@ -1270,67 +886,21 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
                     User.objects.filter(tenant=obj.tenant, role="admin", is_active=True).exclude(pk=obj.pk).count()
                 )
                 if admin_count == 0:
-                    obj.role = "admin"  # No permitir quitar el último admin
+                    obj.role = "admin"
 
         super().save_model(request, obj, form, change)
 
     def has_change_permission(self, request, obj=None):
-        """Verificar permisos de edición"""
-        if not is_tenant_admin(request.user):
-            return False
-        if request.user.is_superuser:
-            return True
-
-        # Staff solo puede editar su propio perfil
-        if request.user.role == "staff":
-            if obj and obj.pk == request.user.pk:
-                return True  # Puede editar su propio perfil
-            return False  # No puede editar a otros
-
-        if obj:
-            # No permitir editar superusuarios
-            if obj.is_superuser:
-                return False
-            # Solo editar usuarios del mismo tenant
-            return obj.tenant == request.user.tenant
-        # Sin obj específico, permitir si es admin del tenant
-        return request.user.role == "admin"
+        return is_superadmin(request.user)
 
     def has_delete_permission(self, request, obj=None):
-        """Verificar permisos de eliminación"""
-        if request.user.is_superuser:
-            return True
-
-        # Staff NO puede eliminar usuarios
-        if request.user.role == "staff":
+        # No permitir que un superadmin se elimine a sí mismo
+        if obj and obj.pk == request.user.pk:
             return False
-
-        # Solo admins pueden eliminar
-        if request.user.role != "admin":
-            return False
-
-        if obj:
-            # No permitir eliminar superusuarios
-            if obj.is_superuser:
-                return False
-            # No permitir eliminar admins (proteger a otros admins)
-            if obj.role == "admin":
-                return False
-            # No permitir eliminarse a sí mismo
-            if obj == request.user:
-                return False
-            # Solo eliminar usuarios del mismo tenant
-            return obj.tenant == request.user.tenant
-        return False
+        return is_superadmin(request.user)
 
     def has_add_permission(self, request):
-        """Solo admins y superusuarios pueden crear usuarios"""
-        if request.user.is_superuser:
-            return True
-        # Staff NO puede crear usuarios
-        if request.user.role == "staff":
-            return False
-        return request.user.role == "admin"
+        return is_superadmin(request.user)
 
     def role_badge(self, obj):
         """Badge visual para el rol"""
@@ -1347,6 +917,31 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
         )
 
     role_badge.short_description = "Rol"
+
+    @admin.display(description="Acceso")
+    def auth_method_display(self, obj):
+        """Indicador visual del método de autenticación."""
+        has_password = obj.has_usable_password()
+        social_accounts = obj.social_accounts.all()
+        providers = [sa.get_provider_display() for sa in social_accounts]
+
+        parts = []
+        if has_password:
+            parts.append(
+                '<span style="background-color: #6366f1; color: white; padding: 2px 8px; '
+                'border-radius: 3px; font-size: 11px;">Email</span>'
+            )
+        for provider in providers:
+            colors = {"Google": "#4285F4", "Apple": "#000000", "Facebook": "#1877F2"}
+            color = colors.get(provider, "#6b7280")
+            parts.append(
+                f'<span style="background-color: {color}; color: white; padding: 2px 8px; '
+                f'border-radius: 3px; font-size: 11px;">{provider}</span>'
+            )
+
+        if not parts:
+            return format_html('<span style="color: #9ca3af;">—</span>')
+        return format_html(" ".join(parts))
 
     def assigned_services_display(self, obj):
         """Mostrar servicios asignados al staff (solo lectura)"""
@@ -1393,6 +988,153 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
         return format_html("".join(html_parts))
 
     assigned_services_display.short_description = "Servicios que puedo realizar"
+
+
+@admin.register(SocialAccount, site=nerbis_admin_site)
+class SocialAccountAdmin(UnfoldModelAdmin):
+    """
+    Panel de administración para Cuentas Sociales.
+    Permite ver y gestionar las vinculaciones sociales de los usuarios.
+    """
+
+    list_display = [
+        "avatar_thumbnail",
+        "user",
+        "provider_badge",
+        "provider_name_display",
+        "email",
+        "tenant",
+        "created_at",
+    ]
+    list_filter = ["provider", "tenant"]
+    search_fields = ["user__email", "user__first_name", "user__last_name", "email"]
+    search_help_text = "Buscar por email del usuario o email del proveedor"
+    readonly_fields = [
+        "provider_uid",
+        "provider_name_display",
+        "provider_avatar_display",
+        "extra_data",
+        "created_at",
+        "updated_at",
+    ]
+    ordering = ["-created_at"]
+    actions = ["disconnect_social_accounts"]
+
+    fieldsets = (
+        (
+            "Vinculación",
+            {"fields": ("user", "tenant", "provider", "email", "provider_uid")},
+        ),
+        (
+            "Datos del proveedor",
+            {
+                "fields": ("provider_name_display", "provider_avatar_display"),
+                "description": "Nombre y avatar obtenidos del proveedor OAuth al momento de la vinculación.",
+            },
+        ),
+        (
+            "Datos adicionales (JSON)",
+            {
+                "fields": ("extra_data", "created_at", "updated_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    @admin.display(description="Avatar")
+    def avatar_thumbnail(self, obj):
+        """Miniatura del avatar del proveedor en la lista."""
+        picture = obj.extra_data.get("picture", "")
+        if picture and picture.startswith(("https://", "http://")):
+            return format_html(
+                '<img src="{}" style="width:28px; height:28px; border-radius:50%; object-fit:cover;" alt="avatar" />',
+                picture,
+            )
+        return format_html(
+            '<span style="display:inline-block; width:28px; height:28px; border-radius:50%; '
+            'background:#e5e7eb; text-align:center; line-height:28px; font-size:14px; color:#6b7280;">—</span>'
+        )
+
+    @admin.display(description="Proveedor")
+    def provider_badge(self, obj):
+        """Badge visual con color del proveedor."""
+        colors = {"google": "#4285F4", "apple": "#000000", "facebook": "#1877F2"}
+        color = colors.get(obj.provider, "#6b7280")
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 10px; border-radius: 3px;">{}</span>',
+            color,
+            obj.get_provider_display(),
+        )
+
+    @admin.display(description="Nombre del proveedor")
+    def provider_name_display(self, obj):
+        """Nombre completo del usuario según el proveedor OAuth."""
+        name = obj.extra_data.get("name", "")
+        return name or "—"
+
+    @admin.display(description="Avatar del proveedor")
+    def provider_avatar_display(self, obj):
+        """Avatar del usuario según el proveedor OAuth."""
+        picture = obj.extra_data.get("picture", "")
+        if picture and picture.startswith(("https://", "http://")):
+            return format_html(
+                '<img src="{}" style="width:64px; height:64px; border-radius:50%; object-fit:cover;" alt="avatar" />',
+                picture,
+            )
+        return "Sin avatar"
+
+    @admin.action(description="Desvincular cuentas sociales seleccionadas")
+    def disconnect_social_accounts(self, request, queryset):
+        """Elimina las vinculaciones seleccionadas verificando que el usuario no pierda acceso."""
+        from django.contrib.admin.models import DELETION, LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        disconnected = 0
+        skipped = 0
+        ct = ContentType.objects.get_for_model(SocialAccount)
+
+        for social_account in queryset:
+            user = social_account.user
+            has_password = user.has_usable_password()
+            other_social = (
+                SocialAccount.objects.filter(user=user, tenant=user.tenant).exclude(pk=social_account.pk).count()
+            )
+            if not has_password and other_social == 0:
+                skipped += 1
+                continue
+
+            # Registrar en audit log antes de eliminar
+            LogEntry.objects.log_action(
+                user_id=request.user.pk,
+                content_type_id=ct.pk,
+                object_id=str(social_account.pk),
+                object_repr=f"{social_account.get_provider_display()} (id={social_account.pk})",
+                action_flag=DELETION,
+                change_message=f"Desvinculación de cuenta {social_account.get_provider_display()} del usuario id={user.pk}",
+            )
+            social_account.delete()
+            disconnected += 1
+
+        if disconnected:
+            self.message_user(request, f"{disconnected} cuenta(s) desvinculada(s) correctamente.")
+        if skipped:
+            self.message_user(
+                request,
+                f"{skipped} cuenta(s) omitida(s) porque es el único método de acceso del usuario.",
+                level="warning",
+            )
+
+    def has_add_permission(self, request):
+        """Las cuentas sociales se crean por OAuth, no manualmente."""
+        return False
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if hasattr(request.user, "tenant") and request.user.tenant:
+            return qs.filter(tenant=request.user.tenant)
+        return qs.none()
 
 
 @admin.register(Banner, site=nerbis_admin_site)
@@ -1534,3 +1276,115 @@ class BannerAdmin(TenantFilteredAdmin):
         )
 
     preview_banner.short_description = "Vista Previa"
+
+
+# ═══════════════════════════════════════════════════════════
+# WEBAUTHN CREDENTIALS (Passkeys)
+# ═══════════════════════════════════════════════════════════
+
+
+@admin.register(WebAuthnCredential, site=nerbis_admin_site)
+class WebAuthnCredentialAdmin(UnfoldModelAdmin):
+    """
+    Panel de administración para Passkeys (WebAuthn).
+    Permite ver y revocar credenciales registradas por los usuarios.
+    Solo lectura de los campos criptográficos por seguridad.
+    """
+
+    list_display = [
+        "name",
+        "user",
+        "tenant_display",
+        "transports_display",
+        "sign_count",
+        "created_at",
+        "last_used_display",
+    ]
+    list_filter = ["created_at", "last_used_at", "user__tenant"]
+    search_fields = ["name", "user__email", "user__first_name", "user__last_name"]
+    search_help_text = "Buscar por nombre del passkey o email del usuario"
+    readonly_fields = [
+        "user",
+        "credential_id_display",
+        "public_key_display",
+        "sign_count",
+        "transports",
+        "created_at",
+        "last_used_at",
+    ]
+    ordering = ["-created_at"]
+    actions = ["revoke_passkeys"]
+
+    fieldsets = (
+        (
+            "Identificación",
+            {"fields": ("user", "name", "transports")},
+        ),
+        (
+            "Datos criptográficos (solo lectura)",
+            {
+                "fields": ("credential_id_display", "public_key_display", "sign_count"),
+                "description": (
+                    "Estos valores son generados por el authenticator del usuario y no "
+                    "deben modificarse. Si están comprometidos, revoca el passkey."
+                ),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Auditoría",
+            {"fields": ("created_at", "last_used_at"), "classes": ("collapse",)},
+        ),
+    )
+
+    @admin.display(description="Tenant", ordering="user__tenant")
+    def tenant_display(self, obj):
+        return obj.user.tenant.name if obj.user.tenant_id else "—"
+
+    @admin.display(description="Transports")
+    def transports_display(self, obj):
+        if not obj.transports:
+            return "—"
+        return ", ".join(obj.transports)
+
+    @admin.display(description="Último uso", ordering="last_used_at")
+    def last_used_display(self, obj):
+        if not obj.last_used_at:
+            return format_html('<span style="color:#9ca3af;">Nunca</span>')
+        return obj.last_used_at.strftime("%Y-%m-%d %H:%M")
+
+    @admin.display(description="Credential ID")
+    def credential_id_display(self, obj):
+        # Mostrar solo primeros/últimos bytes en hex para identificación
+        raw = bytes(obj.credential_id)
+        hex_str = raw.hex()
+        if len(hex_str) > 32:
+            hex_str = f"{hex_str[:16]}…{hex_str[-16:]}"
+        return format_html('<code style="font-size:11px;">{}</code>', hex_str)
+
+    @admin.display(description="Public key")
+    def public_key_display(self, obj):
+        size = len(bytes(obj.public_key))
+        return format_html('<span style="color:#6b7280;">{} bytes (binario COSE)</span>', size)
+
+    @admin.action(description="Revocar passkeys seleccionados")
+    def revoke_passkeys(self, request, queryset):
+        count = queryset.count()
+        queryset.delete()
+        self.message_user(
+            request,
+            f"Se revocaron {count} passkey(s). Los usuarios deberán registrar uno nuevo.",
+        )
+
+    def has_add_permission(self, request):
+        # Los passkeys solo pueden crearse vía flujo WebAuthn del usuario.
+        return False
+
+    def get_queryset(self, request):
+        """Aislar passkeys por tenant para admins no-superusuarios."""
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if hasattr(request.user, "tenant") and request.user.tenant:
+            return qs.filter(user__tenant=request.user.tenant)
+        return qs.none()

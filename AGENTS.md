@@ -67,6 +67,11 @@ docs/       → Documentación técnica (SDD.md)
 - shadcn/ui + Radix UI para componentes base
 - Context API para estado global (AuthContext, CartContext, TenantContext, WebsiteContentContext)
 - Mobile-first, responsive
+- **OBLIGATORIO: Seguir la identidad visual NERBIS** definida en `.claude/skills/nerbis-design-identity/`
+  - Leer `SKILL.md` antes de crear cualquier componente o página
+  - Usar tokens semánticos de color (no hex hardcodeados)
+  - Respetar la tipografía (Geist Sans), spacing (4px grid), motion (150ms hover), y accesibilidad (WCAG AA)
+  - Verificar contra el checklist anti-AI-slop antes de enviar PR
 
 ## CI/CD
 
@@ -74,7 +79,28 @@ docs/       → Documentación técnica (SDD.md)
 - **Frontend:** ESLint + Next.js build (en PRs a main y develop)
 - **CodeRabbit:** Review automático en cada PR
 - **Release Please:** Versionamiento semántico automático en push a main
-- Correr lint local antes de push: `ruff check backend/` y `cd frontend && npm run lint`
+- Correr lint local antes de push: `ruff check backend/` y `npm run lint --prefix frontend`
+
+## Comandos en skills y documentación (NUNCA usar `cd X && Y`)
+
+Los comandos en skills, hooks y documentación **no deben usar `cd X && Y`** porque
+las allowlists granulares de permisos (`Bash(cd:*)` + `Bash(npm:*)`) no matchean
+comandos encadenados, forzando prompts de permiso innecesarios.
+
+**Usar alternativas sin `cd`:**
+
+| Herramienta | Mal | Bien |
+|-------------|------|------|
+| npm | `cd frontend && npm run lint` | `npm run lint --prefix frontend` |
+| pytest | `cd backend && pytest` | `pytest backend/` |
+| ruff | `cd backend && ruff check .` | `ruff check backend/` |
+| git | `cd "$REPO" && git ...` | `git -C "$REPO" ...` |
+| manage.py | `cd backend && python manage.py X` | `python backend/manage.py X` |
+| general | `cd X && comando` | Usar flag `-C`, `--prefix`, o path absoluto |
+
+**Excepciones válidas:** scripts de shell multi-línea donde `cd` es necesario para
+establecer el directorio de trabajo (ej: setup de worktrees). La regla aplica a
+one-liners encadenados con `&&`.
 
 ## Reglas críticas (NUNCA violar)
 
@@ -87,6 +113,15 @@ docs/       → Documentación técnica (SDD.md)
 - SIEMPRE paginar listados
 - GitHub Actions: pinear con commit hash (no tags)
 
+## Worktrees y trabajo paralelo
+
+- Los worktrees de Git proveen **aislamiento de branch**, no de filesystem
+- Desde un worktree puedes leer/escribir archivos de cualquier path del sistema (mismos permisos que el repo principal)
+- El `cwd` cambia al root del worktree — usar paths relativos al worktree actual, no al repo principal
+- **NUNCA** usar `cd /ruta/repo/principal && comando` en scripts o skills; usar paths relativos o `$PWD`
+- Los worktrees son ideales para que múltiples agentes trabajen en paralelo sin conflictos de branch
+- No se necesita configuración especial de permisos para worktrees — las mismas reglas de `settings.json` aplican
+
 ## Checklist antes de generar código
 
 - [ ] ¿Considera el multi-tenant?
@@ -94,3 +129,8 @@ docs/       → Documentación técnica (SDD.md)
 - [ ] ¿Está paginado (si es listado)?
 - [ ] ¿Sigue las convenciones del proyecto?
 - [ ] ¿No hay credenciales hardcodeadas?
+- [ ] ¿Sigue la identidad visual NERBIS? (si es frontend)
+- [ ] ¿Pasó el checklist anti-AI-slop? (si es frontend)
+- [ ] ¿Funciona en dark mode? (si es frontend)
+- [ ] ¿Es accesible? (keyboard nav, aria-labels, contraste WCAG AA)
+- [ ] ¿Funciona en mobile? (touch targets, responsive, bottom nav)

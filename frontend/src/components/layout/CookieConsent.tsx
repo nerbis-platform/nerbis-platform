@@ -10,12 +10,12 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Cookie, Settings } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '@/components/ui/responsive-dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
@@ -147,18 +147,18 @@ export function TenantCookieConsent() {
       </div>
 
       {/* Modal de configuración */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      <ResponsiveDialog open={showSettings} onOpenChange={setShowSettings}>
+        <ResponsiveDialogContent className="sm:max-w-lg">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
               Configuración de cookies
-            </DialogTitle>
-            <DialogDescription>
+            </ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
               Personaliza qué tipos de cookies deseas permitir. Las cookies esenciales
               no se pueden desactivar ya que son necesarias para el funcionamiento del sitio.
-            </DialogDescription>
-          </DialogHeader>
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
 
           <div className="space-y-4 py-4">
             {/* Esenciales */}
@@ -232,8 +232,8 @@ export function TenantCookieConsent() {
               Guardar preferencias
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </>
   );
 }

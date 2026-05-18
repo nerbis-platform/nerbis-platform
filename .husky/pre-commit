@@ -1,3 +1,13 @@
-# Pre-commit hook - se configurará con linters en el paso de CI
-# Por ahora solo valida que el commit pase
-exit 0
+# Validar que skills y docs no usen cd encadenado (issue #106)
+# Excluye líneas de markdown que documentan la regla (contienen backticks o están en tablas)
+VIOLATIONS=$(grep -rEn 'cd [^ ]+ *&&' .claude/skills/ AGENTS.md CLAUDE.md 2>/dev/null | grep -v '`' | grep -v '^\s*#' || true)
+
+if [ -n "$VIOLATIONS" ]; then
+  echo "$VIOLATIONS"
+  echo ""
+  echo "❌ Error: Se detectó 'cd X && Y' en skills o docs."
+  echo "   Usar --prefix, -C, o paths absolutos en lugar de cd encadenado."
+  echo "   Ver AGENTS.md → 'Comandos en skills y documentación' para alternativas."
+  echo ""
+  exit 1
+fi

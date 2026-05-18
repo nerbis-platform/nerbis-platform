@@ -5,27 +5,13 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.utils.translation import gettext_lazy as _
 
 
-class TenantAuthenticationForm(AuthenticationForm):
+class SuperadminAuthenticationForm(AuthenticationForm):
     """
-    Formulario de autenticación personalizado para Django Admin multi-tenant.
+    Formulario de autenticación para Django Admin — solo superadmins NERBIS.
 
-    Añade un campo 'tenant' para que el usuario especifique a qué cliente pertenece.
-    - Para admins de tenant: usar el slug del tenant (ej: 'gc-belleza')
-    - Para superusuarios de plataforma: usar 'admin' (no documentado públicamente)
+    Login simple con email + password. Solo superusuarios (is_superuser=True)
+    pueden acceder. Los tenant admins usan el frontend Next.js (/dashboard/).
     """
-
-    tenant_slug = forms.CharField(
-        label=_("Cliente"),
-        max_length=100,
-        required=True,
-        widget=forms.TextInput(
-            attrs={
-                "autofocus": True,
-                "placeholder": "ej: gc-belleza",
-            }
-        ),
-        help_text=_("Slug del tenant (ej: gc-belleza)"),
-    )
 
     # Redefinir username para que sea email
     username = forms.EmailField(
@@ -33,6 +19,7 @@ class TenantAuthenticationForm(AuthenticationForm):
         max_length=254,
         widget=forms.EmailInput(
             attrs={
+                "autofocus": True,
                 "autocomplete": "email",
                 "placeholder": "tu@email.com",
             }
@@ -50,94 +37,49 @@ class TenantAuthenticationForm(AuthenticationForm):
         ),
     )
 
-    # Definir el orden de los campos
-    field_order = ["tenant_slug", "username", "password"]
+    field_order = ["username", "password"]
 
     error_messages = {
-        "invalid_login": _(
-            "Por favor, ingresa un email y contraseña válidos para una cuenta de staff. "
-            "Verifica que el cliente sea correcto."
-        ),
+        "invalid_login": _("Credenciales inválidas. Verifica tu email y contraseña."),
         "inactive": _("Esta cuenta está inactiva."),
-        "tenant_not_found": _("El cliente especificado no existe o está inactivo."),
-        "user_not_found": _("No se encontró un usuario con este email en el cliente especificado."),
+        "not_superuser": _("Acceso restringido a administradores de plataforma."),
     }
 
     def clean(self):
-        """
-        Validar las credenciales con el tenant especificado.
-        """
-        tenant_slug = self.cleaned_data.get("tenant_slug")
-        email = self.cleaned_data.get("username")  # En el form se llama username por compatibilidad
+        """Validar credenciales y verificar que es superusuario."""
+        email = self.cleaned_data.get("username")
         password = self.cleaned_data.get("password")
 
-        if tenant_slug and email and password:
-            # Importar aquí para evitar imports circulares
-            from core.models import Tenant, User
+        if email and password:
+            from core.models import User
 
-            # Verificar si es login de administrador de plataforma (superuser)
-            if tenant_slug.lower() == "admin":
-                # Buscar superusuario sin tenant
-                try:
-                    user = User.objects.get(tenant__isnull=True, email=email)
-                    if not user.is_superuser:
-                        raise forms.ValidationError(
-                            "Credenciales inválidas.",
-                            code="not_superuser",
-                        )
-                    # Verificar contraseña
-                    if user.check_password(password) and user.is_active:
-                        self.user_cache = user
-                    else:
-                        raise forms.ValidationError(
-                            self.error_messages["invalid_login"],
-                            code="invalid_login",
-                        )
-                except User.DoesNotExist:
-                    raise forms.ValidationError(
-                        self.error_messages["user_not_found"],
-                        code="user_not_found",
-                    )
-            else:
-                # Login de tenant normal
-                try:
-                    tenant = Tenant.objects.get(slug=tenant_slug, is_active=True)
-                except Tenant.DoesNotExist:
-                    raise forms.ValidationError(
-                        self.error_messages["tenant_not_found"],
-                        code="tenant_not_found",
-                    )
+            try:
+                user = User.objects.get(tenant__isnull=True, email=email)
+            except User.DoesNotExist:
+                raise forms.ValidationError(
+                    self.error_messages["invalid_login"],
+                    code="invalid_login",
+                )
 
-                # Buscar usuario en el tenant
-                try:
-                    user = User.objects.get(tenant=tenant, email=email)
-                except User.DoesNotExist:
-                    raise forms.ValidationError(
-                        self.error_messages["user_not_found"],
-                        code="user_not_found",
-                    )
+            if not user.check_password(password):
+                raise forms.ValidationError(
+                    self.error_messages["invalid_login"],
+                    code="invalid_login",
+                )
 
-                # Verificar que tiene acceso al admin (is_staff=True o role='admin')
-                if not user.is_staff and user.role != "admin":
-                    raise forms.ValidationError(
-                        "Este usuario no tiene permisos para acceder al panel de administración.",
-                        code="no_staff",
-                    )
+            if not user.is_superuser:
+                raise forms.ValidationError(
+                    self.error_messages["not_superuser"],
+                    code="not_superuser",
+                )
 
-                # Verificar contraseña
-                if user.check_password(password):
-                    if user.is_active:
-                        self.user_cache = user
-                    else:
-                        raise forms.ValidationError(
-                            self.error_messages["inactive"],
-                            code="inactive",
-                        )
-                else:
-                    raise forms.ValidationError(
-                        self.error_messages["invalid_login"],
-                        code="invalid_login",
-                    )
+            if not user.is_active:
+                raise forms.ValidationError(
+                    self.error_messages["inactive"],
+                    code="inactive",
+                )
+
+            self.user_cache = user
 
         return self.cleaned_data
 
@@ -146,20 +88,14 @@ class TenantAuthenticationForm(AuthenticationForm):
         return getattr(self, "user_cache", None)
 
     def confirm_login_allowed(self, user):
-        """
-        Verificar que el usuario puede iniciar sesión.
-        Staff o admins de tenant pueden acceder al admin.
-        """
+        """Solo superusuarios activos pueden acceder."""
         if not user.is_active:
             raise forms.ValidationError(
                 self.error_messages["inactive"],
                 code="inactive",
             )
-
-        # Permitir acceso a staff o usuarios con rol 'admin'
-        has_admin_access = user.is_staff or (hasattr(user, "role") and user.role == "admin")
-        if not has_admin_access:
+        if not user.is_superuser:
             raise forms.ValidationError(
-                "Este usuario no tiene permisos para acceder al panel de administración.",
-                code="no_staff",
+                self.error_messages["not_superuser"],
+                code="not_superuser",
             )

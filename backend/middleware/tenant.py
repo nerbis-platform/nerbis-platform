@@ -165,6 +165,7 @@ class TenantExclusionMiddleware(MiddlewareMixin):
 
     EXCLUDED_PATHS = [
         "/admin/",
+        "/api/admin/",
         "/api/public/",
         "/api/docs/",
         "/api/schema/",
@@ -174,6 +175,7 @@ class TenantExclusionMiddleware(MiddlewareMixin):
         "/favicon.ico",
         "/api/webhooks/",
         "/subscription-expired/",
+        "/api/auth/2fa/challenge/",  # 2FA challenge es cross-tenant (usa challenge_token)
     ]
 
     EXCLUDED_EXACT = [

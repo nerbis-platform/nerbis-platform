@@ -1,7 +1,7 @@
 // src/lib/api/user.ts
 
 import { apiClient } from './client';
-import { User } from '@/types';
+import { SocialProvider, User } from '@/types';
 
 /**
  * Obtener perfil del usuario actual
@@ -34,6 +34,16 @@ export async function changePassword(passwordData: {
   const { data } = await apiClient.post<{ message: string }>(
     '/auth/change-password/',
     passwordData
+  );
+  return data;
+}
+
+/**
+ * Desvincular cuenta social
+ */
+export async function disconnectSocialAccount(provider: SocialProvider): Promise<{ message: string }> {
+  const { data } = await apiClient.delete<{ message: string }>(
+    `/auth/social/disconnect/${provider}/`
   );
   return data;
 }

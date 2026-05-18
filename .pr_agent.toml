@@ -1,0 +1,31 @@
+# PR Agent — Configuración del repo
+# Docs: https://qodo-merge-docs.qodo.ai/tools/improve/
+
+[config]
+response_language = "es"
+
+[pr_description]
+publish_labels = false
+add_original_user_description = true
+generate_ai_title = false
+enable_pr_type = true
+enable_pr_diagram = true
+enable_semantic_files_types = true
+collapsible_file_list = "adaptive"
+
+[pr_reviewer]
+extra_instructions = """
+Este es un proyecto SaaS multi-tenant (Django + Next.js).
+Revisa: seguridad multi-tenant, accesibilidad WCAG AA, patrones React/Next.js.
+Responde siempre en español.
+"""
+enable_review_labels_security = true
+enable_review_labels_effort = true
+
+[pr_code_suggestions]
+extra_instructions = """
+Sugiere mejoras concretas de código.
+Si el PR es solo UI/CSS/copy, sugiere mejoras de accesibilidad, performance o patrones React.
+Responde siempre en español.
+"""
+num_code_suggestions = 4

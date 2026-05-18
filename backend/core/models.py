@@ -4,6 +4,7 @@ import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models.functions import Lower
 from django.utils.text import slugify
 
 from .managers import TenantAwareManager, TenantAwareUserManager
@@ -493,6 +494,63 @@ class Tenant(models.Model):
         }
         return status_map.get(self.subscription_status, "Desconocido")
 
+    # ===========================================
+    # FASE DE ONBOARDING (computed)
+    # ===========================================
+
+    PHASE_CHOICES = [
+        ("onboarding", "En Onboarding"),
+        ("modules_configured", "Módulos Configurados"),
+        ("website_building", "Construyendo Sitio"),
+        ("website_generated", "Sitio Generado"),
+        ("operational", "Operativo"),
+        ("suspended", "Suspendido"),
+    ]
+
+    @property
+    def onboarding_phase(self) -> str:
+        """Fase actual del tenant, computada desde flags existentes.
+
+        Orden de prioridad (de mayor a menor):
+        - suspended: is_active = False
+        - operational: sitio publicado (fase final)
+        - website_generated: WebsiteConfig.status == 'review'
+        - website_building: WebsiteConfig.status in ('draft', 'onboarding', 'generating')
+        - modules_configured: modules_configured = True (sin website)
+        - onboarding: registro + quick start (fase inicial)
+        """
+        if not self.is_active:
+            return "suspended"
+
+        # Obtener estado del website
+        website_status = None
+        config = getattr(self, "_prefetched_website_config", None)
+        if config is None:
+            config = getattr(self, "website_config", None)
+            if config is None:
+                try:
+                    from websites.models import WebsiteConfig
+
+                    config = WebsiteConfig.objects.filter(tenant=self).only("status").first()
+                except Exception:
+                    config = None
+        if config:
+            website_status = config.status
+
+        if website_status == "published":
+            return "operational"
+
+        if website_status == "review":
+            return "website_generated"
+
+        if website_status in ("draft", "onboarding", "generating"):
+            return "website_building"
+
+        if self.modules_configured:
+            return "modules_configured"
+
+        return "onboarding"
+
 
 class TenantConfig(Tenant):
     """
@@ -608,6 +666,41 @@ class User(AbstractUser):
         help_text="True si la cuenta fue creada automáticamente al reservar como invitado",
     )
 
+    # --- Superadmin management fields ---
+    SUPERADMIN_STATUS_CHOICES = [
+        ("active", "Activo"),
+        ("blocked", "Bloqueado"),
+        ("deactivated", "Desactivado"),
+    ]
+
+    INTERNAL_ROLE_CHOICES = [
+        ("owner", "Owner"),
+        ("admin", "Admin"),
+        ("support", "Soporte"),
+        ("viewer", "Viewer"),
+    ]
+
+    superadmin_status = models.CharField(
+        max_length=20,
+        choices=SUPERADMIN_STATUS_CHOICES,
+        default="active",
+    )
+    block_reason = models.CharField(max_length=500, blank=True, default="")
+    blocked_until = models.DateTimeField(null=True, blank=True)
+    blocked_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="blocked_superadmins",
+    )
+    is_owner = models.BooleanField(default=False)
+    internal_role = models.CharField(
+        max_length=20,
+        choices=INTERNAL_ROLE_CHOICES,
+        default="admin",
+    )
+
     # Manager personalizado (filtra por tenant + métodos de UserManager)
     objects = TenantAwareUserManager()
 
@@ -625,11 +718,24 @@ class User(AbstractUser):
             models.Index(fields=["tenant", "email"]),
             models.Index(fields=["tenant", "role"]),
             models.Index(fields=["tenant", "username"]),
+            models.Index(fields=["superadmin_status"], name="core_user_sa_status_idx"),
         ]
         # Constraints: username y email únicos por tenant
         constraints = [
             models.UniqueConstraint(fields=["tenant", "email"], name="unique_email_per_tenant"),
             models.UniqueConstraint(fields=["tenant", "username"], name="unique_username_per_tenant"),
+            # Email único (case-insensitive) entre superadmins de plataforma (tenant IS NULL)
+            models.UniqueConstraint(
+                Lower("email"),
+                condition=models.Q(tenant__isnull=True),
+                name="core_user_superadmin_email_uq",
+            ),
+            # Solo un owner entre superadmins de plataforma
+            models.UniqueConstraint(
+                fields=["is_owner"],
+                condition=models.Q(is_superuser=True, tenant__isnull=True, is_owner=True),
+                name="core_user_single_owner_uq",
+            ),
         ]
 
     def __str__(self):
@@ -666,12 +772,41 @@ class User(AbstractUser):
             tenant_part = self.tenant.slug if self.tenant else "admin"
             self.uid = f"{tenant_part}:{self.email}"
 
-        # Sincronizar is_staff con el rol
-        # Solo los administradores pueden acceder al panel de admin
-        if self.role == "admin":
-            self.is_staff = True
-        else:
-            self.is_staff = False
+        # Sincronizar is_staff con el rol — SOLO para usuarios de tenant.
+        # Para superadmins de plataforma (is_superuser=True o tenant_id IS NULL)
+        # se preserva el valor que estableció Django/createsuperuser/caller.
+        if not (self.is_superuser or self.tenant_id is None):
+            if self.role == "admin":
+                self.is_staff = True
+            else:
+                self.is_staff = False
+
+        # Guard: prevent promoting a user with tenant data to superadmin
+        if self.is_superuser and self.tenant_id is None and self.pk:
+            from django.db import connection
+
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT EXISTS("
+                    "SELECT 1 FROM orders_order WHERE customer_id = %s "
+                    "UNION ALL "
+                    "SELECT 1 FROM bookings_appointment WHERE customer_id = %s"
+                    ")",
+                    [self.pk, self.pk],
+                )
+                has_tenant_data = cursor.fetchone()[0]
+            if has_tenant_data:
+                raise ValueError(
+                    "No se puede promover a superadmin un usuario con datos de "
+                    "tenant (órdenes, citas). Crea una cuenta nueva."
+                )
+
+        # Sync superadmin_status → is_active (only for superadmins)
+        if self.is_superuser and self.tenant_id is None:
+            if self.superadmin_status == "active":
+                self.is_active = True
+            elif self.superadmin_status in ("blocked", "deactivated"):
+                self.is_active = False
 
         super().save(*args, **kwargs)
 
@@ -694,6 +829,83 @@ class User(AbstractUser):
     def is_customer(self):
         """Verificar si el usuario es cliente"""
         return self.role == "customer"
+
+
+class SocialAccount(models.Model):
+    """
+    Cuenta social vinculada a un usuario dentro de un tenant.
+
+    Permite login via Google, Apple o Facebook.
+    Un usuario puede tener múltiples cuentas sociales (una por provider).
+    """
+
+    PROVIDER_CHOICES = [
+        ("google", "Google"),
+        ("apple", "Apple"),
+        ("facebook", "Facebook"),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="social_accounts",
+        verbose_name="Usuario",
+    )
+
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="social_accounts",
+        verbose_name="Tenant",
+    )
+
+    provider = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        verbose_name="Proveedor",
+    )
+
+    provider_uid = models.CharField(
+        max_length=255,
+        verbose_name="ID del proveedor",
+        help_text="ID único del usuario en el proveedor (sub/id)",
+    )
+
+    email = models.EmailField(
+        verbose_name="Email del proveedor",
+        help_text="Email asociado en la cuenta social",
+    )
+
+    extra_data = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Datos adicionales",
+        help_text="Nombre, avatar, etc. del proveedor",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+
+    class Meta:
+        verbose_name = "Cuenta Social"
+        verbose_name_plural = "Cuentas Sociales"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "provider", "provider_uid"],
+                name="unique_social_account_per_tenant",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "provider"],
+                name="core_socialaccount_user_provider_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "provider", "email"]),
+        ]
+
+    def __str__(self):
+        return f"{self.provider} - {self.email} ({self.user.get_full_name()})"
 
 
 class Banner(TenantAwareModel):
@@ -726,7 +938,7 @@ class Banner(TenantAwareModel):
 
     message = models.TextField(
         verbose_name="Mensaje",
-        help_text="Texto que se mostrará en el banner. Puede incluir HTML básico.",
+        help_text="Texto plano que se mostrará en el banner. HTML será eliminado automáticamente.",
     )
 
     link_url = models.URLField(
@@ -922,8 +1134,16 @@ class OTPToken(models.Model):
     - Restablecer contraseña (forgot password)
     - Reactivar cuenta
 
-    El código es de 6 dígitos y expira después de 10 minutos.
+    Security hardening (#142):
+    - Código de 8 dígitos (100M combinaciones vs 1M con 6)
+    - Máximo 5 intentos antes de bloqueo
+    - Rate limit de reenvío: máximo 5 OTPs por usuario por hora
+    - Comparación timing-safe con secrets.compare_digest
     """
+
+    OTP_LENGTH = 8
+    MAX_ATTEMPTS = 5
+    MAX_RESENDS_PER_HOUR = 5
 
     PURPOSE_CHOICES = [
         ("password_reset", "Restablecer contraseña"),
@@ -938,9 +1158,9 @@ class OTPToken(models.Model):
     )
 
     code = models.CharField(
-        max_length=6,
+        max_length=8,
         verbose_name="Código OTP",
-        help_text="Código de 6 dígitos",
+        help_text="Código de 8 dígitos",
     )
 
     purpose = models.CharField(
@@ -983,24 +1203,34 @@ class OTPToken(models.Model):
 
     @property
     def is_valid(self):
-        """Verificar si el OTP es válido (no usado, no expirado, máx 3 intentos)"""
+        """Verificar si el OTP es válido (no usado, no expirado, dentro del límite de intentos)"""
         from django.utils import timezone
 
-        return self.used_at is None and self.expires_at > timezone.now() and self.attempts < 3
+        return self.used_at is None and self.expires_at > timezone.now() and self.attempts < self.MAX_ATTEMPTS
 
     @classmethod
     def create_for_user(cls, user, purpose, minutes_valid=10):
-        """Crear un nuevo OTP para un usuario"""
+        """Crear un nuevo OTP para un usuario.
+
+        Raises:
+            ValueError: Si el usuario ha excedido el límite de reenvíos por hora.
+        """
         import secrets
         from datetime import timedelta
 
         from django.utils import timezone
 
-        # Invalidar OTPs anteriores del mismo propósito
-        cls.objects.filter(user=user, purpose=purpose, used_at__isnull=True).delete()
+        # Rate limit: máximo MAX_RESENDS_PER_HOUR por usuario por hora
+        one_hour_ago = timezone.now() - timedelta(hours=1)
+        recent_count = cls.objects.filter(user=user, purpose=purpose, created_at__gte=one_hour_ago).count()
+        if recent_count >= cls.MAX_RESENDS_PER_HOUR:
+            raise ValueError("Demasiadas solicitudes de OTP. Intenta de nuevo más tarde.")
 
-        # Generar código de 6 dígitos (criptográficamente seguro)
-        code = "".join([str(secrets.randbelow(10)) for _ in range(6)])
+        # Soft-invalidar OTPs anteriores (no delete, para que el count de rate limit siga válido)
+        cls.objects.filter(user=user, purpose=purpose, used_at__isnull=True).update(used_at=timezone.now())
+
+        # Generar código de 8 dígitos (criptográficamente seguro)
+        code = "".join([str(secrets.randbelow(10)) for _ in range(cls.OTP_LENGTH)])
         expires_at = timezone.now() + timedelta(minutes=minutes_valid)
 
         return cls.objects.create(
@@ -1012,34 +1242,40 @@ class OTPToken(models.Model):
 
     def verify(self, code):
         """
-        Verificar el código OTP.
+        Verificar el código OTP con comparación timing-safe.
 
         Returns:
-            tuple: (success: bool, error_message: str or None)
+            tuple: (success: bool, error_message: str, error_code: str | None)
+                error_code values: OTP_USED, OTP_EXPIRED, OTP_MAX_ATTEMPTS, OTP_INVALID
         """
+        import secrets as secrets_mod
+
         from django.utils import timezone
 
         if self.used_at is not None:
-            return False, "Este código ya fue utilizado"
+            return False, "Este código ya fue utilizado", "OTP_USED"
 
         if self.expires_at < timezone.now():
-            return False, "El código ha expirado"
+            return False, "El código ha expirado", "OTP_EXPIRED"
 
-        if self.attempts >= 3:
-            return False, "Demasiados intentos fallidos. Solicita un nuevo código"
+        if self.attempts >= self.MAX_ATTEMPTS:
+            return False, "Demasiados intentos fallidos. Solicita un nuevo código", "OTP_MAX_ATTEMPTS"
 
-        if self.code != code:
+        # Coerce to str to prevent TypeError from compare_digest
+        code_str = str(code) if code is not None else ""
+
+        if not secrets_mod.compare_digest(self.code, code_str):
             self.attempts += 1
             self.save()
-            remaining = 3 - self.attempts
+            remaining = self.MAX_ATTEMPTS - self.attempts
             if remaining > 0:
-                return False, f"Código incorrecto. Te quedan {remaining} intentos"
-            return False, "Demasiados intentos fallidos. Solicita un nuevo código"
+                return False, f"Código incorrecto. Te quedan {remaining} intentos", "OTP_INVALID"
+            return False, "Demasiados intentos fallidos. Solicita un nuevo código", "OTP_MAX_ATTEMPTS"
 
         # Código correcto
         self.used_at = timezone.now()
         self.save()
-        return True, None
+        return True, None, None
 
     def mark_as_used(self):
         """Marcar el OTP como usado"""
@@ -1047,3 +1283,512 @@ class OTPToken(models.Model):
 
         self.used_at = timezone.now()
         self.save()
+
+
+class TeamInvitation(TenantAwareModel):
+    """
+    Invitación para unirse al equipo de un tenant.
+
+    Flujo:
+    1. Admin crea invitación → se genera token y se envía email
+    2. Invitado abre el link → ve formulario de registro simplificado
+    3. Invitado acepta → se crea User con role asignado
+    """
+
+    ROLE_CHOICES = [
+        ("staff", "Empleado"),
+        ("admin", "Administrador"),
+    ]
+
+    STATUS_CHOICES = [
+        ("pending", "Pendiente"),
+        ("accepted", "Aceptada"),
+        ("cancelled", "Cancelada"),
+        ("expired", "Expirada"),
+    ]
+
+    email = models.EmailField(
+        verbose_name="Email del invitado",
+    )
+
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default="staff",
+        verbose_name="Rol asignado",
+    )
+
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        editable=False,
+        verbose_name="Token de invitación",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+        verbose_name="Estado",
+    )
+
+    invited_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="sent_invitations",
+        verbose_name="Invitado por",
+    )
+
+    expires_at = models.DateTimeField(
+        verbose_name="Expira",
+    )
+
+    accepted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Aceptada",
+    )
+
+    accepted_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="accepted_invitation",
+        verbose_name="Usuario creado",
+    )
+
+    class Meta:
+        verbose_name = "Invitación de equipo"
+        verbose_name_plural = "Invitaciones de equipo"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "email"],
+                condition=models.Q(status="pending"),
+                name="unique_pending_invitation_per_tenant",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Invitación a {self.email} ({self.get_status_display()})"
+
+    @property
+    def is_valid(self):
+        from django.utils import timezone
+
+        if self.status != "pending":
+            return False
+        if self.expires_at <= timezone.now():
+            # Auto-expire the invitation in DB
+            self.status = "expired"
+            self.save(update_fields=["status", "updated_at"])
+            return False
+        return True
+
+    @classmethod
+    def create_invitation(cls, tenant, email, role, invited_by, days_valid=30):
+        import secrets
+        from datetime import timedelta
+
+        from django.db import transaction
+        from django.utils import timezone
+
+        with transaction.atomic():
+            # Cancelar invitaciones pendientes previas al mismo email
+            cls.objects.filter(tenant=tenant, email__iexact=email, status="pending").update(status="cancelled")
+
+            token = secrets.token_urlsafe(32)
+            expires_at = timezone.now() + timedelta(days=days_valid)
+
+            return cls.objects.create(
+                tenant=tenant,
+                email=email.lower(),
+                role=role,
+                token=token,
+                invited_by=invited_by,
+                expires_at=expires_at,
+            )
+
+    def cancel(self):
+        if self.status != "pending":
+            raise ValueError(f"No se puede cancelar una invitación con status '{self.status}'")
+        self.status = "cancelled"
+        self.save(update_fields=["status", "updated_at"])
+
+    def accept(self, user):
+        from django.utils import timezone
+
+        if self.status != "pending":
+            raise ValueError(f"No se puede aceptar una invitación con status '{self.status}'")
+        self.status = "accepted"
+        self.accepted_at = timezone.now()
+        self.accepted_user = user
+        self.save(update_fields=["status", "accepted_at", "accepted_user", "updated_at"])
+
+
+# ===================================
+# WEBAUTHN / PASSKEYS
+# ===================================
+
+
+class WebAuthnCredential(models.Model):
+    """
+    Credencial WebAuthn (passkey) registrada por un usuario.
+
+    Un usuario puede tener múltiples passkeys (ej: huella del móvil,
+    Face ID del laptop, llave física). Cada credencial es única globalmente
+    y está ligada a un usuario específico.
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="webauthn_credentials",
+        verbose_name="Usuario",
+    )
+
+    # credential_id del authenticator — único a nivel global
+    credential_id = models.BinaryField(
+        unique=True,
+        verbose_name="Credential ID",
+        help_text="ID binario de la credencial emitido por el authenticator",
+    )
+
+    # clave pública para verificar assertions futuras
+    public_key = models.BinaryField(
+        verbose_name="Public Key",
+        help_text="Clave pública COSE de la credencial",
+    )
+
+    # contador usado para detectar clonación
+    sign_count = models.PositiveBigIntegerField(
+        default=0,
+        verbose_name="Sign Count",
+    )
+
+    # nombre descriptivo dado por el usuario ("iPhone de Felipe", "Yubikey azul")
+    name = models.CharField(
+        max_length=100,
+        default="Mi passkey",
+        verbose_name="Nombre",
+    )
+
+    # tipo de transporte soportado por el authenticator (internal, usb, nfc, ble)
+    transports = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Transports",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Creado")
+    last_used_at = models.DateTimeField(null=True, blank=True, verbose_name="Último uso")
+
+    class Meta:
+        verbose_name = "Credencial WebAuthn"
+        verbose_name_plural = "Credenciales WebAuthn"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} — {self.name}"
+
+
+# ===================================
+# 2FA — TOTP DEVICE
+# ===================================
+#
+# Nota sobre multi-tenancy:
+# TOTPDevice NO hereda de TenantAwareModel porque está unido 1:1 al User,
+# y el User ya pertenece a un tenant. El dispositivo 2FA es una propiedad
+# intrínseca del usuario (como su password), no un recurso de negocio del
+# tenant. Además, el User no tiene necesariamente un segundo factor por
+# tenant: un mismo email humano puede tener cuentas separadas en distintos
+# tenants, pero cada User row tiene su propio TOTPDevice (o ninguno).
+#
+# Cualquier query debe ir filtrada vía `user=<usuario autenticado>`, lo
+# que garantiza aislamiento por usuario (y por tenant, transitivamente).
+
+
+class TOTPDevice(models.Model):
+    """
+    Dispositivo TOTP (Time-based One-Time Password) asociado a un usuario.
+
+    El secret se almacena cifrado con Fernet (derivado de SECRET_KEY).
+    Los backup codes se almacenan hasheados con make_password y se consumen
+    al usarse (one-time).
+    """
+
+    user = models.OneToOneField(
+        "core.User",
+        on_delete=models.CASCADE,
+        related_name="totp_device",
+        verbose_name="Usuario",
+    )
+    secret_encrypted = models.BinaryField(
+        verbose_name="Secreto TOTP cifrado",
+        help_text="Secreto base32 cifrado con Fernet",
+    )
+    confirmed = models.BooleanField(
+        default=False,
+        verbose_name="Confirmado",
+        help_text="True cuando el usuario ha verificado el primer código",
+    )
+    backup_codes = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Backup codes hasheados",
+        help_text="Lista de hashes (make_password) de los backup codes restantes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Creado")
+    last_used_at = models.DateTimeField(null=True, blank=True, verbose_name="Último uso")
+
+    class Meta:
+        verbose_name = "Dispositivo TOTP"
+        verbose_name_plural = "Dispositivos TOTP"
+
+    def __str__(self) -> str:
+        estado = "confirmado" if self.confirmed else "pendiente"
+        return f"TOTP {estado} de {self.user.email}"
+
+    # ------------------------------------------------------------------
+    # Secret (cifrado en reposo)
+    # ------------------------------------------------------------------
+    def set_secret(self, secret: str) -> None:
+        """Cifra y guarda el secreto TOTP en secret_encrypted."""
+        from .crypto import encrypt
+
+        self.secret_encrypted = encrypt(secret)
+
+    def get_secret(self) -> str:
+        """Descifra y devuelve el secreto TOTP como string."""
+        from .crypto import decrypt
+
+        return decrypt(self.secret_encrypted)
+
+    # ------------------------------------------------------------------
+    # Verificación TOTP
+    # ------------------------------------------------------------------
+    def verify_totp(self, code: str) -> bool:
+        """Valida un código TOTP de 6 dígitos con tolerancia ±1 step (30s)."""
+        import pyotp
+
+        if not code:
+            return False
+        totp = pyotp.TOTP(self.get_secret())
+        return totp.verify(str(code).strip(), valid_window=1)
+
+    # ------------------------------------------------------------------
+    # Backup codes
+    # ------------------------------------------------------------------
+    def generate_backup_codes(self) -> list[str]:
+        """
+        Genera 8 backup codes (formato XXXX-XXXX, 4+4 chars alfanuméricos
+        en mayúsculas), guarda sus hashes en backup_codes y devuelve la
+        lista en plaintext para mostrarla una sola vez al usuario.
+        """
+        import secrets
+
+        from django.contrib.auth.hashers import make_password
+
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # sin caracteres ambiguos
+        plaintext_codes: list[str] = []
+        for _ in range(8):
+            part1 = "".join(secrets.choice(alphabet) for _ in range(4))
+            part2 = "".join(secrets.choice(alphabet) for _ in range(4))
+            plaintext_codes.append(f"{part1}-{part2}")
+
+        self.backup_codes = [make_password(code) for code in plaintext_codes]
+        self.save(update_fields=["backup_codes"])
+        return plaintext_codes
+
+    def verify_backup_code(self, code: str) -> bool:
+        """
+        Verifica un backup code contra la lista hasheada. Si coincide,
+        consume el código (lo elimina de la lista) y guarda.
+        """
+        from django.contrib.auth.hashers import check_password
+
+        if not code:
+            return False
+        normalized = str(code).strip().upper()
+        for idx, hashed in enumerate(self.backup_codes):
+            if check_password(normalized, hashed):
+                remaining = list(self.backup_codes)
+                remaining.pop(idx)
+                self.backup_codes = remaining
+                from django.utils import timezone
+
+                self.last_used_at = timezone.now()
+                self.save(update_fields=["backup_codes", "last_used_at"])
+                return True
+        return False
+
+
+# ===================================
+# ADMIN AUDIT LOG
+# ===================================
+class AdminAuditLog(models.Model):
+    """
+    Registro de auditoría para acciones administrativas de superadmins de plataforma.
+
+    Este modelo NO hereda de TenantAwareModel — es un modelo a nivel de plataforma
+    sin FK a tenant. Se usa exclusivamente desde los endpoints /api/admin/* para
+    registrar mutaciones sobre tenants, usuarios y métodos de autenticación.
+
+    Las acciones soportadas son las definidas en ACTION_CHOICES. Lecturas (GET) no
+    se registran — solo mutaciones administrativas relevantes.
+    """
+
+    ACTION_DEACTIVATE_TENANT = "deactivate_tenant"
+    ACTION_ACTIVATE_TENANT = "activate_tenant"
+    ACTION_DEACTIVATE_USER = "deactivate_user"
+    ACTION_ACTIVATE_USER = "activate_user"
+    ACTION_CHANGE_USER_ROLE = "change_user_role"
+    ACTION_DELETE_PASSKEY = "delete_passkey"
+    ACTION_DISABLE_2FA = "disable_2fa"
+    ACTION_UNLINK_SOCIAL = "unlink_social"
+    ACTION_RESET_PASSWORD = "reset_password"
+    ACTION_EDIT_TENANT_DATA = "edit_tenant_data"
+    ACTION_BLOCK_SUPERADMIN = "block_superadmin"
+    ACTION_UNBLOCK_SUPERADMIN = "unblock_superadmin"
+    ACTION_DELETE_SUPERADMIN = "delete_superadmin"
+    ACTION_CHANGE_SUPERADMIN_ROLE = "change_superadmin_role"
+    ACTION_CREATE_SUPERADMIN = "create_superadmin"
+
+    ACTION_CHOICES = [
+        (ACTION_DEACTIVATE_TENANT, "Deactivate tenant"),
+        (ACTION_ACTIVATE_TENANT, "Activate tenant"),
+        (ACTION_EDIT_TENANT_DATA, "Edit tenant data"),
+        (ACTION_DEACTIVATE_USER, "Deactivate user"),
+        (ACTION_ACTIVATE_USER, "Activate user"),
+        (ACTION_CHANGE_USER_ROLE, "Change user role"),
+        (ACTION_DELETE_PASSKEY, "Delete passkey"),
+        (ACTION_DISABLE_2FA, "Disable 2FA"),
+        (ACTION_UNLINK_SOCIAL, "Unlink social account"),
+        (ACTION_RESET_PASSWORD, "Reset password"),
+        (ACTION_BLOCK_SUPERADMIN, "Bloquear superadmin"),
+        (ACTION_UNBLOCK_SUPERADMIN, "Desbloquear superadmin"),
+        (ACTION_DELETE_SUPERADMIN, "Eliminar superadmin"),
+        (ACTION_CHANGE_SUPERADMIN_ROLE, "Cambiar rol de superadmin"),
+        (ACTION_CREATE_SUPERADMIN, "Crear superadmin"),
+    ]
+
+    actor = models.ForeignKey(
+        "core.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="admin_audit_actions",
+        verbose_name="Actor",
+        help_text="Superadmin que ejecutó la acción. NULL si el actor fue eliminado o fue una acción de sistema.",
+    )
+    action = models.CharField(
+        max_length=40,
+        choices=ACTION_CHOICES,
+        verbose_name="Acción",
+    )
+    target_type = models.CharField(
+        max_length=50,
+        verbose_name="Tipo de objetivo",
+        help_text="Nombre del modelo objetivo, ej: 'Tenant', 'User', 'WebAuthnCredential'.",
+    )
+    target_id = models.CharField(
+        max_length=255,
+        verbose_name="ID del objetivo",
+        help_text="PK del objetivo como string. Soporta UUID (Tenant) e int (User).",
+    )
+    target_repr = models.CharField(
+        max_length=300,
+        verbose_name="Representación del objetivo",
+        help_text="Descripción legible del objetivo, ej: 'tenant: mi-tienda' o 'user: juan@example.com'.",
+    )
+    details = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Detalles",
+        help_text="Contexto adicional opcional, ej: {'old_role': 'customer', 'new_role': 'admin'}.",
+    )
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        verbose_name="Dirección IP",
+        help_text="IP del cliente que originó la acción (X-Forwarded-For o REMOTE_ADDR).",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        verbose_name="Creado",
+    )
+
+    class Meta:
+        verbose_name = "Admin Audit Log"
+        verbose_name_plural = "Admin Audit Logs"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["actor", "-created_at"]),
+            models.Index(fields=["action", "-created_at"]),
+            models.Index(fields=["target_type", "target_id"]),
+        ]
+
+    def __str__(self) -> str:
+        actor_repr = self.actor.email if self.actor else "system"
+        return f"{actor_repr} -> {self.action} on {self.target_repr}"
+
+
+class TenantPhaseLog(models.Model):
+    """Registro append-only de transiciones de fase de un tenant.
+
+    Cada vez que la fase computada de un tenant cambia, se registra aquí.
+    Esto permite al superadmin ver la línea de tiempo del lifecycle.
+
+    NO es TenantAwareModel — es un modelo a nivel de plataforma.
+    """
+
+    tenant = models.ForeignKey(
+        "core.Tenant",
+        on_delete=models.CASCADE,
+        related_name="phase_logs",
+        verbose_name="Tenant",
+    )
+    from_phase = models.CharField(
+        max_length=30,
+        choices=Tenant.PHASE_CHOICES,
+        verbose_name="Fase anterior",
+    )
+    to_phase = models.CharField(
+        max_length=30,
+        choices=Tenant.PHASE_CHOICES,
+        verbose_name="Fase nueva",
+    )
+    triggered_by = models.CharField(
+        max_length=254,
+        default="system",
+        verbose_name="Disparador",
+        help_text="Quién disparó el cambio: 'system', 'admin:<email>', 'user:<email>'",
+    )
+    note = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Nota",
+        help_text="Contexto adicional opcional sobre la transición.",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        verbose_name="Fecha",
+    )
+
+    class Meta:
+        verbose_name = "Tenant Phase Log"
+        verbose_name_plural = "Tenant Phase Logs"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["tenant", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.tenant.slug}: {self.from_phase} → {self.to_phase}"

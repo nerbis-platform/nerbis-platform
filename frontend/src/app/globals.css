@@ -47,97 +47,164 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
   --animate-marquee: marquee 30s linear infinite;
+
+  /* ── Auth tokens exposed to Tailwind ─────────────── */
+  --color-auth-primary: var(--auth-primary);
+  --color-auth-primary-hover: var(--auth-primary-hover);
+  --color-auth-secondary: var(--auth-secondary);
+  --color-auth-accent: var(--auth-accent);
+  --color-auth-accent-light: var(--auth-accent-light);
+  --color-auth-bg: var(--auth-bg);
+  --color-auth-bg-input: var(--auth-bg-input);
+  --color-auth-text: var(--auth-text);
+  --color-auth-text-muted: var(--auth-text-muted);
+  --color-auth-text-label: var(--auth-text-label);
+  --color-auth-border: var(--auth-border);
+  --color-auth-error: var(--auth-error);
+  --color-auth-success: var(--auth-success);
 }
 
 :root {
   --radius: 0.625rem;
 
-  /* Rose Gold Elegante - Paleta Principal */
-  --background: #FBF9F7;
-  --footer-background: #F5F0ED;
+  /* NERBIS Platform Identity — Navy + Teal */
+  --background: #FAFAFA;
+  --footer-background: #F5F5F5;
   --header: #FFFFFF;
-  --foreground: #3D3D3D;
+  --foreground: #111827;
 
   /* Cards y Popovers */
   --card: #FFFFFF;
-  --card-foreground: #3D3D3D;
+  --card-foreground: #111827;
   --popover: #FFFFFF;
-  --popover-foreground: #3D3D3D;
+  --popover-foreground: #111827;
 
-  /* Primary - Rosa Dusty Elegante */
-  --primary: #D4A5A5;
+  /* Primary - Navy NERBIS */
+  --primary: #1C3B57;
   --primary-foreground: #FFFFFF;
 
-  /* Secondary - Rosa más suave */
-  --secondary: #F5E6E6;
-  --secondary-foreground: #6B4C4C;
+  /* Secondary - Neutro frío */
+  --secondary: #F1F5F9;
+  --secondary-foreground: #334155;
 
-  /* Muted - Tonos neutros cálidos */
-  --muted: #F5F0ED;
-  --muted-foreground: #7A7A7A;
+  /* Muted - Gris neutro */
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
 
-  /* Accent - Verde Nerbis */
+  /* Accent - Teal NERBIS */
   --accent: #E2F3F1;
   --accent-foreground: #1C3B57;
 
   /* Estados */
-  --destructive: #E57373;
+  --destructive: #DC2626;
 
   /* Bordes e inputs */
-  --border: #E8E0DC;
-  --input: #E8E0DC;
-  --ring: #95D0C9;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #0D9488;
 
-  /* Charts - Paleta complementaria */
-  --chart-1: #D4A5A5;
-  --chart-2: #C48B8B;
-  --chart-3: #D4AF37;
-  --chart-4: #A8C5A8;
-  --chart-5: #9BB5C9;
+  /* Charts - Paleta NERBIS */
+  --chart-1: #1C3B57;
+  --chart-2: #0D9488;
+  --chart-3: #2563EB;
+  --chart-4: #059669;
+  --chart-5: #6366F1;
 
   /* Sidebar */
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #3D3D3D;
-  --sidebar-primary: #D4A5A5;
+  --sidebar-foreground: #111827;
+  --sidebar-primary: #1C3B57;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F5E6E6;
-  --sidebar-accent-foreground: #6B4C4C;
-  --sidebar-border: #E8E0DC;
-  --sidebar-ring: #D4A5A5;
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #334155;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #0D9488;
 
-  /* Fuentes del tema (overrideadas por ThemeInjector cuando el tenant tiene fuentes custom) */
-  --font-heading: 'Inter', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  /* Fuentes del tema (overrideadas por ThemeInjector dentro de .published-website) */
+  --font-heading: var(--font-geist-sans), sans-serif;
+  --font-body: var(--font-geist-sans), sans-serif;
+
+  /* ── Auth Design Tokens ────────────────────────────────────── */
+
+  /* Auth colors */
+  --auth-primary: #1C3B57;
+  --auth-primary-hover: #162f46;
+  --auth-accent: #0D9488;
+  --auth-accent-light: #0D9488;
+  --auth-secondary: #0D9488;
+  --auth-bg: #FAFAFA;
+  --auth-bg-input: #FFFFFF;
+  --auth-bg-dark: #1C3B57;
+  --auth-text: #111827;
+  --auth-text-muted: #9CA3AF;
+  --auth-text-label: #6B7280;
+  --auth-text-placeholder: #D1D5DB;
+  --auth-text-on-dark: #FFFFFF;
+  --auth-text-on-dark-muted: rgba(255, 255, 255, 0.7);
+  --auth-text-on-dark-subtle: rgba(255, 255, 255, 0.5);
+  --auth-border: #e7e5e4; /* stone-200 — warm */
+  --auth-border-focus: #0D9488;
+  --auth-border-error: #DC2626;
+  --auth-error: #DC2626;
+  --auth-success: #059669;
+  --auth-warning: #D97706;
+
+  /* Auth gradient (brand panel) */
+  --auth-gradient-start: #1C3B57;
+  --auth-gradient-mid: #1a3450;
+  --auth-gradient-end: #265e6a;
+
+  /* Auth spacing */
+  --auth-form-gap: 1.25rem;
+  --auth-section-padding: 4rem;
+  --auth-input-height: 2.75rem;
+
+  /* Auth typography — uses Geist Sans from root layout */
+  --auth-font-heading: var(--font-geist-sans), -apple-system, 'BlinkMacSystemFont', 'SF Pro Display', system-ui, sans-serif;
+  --auth-font-body: var(--font-geist-sans), -apple-system, 'BlinkMacSystemFont', 'SF Pro Display', system-ui, sans-serif;
+  --auth-font-brand: var(--font-geist-sans), sans-serif;
+
+  /* Auth border radius */
+  --auth-radius-input: 0.5rem;
+  --auth-radius-button: 0.5rem;
+  --auth-radius-card: 0.75rem;
+
+  /* Auth animation */
+  --auth-duration-fast: 150ms;
+  --auth-duration-normal: 300ms;
+  --auth-duration-slow: 700ms;
+  --auth-easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --auth-easing-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
-  /* Rose Gold Dark - Elegante y sofisticado */
-  --background: #1A1517;
-  --footer-background: #231E20;
-  --foreground: #F5F0ED;
-  --header: #1F1A1C;
+  /* NERBIS Dark — Navy + Teal */
+  --background: #0F1729;
+  --footer-background: #141D2F;
+  --foreground: #F1F5F9;
+  --header: #1A2744;
 
   /* Cards y Popovers */
-  --card: #2A2426;
-  --card-foreground: #F5F0ED;
-  --popover: #2A2426;
-  --popover-foreground: #F5F0ED;
+  --card: #1A2744;
+  --card-foreground: #F1F5F9;
+  --popover: #1A2744;
+  --popover-foreground: #F1F5F9;
 
-  /* Primary - Rosa Dusty en modo oscuro */
-  --primary: #E8B4B4;
-  --primary-foreground: #1A1517;
+  /* Primary - Navy claro en modo oscuro */
+  --primary: #93C5FD;
+  --primary-foreground: #0F1729;
 
   /* Secondary */
-  --secondary: #3D3335;
-  --secondary-foreground: #F5F0ED;
+  --secondary: #1E3A5F;
+  --secondary-foreground: #F1F5F9;
 
   /* Muted */
-  --muted: #3D3335;
-  --muted-foreground: #A89999;
+  --muted: #1E3A5F;
+  --muted-foreground: #94A3B8;
 
-  /* Accent */
-  --accent: #3D3335;
-  --accent-foreground: #F5F0ED;
+  /* Accent - Teal oscuro */
+  --accent: #134E4A;
+  --accent-foreground: #F1F5F9;
 
   /* Estados */
   --destructive: #F87171;
@@ -145,24 +212,24 @@
   /* Bordes e inputs */
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.15);
-  --ring: #7BBFB8;
+  --ring: #5EEAD4;
 
   /* Charts */
-  --chart-1: #E8B4B4;
-  --chart-2: #D4A5A5;
-  --chart-3: #E8C87D;
-  --chart-4: #A8D4A8;
-  --chart-5: #A8C5D4;
+  --chart-1: #93C5FD;
+  --chart-2: #5EEAD4;
+  --chart-3: #60A5FA;
+  --chart-4: #34D399;
+  --chart-5: #A78BFA;
 
   /* Sidebar */
-  --sidebar: #231E20;
-  --sidebar-foreground: #F5F0ED;
-  --sidebar-primary: #E8B4B4;
-  --sidebar-primary-foreground: #1A1517;
-  --sidebar-accent: #3D3335;
-  --sidebar-accent-foreground: #F5F0ED;
+  --sidebar: #141D2F;
+  --sidebar-foreground: #F1F5F9;
+  --sidebar-primary: #93C5FD;
+  --sidebar-primary-foreground: #0F1729;
+  --sidebar-accent: #1E3A5F;
+  --sidebar-accent-foreground: #F1F5F9;
   --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: #E8B4B4;
+  --sidebar-ring: #5EEAD4;
 }
 
 @layer base {
@@ -172,8 +239,19 @@
   body {
     @apply bg-background text-foreground;
   }
-  h1, h2, h3, h4, h5, h6 {
+  .published-website h1,
+  .published-website h2,
+  .published-website h3,
+  .published-website h4,
+  .published-website h5,
+  .published-website h6 {
     font-family: var(--font-heading);
+  }
+
+  /* Signature NERBIS — brand selection color */
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
   }
 }
 
@@ -353,4 +431,173 @@
 
 .marquee-container:hover .marquee-track {
   animation-play-state: paused;
+}
+
+/* Profile page — animaciones */
+@keyframes profile-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.profile-fade-up {
+  animation: profile-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.profile-delay-1 { animation-delay: 0.06s; opacity: 0; }
+.profile-delay-2 { animation-delay: 0.12s; opacity: 0; }
+.profile-delay-3 { animation-delay: 0.18s; opacity: 0; }
+.profile-delay-4 { animation-delay: 0.24s; opacity: 0; }
+.profile-delay-5 { animation-delay: 0.30s; opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-fade-up {
+    animation: none;
+    opacity: 1;
+  }
+  .profile-delay-1,
+  .profile-delay-2,
+  .profile-delay-3,
+  .profile-delay-4,
+  .profile-delay-5 {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ── Auth: Reduced motion support ────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  [data-auth-animated] {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ── Auth: Logo pendulum animation ───────────────────────────── */
+@keyframes g-pendulum {
+  0%   { transform: rotate(0deg); }
+  6%   { transform: rotate(-18deg); }
+  15%  { transform: rotate(-18deg); }
+  35%  { transform: rotate(0deg); }
+  42%  { transform: rotate(0deg); }
+  48%  { transform: rotate(18deg); }
+  57%  { transform: rotate(18deg); }
+  77%  { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.g-pendulum {
+  animation: g-pendulum 4.3s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-pendulum { animation: none; }
+}
+
+/* ── Auth: Keyframes ─────────────────────────────────────────── */
+@keyframes fade-up-auth {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up-auth {
+  animation: fade-up-auth 0.3s ease-out forwards;
+}
+
+/* Override browser autofill for dark-themed admin inputs */
+.admin-login-input:-webkit-autofill,
+.admin-login-input:-webkit-autofill:hover,
+.admin-login-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: white;
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.06) inset;
+  border-color: rgba(255, 255, 255, 0.1);
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCROLL-TRIGGERED ANIMATIONS (global scope)
+   Used by marketing pages and any non-published-website context.
+   ═══════════════════════════════════════════════════ */
+
+[class*="anim-"]:not(.anim-visible) {
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.anim-fade-up {
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.anim-fade-up.anim-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.anim-fade-in {
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.anim-fade-in.anim-visible {
+  opacity: 1;
+}
+
+.anim-scale-in {
+  transform: scale(0.95);
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.anim-scale-in.anim-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Stagger children */
+.stagger.anim-visible > * {
+  opacity: 0;
+  transform: translateY(16px);
+  animation: stagger-fade-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.stagger.anim-visible > *:nth-child(1) { animation-delay: 0ms; }
+.stagger.anim-visible > *:nth-child(2) { animation-delay: 80ms; }
+.stagger.anim-visible > *:nth-child(3) { animation-delay: 160ms; }
+.stagger.anim-visible > *:nth-child(4) { animation-delay: 240ms; }
+.stagger.anim-visible > *:nth-child(5) { animation-delay: 320ms; }
+.stagger.anim-visible > *:nth-child(6) { animation-delay: 400ms; }
+.stagger.anim-visible > *:nth-child(7) { animation-delay: 480ms; }
+.stagger.anim-visible > *:nth-child(8) { animation-delay: 560ms; }
+.stagger.anim-visible > *:nth-child(9) { animation-delay: 640ms; }
+.stagger.anim-visible > *:nth-child(10) { animation-delay: 720ms; }
+.stagger.anim-visible > *:nth-child(11) { animation-delay: 800ms; }
+.stagger.anim-visible > *:nth-child(12) { animation-delay: 880ms; }
+
+@keyframes stagger-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  [class*="anim-"] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+  .stagger.anim-visible > * {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
 }

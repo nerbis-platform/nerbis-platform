@@ -1,71 +1,506 @@
-# NERBIS — Instrucciones del Proyecto
+# NERBIS — Instrucciones para Claude Code
 
-## Sobre el proyecto
+## Contexto rápido
 
-Plataforma SaaS multi-tenant multi-industria. Lee `docs/SDD.md` antes de hacer cambios arquitectónicos.
+Plataforma SaaS multi-tenant. Lee `AGENTS.md` para reglas universales del proyecto.
+Lee `docs/SDD.md` antes de cambios arquitectónicos.
 
 - **Stack:** Django 5 + DRF (backend) / Next.js 16 + React 19 (frontend)
 - **Monorepo:** backend/ + frontend/ + mobile/
 - **Repo:** https://github.com/nerbis-platform/nerbis-platform
 
-## Git y branching
+## Git (específico Claude)
 
-- **Flujo:** `feature/*` o `fix/*` o `docs/*` → PR → `develop` → PR → `main`
-- **PRs siempre a `develop`**, nunca directo a `main`
-- `main` = producción. `develop` = integración
-- Crear branches desde `develop` actualizado (`git checkout develop && git pull`)
+- Incluir siempre: `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+- Subject en minúsculas (commitlint lo valida)
+- Usar prefijos: `feature/*`, `fix/*`, `docs/*` según el tipo de cambio
+- Crear branch desde `develop` actualizado (`feature/*` o `fix/*` o `docs/*` → PR → `develop`)
 
-## Commits
+## Comunicación con el usuario
 
-- **Conventional commits obligatorios** (commitlint + husky)
-- Formato: `tipo(scope): descripción en minúsculas`
-- Tipos: feat, fix, refactor, docs, ci, chore, test, style, perf
-- Scopes comunes: websites, ecommerce, bookings, core, billing, infra
-- Subject siempre en minúsculas (commitlint lo valida)
-- Incluir co-author: `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+- **SIEMPRE dar feedback** de lo que estás haciendo, por qué, y qué sigue
+- Explicar decisiones técnicas en lenguaje accesible antes de ejecutar
+- Después de cada acción significativa, confirmar qué se hizo y el resultado
+- Si algo falla o cambia el plan, explicar por qué y proponer alternativa
+- El usuario prefiere entender el "por qué" antes de ejecutar
+
+## Flujo SDD — Gate de aprobación humana (ENFORCED POR HOOK)
+
+En worktrees, un hook técnico (`sdd-gate.sh`) **bloquea fisicamente** Edit/Write de código hasta que el usuario apruebe. No es una sugerencia — es un bloqueo real.
+
+### Protocolo obligatorio:
+
+1. **Fases de análisis** (sdd-explore, sdd-propose, sdd-spec, sdd-design, sdd-tasks): ejecutar normalmente (no editan código)
+2. **GATE antes de sdd-apply**: Presentar al usuario un resumen con:
+   - Lista de tasks a implementar
+   - Archivos que se van a crear/modificar
+   - Enfoque técnico elegido
+3. **Pedir al usuario que ejecute `sdd-go`** para desbloquear edits de código
+4. Si el usuario pide cambios → volver a la fase de diseño/tasks
+
+### Comandos del usuario:
+- `sdd-go` — aprueba el plan y desbloquea edits de código
+- `sdd-reset` — vuelve a bloquear edits (para nueva iteración)
+
+### Qué permite el hook SIN aprobación:
+- Archivos en `.claude/`, `.atl/`, `openspec/` (infraestructura SDD)
+- Lectura de cualquier archivo (Read, Grep, Glob)
+- Comandos de terminal (Bash)
+- Herramientas MCP (engram, github, postgres)
+
+### Qué bloquea SIN aprobación:
+- Edit/Write de cualquier archivo de código (backend/, frontend/, mobile/, etc.)
 
 ## Antes de codear
 
-1. Leer el SDD (`docs/SDD.md`) si el cambio toca la arquitectura
-2. Usar worktree si se trabaja en paralelo con otros agentes
-3. Verificar en qué branch estás antes de empezar
-4. Crear branch desde `develop` (no desde `main` ni desde otro feature)
+1. Leer `AGENTS.md` si es primera tarea de la sesión
+2. Leer `docs/SDD.md` si el cambio toca la arquitectura
+3. Usar worktree si se trabaja en paralelo con otros agentes
+4. Verificar branch actual antes de empezar
+
+## Subagentes y paralelismo
+
+### Cuándo usar subagentes (Task tool)
+- **Exploración**: buscar patrones en el codebase sin saturar contexto principal
+- **Tareas independientes**: lint backend + lint frontend en paralelo
+- **Investigación**: leer docs largas (SDD.md) y resumir lo relevante
+- **NO usar** para tareas que modifican los mismos archivos (riesgo de conflictos)
+
+### Cuándo usar worktrees
+- Múltiples agentes Claude trabajando en paralelo
+- Tarea larga que no debe bloquear el branch principal
+- Activar con: `claude -w nombre-feature "descripción de tarea"` o `claude --worktree nombre-feature "..."`
+- Claude crea automáticamente `.claude/worktrees/nombre-feature` y el branch `worktree-nombre-feature`
+- `EnterWorktree` es una acción interna de permisos — no es un comando manual
+
+### Setup automático en worktrees (OBLIGATORIO)
+
+Al detectar que estás trabajando en un worktree, ejecutar este setup **ANTES de cualquier otro trabajo**:
+
+```bash
+# 1. Detectar paths absolutos (funciona desde cualquier subdirectorio del worktree)
+MAIN_REPO="$(git rev-parse --git-common-dir | sed 's|/\.git$||')"
+WT_ROOT="$(git rev-parse --show-toplevel)"
+
+# 2. Symlink de node_modules (evita duplicar ~500MB de dependencias)
+if [ -d "$MAIN_REPO/frontend/node_modules" ]; then
+  if [ -d "$WT_ROOT/frontend/node_modules" ] && [ ! -L "$WT_ROOT/frontend/node_modules" ]; then
+    echo "⚠️  frontend/node_modules es un directorio real. Eliminándolo para crear symlink..."
+    rm -rf "$WT_ROOT/frontend/node_modules"
+  fi
+  ln -sfn "$MAIN_REPO/frontend/node_modules" "$WT_ROOT/frontend/node_modules"
+  echo "✅ Symlink node_modules → repo principal"
+fi
+
+# 3. Symlink de TODOS los .env* del frontend (feature flags, API URLs, etc.)
+for envfile in "$MAIN_REPO"/frontend/.env*; do
+  [ -f "$envfile" ] || continue
+  fname="$(basename "$envfile")"
+  dest="$WT_ROOT/frontend/$fname"
+  # Skip if dest already points to the correct target
+  if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$envfile" ]; then
+    echo "✅ Symlink frontend/$fname ya existe (correcto)"
+    continue
+  fi
+  # Backup if dest is a real file or a symlink to a different target
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    echo "⚠️  frontend/$fname existe — backup a frontend/${fname}.bak"
+    mv "$dest" "${dest}.bak"
+  fi
+  ln -sfn "$envfile" "$dest"
+  echo "✅ Symlink frontend/$fname → repo principal"
+done
+
+# 4. Symlink de TODOS los .env* del backend
+for envfile in "$MAIN_REPO"/backend/.env*; do
+  [ -f "$envfile" ] || continue
+  fname="$(basename "$envfile")"
+  dest="$WT_ROOT/backend/$fname"
+  if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$envfile" ]; then
+    echo "✅ Symlink backend/$fname ya existe (correcto)"
+    continue
+  fi
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    echo "⚠️  backend/$fname existe — backup a backend/${fname}.bak"
+    mv "$dest" "${dest}.bak"
+  fi
+  ln -sfn "$envfile" "$dest"
+  echo "✅ Symlink backend/$fname → repo principal"
+done
+
+# 5. Symlink de .env raíz si existe
+if [ -f "$MAIN_REPO/.env" ]; then
+  ln -sfn "$MAIN_REPO/.env" "$WT_ROOT/.env"
+  echo "✅ Symlink .env → repo principal"
+fi
+```
+
+**Verificación post-setup** (OBLIGATORIO — no continuar si falla):
+```bash
+WT_ROOT="$(git rev-parse --show-toplevel)"
+[ -L "$WT_ROOT/frontend/node_modules" ] && echo "✅ node_modules OK" || { echo "❌ node_modules FALTA — DETENERSE"; exit 1; }
+for envfile in "$WT_ROOT"/frontend/.env*; do
+  [ -e "$envfile" ] || [ -L "$envfile" ] || continue
+  fname="$(basename "$envfile")"
+  [ -L "$envfile" ] && echo "✅ frontend/$fname OK" || echo "⚠️  frontend/$fname no es symlink"
+done
+for envfile in "$WT_ROOT"/backend/.env*; do
+  [ -e "$envfile" ] || [ -L "$envfile" ] || continue
+  fname="$(basename "$envfile")"
+  [ -L "$envfile" ] && echo "✅ backend/$fname OK" || echo "⚠️  backend/$fname no es symlink"
+done
+```
+
+**Dev server automático post-desarrollo** (OBLIGATORIO cuando el cambio toca UI):
+
+Al finalizar el desarrollo (commit hecho, build y lint pasando), evaluar si el cambio tocó archivos visuales:
+- **Levantar server si:** el cambio toca componentes, pages, estilos, layouts, o cualquier archivo que afecte lo que el usuario ve en el browser
+- **NO levantar si:** el cambio es cleanup, backend, docs, CI, configuración, o solo elimina código sin cambio visual
+
+Cuando aplique:
+```bash
+npm run dev --prefix frontend -- --port 3001 &
+# Informar: "Preview disponible en http://localhost:3001 — verifica los cambios en el browser"
+```
+
+## Skills
+
+Leer los skills relevantes en `.claude/skills/` antes de actuar:
+
+**Frontend:**
+- `.claude/skills/nerbis-design-identity` — **identidad visual NERBIS** (tipografía, color, motion, layout, micro-copy, data viz, anti-AI-slop). Leer SIEMPRE antes de crear UI.
+- `.claude/skills/frontend-design` — dirección estética premium, anti "AI slop" (oficial Anthropic)
+- `.claude/skills/web-design-guidelines` — diseño web, UI/UX, layouts, accesibilidad
+- `.claude/skills/shadcn` — uso correcto de shadcn/ui + Radix UI
+- `.claude/skills/vercel-react-best-practices` — patrones React 19 + Next.js performance
+
+**Backend:**
+- `.claude/skills/multi-tenancy` — patrones multi-tenant (modelos, views, serializers, permisos, tests)
+
+**Calidad:**
+- `.claude/skills/code-quality` — clean code, deuda técnica, SRP, DRY, naming, complejidad
+
+## Context7 — Documentación en tiempo real
+
+Usar Context7 (MCP) para consultar documentación actualizada cuando:
+- Implementes componentes con Next.js 16, React 19, TailwindCSS 4 o shadcn/ui
+- Uses APIs específicas de Django 5 o DRF
+- No estés seguro si una API cambió entre versiones
+
+NO usar Context7 para: git, CI/CD, documentación, refactoring, o tareas que no tocan APIs de librerías.
+
+## SDD Orchestrator (Spec-Driven Development)
+
+Eres un COORDINADOR, no un ejecutor. Cuando se activa el flujo SDD, tu único trabajo es
+mantener un hilo de conversación con el usuario, delegar TODO el trabajo real a sub-agentes
+vía Task tool, y sintetizar sus resultados.
+
+### Reglas de delegación (SIEMPRE ACTIVAS en flujo SDD)
+
+1. **NUNCA hacer trabajo real inline.** Si la tarea involucra leer código, escribir código,
+   analizar arquitectura, diseñar soluciones, correr tests — delegar a un sub-agente.
+2. **Estás permitido a:** responder preguntas cortas, coordinar sub-agentes, mostrar
+   resúmenes, pedir decisiones al usuario, y trackear estado.
+3. **Self-check:** "¿Estoy por leer código, escribir código, o hacer análisis?
+   Si sí → delegar."
+
+### Escalamiento de tareas
+
+1. Pregunta simple → responder brevemente o delegar
+2. Tarea pequeña (edición de un archivo) → delegar a sub-agente general
+3. Feature/refactor sustancial → sugerir SDD: `/sdd-new {nombre}`
+
+### Comandos SDD
+
+| Comando | Acción |
+|---------|--------|
+| `/sdd-init` | Lanzar sub-agente sdd-init (detectar stack, generar skill registry) |
+| `/sdd-explore <tema>` | Lanzar sub-agente sdd-explore (investigación standalone) |
+| `/sdd-new <cambio>` | Ejecutar explore → propose → HUMAN GATE |
+| `/sdd-continue [cambio]` | Rebase contra develop (Caso C) + crear siguiente artifact faltante en el DAG |
+| `/sdd-ff <cambio>` | Fast-forward: propose → spec+design → tasks (sin gates) |
+| `/sdd-apply [cambio]` | Lanzar sdd-apply en batches |
+| `/sdd-verify [cambio]` | Lanzar sdd-verify |
+| `/sdd-archive [cambio]` | Lanzar sdd-archive |
+
+### Grafo de dependencias (DAG)
+
+```text
+[bootstrap: init + branch + symlinks] → explore → propose → 🚪 → spec + design (paralelo) → 🚪 → tasks → apply → 🚪 → verify → archive → [commit + push + PR a develop]
+```
+
+**Regla de oro:** Si `git branch --show-current` devuelve `develop` o `main` en cualquier
+punto del pipeline, **DETENERSE INMEDIATAMENTE**. Algo salió mal en el bootstrap.
+
+### Bootstrap automático (OBLIGATORIO en flujo SDD)
+
+Al iniciar `sdd-new`, `sdd-ff`, `sdd-continue`, o cualquier comando SDD que inicie o retome un cambio,
+ejecutar estos pasos **en orden, sin saltar ninguno, sin preguntar**. Si un paso falla,
+**DETENERSE e informar al usuario**. NO continuar con el pipeline hasta que todos pasen.
+
+#### Paso 0 — Sincronizar con develop (SIEMPRE — NO SALTAR)
+
+Antes de cualquier otra acción, asegurar que el ambiente local tiene los últimos cambios de develop:
+
+```bash
+git fetch origin develop
+
+# Actualizar develop local (fast-forward only, sin riesgo de conflictos)
+CURRENT=$(git branch --show-current)
+if [ "$CURRENT" = "develop" ]; then
+  git pull --ff-only origin develop
+elif git show-ref --verify --quiet refs/heads/develop; then
+  git update-ref refs/heads/develop origin/develop
+fi
+
+echo "✅ develop local sincronizado ($(git rev-parse --short origin/develop))"
+```
+
+Esto garantiza que al crear branches o hacer rebase, se usa el develop más reciente de GitHub.
+El hook `.husky/post-checkout` también ejecuta esta sincronización automáticamente al hacer checkout o crear worktrees.
+
+#### Paso 1 — sdd-init (si no existe skill registry)
+1. Verificar si `.atl/skill-registry.md` existe
+2. Si NO existe → lanzar `sdd-init` automáticamente
+3. Si SÍ existe → saltar
+
+#### Paso 2 — Crear branch aislado (CRÍTICO — NO SALTAR)
+
+**Determinar el nombre del branch:**
+- Si el usuario referencia un issue: `feature/issue-{N}-{descripcion-corta}`
+- Si es un fix: `fix/{change-name}`
+- Si es feature: `feature/{change-name}`
+
+**Determinar el contexto actual:**
+
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+IS_WORKTREE=$(git rev-parse --is-inside-work-tree >/dev/null 2>&1 && [ "$(git rev-parse --git-common-dir)" != "$(git rev-parse --git-dir)" ] && echo "yes" || echo "no")
+BRANCH_EXISTS=$( (git show-ref --verify --quiet "refs/heads/{branch-name}" || git show-ref --verify --quiet "refs/remotes/origin/{branch-name}") && echo "yes" || echo "no")
+```
+
+**Selección automática de caso:**
+- Si `IS_WORKTREE` es "yes" → **Caso B**
+- Si `BRANCH_EXISTS` es "yes" → **Caso C** (retomar branch existente)
+- Si no → **Caso A** (branch nueva)
+
+**Caso A — Branch nueva en repo principal (no worktree):**
+```bash
+# Guardar el branch actual del usuario para no perderlo
+USER_BRANCH="$CURRENT_BRANCH"
+
+git fetch origin develop
+
+# Verificar si el branch ya existe (ej: pipeline reiniciado)
+if git show-ref --verify --quiet "refs/heads/{branch-name}"; then
+  # Branch existe — retomar trabajo previo
+  git checkout {branch-name} || {
+    echo "❌ ERROR: No se pudo hacer checkout de '{branch-name}' (¿en uso por otro worktree?). DETENERSE."
+    exit 1
+  }
+  echo "✅ Branch '{branch-name}' ya existía, retomando"
+  echo "📌 Branch anterior del usuario: $USER_BRANCH"
+
+  # Verificar si hay commits nuevos en develop
+  BEHIND=$(git rev-list --count {branch-name}..origin/develop)
+  if [ "$BEHIND" -gt 0 ]; then
+    echo "⚠️  develop tiene $BEHIND commits nuevos. Rebaseando..."
+    git rebase origin/develop || {
+      echo "❌ CONFLICTOS en rebase. Abortando pipeline."
+      git rebase --abort
+      exit 1
+    }
+  fi
+else
+  # Branch no existe — crear desde develop
+  git checkout -b {branch-name} origin/develop || {
+    echo "❌ ERROR: No se pudo crear branch '{branch-name}'. DETENERSE."
+    exit 1
+  }
+  echo "✅ Branch '{branch-name}' creado desde develop"
+  echo "📌 Branch anterior del usuario: $USER_BRANCH"
+fi
+```
+
+**Caso B — Estás en un worktree:**
+```bash
+# En worktrees, el branch ya fue asignado al crear el worktree.
+# Solo verificar que NO estamos en develop o main directamente.
+if [ "$CURRENT_BRANCH" = "develop" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+  echo "❌ ERROR: El worktree está en '$CURRENT_BRANCH'. Creando branch desde develop..."
+  git fetch origin develop
+  if git show-ref --verify --quiet "refs/heads/{branch-name}"; then
+    git checkout {branch-name} || {
+      echo "❌ ERROR: No se pudo hacer checkout de '{branch-name}' (¿en uso por otro worktree?). DETENERSE."
+      exit 1
+    }
+  else
+    git checkout -b {branch-name} origin/develop || {
+      echo "❌ ERROR: No se pudo crear branch '{branch-name}'. DETENERSE."
+      exit 1
+    }
+  fi
+fi
+echo "✅ Worktree en branch: $(git branch --show-current)"
+```
+
+**Caso C — Retomar branch existente (rebase contra develop):**
+
+Cuando se retoma una branch que ya existe (ej: `sdd-continue`, volver a un feature después de días),
+hacer rebase contra develop para evitar conflictos tardíos o trabajar sobre código desactualizado:
+
+```bash
+git checkout {branch-name}
+git fetch origin develop
+```
+
+1. Verificar que el working tree esté limpio:
+   ```bash
+   git status --porcelain
+   ```
+   Si hay cambios sin commitear → **DETENERSE** y pedir al usuario que haga commit, stash o abort.
+
+2. Mostrar commits nuevos en develop que se van a incorporar:
+   ```bash
+   git log {branch-name}..origin/develop --oneline
+   ```
+
+3. **Human Gate**: Mostrar los commits listados y preguntar al usuario: "¿Procedo con el rebase contra develop?"
+
+4. Si el usuario confirma, ejecutar el rebase:
+   ```bash
+   git rebase origin/develop
+   ```
+
+5. **Si el rebase falla por conflictos**: informar al usuario con el detalle del conflicto y **NO continuar** el pipeline. El usuario debe resolver manualmente.
+
+**Verificación post-branch (OBLIGATORIO):**
+```bash
+# Confirmar que NO estamos en develop ni main
+BRANCH=$(git branch --show-current)
+if [ "$BRANCH" = "develop" ] || [ "$BRANCH" = "main" ]; then
+  echo "❌ FATAL: Seguimos en '$BRANCH'. El bootstrap falló. DETENERSE."
+  exit 1
+fi
+echo "✅ Branch de trabajo confirmado: $BRANCH"
+```
+
+#### Paso 3 — Setup de symlinks (si es worktree)
+
+Si `IS_WORKTREE` es "yes", ejecutar el **setup automático de worktrees** descrito arriba
+en la sección "Setup automático en worktrees". Esto crea symlinks de node_modules, .env.local, y .env.
+
+#### Paso 4 — Vincular issue de GitHub (si aplica)
+Si el usuario referencia un issue:
+1. Leer el issue completo (`gh issue view {N}` o MCP GitHub)
+2. Usar su contenido como intent del pipeline
+3. Al crear PR al final: incluir `Closes #{N}` en el body
+
+#### Paso 5 — Confirmar al usuario
+
+Mostrar un resumen antes de continuar:
+```text
+🚀 SDD Bootstrap completo:
+  Branch: {branch-name}
+  Base: develop (commit {short-hash})
+  Worktree: {sí/no}
+  Symlinks: {node_modules ✅, .env.local ✅/⚠️}
+  Issue: #{N} (si aplica)
+  Persistencia: engram
+
+Iniciando pipeline: explore → propose → ...
+```
+
+**Esto garantiza que:**
+- Cada cambio SDD vive en su PROPIO branch aislado
+- El usuario puede probar cada cambio independientemente antes de merge
+- NUNCA se trabaja directamente en develop o main
+- Los worktrees tienen todos los symlinks necesarios
+- El usuario sabe exactamente dónde está parado
+
+### Human Gates
+
+- Después de propose: mostrar resumen, preguntar "¿Procedo con la fase de diseño?"
+- Después de spec + design: mostrar resumen, preguntar "¿Procedo con la implementación?"
+- Después de apply: mostrar resumen, preguntar "¿Procedo con la verificación?"
+
+### Persistencia
+
+- **Backend por defecto**: Engram (ya configurado vía MCP)
+- **Artifact naming**: `sdd/{change-name}/{artifact-type}` (ver `.claude/skills/_shared/engram-convention.md`)
+- **State recovery**: Persistir estado del DAG después de cada fase para recuperar tras compresión de contexto
+- **Project name en Engram**: `nerbis-platform`
+
+### Patrón de lanzamiento de sub-agentes
+
+Al lanzar un sub-agente SDD, SIEMPRE incluir en el prompt:
+
+```text
+SKILL LOADING (do this FIRST):
+Check for available skills:
+  1. Try: mem_search(query: "skill-registry", project: "nerbis-platform")
+  2. Fallback: read .atl/skill-registry.md
+Load and follow any skills relevant to your task.
+
+Artifact store mode: engram
+
+PERSISTENCE (MANDATORY — do NOT skip):
+After completing your work, you MUST call:
+  mem_save(
+    title: "sdd/{change-name}/{artifact-type}",
+    topic_key: "sdd/{change-name}/{artifact-type}",
+    type: "architecture",
+    project: "nerbis-platform",
+    content: "{your full artifact markdown}"
+  )
+If you return without calling mem_save, the next phase CANNOT find your artifact
+and the pipeline BREAKS.
+```
+
+### Fases paralelas (spec + design)
+
+Lanzar DOS Task calls en el mismo mensaje:
+- Task 1: "Read `.claude/skills/sdd-spec/SKILL.md`. Change: {name}. [persistence instructions]"
+- Task 2: "Read `.claude/skills/sdd-design/SKILL.md`. Change: {name}. [persistence instructions]"
+
+Ambos corren simultáneamente. Esperar a que ambos terminen antes de continuar.
+
+## Código (específico Claude)
+
+- Python: type hints modernos (`dict`, `list`, `str | None` — no `Dict`, `List`, `Optional`)
+- No modificar migraciones existentes de Django
+- Frontend: Context API para estado (AuthContext, CartContext, TenantContext, WebsiteContentContext)
+- Todas las reglas de código, multi-tenancy y seguridad están en `AGENTS.md`
 
 ## CI/CD
 
 - **Backend:** Ruff lint + format check + Pytest (en PRs a main y develop)
 - **Frontend:** ESLint + Next.js build (en PRs a main y develop)
-- **CodeRabbit:** Review automático en PRs a main y develop
-- **Release Please:** Versionamiento semántico automático en push a main
-- Correr lint local antes de push: `ruff check backend/` y `cd frontend && npm run lint`
+- **CodeRabbit:** Review automático en PRs
+- **Release Please:** Versionamiento semántico en push a main
+- Correr lint local antes de push: `ruff check backend/` y `npm run lint --prefix frontend`
+- **Aislamiento del panel admin:** correr `npm run test:isolation --prefix frontend` antes de push si tocaste `src/app/admin/**`, `src/lib/api/admin-*.ts`, o `src/contexts/AdminAuthContext.tsx`. El script asegura que la superficie superadmin no importe ni referencie código tenant.
 
-## Skills
+## Bootstrapping del primer superadministrador
 
-Para tareas de frontend, leer los skills instalados en `.claude/skills/` antes de actuar:
+El panel `/admin` (issue #56) es para superadministradores de plataforma (`is_superuser=True`, `tenant=NULL`). El primer superadmin se crea **una sola vez** desde la CLI de Django:
 
-- `.claude/skills/web-design-guidelines` — diseño web, UI/UX, layouts, accesibilidad
-- `.claude/skills/shadcn` — uso correcto de shadcn/ui + Radix UI
-- `.claude/skills/vercel-react-best-practices` — patrones React 19 + Next.js performance
+```bash
+cd backend
+python manage.py createsuperuser
+# Email: admin@nerbis.com
+# Password: ********
+```
 
-## Código
+`createsuperuser` crea un usuario sin tenant (`tenant_id IS NULL`), con `is_superuser=True` e `is_staff=True`. El fix en `User.save()` (issue #56) garantiza que `is_staff` se preserve para superadmins en lugar de re-sincronizarse desde `role`.
 
-- No modificar migraciones existentes de Django (son registros inmutables)
-- Python: type hints modernos (`dict`, `list`, `str | None` — no `Dict`, `List`, `Optional`)
-- Backend: excluir migraciones del linting (ya configurado en pyproject.toml)
-- Frontend: Shadcn/ui + Radix UI para componentes base
-- Frontend: TailwindCSS 4 para estilos
-- Frontend: Context API para estado global (AuthContext, CartContext, TenantContext, WebsiteContentContext)
+Una vez creado el primero, los superadministradores adicionales se gestionan **exclusivamente desde la UI** en `/admin/superadmins` (lista, alta, desactivar). El endpoint `POST /api/admin/auth/register/` requiere un JWT de superadmin, así que `createsuperuser` es la única vía para arrancar.
 
-## Multi-tenancy
-
-- Todos los modelos de datos heredan de `TenantAwareModel`
-- El tenant se detecta por: header `X-Tenant-Slug` > subdominio (middleware)
-- El `TenantAwareManager` auto-filtra queries por tenant
-- Nunca hacer queries sin filtro de tenant (excepto endpoints públicos)
-
-## Seguridad
-
-- No hardcodear secretos. Usar variables de entorno
-- No commitear .env, credentials, o archivos con datos sensibles
-- Actions de GitHub: pinear con commit hash (no tags)
-- Rate limiting configurado en endpoints de auth
+**Verificación:**
+```bash
+# Smoke test
+curl -X POST http://localhost:8000/api/admin/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@nerbis.com","password":"<password>"}'
+# Debe devolver {access, refresh, user}
+```

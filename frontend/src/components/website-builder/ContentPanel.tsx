@@ -191,7 +191,7 @@ export default function ContentPanel({
                       value={String(editedContent.map_address || '')}
                       onChange={(e) => setEditedContent({ ...editedContent, map_address: e.target.value })}
                       placeholder="Calle 123, Ciudad, País"
-                      className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors"
+                      className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/30 transition-colors"
                     />
                     {editedContent.address && !editedContent.map_address && (
                       <button
@@ -301,7 +301,7 @@ function SectionFields({
               type="text"
               value={String(value || '')}
               onChange={(e) => updateField(key, e.target.value)}
-              className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors"
+              className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/30 transition-colors"
             />
           )}
         </div>
@@ -323,7 +323,7 @@ function SectionFields({
                   type="text"
                   value={h}
                   onChange={(e) => updateHighlight(i, e.target.value)}
-                  className="flex-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                  className="flex-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 focus:outline-none focus:border-[#0D9488] transition-colors"
                 />
                 <button
                   type="button"
@@ -464,7 +464,7 @@ function ItemCard({
                   type="text"
                   value={String(item[key] || '')}
                   onChange={(e) => onUpdate(key, e.target.value)}
-                  className="w-full mt-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.82rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                  className="w-full mt-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.82rem] text-gray-700 focus:outline-none focus:border-[#0D9488] transition-colors"
                 />
               )}
             </div>

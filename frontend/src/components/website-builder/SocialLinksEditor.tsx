@@ -47,7 +47,7 @@ export default function SocialLinksEditor({
                 onChange={(e) => updateLink(key, e.target.value)}
                 placeholder={placeholder}
                 disabled={disabled}
-                className="flex-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors disabled:opacity-50"
+                className="flex-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors disabled:opacity-50"
               />
             </div>
           );

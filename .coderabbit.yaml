@@ -5,3 +5,21 @@ reviews:
     base_branches:
       - main
       - develop
+  path_instructions:
+    - path: "frontend/**"
+      instructions: |
+        Revisar que el código frontend siga la identidad visual NERBIS definida en `.claude/skills/nerbis-design-identity/SKILL.md`.
+        Verificar en cada PR de frontend:
+        - Tipografía: Geist Sans, hierarchy correcta, negative tracking en headings, clamp() responsive
+        - Color: tokens semánticos (no hex hardcodeados), dark mode, contraste WCAG AA
+        - Motion: duraciones correctas (hover 150ms, click 100ms), solo propiedades GPU, prefers-reduced-motion
+        - Layout: 4px grid, whitespace asimétrico, gap en vez de margin
+        - Componentes: max 3 variantes de botón, hover lift, focus-visible, shadcn primitives
+        - Micro-copy: voz específica y concisa, sin "Oops!", botones con acción nombrada
+        - Anti-AI-slop: sin gradientes purple-blue, sin layout genérico Hero>3Cards>Pricing, sin Inter default
+        - Responsive: bottom nav mobile, tables→cards mobile, modals→sheets mobile
+        - Accesibilidad: aria-labels, keyboard nav, 44px touch targets, color nunca sola
+    - path: "backend/*/templates/**"
+      instructions: |
+        Revisar que los templates de email sigan la identidad NERBIS: una CTA por email,
+        max 560px, voz concisa sin marketing, multi-tenant con logo/color del tenant.

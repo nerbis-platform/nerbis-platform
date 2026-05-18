@@ -1,0 +1,36 @@
+<!-- backend/notifications/templates/emails/team_invitation.html -->
+
+{% extends "emails/base.html" %}
+
+{% block title %}Invitación de equipo{% endblock %}
+
+{% block content %}
+<h2>Te han invitado a unirte a {{ tenant_name }}</h2>
+
+<p>Hola,</p>
+
+<p><strong>{{ invited_by_name }}</strong> te ha invitado a unirte al equipo de <strong>{{ tenant_name }}</strong> como <strong>{{ role_display }}</strong>.</p>
+
+<div class="info-box">
+    <p><strong>Equipo:</strong> {{ tenant_name }}</p>
+    <p><strong>Rol:</strong> {{ role_display }}</p>
+    <p><strong>Invitado por:</strong> {{ invited_by_name }}</p>
+</div>
+
+<p>Para aceptar la invitaci&oacute;n y crear tu cuenta, haz clic en el siguiente bot&oacute;n:</p>
+
+<p style="margin-top: 30px; text-align: center;">
+    <a href="{{ invite_url }}" class="button">Aceptar Invitaci&oacute;n</a>
+</p>
+
+<p style="margin-top: 20px; font-size: 13px; color: #666;">
+    Si el bot&oacute;n no funciona, copia y pega este enlace en tu navegador:<br>
+    <a href="{{ invite_url }}" style="color: #0D9488; word-break: break-all;">{{ invite_url }}</a>
+</p>
+
+<p style="margin-top: 20px; font-size: 13px; color: #999;">
+    Esta invitaci&oacute;n expira en 30 d&iacute;as. Si no solicitaste esta invitaci&oacute;n, puedes ignorar este email.
+</p>
+
+<p>Un saludo cordial,<br>El equipo de {{ tenant_name }}</p>
+{% endblock %}

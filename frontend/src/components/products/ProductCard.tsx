@@ -64,7 +64,7 @@ export function ProductCard({ product }: ProductCardProps) {
             <Badge className="absolute top-2 right-2">Destacado</Badge>
           )}
           {hasDiscount && (
-            <Badge variant="destructive" className="absolute top-2 left-2">
+            <Badge className="absolute top-2 left-2">
               Oferta
             </Badge>
           )}

@@ -4,7 +4,7 @@
 
 import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, User, Menu, Search, Clock } from 'lucide-react';
+import { ShoppingCart, User, Menu, Search, Clock, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -91,7 +91,6 @@ export function Header() {
                 <ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />
                 {itemsCount > 0 && (
                   <Badge
-                    variant="destructive"
                     className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
                   >
                     {itemsCount}
@@ -171,8 +170,12 @@ export function Header() {
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard/staff/appointments">Mis Citas (Staff)</Link>
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href="/dashboard/profile">Mi Perfil</Link>
+                      <Link href="/dashboard/settings" className="flex items-center">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Mi Cuenta
+                      </Link>
                     </DropdownMenuItem>
                   </>
                 ) : user.role === 'admin' ? (
@@ -195,10 +198,17 @@ export function Header() {
                       <Link href="/dashboard/appointments">Mis Citas</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/dashboard/contracts">Mis Contratos</Link>
+                      <Link href="/dashboard/team">Equipo</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/dashboard/profile">Mi Perfil</Link>
+                      <Link href="/dashboard/contracts">Mis Contratos</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard/settings" className="flex items-center">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Mi Cuenta
+                      </Link>
                     </DropdownMenuItem>
                   </>
                 ) : (
@@ -215,8 +225,12 @@ export function Header() {
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard/contracts">Mis Contratos</Link>
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href="/dashboard/profile">Mi Perfil</Link>
+                      <Link href="/dashboard/settings" className="flex items-center">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Mi Cuenta
+                      </Link>
                     </DropdownMenuItem>
                   </>
                 )}

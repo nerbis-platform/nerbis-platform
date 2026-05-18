@@ -1,0 +1,1633 @@
+// src/app/(platform)/admin/tenants/[id]/page.tsx
+//
+// Platform superadmin: tenant detail page.
+//
+// Shows an overview of the tenant (business info, subscription, modules,
+// stats) and an embedded users table with search + filters + pagination.
+// All data flows through `adminClient` via `admin-tenants.ts`.
+'use client';
+
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import {
+  ArrowLeft,
+  Building2,
+  Calendar,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Globe2,
+  Loader2,
+  LogOut,
+  Mail,
+  MapPin,
+  Pencil,
+  Phone,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  ShieldOff,
+  Sparkles,
+  Users as UsersIcon,
+  XCircle,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import {
+  adminGetTenant,
+  adminListTenantUsers,
+  adminResetOnboarding,
+  adminSetTenantPhase,
+  adminUpdateTenant,
+} from '@/lib/api/admin-tenants';
+import type {
+  AdminSubscriptionStatus,
+  AdminTenantDetail,
+  AdminTenantPhase,
+  AdminTenantPlan,
+  AdminTenantUpdatePayload,
+  AdminTenantUser,
+  AdminTenantUserRole,
+  AdminUserFilters,
+} from '@/types/admin';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+const USERS_PAGE_SIZE = 20;
+
+const PLAN_LABELS: Record<AdminTenantPlan, string> = {
+  trial: 'Trial',
+  basic: 'Básico',
+  professional: 'Profesional',
+  enterprise: 'Enterprise',
+};
+
+const SUBSCRIPTION_LABELS: Record<AdminSubscriptionStatus, string> = {
+  active: 'Activa',
+  trial: 'Trial',
+  expired: 'Vencida',
+  inactive: 'Inactiva',
+};
+
+const ROLE_LABELS: Record<AdminTenantUserRole, string> = {
+  admin: 'Admin',
+  staff: 'Staff',
+  customer: 'Cliente',
+};
+
+const INDUSTRY_OPTIONS: { value: string; label: string }[] = [
+  { value: 'beauty', label: 'Salon de Belleza / Barberia' },
+  { value: 'spa', label: 'Spa / Centro de Bienestar' },
+  { value: 'nails', label: 'Unas / Nail Bar' },
+  { value: 'gym', label: 'Gimnasio / Fitness' },
+  { value: 'yoga', label: 'Yoga / Pilates / Danza' },
+  { value: 'clinic', label: 'Clinica / Consultorio Medico' },
+  { value: 'dental', label: 'Odontologia' },
+  { value: 'psychology', label: 'Psicologia / Terapias' },
+  { value: 'nutrition', label: 'Nutricion / Dietetica' },
+  { value: 'veterinary', label: 'Veterinaria / Pet Shop' },
+  { value: 'restaurant', label: 'Restaurante / Cafeteria' },
+  { value: 'bakery', label: 'Panaderia / Pasteleria' },
+  { value: 'store', label: 'Tienda / Retail' },
+  { value: 'fashion', label: 'Moda / Boutique' },
+  { value: 'education', label: 'Educacion / Academia' },
+  { value: 'coworking', label: 'Coworking / Oficina' },
+  { value: 'photography', label: 'Fotografia / Videografia' },
+  { value: 'architecture', label: 'Arquitectura / Diseno' },
+  { value: 'legal', label: 'Abogados / Consultoria Legal' },
+  { value: 'accounting', label: 'Contabilidad / Finanzas' },
+  { value: 'marketing', label: 'Marketing / Publicidad' },
+  { value: 'tech', label: 'Tecnologia / Software' },
+  { value: 'real_estate', label: 'Inmobiliaria' },
+  { value: 'automotive', label: 'Automotriz / Taller Mecanico' },
+  { value: 'events', label: 'Eventos / Wedding Planner' },
+  { value: 'travel', label: 'Turismo / Agencia de Viajes' },
+  { value: 'services', label: 'Servicios Profesionales' },
+  { value: 'other', label: 'Otro' },
+];
+
+const INDUSTRY_LABELS: Record<string, string> = Object.fromEntries(
+  INDUSTRY_OPTIONS.map(({ value, label }) => [value, label]),
+);
+
+type RoleFilter = 'all' | AdminTenantUserRole;
+type StatusFilter = 'all' | 'active' | 'inactive';
+type PendingAction = 'activate' | 'deactivate' | null;
+
+function planBadgeClass(plan: AdminTenantPlan): string {
+  switch (plan) {
+    case 'enterprise':
+      return 'bg-indigo-50 text-indigo-700 ring-indigo-200';
+    case 'professional':
+      return 'bg-teal-50 text-teal-700 ring-teal-200';
+    case 'basic':
+      return 'bg-slate-100 text-slate-700 ring-slate-200';
+    case 'trial':
+    default:
+      return 'bg-amber-50 text-amber-700 ring-amber-200';
+  }
+}
+
+function subscriptionBadgeClass(
+  status: AdminSubscriptionStatus,
+  isActive: boolean,
+): string {
+  if (!isActive) return 'bg-red-50 text-red-700 ring-red-200';
+  switch (status) {
+    case 'active':
+      return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+    case 'trial':
+      return 'bg-amber-50 text-amber-700 ring-amber-200';
+    case 'expired':
+      return 'bg-red-50 text-red-700 ring-red-200';
+    case 'inactive':
+    default:
+      return 'bg-slate-100 text-slate-600 ring-slate-200';
+  }
+}
+
+function roleBadgeClass(role: AdminTenantUserRole): string {
+  switch (role) {
+    case 'admin':
+      return 'bg-teal-50 text-teal-700 ring-teal-200';
+    case 'staff':
+      return 'bg-indigo-50 text-indigo-700 ring-indigo-200';
+    case 'customer':
+    default:
+      return 'bg-slate-100 text-slate-600 ring-slate-200';
+  }
+}
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '\u2014';
+  try {
+    return new Date(iso).toLocaleDateString('es-CO', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '\u2014';
+  try {
+    return new Date(iso).toLocaleString('es-CO', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+// ── Subcomponents ────────────────────────────────────────────────────
+
+function InfoRow({
+  icon,
+  label,
+  value,
+  mono = false,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      {icon ? (
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+          {icon}
+        </span>
+      ) : null}
+      <div className="min-w-0 flex-1">
+        <dt className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+          {label}
+        </dt>
+        <dd
+          className={`mt-0.5 text-sm text-slate-900 ${mono ? 'font-mono' : ''}`}
+        >
+          {value}
+        </dd>
+      </div>
+    </div>
+  );
+}
+
+function FeatureFlag({
+  enabled,
+  label,
+}: {
+  enabled: boolean;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/40 px-3 py-2">
+      <span className="text-sm text-slate-700">{label}</span>
+      {enabled ? (
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+          Activo
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400">
+          <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+          Inactivo
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Phase stepper constants ───────────────────────────────────────────
+
+const PHASE_META: Record<AdminTenantPhase, { label: string; color: string; bgColor: string; ringColor: string }> = {
+  onboarding: { label: 'En Onboarding', color: 'text-amber-700', bgColor: 'bg-amber-50', ringColor: 'ring-amber-200' },
+  modules_configured: { label: 'Modulos OK', color: 'text-blue-700', bgColor: 'bg-blue-50', ringColor: 'ring-blue-200' },
+  website_building: { label: 'Construyendo', color: 'text-violet-700', bgColor: 'bg-violet-50', ringColor: 'ring-violet-200' },
+  website_generated: { label: 'Generado', color: 'text-indigo-700', bgColor: 'bg-indigo-50', ringColor: 'ring-indigo-200' },
+  operational: { label: 'Operativo', color: 'text-emerald-700', bgColor: 'bg-emerald-50', ringColor: 'ring-emerald-200' },
+  suspended: { label: 'Suspendido', color: 'text-red-700', bgColor: 'bg-red-50', ringColor: 'ring-red-200' },
+};
+
+const PHASE_ORDER: AdminTenantPhase[] = [
+  'onboarding',
+  'modules_configured',
+  'website_building',
+  'website_generated',
+  'operational',
+];
+
+function PhaseStepperIndex(phase: AdminTenantPhase): number {
+  if (phase === 'suspended') return -1;
+  return PHASE_ORDER.indexOf(phase);
+}
+
+function PhaseStepper({ phase }: { phase: AdminTenantPhase }) {
+  const currentIdx = PhaseStepperIndex(phase);
+  const isSuspended = phase === 'suspended';
+  const meta = PHASE_META[phase];
+
+  return (
+    <div className="space-y-3">
+      {/* Current phase badge */}
+      <div className="flex items-center gap-2.5">
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${meta.bgColor} ${meta.color} ${meta.ringColor}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${isSuspended ? 'bg-red-500' : 'bg-current'} ${!isSuspended ? 'animate-pulse' : ''}`} />
+          {meta.label}
+        </span>
+        {!isSuspended && (
+          <span className="text-[11px] text-slate-400">
+            Paso {currentIdx + 1} de {PHASE_ORDER.length}
+          </span>
+        )}
+      </div>
+
+      {/* Horizontal stepper track */}
+      <div className="flex items-center gap-0">
+        {PHASE_ORDER.map((p, idx) => {
+          const isCompleted = !isSuspended && idx < currentIdx;
+          const isCurrent = !isSuspended && idx === currentIdx;
+          const isUpcoming = isSuspended || idx > currentIdx;
+
+          return (
+            <div key={p} className="flex items-center flex-1 min-w-0 last:flex-none">
+              {/* Step dot */}
+              <div className="relative group flex-shrink-0">
+                <div
+                  className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${
+                    isCompleted
+                      ? 'bg-[#1C3B57]'
+                      : isCurrent
+                        ? 'bg-[#0D9488] ring-4 ring-teal-100'
+                        : isSuspended
+                          ? 'bg-red-200'
+                          : 'bg-slate-200'
+                  }`}
+                />
+                {/* Tooltip */}
+                <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                  {PHASE_META[p].label}
+                </span>
+              </div>
+              {/* Connector line */}
+              {idx < PHASE_ORDER.length - 1 && (
+                <div
+                  className={`h-[2px] flex-1 min-w-2 transition-colors duration-500 ${
+                    isCompleted
+                      ? 'bg-[#1C3B57]'
+                      : isSuspended
+                        ? 'bg-red-100'
+                        : 'bg-slate-200'
+                  }`}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Step labels (only on wider screens) */}
+      <div className="hidden sm:flex items-center gap-0">
+        {PHASE_ORDER.map((p, idx) => {
+          const isCompleted = !isSuspended && idx < currentIdx;
+          const isCurrent = !isSuspended && idx === currentIdx;
+
+          return (
+            <div key={p} className="flex items-center flex-1 min-w-0 last:flex-none">
+              <span
+                className={`text-[10px] font-medium leading-tight truncate ${
+                  isCurrent
+                    ? 'text-[#1C3B57] font-semibold'
+                    : isCompleted
+                      ? 'text-slate-500'
+                      : 'text-slate-300'
+                }`}
+              >
+                {PHASE_META[p].label}
+              </span>
+              {idx < PHASE_ORDER.length - 1 && (
+                <div className="flex-1 min-w-2" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PhaseBadge({ phase }: { phase: AdminTenantPhase }) {
+  const meta = PHASE_META[phase];
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${meta.bgColor} ${meta.color} ${meta.ringColor}`}>
+      <span className={`h-1.5 w-1.5 rounded-full bg-current ${phase !== 'suspended' && phase !== 'operational' ? 'animate-pulse' : ''}`} />
+      {meta.label}
+    </span>
+  );
+}
+
+function AdminTenantDetailSkeleton() {
+  return (
+    <div className="animate-pulse space-y-4" aria-hidden="true">
+      <div className="grid gap-4 md:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-48 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <div className="mb-4 h-4 w-32 rounded bg-slate-100" />
+            <div className="space-y-2">
+              <div className="h-3 w-full rounded bg-slate-100" />
+              <div className="h-3 w-3/4 rounded bg-slate-100" />
+              <div className="h-3 w-2/3 rounded bg-slate-100" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ────────────────────────────────────────────────────────
+
+export default function AdminTenantDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const { admin, logout } = useAdminAuth();
+
+  // ── Tenant detail ───────────────────────────────────────────────────
+  const [tenant, setTenant] = useState<AdminTenantDetail | null>(null);
+  const [tenantError, setTenantError] = useState<string | null>(null);
+  const [tenantLoading, setTenantLoading] = useState(true);
+
+  useEffect(() => {
+    document.title = tenant
+      ? `${tenant.name} — NERBIS Admin`
+      : 'Detalle del tenant — NERBIS Admin';
+  }, [tenant]);
+
+  // ── Action state ────────────────────────────────────────────────────
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // ── Reset onboarding state ────────────────────────────────────────
+  const [resetOnboardingOpen, setResetOnboardingOpen] = useState(false);
+  const [resetDeleteWebsite, setResetDeleteWebsite] = useState(false);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+
+  // ── Set phase state ─────────────────────────────────────────────────
+  const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
+  const [targetPhase, setTargetPhase] = useState<AdminTenantPhase | null>(null);
+  const [phaseSubmitting, setPhaseSubmitting] = useState(false);
+
+  function openPhaseDialog(phase: AdminTenantPhase) {
+    if (!tenant || phase === tenant.onboarding_phase) return;
+    setTargetPhase(phase);
+    setPhaseDialogOpen(true);
+  }
+
+  async function handleSetPhase() {
+    if (!tenant || !targetPhase) return;
+    setPhaseSubmitting(true);
+    try {
+      const updated = await adminSetTenantPhase(tenant.id, targetPhase);
+      setTenant(updated);
+      toast.success(`Fase cambiada a "${PHASE_META[targetPhase].label}"`);
+      setPhaseDialogOpen(false);
+      setTargetPhase(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al cambiar fase';
+      toast.error(message);
+    } finally {
+      setPhaseSubmitting(false);
+    }
+  }
+
+  async function handleResetOnboarding() {
+    if (!tenant) return;
+    setResetSubmitting(true);
+    try {
+      await adminResetOnboarding(tenant.id, resetDeleteWebsite);
+      toast.success('Onboarding reseteado correctamente');
+      // Refresh tenant data
+      const refreshed = await adminGetTenant(tenant.id);
+      setTenant(refreshed);
+      setResetOnboardingOpen(false);
+      setResetDeleteWebsite(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al resetear onboarding';
+      toast.error(message);
+    } finally {
+      setResetSubmitting(false);
+    }
+  }
+
+  // ── Edit business data dialog ──────────────────────────────────────
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    industry: '',
+  });
+
+  function openEditDialog() {
+    if (!tenant) return;
+    setEditForm({
+      name: tenant.name,
+      email: tenant.email || '',
+      phone: tenant.phone || '',
+      industry: tenant.industry,
+    });
+    setEditError(null);
+    setEditOpen(true);
+  }
+
+  async function handleEditSubmit() {
+    if (!tenant) return;
+
+    if (!editForm.name.trim()) {
+      setEditError('El nombre del negocio es obligatorio.');
+      return;
+    }
+
+    setEditSubmitting(true);
+    setEditError(null);
+
+    const payload: AdminTenantUpdatePayload = {};
+    if (editForm.name.trim() !== tenant.name) payload.name = editForm.name.trim();
+    if (editForm.email !== (tenant.email || '')) payload.email = editForm.email;
+    if (editForm.phone !== (tenant.phone || '')) payload.phone = editForm.phone;
+    if (editForm.industry !== tenant.industry) payload.industry = editForm.industry;
+
+    if (Object.keys(payload).length === 0) {
+      setEditOpen(false);
+      setEditSubmitting(false);
+      return;
+    }
+
+    try {
+      const updated = await adminUpdateTenant(tenant.id, payload);
+      setTenant(updated);
+      setEditOpen(false);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'No se pudieron guardar los cambios.';
+      setEditError(message);
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  // ── Users embedded table ────────────────────────────────────────────
+  const [users, setUsers] = useState<AdminTenantUser[]>([]);
+  const [usersCount, setUsersCount] = useState(0);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState('');
+  const [userDebouncedSearch, setUserDebouncedSearch] = useState('');
+  const [userRole, setUserRole] = useState<RoleFilter>('all');
+  const [userStatus, setUserStatus] = useState<StatusFilter>('all');
+  const [usersPage, setUsersPage] = useState(1);
+
+  useEffect(() => {
+    const handle = window.setTimeout(
+      () => setUserDebouncedSearch(userSearch),
+      300,
+    );
+    return () => window.clearTimeout(handle);
+  }, [userSearch]);
+
+  useEffect(() => {
+    setUsersPage(1);
+  }, [userDebouncedSearch, userRole, userStatus]);
+
+  const loadTenant = useCallback(async () => {
+    setTenantLoading(true);
+    setTenantError(null);
+    try {
+      const data = await adminGetTenant(id);
+      setTenant(data);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo cargar el detalle del tenant.';
+      setTenantError(message);
+      setTenant(null);
+    } finally {
+      setTenantLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void loadTenant();
+  }, [loadTenant]);
+
+  const loadUsers = useCallback(async () => {
+    setUsersLoading(true);
+    setUsersError(null);
+    try {
+      const filters: AdminUserFilters = {
+        page: usersPage,
+        page_size: USERS_PAGE_SIZE,
+        ordering: '-date_joined',
+      };
+      if (userDebouncedSearch.trim()) filters.search = userDebouncedSearch.trim();
+      if (userRole !== 'all') filters.role = userRole;
+      if (userStatus === 'active') filters.is_active = true;
+      if (userStatus === 'inactive') filters.is_active = false;
+      const data = await adminListTenantUsers(id, filters);
+      setUsers(data.results);
+      setUsersCount(data.count);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'No se pudo cargar la lista de usuarios del tenant.';
+      setUsersError(message);
+      setUsers([]);
+      setUsersCount(0);
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [id, usersPage, userDebouncedSearch, userRole, userStatus]);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
+
+  const totalUserPages = useMemo(
+    () => Math.max(1, Math.ceil(usersCount / USERS_PAGE_SIZE)),
+    [usersCount],
+  );
+
+  const hasUserFilters = useMemo(
+    () => userSearch !== '' || userRole !== 'all' || userStatus !== 'all',
+    [userSearch, userRole, userStatus],
+  );
+
+  function clearUserFilters() {
+    setUserSearch('');
+    setUserRole('all');
+    setUserStatus('all');
+  }
+
+  async function handleConfirmTenantAction() {
+    if (!tenant || !pendingAction) return;
+    setActionSubmitting(true);
+    setActionError(null);
+    try {
+      const updated = await adminUpdateTenant(tenant.id, {
+        is_active: pendingAction === 'activate',
+      });
+      const name = tenant.name;
+      const action = pendingAction;
+      setTenant(updated);
+      setPendingAction(null);
+      toast.success(
+        action === 'activate'
+          ? `${name} reactivado correctamente.`
+          : `${name} suspendido correctamente.`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : pendingAction === 'activate'
+            ? 'No se pudo reactivar el tenant.'
+            : 'No se pudo suspender el tenant.';
+      setActionError(message);
+    } finally {
+      setActionSubmitting(false);
+    }
+  }
+
+  const headerBadge = tenant ? (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${subscriptionBadgeClass(
+        tenant.subscription_status,
+        tenant.is_active,
+      )}`}
+    >
+      {tenant.is_active
+        ? SUBSCRIPTION_LABELS[tenant.subscription_status]
+        : 'Suspendido'}
+    </span>
+  ) : null;
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header bar */}
+      <header
+        className="relative overflow-hidden border-b border-white/10"
+        style={{
+          background:
+            'linear-gradient(135deg, #0f2233 0%, #1C3B57 50%, #1a4a5e 100%)',
+        }}
+      >
+        <div
+          className="absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-15 blur-3xl"
+          style={{
+            background: 'radial-gradient(circle, #0D9488, transparent 70%)',
+          }}
+        />
+        <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin/tenants"
+              aria-label="Volver a tenants"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 transition-colors hover:bg-white/15"
+            >
+              <Image
+                src="/Isotipo_color_NERBIS.png"
+                alt=""
+                width={24}
+                height={24}
+                className="brightness-0 invert"
+                aria-hidden="true"
+              />
+            </Link>
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight text-white">
+                {tenant?.name ?? 'Tenant'}
+              </h1>
+              <p className="text-xs text-white/50">
+                {tenant ? `/${tenant.slug}` : admin?.email ?? 'superadmin'}
+              </p>
+            </div>
+            {headerBadge}
+          </div>
+          <button
+            onClick={logout}
+            className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+            Salir
+          </button>
+        </div>
+      </header>
+
+      <main className="fade-up-auth mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Breadcrumb */}
+        <nav aria-label="Ruta" className="mb-4">
+          <ol className="flex items-center gap-1.5 text-xs text-slate-600">
+            <li>
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1 transition-colors hover:text-slate-700"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                Panel
+              </Link>
+            </li>
+            <li aria-hidden="true">
+              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+            </li>
+            <li>
+              <Link
+                href="/admin/tenants"
+                className="transition-colors hover:text-slate-700"
+              >
+                Tenants
+              </Link>
+            </li>
+            <li aria-hidden="true">
+              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+            </li>
+            <li className="truncate font-medium text-slate-700">
+              {tenant?.name ?? id}
+            </li>
+          </ol>
+        </nav>
+
+        {/* Tenant error */}
+        {tenantError && (
+          <div
+            role="alert"
+            className="mb-6 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            <span>{tenantError}</span>
+            <button
+              type="button"
+              onClick={() => void loadTenant()}
+              className="rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {/* Action bar */}
+        {tenant && (
+          <div className="mb-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
+                <Building2 className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  {tenant.name}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {PLAN_LABELS[tenant.plan]} &middot; {tenant.user_count}{' '}
+                  usuario{tenant.user_count === 1 ? '' : 's'}
+                  {tenant.days_remaining !== null &&
+                    ` · ${tenant.days_remaining} día${
+                      tenant.days_remaining === 1 ? '' : 's'
+                    } restantes`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openEditDialog}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+                Editar datos
+              </button>
+              {tenant.is_active ? (
+                <button
+                  type="button"
+                  onClick={() => setPendingAction('deactivate')}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                >
+                  <ShieldOff className="h-4 w-4" aria-hidden="true" />
+                  Suspender tenant
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setPendingAction('activate')}
+                  className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-3.5 py-2 text-sm font-medium text-white shadow-lg shadow-teal-500/25 transition-all hover:bg-teal-400 hover:shadow-teal-400/30"
+                >
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                  Reactivar tenant
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {actionError && (
+          <div
+            role="alert"
+            className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            {actionError}
+          </div>
+        )}
+
+        {/* Overview cards */}
+        {tenantLoading ? (
+          <AdminTenantDetailSkeleton />
+        ) : tenant ? (
+          <>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Business info */}
+            <section
+              aria-labelledby="tenant-info-heading"
+              className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-teal-200"
+            >
+              <div className="mb-4 flex items-center gap-2">
+                <Building2
+                  className="h-4 w-4 text-teal-600"
+                  aria-hidden="true"
+                />
+                <h3
+                  id="tenant-info-heading"
+                  className="text-sm font-semibold text-slate-900"
+                >
+                  Información del negocio
+                </h3>
+              </div>
+              <dl className="space-y-4">
+                <InfoRow label="Nombre" value={tenant.name} />
+                <InfoRow label="Slug" value={tenant.slug} mono />
+                <InfoRow
+                  icon={<Mail className="h-4 w-4" aria-hidden="true" />}
+                  label="Email"
+                  value={tenant.email || '\u2014'}
+                />
+                <InfoRow
+                  icon={<Phone className="h-4 w-4" aria-hidden="true" />}
+                  label="Teléfono"
+                  value={tenant.phone || '\u2014'}
+                />
+                <InfoRow
+                  icon={<MapPin className="h-4 w-4" aria-hidden="true" />}
+                  label="Ubicación"
+                  value={
+                    [tenant.city, tenant.state, tenant.country]
+                      .filter(Boolean)
+                      .join(', ') || '\u2014'
+                  }
+                />
+                <InfoRow
+                  icon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
+                  label="Industria"
+                  value={INDUSTRY_LABELS[tenant.industry] ?? tenant.industry}
+                />
+                <InfoRow
+                  icon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
+                  label="Creado"
+                  value={formatDate(tenant.created_at)}
+                />
+              </dl>
+            </section>
+
+            {/* Subscription */}
+            <section
+              aria-labelledby="tenant-subscription-heading"
+              className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-teal-200"
+            >
+              <div className="mb-4 flex items-center gap-2">
+                <Calendar
+                  className="h-4 w-4 text-teal-600"
+                  aria-hidden="true"
+                />
+                <h3
+                  id="tenant-subscription-heading"
+                  className="text-sm font-semibold text-slate-900"
+                >
+                  Suscripción
+                </h3>
+              </div>
+              <dl className="space-y-4">
+                <InfoRow
+                  label="Plan"
+                  value={
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${planBadgeClass(tenant.plan)}`}
+                    >
+                      {PLAN_LABELS[tenant.plan]}
+                    </span>
+                  }
+                />
+                <InfoRow
+                  label="Estado"
+                  value={
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${subscriptionBadgeClass(
+                        tenant.subscription_status,
+                        tenant.is_active,
+                      )}`}
+                    >
+                      {tenant.is_active
+                        ? SUBSCRIPTION_LABELS[tenant.subscription_status]
+                        : 'Suspendido'}
+                    </span>
+                  }
+                />
+                <InfoRow
+                  label="Vence"
+                  value={formatDate(tenant.subscription_ends_at)}
+                />
+                <InfoRow
+                  label="Días restantes"
+                  value={
+                    tenant.days_remaining !== null
+                      ? `${tenant.days_remaining} día${
+                          tenant.days_remaining === 1 ? '' : 's'
+                        }`
+                      : 'Sin fecha de corte'
+                  }
+                />
+                <InfoRow
+                  icon={<Globe2 className="h-4 w-4" aria-hidden="true" />}
+                  label="Zona horaria"
+                  value={`${tenant.timezone} · ${tenant.currency} · ${tenant.language}`}
+                />
+              </dl>
+            </section>
+
+            {/* Stats + modules */}
+            <section
+              aria-labelledby="tenant-stats-heading"
+              className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-teal-200"
+            >
+              <div className="mb-4 flex items-center gap-2">
+                <UsersIcon
+                  className="h-4 w-4 text-teal-600"
+                  aria-hidden="true"
+                />
+                <h3
+                  id="tenant-stats-heading"
+                  className="text-sm font-semibold text-slate-900"
+                >
+                  Equipo y modulos
+                </h3>
+              </div>
+              <div className="mb-4 grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+                    Usuarios
+                  </p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">
+                    {tenant.user_count}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+                    Admins
+                  </p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">
+                    {tenant.admin_count}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <FeatureFlag enabled={tenant.has_website} label="Website" />
+                <FeatureFlag enabled={tenant.has_shop} label="Ecommerce" />
+                <FeatureFlag enabled={tenant.has_bookings} label="Reservas" />
+                <FeatureFlag enabled={tenant.has_services} label="Servicios" />
+                <FeatureFlag
+                  enabled={tenant.has_marketing}
+                  label="Marketing"
+                />
+              </div>
+            </section>
+          </div>
+
+          {/* Lifecycle phase stepper */}
+          <section
+            aria-labelledby="tenant-lifecycle-heading"
+            className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-teal-600" aria-hidden="true" />
+                <h3
+                  id="tenant-lifecycle-heading"
+                  className="text-sm font-semibold text-slate-900"
+                >
+                  Lifecycle del tenant
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Phase change dropdown */}
+                <Select
+                  value={tenant.onboarding_phase}
+                  onValueChange={(v) => openPhaseDialog(v as AdminTenantPhase)}
+                >
+                  <SelectTrigger className="h-8 w-[180px] text-xs border-slate-200">
+                    <SelectValue placeholder="Cambiar fase" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {([...PHASE_ORDER, 'suspended'] as AdminTenantPhase[]).map((p) => {
+                      const meta = PHASE_META[p];
+                      const isCurrent = p === tenant.onboarding_phase;
+                      return (
+                        <SelectItem
+                          key={p}
+                          value={p}
+                          disabled={isCurrent}
+                          className="text-xs"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className={`h-1.5 w-1.5 rounded-full ${isCurrent ? 'bg-teal-500' : meta.color.replace('text-', 'bg-').replace('-700', '-400').replace('-600', '-400')}`} />
+                            {meta.label}
+                            {isCurrent && <span className="text-[10px] text-slate-400 ml-1">(actual)</span>}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <button
+                  type="button"
+                  onClick={() => setResetOnboardingOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                >
+                  <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                  Resetear
+                </button>
+              </div>
+            </div>
+
+            <PhaseStepper phase={tenant.onboarding_phase} />
+
+            {/* Detail chips below stepper */}
+            <div className="mt-5 flex flex-wrap items-center gap-2 pt-4 border-t border-slate-100">
+              <div className="flex items-center gap-1.5 rounded-md bg-slate-50 px-2.5 py-1.5 text-[11px] font-medium text-slate-600">
+                Modulos:
+                <span className={tenant.modules_configured ? 'text-emerald-600' : 'text-amber-600'}>
+                  {tenant.modules_configured ? 'Configurados' : 'Pendiente'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 rounded-md bg-slate-50 px-2.5 py-1.5 text-[11px] font-medium text-slate-600">
+                Website:
+                <span className={
+                  tenant.website_status === 'published' ? 'text-emerald-600'
+                    : tenant.website_status === 'review' ? 'text-blue-600'
+                      : tenant.website_status ? 'text-amber-600'
+                        : 'text-slate-400'
+                }>
+                  {tenant.website_status
+                    ? { draft: 'Borrador', onboarding: 'En onboarding', generating: 'Generando', review: 'En revision', published: 'Publicado' }[tenant.website_status]
+                    : 'Sin iniciar'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 rounded-md bg-slate-50 px-2.5 py-1.5 text-[11px] font-medium text-slate-600">
+                Activo:
+                <span className={tenant.is_active ? 'text-emerald-600' : 'text-red-600'}>
+                  {tenant.is_active ? 'Si' : 'No'}
+                </span>
+              </div>
+            </div>
+          </section>
+          </>
+        ) : null}
+
+        {/* Reset onboarding dialog */}
+        <AlertDialog open={resetOnboardingOpen} onOpenChange={setResetOnboardingOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Resetear onboarding</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esto devolvera al tenant al inicio del flujo de onboarding (Quick Start con Pipe).
+                La proxima vez que el admin del tenant inicie sesion, vera el Quick Start.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="my-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={resetDeleteWebsite}
+                  onChange={(e) => setResetDeleteWebsite(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                />
+                <span className="text-sm text-slate-700">
+                  Tambien eliminar el sitio web generado
+                </span>
+              </label>
+              {resetDeleteWebsite && (
+                <p className="mt-2 text-xs text-red-500">
+                  Esto eliminara el WebsiteConfig y todo el contenido generado. Esta accion no se puede deshacer.
+                </p>
+              )}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={resetSubmitting}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleResetOnboarding();
+                }}
+                disabled={resetSubmitting}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+              >
+                {resetSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Reseteando...
+                  </>
+                ) : (
+                  'Resetear onboarding'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Set phase confirmation dialog */}
+        <AlertDialog open={phaseDialogOpen} onOpenChange={setPhaseDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cambiar fase del tenant</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    Vas a cambiar la fase de <strong>{tenant?.name}</strong>:
+                  </p>
+                  <div className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                    {tenant && (
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${PHASE_META[tenant.onboarding_phase].bgColor} ${PHASE_META[tenant.onboarding_phase].color} ${PHASE_META[tenant.onboarding_phase].ringColor}`}>
+                        {PHASE_META[tenant.onboarding_phase].label}
+                      </span>
+                    )}
+                    <span className="text-slate-400">→</span>
+                    {targetPhase && (
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${PHASE_META[targetPhase].bgColor} ${PHASE_META[targetPhase].color} ${PHASE_META[targetPhase].ringColor}`}>
+                        {PHASE_META[targetPhase].label}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Esto modificara los flags internos del tenant (modulos, website, estado) para reflejar la fase seleccionada. La transicion quedara registrada en el historial.
+                  </p>
+                  {targetPhase === 'suspended' && (
+                    <p className="text-xs font-medium text-red-600">
+                      El tenant sera suspendido y sus usuarios no podran acceder a la plataforma.
+                    </p>
+                  )}
+                  {targetPhase === 'onboarding' && (
+                    <p className="text-xs font-medium text-amber-600">
+                      Esto eliminara el sitio web del tenant si existe. Esta accion no se puede deshacer.
+                    </p>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={phaseSubmitting}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleSetPhase();
+                }}
+                disabled={phaseSubmitting}
+                className={targetPhase === 'suspended' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#1C3B57] hover:bg-[#1C3B57]/90'}
+              >
+                {phaseSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Cambiando...
+                  </>
+                ) : (
+                  'Confirmar cambio'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Users table */}
+        <section
+          aria-labelledby="tenant-users-heading"
+          className="mt-8"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3
+                id="tenant-users-heading"
+                className="text-lg font-semibold tracking-tight text-slate-900"
+              >
+                Usuarios del tenant
+              </h3>
+              <p className="text-sm text-slate-500">
+                {usersCount === 0
+                  ? 'Sin resultados para los filtros actuales.'
+                  : `${usersCount} usuario${usersCount === 1 ? '' : 's'}`}
+              </p>
+            </div>
+          </div>
+
+          {/* User toolbar */}
+          <div className="mb-3 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-[1fr_180px_180px_auto]">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Buscar por email o nombre"
+                aria-label="Buscar usuarios del tenant"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 transition-colors focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
+              />
+            </div>
+            <Select
+              value={userRole}
+              onValueChange={(value) => setUserRole(value as RoleFilter)}
+            >
+              <SelectTrigger
+                aria-label="Filtrar por rol"
+                className="h-10 w-full border-slate-200"
+              >
+                <SelectValue placeholder="Todos los roles" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los roles</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="staff">Staff</SelectItem>
+                <SelectItem value="customer">Cliente</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={userStatus}
+              onValueChange={(value) =>
+                setUserStatus(value as StatusFilter)
+              }
+            >
+              <SelectTrigger
+                aria-label="Filtrar por estado"
+                className="h-10 w-full border-slate-200"
+              >
+                <SelectValue placeholder="Todos los estados" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                <SelectItem value="active">Activos</SelectItem>
+                <SelectItem value="inactive">Inactivos</SelectItem>
+              </SelectContent>
+            </Select>
+            <button
+              type="button"
+              onClick={clearUserFilters}
+              disabled={!hasUserFilters}
+              className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Limpiar
+            </button>
+          </div>
+
+          {usersError && (
+            <div
+              role="alert"
+              className="mb-3 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
+              <span>{usersError}</span>
+              <button
+                type="button"
+                onClick={() => void loadUsers()}
+                className="rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {usersLoading ? (
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="divide-y divide-slate-100">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-4 px-4 py-4"
+                    aria-hidden="true"
+                  >
+                    <div className="h-4 w-56 animate-pulse rounded bg-slate-100" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-slate-100" />
+                    <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-slate-100" />
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-center gap-2 px-4 py-5 text-sm text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Cargando usuarios...
+              </div>
+            </div>
+          ) : users.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                <UsersIcon className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <h4 className="text-sm font-semibold text-slate-900">
+                {hasUserFilters
+                  ? 'Ningún usuario coincide con los filtros'
+                  : 'Este tenant aún no tiene usuarios'}
+              </h4>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+                {hasUserFilters
+                  ? 'Ajusta la búsqueda o limpia los filtros para ver más resultados.'
+                  : 'Cuando el negocio invite a su equipo, aparecerá aquí.'}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="min-w-[860px] w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Email
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Nombre
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Rol
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Estado
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Último acceso
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {users.map((user) => {
+                    const fullName =
+                      [user.first_name, user.last_name]
+                        .filter(Boolean)
+                        .join(' ') || '\u2014';
+                    return (
+                      <tr
+                        key={user.id}
+                        className="cursor-pointer transition-colors hover:bg-slate-50/60"
+                      >
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/admin/users/${user.id}`}
+                            className="font-medium text-slate-900 hover:text-teal-700"
+                          >
+                            {user.email}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">{fullName}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${roleBadgeClass(user.role)}`}
+                          >
+                            {ROLE_LABELS[user.role]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {user.is_active ? (
+                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                              Activo
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500 ring-1 ring-inset ring-slate-200">
+                              Inactivo
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">
+                          {formatDateTime(user.last_login)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {totalUserPages > 1 && (
+            <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+              <span>
+                Página {usersPage} de {totalUserPages}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  disabled={usersPage <= 1 || usersLoading}
+                  onClick={() =>
+                    setUsersPage((p) => Math.max(1, p - 1))
+                  }
+                  className="rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
+                >
+                  Anterior
+                </button>
+                <button
+                  disabled={
+                    usersPage >= totalUserPages || usersLoading
+                  }
+                  onClick={() =>
+                    setUsersPage((p) => Math.min(totalUserPages, p + 1))
+                  }
+                  className="rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* Edit business data dialog */}
+      <Dialog open={editOpen} onOpenChange={(open) => { if (!open && !editSubmitting) setEditOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar datos del negocio</DialogTitle>
+            <DialogDescription>
+              Modifica los datos de contacto y clasificacion del tenant. El slug no es editable.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              {editError}
+            </div>
+          )}
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nombre del negocio</Label>
+              <Input
+                id="edit-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Nombre comercial"
+                disabled={editSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email de contacto</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="contacto@negocio.com"
+                disabled={editSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">Telefono</Label>
+              <Input
+                id="edit-phone"
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="+57 300 123 4567"
+                disabled={editSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-industry">Industria</Label>
+              <Select
+                value={editForm.industry}
+                onValueChange={(value) => setEditForm((f) => ({ ...f, industry: value }))}
+                disabled={editSubmitting}
+              >
+                <SelectTrigger id="edit-industry" className="h-10 w-full">
+                  <SelectValue placeholder="Selecciona una industria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INDUSTRY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setEditOpen(false)}
+              disabled={editSubmitting}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleEditSubmit()}
+              disabled={editSubmitting}
+              className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-teal-500/25 transition-all hover:bg-teal-400 hover:shadow-teal-400/30 disabled:opacity-50"
+            >
+              {editSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Guardando...
+                </>
+              ) : (
+                'Guardar cambios'
+              )}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tenant action confirmation */}
+      <AlertDialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingAction === 'activate'
+                ? 'Reactivar tenant'
+                : 'Suspender tenant'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {tenant
+                ? pendingAction === 'activate'
+                  ? `${tenant.name} recuperará acceso a la plataforma y sus usuarios podrán iniciar sesión de nuevo.`
+                  : `${tenant.name} quedará suspendido. Sus usuarios no podrán iniciar sesión hasta que lo reactives.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionSubmitting}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmTenantAction();
+              }}
+              disabled={actionSubmitting}
+              className={
+                pendingAction === 'deactivate'
+                  ? 'bg-red-600 hover:bg-red-500 focus:ring-red-500'
+                  : undefined
+              }
+            >
+              {actionSubmitting
+                ? 'Procesando...'
+                : pendingAction === 'activate'
+                  ? 'Reactivar'
+                  : 'Suspender'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

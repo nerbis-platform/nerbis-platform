@@ -2,6 +2,12 @@
 # NERBIS .gitignore
 # ======================
 
+# SDD gate marker (worktree-specific, never commit)
+.sdd-approved
+
+# Claude Code local settings (personal permissions, never commit)
+.claude/settings.local.json
+
 # OS files
 .DS_Store
 Thumbs.db
@@ -228,6 +234,10 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# Claude Code local settings (personal, not for repo)
+.claude/settings.local.json
+.claude/worktrees/
+
 # Cursor
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
 #  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
@@ -235,8 +245,12 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Agent Teams Lite — runtime generated
+.atl/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
 __marimo__/
 frontend/src/lib/api/touch
+.next/

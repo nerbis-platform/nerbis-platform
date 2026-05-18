@@ -25,10 +25,17 @@ PASSWORD_HASHERS = [
 REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
     "login": None,
+    "login_email": None,
     "register": None,
     "otp_request": None,
     "otp_verify": None,
     "password_reset": None,
+    "social_login": None,
+    "two_factor_challenge": None,
+    "two_factor_verify": None,
+    "admin_login": None,
+    "token_refresh": None,
+    "public_check": None,
 }
 
 # ===================================

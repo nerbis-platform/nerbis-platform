@@ -8,11 +8,40 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 # Importar el admin site personalizado de NERBIS
 from core.admin_site import nerbis_admin_site
+from core.admin_tenant_views import (
+    AdminDeletePasskeyView,
+    AdminDisable2FAView,
+    AdminResetOnboardingView,
+    AdminResetPasswordView,
+    AdminSetPhaseView,
+    AdminTenantDetailView,
+    AdminTenantListView,
+    AdminTenantPhaseLogView,
+    AdminTenantUsersListView,
+    AdminUnlinkSocialView,
+    AdminUserDetailView,
+)
+from core.admin_views import (
+    AdminAuditLogListView,
+    AdminBlockSuperadminView,
+    AdminChangeRoleView,
+    AdminLoginView,
+    AdminLogoutView,
+    AdminMeView,
+    AdminRegisterView,
+    AdminSuperadminDetailView,
+    AdminSuperadminListView,
+    AdminTokenRefreshView,
+    AdminUnblockSuperadminView,
+)
 from core.views import (
+    AcceptInvitationView,
     CheckBusinessNameView,
     CheckTenantEmailView,
+    InvitationDetailView,
     PlatformForgotPasswordView,
     PlatformLoginView,
+    PlatformSocialLoginView,
     PlatformVerifyResetOTPView,
     TenantRegisterView,
     subscription_expired_view,
@@ -52,6 +81,89 @@ urlpatterns = [
     path("api/public/platform-forgot-password/", PlatformForgotPasswordView.as_view(), name="platform-forgot-password"),
     path(
         "api/public/platform-verify-reset-otp/", PlatformVerifyResetOTPView.as_view(), name="platform-verify-reset-otp"
+    ),
+    path("api/public/platform-social-login/", PlatformSocialLoginView.as_view(), name="platform-social-login"),
+    # Invitaciones de equipo (públicas)
+    path("api/public/invitation/<str:token>/", InvitationDetailView.as_view(), name="invitation-detail"),
+    path("api/public/accept-invitation/<str:token>/", AcceptInvitationView.as_view(), name="accept-invitation"),
+    # NERBIS Admin (superadmin de plataforma — sin middleware de tenant)
+    path("api/admin/auth/login/", AdminLoginView.as_view(), name="admin-login"),
+    path("api/admin/auth/register/", AdminRegisterView.as_view(), name="admin-register"),
+    path("api/admin/auth/me/", AdminMeView.as_view(), name="admin-me"),
+    path("api/admin/auth/logout/", AdminLogoutView.as_view(), name="admin-logout"),
+    path("api/admin/auth/refresh/", AdminTokenRefreshView.as_view(), name="admin-token-refresh"),
+    path("api/admin/superadmins/", AdminSuperadminListView.as_view(), name="admin-superadmins-list"),
+    path(
+        "api/admin/superadmins/<int:pk>/",
+        AdminSuperadminDetailView.as_view(),
+        name="admin-superadmins-detail",
+    ),
+    path(
+        "api/admin/superadmins/<int:pk>/block/",
+        AdminBlockSuperadminView.as_view(),
+        name="admin-superadmins-block",
+    ),
+    path(
+        "api/admin/superadmins/<int:pk>/unblock/",
+        AdminUnblockSuperadminView.as_view(),
+        name="admin-superadmins-unblock",
+    ),
+    path(
+        "api/admin/superadmins/<int:pk>/role/",
+        AdminChangeRoleView.as_view(),
+        name="admin-superadmins-role",
+    ),
+    path("api/admin/audit-log/", AdminAuditLogListView.as_view(), name="admin-audit-log"),
+    path("api/admin/tenants/", AdminTenantListView.as_view(), name="admin-tenants-list"),
+    path(
+        "api/admin/tenants/<uuid:pk>/",
+        AdminTenantDetailView.as_view(),
+        name="admin-tenants-detail",
+    ),
+    path(
+        "api/admin/tenants/<uuid:pk>/users/",
+        AdminTenantUsersListView.as_view(),
+        name="admin-tenant-users-list",
+    ),
+    path(
+        "api/admin/tenants/<uuid:pk>/reset-onboarding/",
+        AdminResetOnboardingView.as_view(),
+        name="admin-tenant-reset-onboarding",
+    ),
+    path(
+        "api/admin/tenants/<uuid:pk>/set-phase/",
+        AdminSetPhaseView.as_view(),
+        name="admin-tenant-set-phase",
+    ),
+    path(
+        "api/admin/tenants/<uuid:pk>/phase-log/",
+        AdminTenantPhaseLogView.as_view(),
+        name="admin-tenant-phase-log",
+    ),
+    path(
+        "api/admin/users/<int:pk>/",
+        AdminUserDetailView.as_view(),
+        name="admin-users-detail",
+    ),
+    path(
+        "api/admin/users/<int:pk>/reset-password/",
+        AdminResetPasswordView.as_view(),
+        name="admin-users-reset-password",
+    ),
+    path(
+        "api/admin/users/<int:pk>/passkeys/<int:passkey_pk>/",
+        AdminDeletePasskeyView.as_view(),
+        name="admin-users-delete-passkey",
+    ),
+    path(
+        "api/admin/users/<int:pk>/disable-2fa/",
+        AdminDisable2FAView.as_view(),
+        name="admin-users-disable-2fa",
+    ),
+    path(
+        "api/admin/users/<int:pk>/social/<str:provider>/",
+        AdminUnlinkSocialView.as_view(),
+        name="admin-users-unlink-social",
     ),
     # Webhooks (sin middleware de tenant)
     path("api/webhooks/stripe/", stripe_webhook, name="stripe-webhook"),

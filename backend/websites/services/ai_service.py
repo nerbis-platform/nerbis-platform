@@ -19,6 +19,59 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+# ───────────────────────────────────────────────────────────────────────────
+# Reglas de validacion de contenido generado por IA
+#
+# Las frases prohibidas viven por industria. Fuente de verdad por vertical:
+# backend/websites/design-references/<industria>.md
+# ───────────────────────────────────────────────────────────────────────────
+
+# Minimo de palabras aceptable para la descripcion de un servicio.
+# Menos que esto se considera generico ("Servicio 1 -- Descripcion del servicio").
+MIN_SERVICE_DESCRIPTION_WORDS = 15
+
+# CTAs genericos prohibidos en cualquier vertical.
+FORBIDDEN_CTA_PHRASES = [
+    "saber más",
+    "descubre más",
+    "conoce más",
+]
+
+# Frases prohibidas por industria (se comparan en minusculas, coincidencia parcial).
+# Para wellness ver: backend/websites/design-references/wellness.md §5.
+FORBIDDEN_PHRASES_BY_INDUSTRY: dict[str, list[str]] = {
+    "beauty": [
+        "tu belleza, nuestra pasión",
+        "tu belleza es importante para nosotros",
+        "bienvenido a nuestro centro",
+        "bienvenida a nuestro centro",
+        "con más de",  # matches "con más de X años de experiencia"
+        "somos especialistas en",
+        "la mejor opción para ti",
+        "cuidado premium",
+        "servicio premium",
+        "experiencia única",
+        "atención personalizada",
+        "ofrecemos bienestar",
+        "brindamos bienestar",
+        "transformamos tu belleza",
+        "descubre la diferencia",
+        "te invitamos a conocer",
+    ],
+}
+
+# Precios por modelo (USD por 1M tokens). Usados por calculate_cost cuando se
+# generan sitios con un modelo distinto al configurado por defecto en settings.
+# Si el modelo no esta aqui, se usa el precio de settings.ANTHROPIC_PRICE_*.
+MODEL_PRICING: dict[str, tuple[str, str]] = {
+    # (input, output)
+    "claude-sonnet-4-6": ("3.00", "15.00"),
+    "claude-sonnet-4-5": ("3.00", "15.00"),
+    "claude-haiku-4-5-20251001": ("1.00", "5.00"),
+    "claude-3-haiku-20240307": ("0.25", "1.25"),
+}
+
+
 class AIService:
     """
     Servicio para interactuar con la API de Claude.
@@ -37,6 +90,10 @@ class AIService:
         self.tenant = tenant
         self.website_config = website_config
         self.client = self._get_client()
+        # Modelo realmente usado en la ultima llamada a la API (puede diferir de
+        # settings.ANTHROPIC_MODEL cuando se usa ANTHROPIC_MODEL_INITIAL). Lo
+        # consume log_generation para calcular el costo y registrar el modelo.
+        self._last_model_used: str | None = None
 
     def _get_client(self):
         """Obtiene el cliente de Anthropic."""
@@ -69,11 +126,18 @@ class AIService:
         # Construir contexto del negocio desde las respuestas
         business_context = self._format_business_context(onboarding_responses)
 
+        # Configuracion visual del template (paleta + tipografia). Ayuda a que
+        # el copy armonice con la identidad visual.
+        visual_context = self._format_visual_config(template, onboarding_responses)
+
         system_prompt = f"""Eres un experto en crear contenido para sitios web de negocios.
 Tu objetivo es generar contenido profesional, atractivo y personalizado.
 
 ## Información del Negocio
 {business_context}
+
+## Configuración Visual
+{visual_context}
 
 ## Instrucciones del Template
 {template_prompt}
@@ -92,6 +156,82 @@ Responde SIEMPRE en formato JSON válido con la estructura solicitada.
 No incluyas explicaciones fuera del JSON.
 """
         return system_prompt
+
+    def _format_visual_config(self, template, onboarding_responses: dict) -> str:
+        """Formatea paleta + tipografia del template para el prompt."""
+        if not template or not template.default_theme:
+            return "Sin configuración visual específica. Usa un tono neutro."
+
+        theme = dict(template.default_theme)
+        # El onboarding puede sobrescribir los colores; usarlos si estan
+        if onboarding_responses.get("primary_color"):
+            theme["primary_color"] = onboarding_responses["primary_color"]
+        if onboarding_responses.get("secondary_color"):
+            theme["secondary_color"] = onboarding_responses["secondary_color"]
+
+        lines = []
+        if theme.get("primary_color"):
+            lines.append(f"- Color primario: {theme['primary_color']}")
+        if theme.get("secondary_color"):
+            lines.append(f"- Color secundario: {theme['secondary_color']}")
+        if theme.get("accent_color"):
+            lines.append(f"- Color de acento: {theme['accent_color']}")
+        if theme.get("font_heading"):
+            lines.append(f"- Tipografía de títulos: {theme['font_heading']}")
+        if theme.get("font_body"):
+            lines.append(f"- Tipografía de texto: {theme['font_body']}")
+        if theme.get("style"):
+            lines.append(f"- Estilo visual: {theme['style']}")
+
+        if not lines:
+            return "Sin configuración visual específica."
+
+        lines.append(
+            "\nEl copy generado debe armonizar con esta identidad visual "
+            "(tono, ritmo y vocabulario coherentes con los colores y tipografía)."
+        )
+        return "\n".join(lines)
+
+    def _apply_industry_defaults(self, onboarding_responses: dict) -> dict:
+        """Rellena campos faltantes del onboarding con defaults del vertical.
+
+        Esto permite que el onboarding corto (3 campos) genere copy de la misma
+        calidad que el onboarding completo (17 campos), porque la IA recibe
+        brand_tone, business_hours y website_sections derivados de la industria.
+
+        **No sobrescribe** datos que el usuario ya proporciono.
+
+        Returns:
+            Copia del dict con defaults inyectados.
+        """
+        from core.industry_defaults import (
+            get_default_brand_tone,
+            get_default_business_hours,
+            get_default_sections,
+        )
+
+        industry = getattr(self.tenant, "industry", None)
+        if not industry:
+            return dict(onboarding_responses)
+
+        merged = dict(onboarding_responses)
+
+        if not merged.get("brand_tone"):
+            tone = get_default_brand_tone(industry)
+            if tone:
+                merged["brand_tone"] = tone
+
+        if not merged.get("business_hours"):
+            hours = get_default_business_hours(industry)
+            if hours:
+                merged["business_hours"] = hours
+
+        if not merged.get("website_sections"):
+            sections = get_default_sections(industry)
+            if sections:
+                merged["website_sections"] = sections
+
+        return merged
 
     def _format_business_context(self, responses: dict) -> str:
         """Formatea las respuestas del onboarding como contexto."""
@@ -122,6 +262,50 @@ No incluyas explicaciones fuera del JSON.
 
         return "\n".join(context_lines) if context_lines else "No se proporcionó información adicional."
 
+    def _validate_generated_content(self, content_data: dict, template) -> list[str]:
+        """
+        Valida el contenido generado contra las reglas del vertical.
+
+        Devuelve lista de problemas detectados (vacia si todo OK). El caller
+        puede decidir si reintenta o solo loggea.
+
+        Reglas aplicadas:
+        1. Cada servicio debe tener descripcion >= MIN_SERVICE_DESCRIPTION_WORDS.
+        2. Si la industria del template tiene frases prohibidas, el contenido
+           completo no debe contenerlas (match en minusculas, parcial).
+        3. CTAs genericos prohibidos en cualquier industria.
+        """
+        if not content_data:
+            return []
+
+        problems: list[str] = []
+
+        # 1. Descripciones de servicios
+        services_items = (content_data.get("services") or {}).get("items") or []
+        for idx, item in enumerate(services_items, start=1):
+            desc = (item.get("description") or "").strip()
+            word_count = len(desc.split())
+            if word_count < MIN_SERVICE_DESCRIPTION_WORDS:
+                name = item.get("name") or f"servicio {idx}"
+                problems.append(
+                    f"Descripción de '{name}' muy corta ({word_count} palabras, "
+                    f"mínimo {MIN_SERVICE_DESCRIPTION_WORDS})."
+                )
+
+        # 2. Frases prohibidas segun industria
+        industry = (template.industry if template else "").lower()
+        forbidden = FORBIDDEN_PHRASES_BY_INDUSTRY.get(industry, [])
+        if forbidden or FORBIDDEN_CTA_PHRASES:
+            content_text = json.dumps(content_data, ensure_ascii=False).lower()
+            for phrase in forbidden:
+                if phrase.lower() in content_text:
+                    problems.append(f"Contiene frase prohibida: '{phrase}'.")
+            for cta in FORBIDDEN_CTA_PHRASES:
+                if cta in content_text:
+                    problems.append(f"Contiene CTA genérico prohibido: '{cta}'.")
+
+        return problems
+
     def generate_initial_content(
         self, template, onboarding_responses: dict, additional_instructions: str = ""
     ) -> tuple[dict, dict, int, int, str, str]:
@@ -136,6 +320,10 @@ No incluyas explicaciones fuera del JSON.
         Returns:
             tuple de (content_data, seo_data, tokens_input, tokens_output, full_prompt, raw_response)
         """
+        # Inyectar defaults del vertical para campos faltantes (Fase 2:
+        # onboarding corto). Esto es un merge -- no sobrescribe datos del usuario.
+        onboarding_responses = self._apply_industry_defaults(onboarding_responses)
+
         if not self.client:
             return (*self._mock_generate_content(template, onboarding_responses), "", "")
 
@@ -228,39 +416,52 @@ Responde con un JSON con esta estructura (incluye SOLO las secciones indicadas a
 
 Genera contenido profesional y atractivo basado en la información del negocio."""
 
+        # Para la generacion inicial usamos un modelo mas capaz (Sonnet) por
+        # defecto. El chat de ediciones posteriores sigue usando el modelo
+        # barato (Haiku) via settings.ANTHROPIC_MODEL. Si el env var no esta
+        # definido, cae a ANTHROPIC_MODEL para no romper entornos existentes.
+        model = getattr(settings, "ANTHROPIC_MODEL_INITIAL", None) or settings.ANTHROPIC_MODEL
+        self._last_model_used = model
+
         try:
-            response = self.client.messages.create(
-                model=settings.ANTHROPIC_MODEL,
-                max_tokens=4096,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
+            content_data, seo_data, tokens_input, tokens_output, response_text = self._call_generation(
+                model=model, system_prompt=system_prompt, user_prompt=user_prompt
             )
 
-            # Parsear respuesta
-            response_text = response.content[0].text
-            tokens_input = response.usage.input_tokens
-            tokens_output = response.usage.output_tokens
-
-            # Intentar parsear JSON
-            try:
-                # Limpiar posibles caracteres extra
-                json_text = response_text.strip()
-                if json_text.startswith("```json"):
-                    json_text = json_text[7:]
-                if json_text.startswith("```"):
-                    json_text = json_text[3:]
-                if json_text.endswith("```"):
-                    json_text = json_text[:-3]
-
-                result = json.loads(json_text.strip())
-                content_data = result.get("content", {})
-                seo_data = result.get("seo", {})
-
-            except json.JSONDecodeError as e:
-                logger.error(f"Error parseando JSON de IA: {e}")
-                logger.debug(f"Respuesta: {response_text}")
-                content_data = {"error": "Error parseando respuesta", "raw": response_text}
-                seo_data = {}
+            # Validacion post-generacion. Si hay problemas, reintentamos una
+            # vez con instruccion explicita de corregirlos. Si el retry sigue
+            # fallando, usamos el mejor de los dos resultados y loggeamos.
+            problems = self._validate_generated_content(content_data, template)
+            if problems:
+                logger.warning(
+                    "Generación IA con problemas de calidad (intento 1): %s",
+                    problems,
+                )
+                retry_prompt = (
+                    user_prompt
+                    + "\n\n## Problemas a corregir de la generación anterior\n"
+                    + "\n".join(f"- {p}" for p in problems)
+                    + "\n\nReescribe el contenido evitando estos problemas, "
+                    "manteniendo la estructura JSON especificada."
+                )
+                try:
+                    content_data2, seo_data2, tokens_in2, tokens_out2, response_text2 = self._call_generation(
+                        model=model, system_prompt=system_prompt, user_prompt=retry_prompt
+                    )
+                    tokens_input += tokens_in2
+                    tokens_output += tokens_out2
+                    problems_after = self._validate_generated_content(content_data2, template)
+                    if len(problems_after) < len(problems):
+                        content_data, seo_data, response_text = content_data2, seo_data2, response_text2
+                        if problems_after:
+                            logger.warning(
+                                "Retry mejoró pero aún quedan problemas: %s",
+                                problems_after,
+                            )
+                    else:
+                        logger.warning("Retry no mejoró calidad; se mantiene el primer resultado.")
+                except Exception as retry_error:
+                    logger.warning(f"Retry de generación falló: {retry_error}")
 
             full_prompt = f"=== SYSTEM PROMPT ===\n{system_prompt}\n\n=== USER PROMPT ===\n{user_prompt}"
             return content_data, seo_data, tokens_input, tokens_output, full_prompt, response_text
@@ -268,6 +469,44 @@ Genera contenido profesional y atractivo basado en la información del negocio."
         except Exception as e:
             logger.error(f"Error llamando a Claude API: {e}")
             return (*self._mock_generate_content(template, onboarding_responses), "", "")
+
+    def _call_generation(self, model: str, system_prompt: str, user_prompt: str) -> tuple[dict, dict, int, int, str]:
+        """
+        Hace una llamada a Claude y parsea la respuesta JSON.
+
+        Returns:
+            tuple (content_data, seo_data, tokens_input, tokens_output, response_text).
+            Si el parse falla, content_data contiene {"error": ..., "raw": ...}.
+        """
+        response = self.client.messages.create(
+            model=model,
+            max_tokens=4096,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        response_text = response.content[0].text
+        tokens_input = response.usage.input_tokens
+        tokens_output = response.usage.output_tokens
+
+        try:
+            json_text = response_text.strip()
+            if json_text.startswith("```json"):
+                json_text = json_text[7:]
+            if json_text.startswith("```"):
+                json_text = json_text[3:]
+            if json_text.endswith("```"):
+                json_text = json_text[:-3]
+
+            result = json.loads(json_text.strip())
+            content_data = result.get("content", {})
+            seo_data = result.get("seo", {})
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parseando JSON de IA: {e}")
+            logger.debug(f"Respuesta: {response_text}")
+            content_data = {"error": "Error parseando respuesta", "raw": response_text}
+            seo_data = {}
+
+        return content_data, seo_data, tokens_input, tokens_output, response_text
 
     def chat_edit(
         self, message: str, current_content: dict, chat_history: list[dict], section_id: str | None = None
@@ -357,20 +596,27 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             logger.error(f"Error en chat con Claude: {e}")
             return self._mock_chat_response(message, section_id)
 
-    def calculate_cost(self, tokens_input: int, tokens_output: int) -> Decimal:
+    def calculate_cost(self, tokens_input: int, tokens_output: int, model: str | None = None) -> Decimal:
         """
         Calcula el costo estimado en COP.
 
         Args:
             tokens_input: Tokens de entrada
             tokens_output: Tokens de salida
+            model: Modelo usado (si se pasa y esta en MODEL_PRICING, se usa su
+                tarifa; si no, cae a settings.ANTHROPIC_PRICE_*).
 
         Returns:
             Costo estimado en COP
         """
-        # Calcular costo en USD (precios configurados en settings)
-        price_input = Decimal(settings.ANTHROPIC_PRICE_INPUT)
-        price_output = Decimal(settings.ANTHROPIC_PRICE_OUTPUT)
+        # Resolver precio por modelo si aplica
+        price_input_str = settings.ANTHROPIC_PRICE_INPUT
+        price_output_str = settings.ANTHROPIC_PRICE_OUTPUT
+        if model and model in MODEL_PRICING:
+            price_input_str, price_output_str = MODEL_PRICING[model]
+
+        price_input = Decimal(price_input_str)
+        price_output = Decimal(price_output_str)
         cost_input = (Decimal(tokens_input) / 1_000_000) * price_input
         cost_output = (Decimal(tokens_output) / 1_000_000) * price_output
         cost_usd = cost_input + cost_output
@@ -451,9 +697,12 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             logger.warning("No se puede registrar generación sin tenant")
             return None
 
-        cost = self.calculate_cost(tokens_input, tokens_output)
+        # Modelo efectivamente usado en la ultima llamada (lo setea
+        # generate_initial_content cuando usa ANTHROPIC_MODEL_INITIAL).
+        model_used = self._last_model_used or settings.ANTHROPIC_MODEL
+        cost = self.calculate_cost(tokens_input, tokens_output, model=model_used)
 
-        # Verificar si es billable (excede límite)
+        # Verificar si es billable (excede limite)
         can_generate, used, limit = self.check_usage_limit(self.tenant)
         is_billable = used >= limit
 
@@ -462,7 +711,7 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             website_config=self.website_config,
             generation_type=generation_type,
             section_id=section_id,
-            model_used=settings.ANTHROPIC_MODEL,
+            model_used=model_used,
             tokens_input=tokens_input,
             tokens_output=tokens_output,
             cost_estimated=cost,

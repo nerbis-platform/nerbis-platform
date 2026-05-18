@@ -63,6 +63,18 @@ export interface User {
   role_display: string;
   is_active: boolean;
   date_joined: string;
+  auth_provider?: string;
+  has_password?: boolean;
+  social_accounts?: SocialAccountInfo[];
+}
+
+export type SocialProvider = 'google' | 'apple' | 'facebook';
+
+export interface SocialAccountInfo {
+  id: number;
+  provider: SocialProvider;
+  email: string;
+  created_at: string;
 }
 
 // ===================================
@@ -108,6 +120,61 @@ export interface AuthResponse {
   tenant?: Tenant;
   tokens: AuthTokens;
   message?: string;
+}
+
+// ===================================
+// TEAM INVITATIONS
+// ===================================
+export interface TeamInvitation {
+  id: number;
+  email: string;
+  role: 'staff' | 'admin';
+  role_display: string;
+  status: 'pending' | 'accepted' | 'cancelled' | 'expired';
+  status_display: string;
+  invited_by_name: string;
+  is_valid: boolean;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+}
+
+export interface InvitationDetail {
+  email: string;
+  role: 'staff' | 'admin';
+  role_display: string;
+  tenant_name: string;
+  tenant_logo: string | null;
+  invited_by_name: string;
+  is_valid: boolean;
+  status: 'pending' | 'accepted' | 'cancelled' | 'expired';
+  expires_at: string;
+}
+
+export interface TeamMember {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  phone: string;
+  avatar: string | null;
+  role: 'admin' | 'staff';
+  role_display: string;
+  is_active: boolean;
+  date_joined: string;
+}
+
+export interface CreateInvitationData {
+  email: string;
+  role: 'staff' | 'admin';
+}
+
+export interface AcceptInvitationData {
+  first_name: string;
+  last_name: string;
+  password: string;
+  password2: string;
 }
 
 // ===================================
@@ -673,9 +740,9 @@ export interface GenerateContentRequest {
 export interface GenerateContentResponse {
   content_data: Record<string, unknown>;
   seo_data: Record<string, unknown>;
-  tokens_used: number;
-  remaining_generations: number;
-  is_billable: boolean;
+  tokens_used?: number;
+  remaining_generations?: number;
+  is_billable?: boolean;
   status: string;
 }
 
