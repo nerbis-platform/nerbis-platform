@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User, RegisterData, RegisterTenantData, Tenant, SocialProvider } from '@/types';
 import * as authApi from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/client';
 import { useRouter } from 'next/navigation';
 
 // Helper para obtener tenant del localStorage
@@ -43,40 +44,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => authApi.getStoredUser());
   const [tenant, setTenant] = useState<Tenant | null>(() => getStoredTenant());
-  // Iniciar en true si hay usuario guardado — evita que rutas protegidas
-  // redirijan antes de validar la sesión con el servidor
-  const [isLoading, setIsLoading] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return !!localStorage.getItem('user');
-  });
+  // Siempre iniciar en true — con httpOnly cookies, el cliente no puede
+  // saber si hay sesión válida; getCurrentUser() lo valida con el servidor
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const refreshedRef = useRef(false);
 
-  // Auto-refresh: obtener datos frescos del servidor al cargar la app
+  // Auto-refresh: validar sesión con el servidor al cargar la app.
+  // Con httpOnly cookies, siempre debemos consultar al servidor.
   useEffect(() => {
     if (refreshedRef.current) return;
-    if (typeof window === 'undefined') return;
-
-    const hasUser = localStorage.getItem('user');
-    if (!hasUser) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsLoading(false);
-      return;
-    }
-
     refreshedRef.current = true;
 
     authApi.getCurrentUser()
       .then((freshUser) => {
         setUser(freshUser);
-        // Actualizar tenant desde localStorage (se actualiza en getCurrentUser)
         setTenant(getStoredTenant());
       })
-      .catch(() => {
-        // Si el interceptor no pudo refrescar, limpiar estado de React
-        // para mantener consistencia (el interceptor ya limpió localStorage)
-        setUser(null);
-        setTenant(null);
+      .catch((error: unknown) => {
+        // Solo limpiar estado en errores de autorización (sesión inválida).
+        // Errores de red/servidor no deben cerrar la sesión del usuario.
+        const isAuthError = error instanceof ApiError
+          && (error.status === 401 || error.status === 403);
+        if (isAuthError) {
+          setUser(null);
+          setTenant(null);
+        }
       })
       .finally(() => {
         setIsLoading(false);
