@@ -16,7 +16,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .cookies import clear_auth_cookies, set_auth_cookies
-from .models import Banner, OTPToken, PasswordSetToken, SocialAccount, TeamInvitation, Tenant, User
+from .models import Banner, OTPToken, PasswordSetToken, PlatformModule, SocialAccount, TeamInvitation, Tenant, User
 from .permissions import IsTenantAdmin
 from .serializers import (
     AcceptInvitationSerializer,
@@ -25,6 +25,7 @@ from .serializers import (
     CreateTeamInvitationSerializer,
     InvitationDetailSerializer,
     LoginSerializer,
+    PlatformModuleSerializer,
     RegisterSerializer,
     SetPasswordSerializer,
     SocialLinkSerializer,
@@ -1009,6 +1010,7 @@ def tenant_info(request):
             "has_bookings": drf_serializers.BooleanField(required=False),
             "has_services": drf_serializers.BooleanField(required=False),
             "has_marketing": drf_serializers.BooleanField(required=False),
+            "has_management": drf_serializers.BooleanField(required=False),
         },
     ),
     responses={200: TenantSerializer},
@@ -1024,7 +1026,7 @@ def configure_modules(request):
         return Response({"error": "Solo el administrador puede configurar módulos"}, status=403)
 
     tenant = request.tenant
-    module_fields = {"has_website", "has_shop", "has_bookings", "has_services", "has_marketing"}
+    module_fields = {"has_website", "has_shop", "has_bookings", "has_services", "has_marketing", "has_management"}
     updated_fields = ["modules_configured"]
 
     # Guardar campos del tenant si se envían
@@ -1055,6 +1057,108 @@ def configure_modules(request):
         user.save(update_fields=["first_name", "last_name"])
 
     return Response(TenantSerializer(tenant).data)
+
+
+@extend_schema(
+    request=inline_serializer(
+        name="OnboardingCompleteRequest",
+        fields={
+            "modules": drf_serializers.ListField(child=drf_serializers.CharField()),
+            "answers": drf_serializers.DictField(),
+        },
+    ),
+    responses={
+        200: inline_serializer(
+            name="OnboardingCompleteResponse",
+            fields={
+                "success": drf_serializers.BooleanField(),
+                "next_route": drf_serializers.CharField(),
+                "generated": drf_serializers.DictField(),
+            },
+        ),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def onboarding_complete(request):
+    """POST /api/core/onboarding/complete/ - Endpoint unificado de onboarding.
+
+    Recibe los módulos seleccionados y las respuestas del onboarding,
+    configura el tenant y opcionalmente genera el website con IA.
+    """
+    from websites.services.generation import GenerationError, generate_website
+
+    if not hasattr(request, "tenant"):
+        return Response({"error": "Tenant no detectado"}, status=500)
+
+    if request.user.role != "admin":
+        return Response(
+            {"error": "Solo el administrador puede completar el onboarding"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    from .serializers import OnboardingCompleteSerializer
+
+    serializer = OnboardingCompleteSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    modules = serializer.validated_data["modules"]
+    answers = serializer.validated_data["answers"]
+    tenant = request.tenant
+
+    # 1. Save module flags to tenant
+    module_flag_map = {
+        "website": "has_website",
+        "shop": "has_shop",
+        "bookings": "has_bookings",
+        "management": "has_management",
+        "services": "has_services",
+    }
+
+    updated_fields = ["modules_configured"]
+    for module_key, field_name in module_flag_map.items():
+        value = module_key in modules
+        setattr(tenant, field_name, value)
+        updated_fields.append(field_name)
+
+    # 2. Mark modules as configured
+    tenant.modules_configured = True
+    tenant.save(update_fields=updated_fields)
+
+    # 3. If website or shop selected, generate website
+    generated = {"website": False}
+    if "website" in modules or "shop" in modules:
+        business_description = answers.get("business_description", "")
+        main_services = answers.get("services", "")
+        website_sections = answers.get("sections")
+
+        if business_description:
+            try:
+                generate_website(
+                    tenant=tenant,
+                    business_description=business_description,
+                    main_services=main_services,
+                    website_sections=website_sections,
+                )
+                generated["website"] = True
+            except GenerationError as e:
+                logger.warning(f"Website generation failed during onboarding: {e}")
+                # Non-fatal: tenant is configured, website can be generated later
+
+    # 4. Determine next route based on modules
+    if tenant.has_website or tenant.has_shop:
+        next_route = "/dashboard/website-builder"
+    else:
+        next_route = "/dashboard"
+
+    return Response(
+        {
+            "success": True,
+            "next_route": next_route,
+            "generated": generated,
+        }
+    )
 
 
 class DeleteAccountView(APIView):
@@ -1233,6 +1337,19 @@ class ActiveBannersView(generics.ListAPIView):
             queryset = queryset.filter(position=position)
 
         return queryset
+
+
+# ===================================
+# MÓDULOS DE PLATAFORMA
+# ===================================
+
+
+class PlatformModuleListView(generics.ListAPIView):
+    """Lista de módulos activos de la plataforma."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = PlatformModuleSerializer
+    queryset = PlatformModule.objects.filter(is_active=True)
 
 
 # ===================================
@@ -1656,6 +1773,7 @@ def get_tenant_config(request):
                 "bookings": tenant.has_bookings,
                 "services": tenant.has_services,
                 "marketing": tenant.has_marketing,
+                "management": tenant.has_management,
             },
             "config": {
                 "primary_color": tenant.primary_color,

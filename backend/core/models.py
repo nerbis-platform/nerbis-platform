@@ -359,6 +359,12 @@ class Tenant(models.Model):
         help_text="Habilita: Cupones, Promociones, Reseñas (requiere Shop, Bookings o Services)",
     )
 
+    has_management = models.BooleanField(
+        default=False,
+        verbose_name="Gestión Interna",
+        help_text="Habilita: Solo módulos de gestión (sin sitio web público)",
+    )
+
     modules_configured = models.BooleanField(
         default=False,
         verbose_name="Módulos configurados",
@@ -513,7 +519,7 @@ class Tenant(models.Model):
 
         Orden de prioridad (de mayor a menor):
         - suspended: is_active = False
-        - operational: sitio publicado (fase final)
+        - operational: sitio publicado (fase final) OR management-only tenant con módulos configurados
         - website_generated: WebsiteConfig.status == 'review'
         - website_building: WebsiteConfig.status in ('draft', 'onboarding', 'generating')
         - modules_configured: modules_configured = True (sin website)
@@ -521,6 +527,10 @@ class Tenant(models.Model):
         """
         if not self.is_active:
             return "suspended"
+
+        # Management-only tenants: no necesitan website, van directo a operational
+        if self.modules_configured and self.has_management and not self.has_website:
+            return "operational"
 
         # Obtener estado del website
         website_status = None
@@ -1792,3 +1802,63 @@ class TenantPhaseLog(models.Model):
 
     def __str__(self) -> str:
         return f"{self.tenant.slug}: {self.from_phase} → {self.to_phase}"
+
+
+class PlatformModule(models.Model):
+    """
+    Modulo de la plataforma configurable.
+
+    Define los servicios disponibles en NERBIS (has_website, has_services, etc.).
+    Es un modelo GLOBAL, no pertenece a ningun tenant.
+    """
+
+    key = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text="Identificador unico ej: has_services",
+    )
+    label = models.CharField(
+        max_length=100,
+        help_text="Nombre visible ej: Servicios",
+    )
+    description = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Descripcion corta del modulo",
+    )
+    icon = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Nombre del icono Lucide ej: briefcase",
+    )
+    accent_color = models.CharField(
+        max_length=20,
+        default="#0D9488",
+        help_text="Color hex del modulo",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Si esta disponible para seleccion",
+    )
+    sort_order = models.IntegerField(
+        default=0,
+        help_text="Orden en el grid de seleccion",
+    )
+    dependencies = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        blank=True,
+        related_name="dependents",
+        help_text="Modulos requeridos al activar este",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "label"]
+        verbose_name = "Modulo de plataforma"
+        verbose_name_plural = "Modulos de plataforma"
+
+    def __str__(self):
+        return self.label

@@ -16,6 +16,7 @@ from unfold.widgets import UnfoldAdminTextareaWidget
 
 from .models import (
     Banner,
+    PlatformModule,
     SocialAccount,
     Tenant,
     TenantConfig,
@@ -1388,3 +1389,56 @@ class WebAuthnCredentialAdmin(UnfoldModelAdmin):
         if hasattr(request.user, "tenant") and request.user.tenant:
             return qs.filter(user__tenant=request.user.tenant)
         return qs.none()
+
+
+# ===================================
+# MODULOS DE PLATAFORMA
+# ===================================
+
+
+@admin.register(PlatformModule, site=nerbis_admin_site)
+class PlatformModuleAdmin(UnfoldModelAdmin):
+    """Admin para gestionar modulos de la plataforma."""
+
+    list_display = [
+        "label",
+        "key",
+        "display_color",
+        "is_active",
+        "sort_order",
+    ]
+    list_filter = ["is_active"]
+    list_editable = ["sort_order", "is_active"]
+    search_fields = ["key", "label", "description"]
+    ordering = ["sort_order", "label"]
+    filter_horizontal = ["dependencies"]
+
+    fieldsets = (
+        (
+            "Identificacion",
+            {
+                "fields": ("key", "label", "description"),
+            },
+        ),
+        (
+            "Apariencia",
+            {
+                "fields": ("icon", "accent_color"),
+            },
+        ),
+        (
+            "Configuracion",
+            {
+                "fields": ("is_active", "sort_order", "dependencies"),
+            },
+        ),
+    )
+
+    @display(description="Color")
+    def display_color(self, obj):
+        return format_html(
+            '<span style="display:inline-block;width:16px;height:16px;'
+            'border-radius:4px;background:{};vertical-align:middle;margin-right:6px;"></span>{}',
+            obj.accent_color,
+            obj.accent_color,
+        )
