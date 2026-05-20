@@ -14,9 +14,7 @@ from .models import AdminAuditLog, Banner, PlatformModule, SocialAccount, TeamIn
 class PlatformModuleSerializer(serializers.ModelSerializer):
     """Serializer para módulos de la plataforma (catálogo global)."""
 
-    dependencies = serializers.SlugRelatedField(
-        many=True, read_only=True, slug_field="key"
-    )
+    dependencies = serializers.SlugRelatedField(many=True, read_only=True, slug_field="key")
 
     class Meta:
         model = PlatformModule
@@ -767,8 +765,7 @@ class OnboardingCompleteSerializer(serializers.Serializer):
         invalid = set(value) - self.VALID_MODULES
         if invalid:
             raise serializers.ValidationError(
-                f"Módulos inválidos: {', '.join(sorted(invalid))}. "
-                f"Válidos: {', '.join(sorted(self.VALID_MODULES))}"
+                f"Módulos inválidos: {', '.join(sorted(invalid))}. Válidos: {', '.join(sorted(self.VALID_MODULES))}"
             )
         return value
 

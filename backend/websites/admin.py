@@ -33,7 +33,16 @@ class OnboardingQuestionInline(TabularInline):
 
     model = OnboardingQuestion
     extra = 0
-    fields = ["question_key", "question_text", "question_type", "input_type", "section", "sort_order", "is_required", "is_active"]
+    fields = [
+        "question_key",
+        "question_text",
+        "question_type",
+        "input_type",
+        "section",
+        "sort_order",
+        "is_required",
+        "is_active",
+    ]
     ordering = ["section", "sort_order"]
 
 

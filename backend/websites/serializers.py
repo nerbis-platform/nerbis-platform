@@ -97,9 +97,7 @@ class OnboardingQuestionSerializer(serializers.ModelSerializer):
     """Serializer para preguntas de onboarding (incluye campos conversacionales de Pipe)."""
 
     type_display = serializers.CharField(source="get_question_type_display", read_only=True)
-    required_modules = serializers.SlugRelatedField(
-        many=True, read_only=True, slug_field="key"
-    )
+    required_modules = serializers.SlugRelatedField(many=True, read_only=True, slug_field="key")
 
     class Meta:
         model = OnboardingQuestion
@@ -127,9 +125,7 @@ class OnboardingQuestionSerializer(serializers.ModelSerializer):
 class WebsitePageSerializer(serializers.ModelSerializer):
     """Serializer para páginas disponibles en el onboarding."""
 
-    auto_include_modules = serializers.SlugRelatedField(
-        many=True, read_only=True, slug_field="key"
-    )
+    auto_include_modules = serializers.SlugRelatedField(many=True, read_only=True, slug_field="key")
 
     class Meta:
         model = WebsitePage
@@ -349,12 +345,12 @@ class QuickStartSerializer(serializers.Serializer):
         help_text="Personalidad de marca: profesional, calido, moderno, minimalista, juvenil",
     )
     primary_color = serializers.RegexField(
-        regex=r'^#[0-9A-Fa-f]{6}$',
+        regex=r"^#[0-9A-Fa-f]{6}$",
         required=False,
         help_text="Color primario en hex (ej: #1C3B57)",
     )
     secondary_color = serializers.RegexField(
-        regex=r'^#[0-9A-Fa-f]{6}$',
+        regex=r"^#[0-9A-Fa-f]{6}$",
         required=False,
         help_text="Color secundario en hex (ej: #0D9488)",
     )

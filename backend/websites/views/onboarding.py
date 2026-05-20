@@ -446,7 +446,11 @@ class OnboardingQuestionListView(generics.ListAPIView):
     serializer_class = OnboardingQuestionSerializer
 
     def get_queryset(self):
-        return OnboardingQuestion.objects.filter(is_active=True).prefetch_related("required_modules").order_by("sort_order")
+        return (
+            OnboardingQuestion.objects.filter(is_active=True)
+            .prefetch_related("required_modules")
+            .order_by("sort_order")
+        )
 
 
 class WebsitePageListView(generics.ListAPIView):
@@ -460,4 +464,6 @@ class WebsitePageListView(generics.ListAPIView):
     serializer_class = WebsitePageSerializer
 
     def get_queryset(self):
-        return WebsitePage.objects.filter(is_active=True).prefetch_related("auto_include_modules").order_by("sort_order")
+        return (
+            WebsitePage.objects.filter(is_active=True).prefetch_related("auto_include_modules").order_by("sort_order")
+        )
