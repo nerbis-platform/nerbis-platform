@@ -107,6 +107,8 @@ MIDDLEWARE = [
     "core.middleware.TimezoneMiddleware",
     "middleware.tenant.TenantExclusionMiddleware",
     "middleware.tenant.TenantMiddleware",
+    # RLS: propaga tenant_id a PostgreSQL para Row-Level Security policies
+    "middleware.rls.RLSTenantMiddleware",
     # Verificacion de suscripcion del tenant (debe ir despues de auth)
     "core.middleware.SubscriptionMiddleware",
 ]
