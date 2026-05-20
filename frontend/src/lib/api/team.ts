@@ -86,6 +86,42 @@ export async function resetTeam2FA(
   return data;
 }
 
+export interface UpdateMemberData {
+  role?: 'admin' | 'staff';
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+}
+
+export async function updateTeamMember(
+  userId: number,
+  data: UpdateMemberData
+): Promise<TeamMember> {
+  const { data: result } = await api.patch<TeamMember>(`/team/${userId}/`, data);
+  return result;
+}
+
+export async function blockTeamMember(
+  userId: number
+): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>(`/team/${userId}/block/`);
+  return data;
+}
+
+export async function unblockTeamMember(
+  userId: number
+): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>(`/team/${userId}/unblock/`);
+  return data;
+}
+
+export async function deleteTeamMember(
+  userId: number
+): Promise<{ message: string }> {
+  const { data } = await api.delete<{ message: string }>(`/team/${userId}/`);
+  return data;
+}
+
 // ===================================
 // Team Invitations
 // ===================================

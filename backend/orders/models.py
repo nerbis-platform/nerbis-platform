@@ -13,6 +13,86 @@ from ecommerce.models import Product
 from services.models import Service
 
 
+class PaymentGateway(TenantAwareModel):
+    """
+    Pasarela de pago configurada por el tenant.
+
+    Cada tenant conecta SU propia cuenta de Stripe/MercadoPago/WOMPI.
+    NERBIS no toca el dinero — solo provee la plataforma.
+    """
+
+    PROVIDER_CHOICES = [
+        ("stripe", "Stripe"),
+        ("mercadopago", "MercadoPago"),
+        ("wompi", "WOMPI"),
+        ("paypal", "PayPal"),
+    ]
+
+    provider = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        verbose_name="Proveedor",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activa",
+    )
+
+    is_default = models.BooleanField(
+        default=False,
+        verbose_name="Pasarela por defecto",
+        help_text="Si el tenant tiene múltiples pasarelas, esta es la principal",
+    )
+
+    # Credenciales del merchant (encriptadas en producción via django-fernet-fields o similar)
+    public_key = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Clave pública",
+        help_text="Publishable key / Public key del merchant",
+    )
+
+    secret_key = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Clave secreta",
+        help_text="Secret key del merchant (se debe encriptar en producción)",
+    )
+
+    webhook_secret = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Webhook secret",
+    )
+
+    # Configuración adicional (access tokens, merchant IDs, etc.)
+    extra_config = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Configuración adicional",
+        help_text="Datos específicos del proveedor (merchant_id, access_token, etc.)",
+    )
+
+    class Meta:
+        verbose_name = "Pasarela de Pago"
+        verbose_name_plural = "Pasarelas de Pago"
+        ordering = ["-is_default", "-created_at"]
+        indexes = [
+            models.Index(fields=["tenant", "provider"]),
+            models.Index(fields=["tenant", "is_active"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "provider"],
+                name="unique_gateway_per_tenant_provider",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.get_provider_display()} - {self.tenant.name}"
+
+
 class Order(TenantAwareModel):
     """
     Orden de compra.
@@ -272,6 +352,8 @@ class Payment(TenantAwareModel):
 
     PAYMENT_METHODS = [
         ("stripe", "Stripe"),
+        ("mercadopago", "MercadoPago"),
+        ("wompi", "WOMPI"),
         ("paypal", "PayPal"),
         ("transfer", "Transferencia"),
         ("cash", "Efectivo"),
@@ -279,7 +361,24 @@ class Payment(TenantAwareModel):
 
     order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="payments", verbose_name="Orden")
 
-    # Stripe
+    gateway = models.ForeignKey(
+        PaymentGateway,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        verbose_name="Pasarela",
+    )
+
+    # ID externo del proveedor (genérico: Stripe PI, MercadoPago preference, WOMPI reference)
+    external_id = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="ID externo",
+        help_text="Payment Intent ID (Stripe), Preference ID (MercadoPago), etc.",
+    )
+
+    # Mantener por retrocompatibilidad con datos existentes
     stripe_payment_intent_id = models.CharField(max_length=255, blank=True, verbose_name="Stripe Payment Intent ID")
 
     stripe_charge_id = models.CharField(max_length=255, blank=True, verbose_name="Stripe Charge ID")
@@ -291,7 +390,7 @@ class Payment(TenantAwareModel):
 
     amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Monto")
 
-    currency = models.CharField(max_length=3, default="EUR", verbose_name="Moneda")
+    currency = models.CharField(max_length=3, verbose_name="Moneda")
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending", verbose_name="Estado")
 

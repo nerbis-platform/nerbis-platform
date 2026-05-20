@@ -1,6 +1,7 @@
 # backend/core/models.py
 
 import uuid
+from decimal import Decimal
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -280,6 +281,21 @@ class Tenant(models.Model):
             ("ca", "Català"),
         ],
         verbose_name="Idioma",
+    )
+
+    tax_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=Decimal("0.21"),
+        verbose_name="Tasa de impuesto",
+        help_text="Ej: 0.21 para 21% (España), 0.19 para 19% (Colombia), 0.16 para 16% (México)",
+    )
+
+    tax_name = models.CharField(
+        max_length=20,
+        default="IVA",
+        verbose_name="Nombre del impuesto",
+        help_text="IVA (España/Colombia), IGV (Perú), ITBMS (Panamá)",
     )
 
     # Métricas del negocio (configurables desde admin)

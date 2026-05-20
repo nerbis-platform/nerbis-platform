@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Standalone output para Docker (imagen ~100MB en vez de ~500MB)
+  output: "standalone",
   experimental: {
     optimizePackageImports: ['lucide-react'],
   },
@@ -19,12 +21,26 @@ const nextConfig: NextConfig = {
         port: "8000",
         pathname: "/media/**",
       },
-      // Producción: descomentar y usar tu dominio real
-      // {
-      //   protocol: "https",
-      //   hostname: "api.nerbis.com",
-      //   pathname: "/media/**",
-      // },
+      // Producción: API backend
+      ...(process.env.NEXT_PUBLIC_API_HOSTNAME
+        ? [
+            {
+              protocol: "https" as const,
+              hostname: process.env.NEXT_PUBLIC_API_HOSTNAME,
+              pathname: "/media/**",
+            },
+          ]
+        : []),
+      // Producción: S3/CloudFront para media
+      ...(process.env.NEXT_PUBLIC_CDN_HOSTNAME
+        ? [
+            {
+              protocol: "https" as const,
+              hostname: process.env.NEXT_PUBLIC_CDN_HOSTNAME,
+              pathname: "/**",
+            },
+          ]
+        : []),
     ],
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",

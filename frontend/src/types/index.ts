@@ -767,9 +767,9 @@ export interface GenerateContentRequest {
 export interface GenerateContentResponse {
   content_data: Record<string, unknown>;
   seo_data: Record<string, unknown>;
-  tokens_used: number;
-  remaining_generations: number;
-  is_billable: boolean;
+  tokens_used?: number;
+  remaining_generations?: number;
+  is_billable?: boolean;
   status: string;
 }
 

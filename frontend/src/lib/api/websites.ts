@@ -8,7 +8,6 @@ import {
   OnboardingQuestion,
   OnboardingResponse,
   ChatMessage,
-  GenerateContentResponse,
   ChatResponse,
   PaginatedResponse,
   PlatformModule,
@@ -149,8 +148,8 @@ export interface QuickStartResponse {
   content_data: Record<string, unknown>;
   seo_data: Record<string, unknown>;
   theme_data: Record<string, unknown>;
-  tokens_used: number;
-  remaining_generations: number;
+  tokens_used?: number;
+  remaining_generations?: number;
   status: string;
   template: {
     slug: string;
@@ -158,14 +157,30 @@ export interface QuickStartResponse {
   };
 }
 
+/** Respuesta 202 cuando la generacion se encola via Celery */
+export interface AsyncGenerationAccepted {
+  task_id: string;
+  status: 'generating';
+}
+
+/** Estado de generacion devuelto por el endpoint de polling */
+export interface GenerationStatusResponse {
+  status: 'generating' | 'review' | 'onboarding' | 'draft' | 'published';
+  task_id: string | null;
+  content_data?: Record<string, unknown>;
+  seo_data?: Record<string, unknown>;
+  theme_data?: Record<string, unknown>;
+}
+
 /**
  * Genera un sitio completo con 3 campos (onboarding rapido).
  * Auto-resuelve template por industria del tenant.
+ * Devuelve 202 Accepted con task_id (generacion asincrona via Celery).
  */
 export async function quickStartGenerate(
   payload: QuickStartRequest
-): Promise<QuickStartResponse> {
-  const { data } = await apiClient.post<QuickStartResponse>(
+): Promise<AsyncGenerationAccepted> {
+  const { data } = await apiClient.post<AsyncGenerationAccepted>(
     '/websites/onboarding/quick-start/',
     payload
   );
@@ -177,14 +192,25 @@ export async function quickStartGenerate(
 // ===================================
 
 /**
- * Generar contenido con IA
+ * Generar contenido con IA.
+ * Devuelve 202 Accepted con task_id (generacion asincrona via Celery).
+ * Devuelve 409 Conflict si ya hay una generacion en progreso.
  */
 export async function generateContent(
   additionalInstructions?: string
-): Promise<GenerateContentResponse> {
-  const { data } = await apiClient.post<GenerateContentResponse>('/websites/generate/', {
+): Promise<AsyncGenerationAccepted> {
+  const { data } = await apiClient.post<AsyncGenerationAccepted>('/websites/generate/', {
     additional_instructions: additionalInstructions,
   });
+  return data;
+}
+
+/**
+ * Consultar el estado de la generacion asincrona (polling).
+ * Cuando status='review', incluye content_data, seo_data, theme_data.
+ */
+export async function getGenerationStatus(): Promise<GenerationStatusResponse> {
+  const { data } = await apiClient.get<GenerationStatusResponse>('/websites/generation-status/');
   return data;
 }
 
