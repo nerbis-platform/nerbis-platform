@@ -1,4 +1,5 @@
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from core.models import PlatformModule
 from websites.models import WebsitePage
@@ -7,6 +8,7 @@ from websites.models import WebsitePage
 class Command(BaseCommand):
     help = "Seed onboarding configuration data (modules and pages)"
 
+    @transaction.atomic
     def handle(self, *args, **options):
         self._seed_modules()
         self._seed_pages()
@@ -63,7 +65,7 @@ class Command(BaseCommand):
         website = created_modules["has_website"]
         for key, mod in created_modules.items():
             if key != "has_website":
-                mod.dependencies.add(website)
+                mod.dependencies.set([website])
 
     def _seed_pages(self):
         pages_data = [
@@ -152,5 +154,5 @@ class Command(BaseCommand):
 
         for page_key, module_key in links.items():
             if page_key in pages and module_key in modules:
-                pages[page_key].auto_include_modules.add(modules[module_key])
+                pages[page_key].auto_include_modules.set([modules[module_key]])
                 self.stdout.write(f"  Linked page '{page_key}' -> module '{module_key}'")

@@ -750,7 +750,7 @@ class AdminAuditLogSerializer(serializers.ModelSerializer):
 class OnboardingCompleteSerializer(serializers.Serializer):
     """Serializer para el endpoint unificado de onboarding."""
 
-    VALID_MODULES = {"website", "shop", "bookings", "management", "services"}
+    VALID_MODULES = {"has_website", "has_shop", "has_bookings", "has_management", "has_services"}
 
     modules = serializers.ListField(
         child=serializers.CharField(max_length=20),

@@ -468,6 +468,17 @@ export default function QuickStartPage() {
     return new Set(defaults);
   });
 
+  // Sync selectedPages when apiPages loads
+  useEffect(() => {
+    if (!apiPages) return;
+    const defaults = apiPages.filter((p) => p.is_default).map((p) => p.key);
+    setSelectedPages((prev) => {
+      const key = defaults.sort().join(',');
+      const prevKey = Array.from(prev).sort().join(',');
+      return key !== prevKey ? new Set(defaults) : prev;
+    });
+  }, [apiPages]);
+
   // ─── Build dynamic steps based on selected modules ──────
   const steps = useMemo<ConversationStep[]>(() => {
     // Step 1: always modules selection
