@@ -3,6 +3,7 @@
 from django.urls import path
 
 from . import views, views_2fa, webauthn_auth
+from .views import PlatformModuleListView
 
 app_name = "core"
 
@@ -92,10 +93,13 @@ urlpatterns = [
     path("team/<int:user_id>/", views.TeamMemberDetailView.as_view(), name="team_member_detail"),
     # Banners
     path("banners/", views.ActiveBannersView.as_view(), name="active_banners"),
+    # Módulos de plataforma
+    path("modules/", PlatformModuleListView.as_view(), name="platform-modules"),
     # Configuración del tenant
     path("tenant/config/", views.get_tenant_config, name="tenant_config"),
     path("tenant/website-content/", views.get_tenant_website_content, name="tenant_website_content"),
     path("configure-modules/", views.configure_modules, name="configure_modules"),
+    path("onboarding/complete/", views.onboarding_complete, name="onboarding_complete"),
     # Equipo — invitaciones
     path("team/invitations/", views.TeamInvitationsView.as_view(), name="team_invitations"),
     path("team/invitations/<int:pk>/", views.CancelInvitationView.as_view(), name="cancel_invitation"),

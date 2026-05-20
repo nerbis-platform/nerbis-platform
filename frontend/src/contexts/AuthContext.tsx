@@ -87,6 +87,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else if (tenant && tenant.website_status === 'published') {
       // Fase: operational → Dashboard
       router.push('/dashboard');
+    } else if (tenant && tenant.has_management && !tenant.has_website) {
+      // Management-only tenant → Dashboard directly (no website needed)
+      router.push('/dashboard');
     } else if (tenant && tenant.has_website) {
       // Fase: website_building / website_generated → Website Builder
       router.push('/dashboard/website-builder');

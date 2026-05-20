@@ -13,7 +13,15 @@ from unfold.decorators import display
 
 from core.admin_site import nerbis_admin_site
 
-from .models import AIGenerationLog, ChatMessage, OnboardingQuestion, OnboardingResponse, WebsiteConfig, WebsiteTemplate
+from .models import (
+    AIGenerationLog,
+    ChatMessage,
+    OnboardingQuestion,
+    OnboardingResponse,
+    WebsiteConfig,
+    WebsitePage,
+    WebsiteTemplate,
+)
 
 # ===================================
 # TEMPLATES DE SITIO WEB
@@ -25,7 +33,16 @@ class OnboardingQuestionInline(TabularInline):
 
     model = OnboardingQuestion
     extra = 0
-    fields = ["question_key", "question_text", "question_type", "section", "sort_order", "is_required", "is_active"]
+    fields = [
+        "question_key",
+        "question_text",
+        "question_type",
+        "input_type",
+        "section",
+        "sort_order",
+        "is_required",
+        "is_active",
+    ]
     ordering = ["section", "sort_order"]
 
 
@@ -139,6 +156,12 @@ class OnboardingQuestionAdmin(ModelAdmin):
             {
                 "fields": ("options",),
                 "classes": ("collapse",),
+            },
+        ),
+        (
+            "Onboarding Conversacional (Pipe)",
+            {
+                "fields": ("message", "input_type", "hint", "required_modules"),
             },
         ),
         (
@@ -710,3 +733,53 @@ class ChatMessageAdmin(ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return request.user.is_superuser
+
+
+# ===================================
+# PAGINAS DE SITIO WEB
+# ===================================
+
+
+@admin.register(WebsitePage, site=nerbis_admin_site)
+class WebsitePageAdmin(ModelAdmin):
+    """Admin para gestionar paginas disponibles en el onboarding."""
+
+    list_display = [
+        "label",
+        "key",
+        "display_mandatory",
+        "is_default",
+        "is_active",
+        "sort_order",
+    ]
+    list_filter = ["is_mandatory", "is_default", "is_active"]
+    list_editable = ["sort_order", "is_active"]
+    search_fields = ["key", "label", "description"]
+    ordering = ["sort_order", "label"]
+    filter_horizontal = ["auto_include_modules"]
+
+    fieldsets = (
+        (
+            "Identificacion",
+            {
+                "fields": ("key", "label", "description", "icon"),
+            },
+        ),
+        (
+            "Comportamiento",
+            {
+                "fields": ("is_mandatory", "is_default", "is_active", "sort_order"),
+            },
+        ),
+        (
+            "Auto-inclusion por modulos",
+            {
+                "fields": ("auto_include_modules",),
+                "description": "Si el usuario selecciona alguno de estos modulos, esta pagina se incluye automaticamente.",
+            },
+        ),
+    )
+
+    @display(description="Obligatoria", boolean=True)
+    def display_mandatory(self, obj):
+        return obj.is_mandatory

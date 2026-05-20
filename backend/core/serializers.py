@@ -8,7 +8,25 @@ from django.contrib.auth.password_validation import (
 )
 from rest_framework import serializers
 
-from .models import AdminAuditLog, Banner, SocialAccount, TeamInvitation, Tenant, User
+from .models import AdminAuditLog, Banner, PlatformModule, SocialAccount, TeamInvitation, Tenant, User
+
+
+class PlatformModuleSerializer(serializers.ModelSerializer):
+    """Serializer para módulos de la plataforma (catálogo global)."""
+
+    dependencies = serializers.SlugRelatedField(many=True, read_only=True, slug_field="key")
+
+    class Meta:
+        model = PlatformModule
+        fields = [
+            "key",
+            "label",
+            "description",
+            "icon",
+            "accent_color",
+            "sort_order",
+            "dependencies",
+        ]
 
 
 class TenantSerializer(serializers.ModelSerializer):
@@ -56,6 +74,7 @@ class TenantSerializer(serializers.ModelSerializer):
             "has_bookings",
             "has_services",
             "has_marketing",
+            "has_management",
             "has_website",
             "modules_configured",
             # Suscripción
@@ -726,6 +745,29 @@ class AdminAuditLogSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+
+class OnboardingCompleteSerializer(serializers.Serializer):
+    """Serializer para el endpoint unificado de onboarding."""
+
+    VALID_MODULES = {"has_website", "has_shop", "has_bookings", "has_management", "has_services"}
+
+    modules = serializers.ListField(
+        child=serializers.CharField(max_length=20),
+        min_length=1,
+        help_text="Módulos seleccionados por el usuario",
+    )
+    answers = serializers.DictField(
+        help_text="Respuestas del onboarding (flexible, validado en la vista)",
+    )
+
+    def validate_modules(self, value: list[str]) -> list[str]:
+        invalid = set(value) - self.VALID_MODULES
+        if invalid:
+            raise serializers.ValidationError(
+                f"Módulos inválidos: {', '.join(sorted(invalid))}. Válidos: {', '.join(sorted(self.VALID_MODULES))}"
+            )
+        return value
 
 
 class BannerSerializer(serializers.ModelSerializer):

@@ -128,6 +128,7 @@ export interface ModuleSelection {
   has_bookings: boolean;
   has_services: boolean;
   has_marketing: boolean;
+  has_management: boolean;
 }
 
 /**

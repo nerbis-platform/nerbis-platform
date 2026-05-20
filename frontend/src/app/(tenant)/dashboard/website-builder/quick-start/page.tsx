@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-// tanstack/react-query no longer needed — polling via setInterval
+import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import {
   Check,
@@ -15,23 +15,23 @@ import {
   Search,
   Sparkles,
   LogOut,
-  Globe,
-  ShoppingCart,
-  CalendarCheck,
-  Briefcase,
   UserCircle,
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
 import {
   quickStartGenerate,
   QuickStartResponse,
+  getPlatformModules,
+  getOnboardingQuestions,
+  getOnboardingPages,
   getGenerationStatus,
   GenerationStatusResponse,
 } from '@/lib/api/websites';
 import { configureModules, ModuleSelection, getCurrentUser } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api/client';
-import { Tenant } from '@/types';
+import { Tenant, PlatformModule, OnboardingQuestion, WebsitePage } from '@/types';
 
 // ─── Brand constants ──────────────────────────────────────
 const NAVY = '#1C3B57';
@@ -48,7 +48,7 @@ const WARM_GRAY_800 = '#292524';
 interface ConversationStep {
   id: string;
   message: string;
-  type: 'textarea' | 'input' | 'action' | 'multiselect' | 'modules';
+  type: 'textarea' | 'input' | 'action' | 'multiselect' | 'modules' | 'pages';
   placeholder?: string;
   hint?: string;
   inputType?: string;
@@ -56,374 +56,339 @@ interface ConversationStep {
   rows?: number;
 }
 
-// ─── NERBIS modules (mirrors setup page) ─────────────────
-interface NerbisModule {
-  key: keyof ModuleSelection;
-  label: string;
-  subtitle: string;
-  icon: typeof Globe;
-  accentColor: string;
-  alwaysOn?: boolean; // has_website is always included
-}
-
-const NERBIS_MODULES: NerbisModule[] = [
-  {
-    key: 'has_website',
-    label: 'Sitio Web',
-    subtitle: 'Presencia online con IA',
-    icon: Globe,
-    accentColor: NAVY,
-    alwaysOn: true,
-  },
-  {
-    key: 'has_services',
-    label: 'Servicios',
-    subtitle: 'Muestra y vende tus servicios',
-    icon: Briefcase,
-    accentColor: '#8b5cf6',
-  },
-  {
-    key: 'has_bookings',
-    label: 'Reservas',
-    subtitle: 'Agenda de citas online',
-    icon: CalendarCheck,
-    accentColor: '#6366f1',
-  },
-  {
-    key: 'has_shop',
-    label: 'Tienda Online',
-    subtitle: 'Vende productos 24/7',
-    icon: ShoppingCart,
-    accentColor: '#10b981',
-  },
-];
-
-// ─── Section options (match backend SECTION_OPTION_MAP keys) ──
-interface SectionOption {
-  label: string;
-  value: string;
-  defaultOn: boolean;
-}
-
-const SECTION_OPTIONS: SectionOption[] = [
-  { label: 'Sobre nosotros', value: 'Sobre nosotros', defaultOn: true },
-  { label: 'Testimonios', value: 'Testimonios / Reseñas', defaultOn: true },
-  { label: 'Preguntas frecuentes', value: 'Preguntas frecuentes', defaultOn: true },
-  { label: 'Galería de fotos', value: 'Galería de fotos', defaultOn: false },
-  { label: 'Precios / Tarifas', value: 'Precios / Tarifas', defaultOn: false },
-];
-
 // ─── Agent identity ───────────────────────────────────────
 const AGENT_NAME = 'Pipe';
 
-const STEPS: ConversationStep[] = [
-  {
-    id: 'modules',
-    message: '¿Qué necesitas para tu negocio?',
-    type: 'modules',
-    hint: 'Incluye 14 días gratis. Puedes cambiar después.',
-  },
-  {
-    id: 'description',
-    message: 'Perfecto. Cuéntame sobre tu negocio — ¿a qué se dedican y qué los hace únicos?',
-    type: 'textarea',
-    placeholder: 'Ej: Somos un centro de estética en Pedrezuela con 6 años de experiencia, especializados en tratamientos faciales y corporales con productos Germaine de Capuccini...',
-    hint: 'Entre más detalles, mejor queda tu sitio.',
-    minLength: 20,
-    rows: 3,
-  },
-  {
-    id: 'services',
-    message: 'Genial. ¿Qué servicios ofreces?',
-    type: 'textarea',
-    placeholder: 'Ej:\nLimpieza facial profunda\nRadiofrecuencia facial\nPresoterapia corporal\nDepilación láser diodo',
-    hint: 'Uno por línea o separados por coma.',
-    minLength: 5,
-    rows: 4,
-  },
-  {
-    id: 'sections',
-    message: 'Última pregunta — ¿qué páginas adicionales quieres?',
-    type: 'multiselect',
-    hint: 'Puedes agregar más después.',
-  },
+// ─── Lucide icon resolver ─────────────────────────────────
+function getLucideIcon(name: string): React.ComponentType<{ className?: string; style?: React.CSSProperties }> {
+  // Convert kebab-case to PascalCase: "shopping-cart" → "ShoppingCart"
+  const pascalName = name
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const icons = LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>;
+  return icons[pascalName] || LucideIcons.Circle;
+}
+
+// ─── Fallback data (used while API loads) ─────────────────
+const FALLBACK_MODULES: PlatformModule[] = [
+  { key: 'has_website', label: 'Sitio Web', description: 'Tu presencia online', icon: 'globe', accent_color: '#1C3B57', sort_order: 0, dependencies: [] },
+  { key: 'has_services', label: 'Servicios', description: 'Muestra y vende tus servicios', icon: 'briefcase', accent_color: '#8b5cf6', sort_order: 1, dependencies: ['has_website'] },
+  { key: 'has_bookings', label: 'Reservas', description: 'Agenda de citas online', icon: 'calendar-check', accent_color: '#6366f1', sort_order: 2, dependencies: ['has_website'] },
+  { key: 'has_shop', label: 'Tienda Online', description: 'Vende productos 24/7', icon: 'shopping-cart', accent_color: '#10b981', sort_order: 3, dependencies: ['has_website'] },
 ];
 
-// ─── Pipe keyframe animations (avoids styled-jsx / Turbopack hang) ──
+const FALLBACK_PAGES: WebsitePage[] = [
+  { key: 'home', label: 'Inicio', description: 'Página principal', icon: 'home', is_mandatory: true, is_default: true, sort_order: 0, auto_include_modules: [] },
+  { key: 'contact', label: 'Contacto', description: 'Formulario de contacto', icon: 'mail', is_mandatory: true, is_default: true, sort_order: 1, auto_include_modules: [] },
+  { key: 'about', label: 'Sobre nosotros', description: 'Tu historia', icon: 'users', is_mandatory: false, is_default: true, sort_order: 2, auto_include_modules: [] },
+  { key: 'blog', label: 'Blog', description: 'Artículos y noticias', icon: 'file-text', is_mandatory: false, is_default: false, sort_order: 6, auto_include_modules: [] },
+];
+
+// ─── Pipe Keyframes ──────────────────────────────────────
 const PIPE_KEYFRAMES = `
-@keyframes pipe-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
-@keyframes pipe-bob { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-3px) scale(1.03)} }
-@keyframes pipe-tilt { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(4deg)} 75%{transform:rotate(-3deg)} }
-@keyframes pipe-blink { 0%,42%,44%,100%{transform:scaleY(1)} 43%{transform:scaleY(0.1)} }
-@keyframes pipe-antenna { 0%,100%{opacity:.5;filter:drop-shadow(0 0 1px #5EEAD4)} 50%{opacity:1;filter:drop-shadow(0 0 4px #5EEAD4)} }
-@keyframes pipe-glow { 0%,100%{opacity:.3;transform:scale(1)} 50%{opacity:.7;transform:scale(1.1)} }
-@keyframes pipe-mouth-think { 0%,100%{transform:scale(1)} 50%{transform:scale(0.8)} }
-@keyframes pipe-jump { 0%{transform:translateY(0) scale(1)} 40%{transform:translateY(-5px) scale(1.08)} 70%{transform:translateY(-2px) scale(1.03)} 100%{transform:translateY(0) scale(1)} }
-@keyframes pipe-nod { 0%,100%{transform:rotate(0) translateY(0)} 30%{transform:rotate(0) translateY(1px)} 50%{transform:rotate(0) translateY(-1px)} 70%{transform:rotate(0) translateY(1px)} }
-@keyframes pipe-nudge { 0%{transform:translateX(0) rotate(0)} 15%{transform:translateX(-3px) rotate(-6deg)} 30%{transform:translateX(3px) rotate(6deg)} 45%{transform:translateX(-2px) rotate(-4deg)} 60%{transform:translateX(2px) rotate(4deg)} 75%{transform:translateX(-1px) rotate(-2deg)} 100%{transform:translateX(0) rotate(0)} }
-@media(prefers-reduced-motion:reduce){.pipe-avatar,.pipe-avatar *{animation:none!important}}
+/* Idle — lively floating with squash, like hovering */
+@keyframes pipe-breathe {
+  0%, 100% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
+  15% { transform: translateY(-6px) scaleX(0.94) scaleY(1.08) rotate(2deg); }
+  35% { transform: translateY(-8px) scaleX(0.92) scaleY(1.1) rotate(-1deg); }
+  55% { transform: translateY(-4px) scaleX(1.04) scaleY(0.96) rotate(1deg); }
+  75% { transform: translateY(-2px) scaleX(1.02) scaleY(0.98) rotate(-2deg); }
+}
+
+/* Thinking — dramatic weight shifts, like pacing */
+@keyframes pipe-think {
+  0%, 100% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
+  15% { transform: translateY(-6px) scaleX(1.06) scaleY(0.94) rotate(-5deg); }
+  30% { transform: translateY(-3px) scaleX(0.94) scaleY(1.06) rotate(3deg); }
+  50% { transform: translateY(-8px) scaleX(0.92) scaleY(1.1) rotate(-2deg); }
+  70% { transform: translateY(-2px) scaleX(1.04) scaleY(0.96) rotate(4deg); }
+  85% { transform: translateY(-5px) scaleX(0.98) scaleY(1.03) rotate(-1deg); }
+}
+
+/* Happy — exuberant multi-bounce with heavy squash & stretch */
+@keyframes pipe-happy {
+  0% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
+  8% { transform: translateY(4px) scaleX(1.2) scaleY(0.8) rotate(0deg); }
+  20% { transform: translateY(-22px) scaleX(0.8) scaleY(1.25) rotate(-5deg); }
+  32% { transform: translateY(3px) scaleX(1.22) scaleY(0.78) rotate(3deg); }
+  42% { transform: translateY(-12px) scaleX(0.85) scaleY(1.18) rotate(-3deg); }
+  55% { transform: translateY(2px) scaleX(1.12) scaleY(0.88) rotate(2deg); }
+  68% { transform: translateY(-5px) scaleX(0.93) scaleY(1.08) rotate(-1deg); }
+  82% { transform: translateY(1px) scaleX(1.04) scaleY(0.96) rotate(1deg); }
+  100% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
+}
+
+/* Surprised — explosive stretch up then wobbly jelly settle */
+@keyframes pipe-surprised {
+  0% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
+  8% { transform: translateY(3px) scaleX(1.15) scaleY(0.85) rotate(0deg); }
+  18% { transform: translateY(-20px) scaleX(0.75) scaleY(1.3) rotate(-3deg); }
+  30% { transform: translateY(3px) scaleX(1.2) scaleY(0.82) rotate(4deg); }
+  42% { transform: translateY(-8px) scaleX(0.88) scaleY(1.14) rotate(-2deg); }
+  56% { transform: translateY(1px) scaleX(1.08) scaleY(0.93) rotate(2deg); }
+  72% { transform: translateY(-3px) scaleX(0.96) scaleY(1.05) rotate(-1deg); }
+  100% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
+}
+
+/* Listening — curious head-tilt with big movement */
+@keyframes pipe-listen {
+  0%, 100% { transform: translateY(0) rotate(0deg) scaleX(1) scaleY(1); }
+  15% { transform: translateY(-5px) rotate(8deg) scaleX(0.95) scaleY(1.06); }
+  35% { transform: translateY(-3px) rotate(-6deg) scaleX(1.04) scaleY(0.96); }
+  55% { transform: translateY(-6px) rotate(5deg) scaleX(0.97) scaleY(1.04); }
+  75% { transform: translateY(-2px) rotate(-3deg) scaleX(1.02) scaleY(0.98); }
+}
+
+/* Reading — focused nodding with forward lean */
+@keyframes pipe-read {
+  0%, 100% { transform: translateY(0) rotate(0deg) scaleX(1) scaleY(1); }
+  20% { transform: translateY(5px) rotate(6deg) scaleX(1.05) scaleY(0.95); }
+  45% { transform: translateY(2px) rotate(2deg) scaleX(1.02) scaleY(0.98); }
+  65% { transform: translateY(6px) rotate(5deg) scaleX(1.04) scaleY(0.96); }
+  85% { transform: translateY(1px) rotate(1deg) scaleX(1.01) scaleY(0.99); }
+}
+
+/* Nudge — energetic wiggle demanding attention */
+@keyframes pipe-nudge {
+  0% { transform: rotate(0deg) scaleX(1) scaleY(1) translateX(0); }
+  8% { transform: rotate(12deg) scaleX(0.88) scaleY(1.12) translateX(4px); }
+  20% { transform: rotate(-10deg) scaleX(1.12) scaleY(0.88) translateX(-5px); }
+  32% { transform: rotate(9deg) scaleX(0.9) scaleY(1.1) translateX(4px); }
+  46% { transform: rotate(-7deg) scaleX(1.08) scaleY(0.92) translateX(-3px); }
+  60% { transform: rotate(5deg) scaleX(0.95) scaleY(1.05) translateX(2px); }
+  74% { transform: rotate(-3deg) scaleX(1.03) scaleY(0.97) translateX(-1px); }
+  88% { transform: rotate(1deg) scaleX(1) scaleY(1) translateX(0); }
+  100% { transform: rotate(0deg) scaleX(1) scaleY(1) translateX(0); }
+}
+
+/* Blink — quick close and open */
+@keyframes pipe-blink {
+  0%, 42%, 48%, 100% { transform: scaleY(1); }
+  45% { transform: scaleY(0.05); }
+}
+
+/* Pulse ring for thinking */
+@keyframes pipe-pulse {
+  0%, 100% { transform: scale(1); opacity: 0; }
+  50% { transform: scale(1.5); opacity: 0.12; }
+}
+
+/* Shadow stretch — syncs with body movement */
+@keyframes pipe-shadow-breathe {
+  0%, 100% { rx: 25%; opacity: 0.08; }
+  50% { rx: 27%; opacity: 0.06; }
+}
+
+@media(prefers-reduced-motion:reduce){.pipe-dot,.pipe-dot *{animation:none!important;transition:none!important}}
 `;
 
-// ─── Pipe Avatar Component ────────────────────────────────
-type PipeAvatarMood = 'idle' | 'listening' | 'thinking' | 'happy' | 'surprised' | 'reading' | 'nudge';
+// ─── Pipe "The Dot" — Premium AI Avatar ──────────────────
+// Esfera teal minimalista. Ojos SOLO blancos (sin pupila).
+// La expresión viene de: forma de ojos + deformación del cuerpo + movimiento.
+// Inspiración: Pixar lamp, Apple Memoji simplificado, personajes de Journey.
+type PipeMood = 'idle' | 'listening' | 'thinking' | 'happy' | 'surprised' | 'reading' | 'nudge';
+
+// Eye config — SOLO forma blanca, sin pupila
+// rxScale/ryScale controlan la forma de la elipse del ojo
+// offsetY mueve los ojos verticalmente (mirar arriba/abajo)
+// rotation rota los ojos para expresividad (cejas implícitas)
+const MOOD_EYES: Record<PipeMood, {
+  rxScale: number; ryScale: number; offsetY: number;
+  rotation: number; blinks: boolean; gap: number;
+}> = {
+  idle:      { rxScale: 1,    ryScale: 1,    offsetY: 0,      rotation: 0,   blinks: true,  gap: 1 },
+  listening: { rxScale: 1.05, ryScale: 1.1,  offsetY: -0.005, rotation: 0,   blinks: true,  gap: 1 },
+  thinking:  { rxScale: 0.85, ryScale: 0.5,  offsetY: 0.008,  rotation: 0,   blinks: false, gap: 0.95 },
+  happy:     { rxScale: 1.2,  ryScale: 0.45, offsetY: -0.01,  rotation: 0,   blinks: false, gap: 1.1 },
+  surprised: { rxScale: 1.35, ryScale: 1.5,  offsetY: -0.015, rotation: 0,   blinks: false, gap: 1.15 },
+  reading:   { rxScale: 0.9,  ryScale: 0.35, offsetY: 0.02,   rotation: 0,   blinks: false, gap: 0.95 },
+  nudge:     { rxScale: 1.15, ryScale: 1.1,  offsetY: 0,      rotation: 5,   blinks: false, gap: 1.05 },
+};
+
+const MOOD_ANIM: Record<PipeMood, string> = {
+  idle:      'pipe-breathe 3s cubic-bezier(0.37,0,0.63,1) infinite',
+  listening: 'pipe-listen 2.5s cubic-bezier(0.37,0,0.63,1) infinite',
+  thinking:  'pipe-think 2.5s cubic-bezier(0.37,0,0.63,1) infinite',
+  happy:     'pipe-happy 1s cubic-bezier(0.34,1.56,0.64,1)',
+  surprised: 'pipe-surprised 0.8s cubic-bezier(0.22,1,0.36,1)',
+  reading:   'pipe-read 2.8s cubic-bezier(0.37,0,0.63,1) infinite',
+  nudge:     'pipe-nudge 1s cubic-bezier(0.37,0,0.63,1)',
+};
 
 function PipeAvatar({
   mood = 'idle',
   size = 36,
 }: {
-  mood?: PipeAvatarMood;
+  mood?: PipeMood;
   size?: number;
 }) {
   const s = size;
-  const eyeW = s * 0.11;
-  const eyeH = s * 0.13;
-  const eyeY = s * 0.42;
-  const eyeLeftX = s * 0.36;
-  const eyeRightX = s * 0.64;
-  const mouthY = s * 0.64;
-  const [uid] = useState(() => `pipe-${size}-${Math.random().toString(36).slice(2, 6)}`);
-  const maxPupilMove = s * 0.025;
+  const r = s * 0.42;
+  const cx = s * 0.5;
+  const cy = s * 0.5;
 
+  // Eye base dimensions
+  const eyeBaseRx = s * 0.075;
+  const eyeBaseRy = s * 0.085;
+  const eyeY = s * 0.48;
+  const baseEyeSpread = s * 0.13;
+
+  const eyes = MOOD_EYES[mood];
+
+  const [uid] = useState(() => `pipe-${Math.random().toString(36).slice(2, 6)}`);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [pupilOffset, setPupilOffset] = useState({ x: 0, y: 0 });
+  const [lookOffset, setLookOffset] = useState({ x: 0, y: 0 });
+  const [tapped, setTapped] = useState(false);
 
+  const maxLook = s * 0.06;
+
+  // Cursor tracking — moves eyes within the face subtly
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const onMove = (e: MouseEvent) => {
       const el = containerRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const dx = e.clientX - centerX;
-      const dy = e.clientY - centerY;
+      const dx = e.clientX - (rect.left + rect.width / 2);
+      const dy = e.clientY - (rect.top + rect.height / 2);
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist === 0) return;
-      const clamp = Math.min(dist / 200, 1);
-      setPupilOffset({
-        x: (dx / dist) * maxPupilMove * clamp,
-        y: (dy / dist) * maxPupilMove * clamp,
+      const t = Math.min(dist / 150, 1);
+      setLookOffset({
+        x: (dx / dist) * maxLook * t,
+        y: (dy / dist) * maxLook * t,
       });
     };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [maxPupilMove]);
+    window.addEventListener('mousemove', onMove);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, [maxLook]);
+
+  // Tapped = cute squish reaction
+  const handleTap = () => {
+    if (tapped) return;
+    setTapped(true);
+    setTimeout(() => setTapped(false), 600);
+  };
+
+  // Computed eye values — override when tapped for cute expression
+  const activeEyes = tapped
+    ? { rxScale: 1.3, ryScale: 0.3, offsetY: -0.01, rotation: 0, blinks: false, gap: 1.15 }
+    : eyes;
+
+  const eyeRx = eyeBaseRx * activeEyes.rxScale;
+  const eyeRy = eyeBaseRy * activeEyes.ryScale;
+  const eyeSpread = baseEyeSpread * activeEyes.gap;
+  const eyeOffY = activeEyes.offsetY * s;
+  const eyeRot = activeEyes.rotation;
+  const blinkAnim = !tapped && eyes.blinks ? 'pipe-blink 4s ease-in-out infinite' : 'none';
+
+  const eyeLeftX = cx - eyeSpread + lookOffset.x;
+  const eyeRightX = cx + eyeSpread + lookOffset.x;
+  const eyeFinalY = eyeY + eyeOffY + lookOffset.y;
+
+  const renderEye = (ex: number, side: 'left' | 'right') => {
+    const rot = side === 'left' ? -eyeRot : eyeRot;
+    return (
+      <ellipse
+        cx={ex}
+        cy={eyeFinalY}
+        rx={eyeRx}
+        ry={eyeRy}
+        fill="#fff"
+        style={{
+          animation: blinkAnim,
+          transformOrigin: `${ex}px ${eyeFinalY}px`,
+          transform: rot ? `rotate(${rot}deg)` : undefined,
+          transition: [
+            'rx 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+            'ry 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+            'cx 0.15s ease-out',
+            'cy 0.15s ease-out',
+          ].join(', '),
+        }}
+      />
+    );
+  };
 
   return (
     <div
       ref={containerRef}
-      className="pipe-avatar relative flex-shrink-0"
+      className="pipe-dot relative flex-shrink-0 cursor-pointer"
       style={{ width: s, height: s }}
+      onClick={handleTap}
     >
-      {/* Glow ring — pulses when thinking */}
+      {/* Pulse ring — thinking */}
       {mood === 'thinking' && (
         <div
           className="absolute rounded-full"
           style={{
-            inset: -4,
-            background: `radial-gradient(circle, ${TEAL}25 0%, transparent 70%)`,
-            animation: 'pipe-glow 2s ease-in-out infinite',
+            inset: -2,
+            animation: 'pipe-pulse 2.5s ease-in-out infinite',
+            backgroundColor: TEAL,
+            borderRadius: '50%',
           }}
         />
       )}
 
       <svg
-        width={s}
-        height={s}
+        width={s} height={s}
         viewBox={`0 0 ${s} ${s}`}
         fill="none"
+        role="img"
+        aria-label="Pipe"
         style={{
-          animation:
-            mood === 'thinking'
-              ? 'pipe-bob 2s ease-in-out infinite'
-              : mood === 'surprised'
-                ? 'pipe-jump 0.4s ease-out'
-                : mood === 'nudge'
-                  ? 'pipe-nudge 0.8s ease-in-out'
-                  : mood === 'reading'
-                    ? 'pipe-nod 2.5s ease-in-out infinite'
-                    : mood === 'listening'
-                      ? 'pipe-tilt 3s ease-in-out infinite'
-                      : 'pipe-float 4s ease-in-out infinite',
+          animation: tapped ? 'none' : MOOD_ANIM[mood],
+          transform: tapped ? 'scaleX(1.15) scaleY(0.85) translateY(2px)' : undefined,
+          transition: tapped ? 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' : 'transform 0.3s ease-out',
+          transformOrigin: `${cx}px ${s * 0.85}px`,
         }}
       >
         <defs>
-          <linearGradient id={`${uid}-face`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#14B8A6" />
+          <radialGradient id={`${uid}-body`} cx="0.4" cy="0.35" r="0.65">
+            <stop offset="0%" stopColor="#5EEAD4" />
+            <stop offset="35%" stopColor="#2DD4BF" />
+            <stop offset="70%" stopColor="#14B8A6" />
             <stop offset="100%" stopColor="#0D9488" />
-          </linearGradient>
-          <linearGradient id={`${uid}-shine`} x1="0.3" y1="0" x2="0.7" y2="1">
-            <stop offset="0%" stopColor="#fff" stopOpacity="0.15" />
+          </radialGradient>
+          <radialGradient id={`${uid}-depth`} cx="0.5" cy="1.0" r="0.6">
+            <stop offset="0%" stopColor="#0F766E" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#0F766E" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id={`${uid}-shine`} cx="0.32" cy="0.25" r="0.35">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.35" />
+            <stop offset="60%" stopColor="#fff" stopOpacity="0.08" />
             <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-          </linearGradient>
+          </radialGradient>
         </defs>
 
-        {/* Shadow */}
-        <rect
-          x={s * 0.15}
-          y={s * 0.16}
-          width={s * 0.74}
-          height={s * 0.74}
-          rx={s * 0.24}
-          fill={NAVY}
-          opacity={0.15}
-        />
-
-        {/* Head — teal gradient */}
-        <rect
-          x={s * 0.12}
-          y={s * 0.13}
-          width={s * 0.76}
-          height={s * 0.76}
-          rx={s * 0.24}
-          fill={`url(#${uid}-face)`}
-        />
-
-        {/* Shine overlay */}
-        <rect
-          x={s * 0.12}
-          y={s * 0.13}
-          width={s * 0.76}
-          height={s * 0.76}
-          rx={s * 0.24}
-          fill={`url(#${uid}-shine)`}
-        />
-
-        {/* Left eye */}
+        {/* Soft shadow — stretches with body via CSS sync */}
         <ellipse
-          cx={eyeLeftX}
-          cy={eyeY}
-          rx={mood === 'surprised' || mood === 'nudge' ? eyeW * 0.7 : eyeW / 2}
-          ry={mood === 'surprised' || mood === 'nudge' ? eyeH * 0.8 : mood === 'reading' ? eyeH * 0.3 : eyeH / 2}
-          fill="#fff"
-          style={{
-            animation: mood === 'surprised' || mood === 'reading' || mood === 'nudge' ? 'none' : 'pipe-blink 3.5s ease-in-out infinite',
-            transformOrigin: `${eyeLeftX}px ${eyeY}px`,
-            transition: 'rx 0.2s ease-out, ry 0.2s ease-out',
-          }}
-        />
-        {/* Left pupil — follows cursor */}
-        <circle
-          cx={eyeLeftX + pupilOffset.x}
-          cy={eyeY + (mood === 'reading' ? s * 0.01 : 0) + pupilOffset.y}
-          r={mood === 'surprised' || mood === 'nudge' ? s * 0.04 : s * 0.035}
-          fill={NAVY}
-          style={{
-            animation: mood === 'surprised' || mood === 'reading' || mood === 'nudge' ? 'none' : 'pipe-blink 3.5s ease-in-out infinite',
-            transformOrigin: `${eyeLeftX}px ${eyeY}px`,
-            transition: 'cx 0.1s ease-out, cy 0.1s ease-out, r 0.2s ease-out',
-          }}
+          cx={cx} cy={s * 0.9} rx={s * 0.22} ry={s * 0.05}
+          fill={NAVY} opacity={0.07}
         />
 
-        {/* Right eye */}
-        <ellipse
-          cx={eyeRightX}
-          cy={eyeY}
-          rx={mood === 'surprised' || mood === 'nudge' ? eyeW * 0.7 : eyeW / 2}
-          ry={mood === 'surprised' || mood === 'nudge' ? eyeH * 0.8 : mood === 'reading' ? eyeH * 0.3 : eyeH / 2}
-          fill="#fff"
-          style={{
-            animation: mood === 'surprised' || mood === 'reading' || mood === 'nudge' ? 'none' : 'pipe-blink 3.5s ease-in-out infinite',
-            transformOrigin: `${eyeRightX}px ${eyeY}px`,
-            transition: 'rx 0.2s ease-out, ry 0.2s ease-out',
-          }}
-        />
-        {/* Right pupil — follows cursor */}
+        {/* Body — teal sphere */}
+        <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}-body)`} />
+
+        {/* Bottom depth — grounding */}
+        <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}-depth)`} />
+
+        {/* Top shine — 3D sphere feel */}
+        <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}-shine)`} />
+
+        {/* Specular highlight — bright dot top-left */}
         <circle
-          cx={eyeRightX + pupilOffset.x}
-          cy={eyeY + (mood === 'reading' ? s * 0.01 : 0) + pupilOffset.y}
-          r={mood === 'surprised' || mood === 'nudge' ? s * 0.04 : s * 0.035}
-          fill={NAVY}
-          style={{
-            animation: mood === 'surprised' || mood === 'reading' || mood === 'nudge' ? 'none' : 'pipe-blink 3.5s ease-in-out infinite',
-            transformOrigin: `${eyeRightX}px ${eyeY}px`,
-            transition: 'cx 0.1s ease-out, cy 0.1s ease-out, r 0.2s ease-out',
-          }}
+          cx={s * 0.37} cy={s * 0.33}
+          r={s * 0.035}
+          fill="#fff" opacity={0.4}
         />
 
-        {/* Mouth — changes with mood */}
-        {mood === 'nudge' ? (
-          /* Playful open smile — "hey!" */
-          <path
-            d={`M ${s * 0.37} ${mouthY} Q ${s * 0.5} ${mouthY + s * 0.12} ${s * 0.63} ${mouthY}`}
-            stroke="#fff"
-            strokeWidth={s * 0.038}
-            strokeLinecap="round"
-            fill="rgba(255,255,255,0.3)"
-          />
-        ) : mood === 'happy' ? (
-          /* Big smile */
-          <path
-            d={`M ${s * 0.35} ${mouthY} Q ${s * 0.5} ${mouthY + s * 0.15} ${s * 0.65} ${mouthY}`}
-            stroke="#fff"
-            strokeWidth={s * 0.04}
-            strokeLinecap="round"
-            fill="none"
-          />
-        ) : mood === 'surprised' ? (
-          /* Open mouth — "oh!" */
-          <ellipse
-            cx={s * 0.5}
-            cy={mouthY + s * 0.02}
-            rx={s * 0.06}
-            ry={s * 0.07}
-            fill="#fff"
-            opacity={0.9}
-          />
-        ) : mood === 'thinking' ? (
-          /* Small "o" — processing */
-          <ellipse
-            cx={s * 0.5}
-            cy={mouthY + s * 0.02}
-            rx={s * 0.045}
-            ry={s * 0.04}
-            fill="#fff"
-            opacity={0.9}
-            style={{ animation: 'pipe-mouth-think 2s ease-in-out infinite' }}
-          />
-        ) : mood === 'reading' ? (
-          /* Flat line — concentrated */
-          <line
-            x1={s * 0.42}
-            y1={mouthY + s * 0.02}
-            x2={s * 0.58}
-            y2={mouthY + s * 0.02}
-            stroke="#fff"
-            strokeWidth={s * 0.035}
-            strokeLinecap="round"
-            opacity={0.8}
-          />
-        ) : (
-          /* Gentle smile — default */
-          <path
-            d={`M ${s * 0.4} ${mouthY} Q ${s * 0.5} ${mouthY + s * 0.08} ${s * 0.6} ${mouthY}`}
-            stroke="#fff"
-            strokeWidth={s * 0.035}
-            strokeLinecap="round"
-            fill="none"
-          />
-        )}
-
-        {/* Antenna — stalk + glowing dot */}
-        <line
-          x1={s * 0.5}
-          y1={s * 0.13}
-          x2={s * 0.5}
-          y2={s * 0.03}
-          stroke="#5EEAD4"
-          strokeWidth={s * 0.03}
-          strokeLinecap="round"
-          opacity={0.8}
-        />
-        <circle
-          cx={s * 0.5}
-          cy={s * 0.02}
-          r={s * 0.045}
-          fill="#5EEAD4"
-          style={{ animation: 'pipe-antenna 2s ease-in-out infinite' }}
-        />
+        {/* Eyes — pure white, no pupils */}
+        {renderEye(eyeLeftX, 'left')}
+        {renderEye(eyeRightX, 'right')}
       </svg>
 
-      {/* CSS Animations */}
       <style dangerouslySetInnerHTML={{ __html: PIPE_KEYFRAMES }} />
     </div>
   );
@@ -470,21 +435,98 @@ export default function QuickStartPage() {
     }
   }, [tenant, router]);
 
+  // ─── Fetch config from API ──────────────────────────────
+  const { data: apiModules } = useQuery({
+    queryKey: ['platform-modules'],
+    queryFn: getPlatformModules,
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: apiQuestions } = useQuery({
+    queryKey: ['onboarding-questions'],
+    queryFn: getOnboardingQuestions,
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: apiPages } = useQuery({
+    queryKey: ['onboarding-pages'],
+    queryFn: getOnboardingPages,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const modules = apiModules ?? FALLBACK_MODULES;
+  const pages = apiPages ?? FALLBACK_PAGES;
+
   // ─── Conversation state ───────────────────────────────────
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentInput, setCurrentInput] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const [selectedModules, setSelectedModules] = useState<Set<keyof ModuleSelection>>(
-    () => new Set(['has_website'] as (keyof ModuleSelection)[])
+    () => new Set()
   );
-  const [selectedSections, setSelectedSections] = useState<Set<string>>(
-    () => new Set(SECTION_OPTIONS.filter((o) => o.defaultOn).map((o) => o.value))
-  );
+  const [selectedPages, setSelectedPages] = useState<Set<string>>(() => {
+    const defaults = (apiPages ?? FALLBACK_PAGES).filter((p) => p.is_default).map((p) => p.key);
+    return new Set(defaults);
+  });
+
+  // Sync selectedPages when apiPages loads
+  useEffect(() => {
+    if (!apiPages) return;
+    const defaults = apiPages.filter((p) => p.is_default).map((p) => p.key);
+    setSelectedPages((prev) => {
+      const key = defaults.sort().join(',');
+      const prevKey = Array.from(prev).sort().join(',');
+      return key !== prevKey ? new Set(defaults) : prev;
+    });
+  }, [apiPages]);
+
+  // ─── Build dynamic steps based on selected modules ──────
+  const steps = useMemo<ConversationStep[]>(() => {
+    // Step 1: always modules selection
+    const result: ConversationStep[] = [
+      { id: 'modules', message: '¿Qué necesitas?', type: 'modules', hint: 'Incluye 14 días gratis. Puedes cambiar después.' },
+    ];
+
+    // Filter questions by selected modules
+    if (apiQuestions) {
+      for (const q of apiQuestions) {
+        if (q.input_type === 'modules') continue; // already added
+        // Show question if no required_modules OR if user selected at least one
+        const shouldShow = q.required_modules.length === 0 ||
+          q.required_modules.some((mk) => selectedModules.has(mk as keyof ModuleSelection));
+        if (shouldShow) {
+          result.push({
+            id: q.key,
+            message: q.message,
+            type: q.input_type === 'multiselect' ? 'pages' : q.input_type as ConversationStep['type'],
+            placeholder: q.placeholder || undefined,
+            hint: q.hint || undefined,
+            minLength: q.min_length || undefined,
+            rows: q.input_type === 'textarea' ? 3 : undefined,
+          });
+        }
+      }
+    } else {
+      // Fallback hardcoded questions while API loads
+      result.push(
+        { id: 'description', message: 'Cuéntame, ¿para qué necesitas tu sitio y qué haces?', type: 'textarea', placeholder: 'Ej: Soy diseñadora gráfica freelance...', hint: 'Entre más detalles, mejor queda tu sitio.', minLength: 20, rows: 3 },
+      );
+      if (selectedModules.has('has_services')) {
+        result.push({ id: 'services', message: '¿Qué servicios ofreces? Incluye nombre, descripción corta y precio aproximado.', type: 'textarea', placeholder: 'Ej:\nDiseño de logo — Creación de identidad visual — $500\nBranding completo — Logo + papelería + guía de marca — $1,200', hint: 'Uno por línea.', minLength: 5, rows: 4 });
+      }
+      if (selectedModules.has('has_shop')) {
+        result.push({ id: 'products', message: '¿Qué productos vendes? Cuéntame las categorías y rango de precios.', type: 'textarea', placeholder: 'Ej:\nCamisetas estampadas — $15-25\nHoodies premium — $40-60', hint: 'Categorías y precios aproximados.', minLength: 5, rows: 4 });
+      }
+      if (selectedModules.has('has_bookings')) {
+        result.push({ id: 'bookings', message: '¿Qué se puede reservar? Cuéntame duración, horarios y si es presencial o virtual.', type: 'textarea', placeholder: 'Ej:\nConsulta inicial — 30 min — virtual\nSesión de coaching — 1 hora — presencial', hint: 'Detalla cada tipo de cita.', minLength: 5, rows: 4 });
+      }
+      result.push({ id: 'pages', message: '¿Qué páginas quieres en tu sitio?', type: 'pages', hint: 'Puedes agregar más después.' });
+    }
+    return result;
+  }, [apiQuestions, selectedModules]);
 
   // ─── Generation state ─────────────────────────────────────
   const [pageState, setPageState] = useState<PageState>('chat');
-  const [activeMood, setActiveMood] = useState<PipeAvatarMood>('listening');
+  const [activeMood, setActiveMood] = useState<PipeMood>('idle');
   const [genStep, setGenStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<QuickStartResponse | null>(null);
@@ -506,7 +548,7 @@ export default function QuickStartPage() {
   useEffect(() => {
     if (pageState !== 'chat' || isTyping) return;
     const newMood = currentInput.trim().length > 0 ? 'reading' : 'listening';
-    setActiveMood((prev: string) => prev === newMood ? prev : newMood);
+    setActiveMood((prev) => prev === newMood ? prev : newMood);
   }, [currentInput, pageState, isTyping]);
 
   // ─── Idle nudge — Pipe calls for attention after inactivity ──
@@ -563,7 +605,6 @@ export default function QuickStartPage() {
           pollingRef.current = null;
 
           setProgress(100);
-          // Refresh tenant in context so phase guards see updated website_status
           getCurrentUser().then(() => {
             const stored = localStorage.getItem('tenant');
             if (stored) setTenant(JSON.parse(stored) as Tenant);
@@ -600,9 +641,7 @@ export default function QuickStartPage() {
           startPolling();
         }
       })
-      .catch(() => {
-        // No hay config o error — continuar con el chat normal
-      });
+      .catch(() => {});
   }, [startPolling]);
 
   // Disparar generacion asincrona y empezar polling
@@ -619,7 +658,6 @@ export default function QuickStartPage() {
       startPolling();
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        // Ya hay generacion en progreso — empezar polling
         startPolling();
       } else if (error instanceof ApiError && error.status === 402) {
         setPageState('limit-reached');
@@ -655,7 +693,7 @@ export default function QuickStartPage() {
 
   // ─── Send answer ──────────────────────────────────────────
   const handleSend = useCallback(async () => {
-    const step = STEPS[currentStepIdx];
+    const step = steps[currentStepIdx];
     if (!step) return;
 
     // Handle modules step — call configureModules API
@@ -664,8 +702,8 @@ export default function QuickStartPage() {
       setTimeout(() => setActiveMood('listening'), 600);
 
       // Save display string
-      const labels = NERBIS_MODULES
-        .filter((m) => selectedModules.has(m.key))
+      const labels = modules
+        .filter((m) => selectedModules.has(m.key as keyof ModuleSelection))
         .map((m) => m.label);
       const newAnswers = { ...answers, [step.id]: labels.join(', ') };
       setAnswers(newAnswers);
@@ -678,6 +716,7 @@ export default function QuickStartPage() {
           has_bookings: selectedModules.has('has_bookings'),
           has_services: selectedModules.has('has_services'),
           has_marketing: false,
+          has_management: false,
         };
         const updatedTenant = await configureModules(payload);
         setTenant(updatedTenant);
@@ -690,24 +729,24 @@ export default function QuickStartPage() {
       return;
     }
 
-    // Handle multiselect step (sections)
-    if (step.type === 'multiselect') {
-      if (selectedSections.size === 0) return;
+    // Handle pages step
+    if (step.type === 'pages') {
+      if (selectedPages.size === 0) return;
 
       setActiveMood('surprised');
       setTimeout(() => setActiveMood('listening'), 600);
 
-      const labels = SECTION_OPTIONS
-        .filter((o) => selectedSections.has(o.value))
-        .map((o) => o.label);
+      const labels = pages
+        .filter((p) => selectedPages.has(p.key))
+        .map((p) => p.label);
       const newAnswers = { ...answers, [step.id]: labels.join(', ') };
       setAnswers(newAnswers);
 
-      // This is the last step — start generating
+      // Last step — start generating
       setPageState('generating');
       setGenStep(0);
       setProgress(0);
-      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedSections), 100);
+      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedPages), 100);
       return;
     }
 
@@ -726,16 +765,16 @@ export default function QuickStartPage() {
     setCurrentInput('');
 
     // Next step
-    if (currentStepIdx < STEPS.length - 1) {
+    if (currentStepIdx < steps.length - 1) {
       setCurrentStepIdx((prev) => prev + 1);
     } else {
       // All questions answered — start generating
       setPageState('generating');
       setGenStep(0);
       setProgress(0);
-      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedSections), 100);
+      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedPages), 100);
     }
-  }, [currentStepIdx, currentInput, answers, selectedModules, selectedSections, triggerQuickStartGeneration, setTenant]);
+  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, steps, modules, pages, triggerQuickStartGeneration, setTenant]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -812,412 +851,413 @@ export default function QuickStartPage() {
     </div>
   );
 
-  // ─── CHAT STATE ───────────────────────────────────────────
+  // ─── CHAT STATE — Claude-style AI Chat ──────────────────
   if (pageState === 'chat') {
-    const step = STEPS[currentStepIdx];
+    const step = steps[currentStepIdx];
     const minLen = step?.minLength || 0;
     const canSend = step?.type === 'modules'
       ? selectedModules.size > 0
-      : step?.type === 'multiselect'
-        ? selectedSections.size > 0
+      : step?.type === 'pages'
+        ? selectedPages.size > 0
         : currentInput.trim().length >= minLen;
 
-    return (
-      <div
-        className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(170deg, ${TEAL}06 0%, ${WARM_GRAY_50} 35%, #fff 100%)` }}
-      >
-        {header}
+    const hasHistory = currentStepIdx > 0;
 
-        {/* Chat area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
-            {/* Welcome message (always visible) */}
-            <div className="flex gap-3">
-              <PipeAvatar mood="happy" size={36} />
-              <div
-                className="flex-1 rounded-2xl rounded-tl-md px-4 py-3"
-                style={{ backgroundColor: '#fff', border: `1px solid ${WARM_GRAY_100}` }}
-              >
-                <p className="text-[0.72rem] font-semibold mb-1.5">
-                  <span
-                    style={{
-                      color: TEAL,
-                      fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace",
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      fontSize: '0.68rem',
-                    }}
-                  >
-                    {AGENT_NAME}
-                  </span>
-                  <span style={{ color: WARM_GRAY_400 }}> · </span>
-                  <span style={{ color: WARM_GRAY_500, fontWeight: 500 }}>
-                    Asistente inteligente
-                  </span>
-                </p>
-                <p
-                  className="text-[0.92rem] leading-relaxed"
-                  style={{ color: WARM_GRAY_800 }}
-                >
-                  Hola{firstName ? ', ' : ''}
-                  {firstName && <strong>{firstName}</strong>}
-                  {firstName ? '.' : '.'} Soy{' '}
-                  <span
-                    style={{
-                      fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace",
-                      letterSpacing: '0.04em',
-                      fontWeight: 600,
-                      color: TEAL,
-                    }}
-                  >
-                    {AGENT_NAME}
-                  </span>, tu asistente
-                  inteligente. Voy a crear tu sitio web en menos de un
-                  minuto — solo necesito conocerte un poco.
-                </p>
+    // Build chat history from completed steps
+    const chatHistory: { role: 'pipe' | 'user'; content: string }[] = [];
+    for (let i = 0; i < currentStepIdx; i++) {
+      const s = steps[i];
+      chatHistory.push({ role: 'pipe', content: i === 0
+        ? `Hola${firstName ? ` ${firstName}` : ''}, soy ${AGENT_NAME}. ${s.message}`
+        : s.message });
+      if (answers[s.id]) {
+        chatHistory.push({ role: 'user', content: answers[s.id] });
+      }
+    }
+
+    // ── Initial state: greeting centered + input below (like Claude empty state) ──
+    if (!hasHistory) {
+      return (
+        <div
+          className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+          style={{ backgroundColor: '#fff' }}
+        >
+          {header}
+
+          <div className="flex-1 flex flex-col items-center justify-center px-4">
+            {/* Everything in one container with consistent width */}
+            <div className="w-full max-w-sm flex flex-col items-center">
+              {/* Avatar */}
+              <div className="mb-5">
+                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={48} />
               </div>
-            </div>
 
-            {/* Previous answered steps */}
-            {STEPS.slice(0, currentStepIdx).map((s) => (
-              <div key={s.id} className="space-y-3">
-                {/* Bot question — bubble without avatar */}
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0" style={{ width: 36 }} />
-                  <div
-                    className="flex-1 rounded-2xl rounded-tl-md px-4 py-3"
-                    style={{ backgroundColor: '#fff', border: `1px solid ${WARM_GRAY_100}` }}
-                  >
-                    <p
-                      className="text-[0.92rem] leading-relaxed"
-                      style={{ color: WARM_GRAY_800 }}
-                    >
-                      {s.message}
-                    </p>
-                  </div>
+              {/* Greeting */}
+              {isTyping ? (
+                <div className="flex gap-1.5 justify-center py-2">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-2 h-2 rounded-full animate-bounce"
+                      style={{
+                        backgroundColor: WARM_GRAY_400,
+                        animationDelay: `${i * 150}ms`,
+                        animationDuration: '0.8s',
+                      }}
+                    />
+                  ))}
                 </div>
-                {/* User answer */}
-                <div className="flex justify-end">
-                  <div
-                    className="max-w-[75%] px-4 py-2.5 rounded-2xl rounded-br-md text-[0.86rem] leading-relaxed whitespace-pre-wrap"
-                    style={{
-                      backgroundColor: NAVY,
-                      color: '#fff',
-                    }}
+              ) : (
+                <>
+                  <h1
+                    className="text-xl sm:text-2xl font-semibold text-center mb-14 animate-in fade-in duration-500"
+                    style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
                   >
-                    {answers[s.id] || (
-                      <span style={{ opacity: 0.6 }}>Omitido</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+                    Hola{firstName ? ' ' : ''}
+                    {firstName && <>{firstName}</>}
+                    {firstName ? ', s' : '. S'}oy{' '}
+                    <span style={{ color: TEAL }}>{AGENT_NAME}</span>.{' '}
+                    {step.message}
+                  </h1>
 
-            {/* Current step */}
-            {step && (
-              <div className="space-y-4">
-                {/* Bot question with typing indicator */}
-                <div className="flex gap-3">
-                  <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={36} />
-                  <div
-                    className="flex-1 rounded-2xl rounded-tl-md px-4 py-3"
-                    style={{ backgroundColor: '#fff', border: `1px solid ${WARM_GRAY_100}` }}
-                  >
-                    {isTyping ? (
-                      <div className="flex gap-1 py-1">
-                        {[0, 1, 2].map((i) => (
-                          <div
-                            key={i}
-                            className="w-2 h-2 rounded-full animate-bounce"
-                            style={{
-                              backgroundColor: WARM_GRAY_400,
-                              animationDelay: `${i * 150}ms`,
-                              animationDuration: '0.8s',
-                            }}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <p
-                        className="text-[0.92rem] leading-relaxed animate-in fade-in slide-in-from-bottom-1 duration-300"
-                        style={{ color: WARM_GRAY_800 }}
-                      >
-                        {step.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Input area (appears after typing) */}
-                {!isTyping && (
-                  <div className="pl-11 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-100">
-                    {/* ── Module selection cards ── */}
-                    {step.type === 'modules' && (
-                      <div className="grid grid-cols-2 gap-2.5">
-                        {NERBIS_MODULES.map((mod) => {
-                          const isSelected = selectedModules.has(mod.key);
-                          const ModIcon = mod.icon;
+                  {/* Module grid + continue — same width as title */}
+                  {step.type === 'modules' && (
+                    <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100 space-y-12">
+                      <div className="grid grid-cols-4 gap-3">
+                        {modules.map((mod) => {
+                          const modKey = mod.key as keyof ModuleSelection;
+                          const isSelected = selectedModules.has(modKey);
+                          const ModIcon = getLucideIcon(mod.icon);
                           return (
                             <button
                               key={mod.key}
                               type="button"
                               onClick={() => {
-                                if (mod.alwaysOn) return; // Can't deselect website
                                 const next = new Set(selectedModules);
                                 if (isSelected) {
-                                  next.delete(mod.key);
+                                  next.delete(modKey);
+                                  if (modKey !== 'has_website') {
+                                    const othersActive = modules.some(
+                                      (m) => m.key !== 'has_website' && m.key !== mod.key && next.has(m.key as keyof ModuleSelection)
+                                    );
+                                    if (!othersActive) next.delete('has_website');
+                                  }
+                                  setActiveMood('listening');
                                 } else {
-                                  next.add(mod.key);
-                                  next.add('has_website'); // Auto-enable website
+                                  next.add(modKey);
+                                  if (modKey !== 'has_website') next.add('has_website');
+                                  setActiveMood('happy');
+                                  setTimeout(() => setActiveMood('listening'), 900);
                                 }
                                 setSelectedModules(next);
                               }}
-                              className="flex items-start gap-3 px-3.5 py-3.5 rounded-xl border transition-all duration-150 text-left"
+                              className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
                               style={{
-                                backgroundColor: isSelected ? `${mod.accentColor}08` : '#fff',
-                                borderColor: isSelected ? mod.accentColor : WARM_GRAY_200,
-                                cursor: mod.alwaysOn ? 'default' : 'pointer',
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!isSelected && !mod.alwaysOn) {
-                                  e.currentTarget.style.borderColor = `${mod.accentColor}80`;
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!isSelected && !mod.alwaysOn) {
-                                  e.currentTarget.style.borderColor = WARM_GRAY_200;
-                                }
+                                backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
+                                borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
                               }}
                             >
                               <div
-                                className="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 mt-0.5"
-                                style={{ backgroundColor: `${mod.accentColor}12` }}
+                                className="relative flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-300"
+                                style={{ backgroundColor: `${mod.accent_color}${isSelected ? '18' : '10'}` }}
                               >
-                                <ModIcon
-                                  className="w-4 h-4"
-                                  style={{ color: mod.accentColor }}
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span
-                                    className="text-[0.84rem] font-semibold"
-                                    style={{ color: isSelected ? NAVY : WARM_GRAY_600 }}
-                                  >
-                                    {mod.label}
-                                  </span>
-                                  {mod.alwaysOn && (
-                                    <span
-                                      className="text-[0.6rem] font-medium px-1.5 py-0.5 rounded-full"
-                                      style={{ backgroundColor: `${TEAL}15`, color: TEAL }}
-                                    >
-                                      Incluido
-                                    </span>
-                                  )}
-                                </div>
-                                <p
-                                  className="text-[0.72rem] mt-0.5"
-                                  style={{ color: WARM_GRAY_500 }}
-                                >
-                                  {mod.subtitle}
-                                </p>
-                              </div>
-                              {!mod.alwaysOn && (
-                                <div
-                                  className="flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0 mt-1 transition-colors duration-150"
-                                  style={{
-                                    backgroundColor: isSelected ? mod.accentColor : 'transparent',
-                                    borderWidth: isSelected ? 0 : 1.5,
-                                    borderColor: WARM_GRAY_200,
-                                  }}
-                                >
-                                  {isSelected && (
-                                    <Check className="w-3 h-3 text-white" />
-                                  )}
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* ── Section multi-select ── */}
-                    {step.type === 'multiselect' && (
-                      <div className="grid grid-cols-2 gap-2">
-                        {SECTION_OPTIONS.map((option) => {
-                          const isSelected = selectedSections.has(option.value);
-                          return (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onClick={() => {
-                                const next = new Set(selectedSections);
-                                if (isSelected) {
-                                  next.delete(option.value);
-                                } else {
-                                  next.add(option.value);
-                                }
-                                setSelectedSections(next);
-                              }}
-                              className="flex items-center gap-2 px-3.5 py-3 rounded-xl text-[0.84rem] font-medium border transition-all duration-150 cursor-pointer text-left"
-                              style={{
-                                backgroundColor: isSelected ? `${TEAL}0A` : '#fff',
-                                borderColor: isSelected ? TEAL : WARM_GRAY_200,
-                                color: isSelected ? NAVY : WARM_GRAY_600,
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!isSelected) {
-                                  e.currentTarget.style.borderColor = `${TEAL}80`;
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!isSelected) {
-                                  e.currentTarget.style.borderColor = WARM_GRAY_200;
-                                }
-                              }}
-                            >
-                              <div
-                                className="flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0 transition-colors duration-150"
-                                style={{
-                                  backgroundColor: isSelected ? TEAL : 'transparent',
-                                  borderWidth: isSelected ? 0 : 1.5,
-                                  borderColor: WARM_GRAY_200,
-                                }}
-                              >
+                                <ModIcon className="w-[18px] h-[18px]" style={{ color: mod.accent_color }} />
                                 {isSelected && (
-                                  <Check className="w-3 h-3 text-white" />
+                                  <div
+                                    className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center"
+                                    style={{ backgroundColor: mod.accent_color }}
+                                  >
+                                    <Check className="w-2 h-2 text-white" />
+                                  </div>
                                 )}
                               </div>
-                              {option.label}
+                              <div>
+                                <span
+                                  className="text-[0.72rem] font-medium leading-tight text-center block"
+                                  style={{ color: isSelected ? NAVY : WARM_GRAY_600 }}
+                                >
+                                  {mod.label}
+                                </span>
+                                <span
+                                  className="text-[0.58rem] leading-snug block text-center mt-0.5"
+                                  style={{ color: WARM_GRAY_400 }}
+                                >
+                                  {mod.description}
+                                </span>
+                              </div>
                             </button>
                           );
                         })}
                       </div>
-                    )}
 
-                    {/* ── Textarea ── */}
-                    {step.type === 'textarea' && (
-                      <textarea
-                        value={currentInput}
-                        onChange={(e) => setCurrentInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder={step.placeholder}
-                        rows={step.rows || 3}
-                        autoFocus
-                        className="w-full rounded-xl border px-4 py-3 text-[0.88rem] leading-relaxed resize-none transition-all duration-150 focus:outline-none focus:ring-2"
+                      <button
+                        type="button"
+                        onClick={handleSend}
+                        disabled={!canSend}
+                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed"
                         style={{
-                          backgroundColor: '#fff',
-                          borderColor: WARM_GRAY_200,
-                          color: WARM_GRAY_800,
-                          // @ts-expect-error -- CSS custom property
-                          '--tw-ring-color': `${TEAL}40`,
+                          backgroundColor: canSend ? TEAL : WARM_GRAY_100,
+                          color: canSend ? '#fff' : WARM_GRAY_400,
+                          border: canSend ? 'none' : `1px solid ${WARM_GRAY_200}`,
                         }}
-                      />
-                    )}
-
-                    {/* Hint + actions */}
-                    <div className="flex items-center justify-between mt-3">
-                      <p
-                        className="text-[0.75rem]"
-                        style={{ color: WARM_GRAY_500 }}
                       >
-                        {step.hint}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleSend}
-                          disabled={!canSend}
-                          className={`flex items-center justify-center rounded-xl transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed ${
-                            step.type === 'modules' || step.type === 'multiselect'
-                              ? 'h-9 px-4 gap-1.5 text-[0.82rem] font-medium'
-                              : 'w-9 h-9'
-                          }`}
-                          style={{
-                            backgroundColor: canSend ? TEAL : WARM_GRAY_200,
-                            color: '#fff',
-                          }}
-                          onMouseEnter={(e) => {
-                            if (canSend) e.currentTarget.style.opacity = '0.85';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = '1';
-                          }}
-                        >
-                          {step.type === 'modules' || step.type === 'multiselect' ? (
-                            <>
-                              Continuar
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </>
-                          ) : (
-                            <Send className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
+                        Continuar <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                      <p className="text-[0.68rem] text-center -mt-6" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
                     </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Conversation state: messages flow top-down, input fixed at bottom ──
+    return (
+      <div
+        className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+        style={{ backgroundColor: '#fff' }}
+      >
+        {header}
+
+        {/* Scrollable message area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+            {/* Chat history */}
+            {chatHistory.map((msg, i) => (
+              <div key={`msg-${i}`}>
+                {msg.role === 'user' ? (
+                  /* User bubble — right aligned */
+                  <div className="flex justify-end">
+                    <div
+                      className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
+                      style={{ backgroundColor: WARM_GRAY_100, color: WARM_GRAY_800 }}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ) : (
+                  /* Pipe text — left aligned, no bubble, with small avatar */
+                  <div className="flex gap-3 items-start">
+                    <div className="flex-shrink-0 mt-0.5">
+                      <PipeAvatar mood="idle" size={28} />
+                    </div>
+                    <p
+                      className="text-[0.88rem] leading-relaxed pt-0.5"
+                      style={{ color: WARM_GRAY_800 }}
+                    >
+                      {msg.content}
+                    </p>
                   </div>
                 )}
               </div>
-            )}
+            ))}
+
+            {/* Current Pipe message */}
+            <div className="flex gap-3 items-start">
+              <div className="flex-shrink-0 mt-0.5">
+                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={28} />
+              </div>
+              <div className="flex-1">
+                {isTyping ? (
+                  <div className="flex gap-1.5 py-2">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="w-1.5 h-1.5 rounded-full animate-bounce"
+                        style={{
+                          backgroundColor: WARM_GRAY_400,
+                          animationDelay: `${i * 150}ms`,
+                          animationDuration: '0.8s',
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p
+                    className="text-[0.88rem] leading-relaxed pt-0.5 animate-in fade-in duration-300"
+                    style={{ color: WARM_GRAY_800 }}
+                  >
+                    {step.message}
+                  </p>
+                )}
+              </div>
+            </div>
 
             <div ref={chatEndRef} />
           </div>
         </div>
 
-        {/* Progress indicator */}
-        <div
-          className="border-t px-6 py-3"
-          style={{
-            backgroundColor: '#fff',
-            borderColor: WARM_GRAY_100,
-          }}
-        >
-          <div className="max-w-2xl mx-auto flex items-center justify-center gap-4">
-            {STEPS.map((s, i) => (
-              <div key={s.id} className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
+        {/* Input area — fixed at bottom */}
+        {!isTyping && (
+          <div
+            className="border-t animate-in fade-in slide-in-from-bottom-2 duration-300"
+            style={{ borderColor: WARM_GRAY_100 }}
+          >
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
+              {/* Textarea input */}
+              {step.type === 'textarea' && (
+                <>
                   <div
-                    className="flex items-center justify-center w-6 h-6 rounded-full text-[0.65rem] font-semibold transition-all duration-300"
+                    className="flex items-end gap-3 rounded-xl border px-4 py-3 transition-all focus-within:ring-2"
                     style={{
-                      backgroundColor:
-                        i < currentStepIdx
-                          ? TEAL
-                          : i === currentStepIdx
-                            ? NAVY
-                            : WARM_GRAY_200,
-                      color:
-                        i <= currentStepIdx ? '#fff' : WARM_GRAY_500,
+                      borderColor: WARM_GRAY_200,
+                      backgroundColor: WARM_GRAY_50,
+                      // @ts-expect-error -- CSS custom property
+                      '--tw-ring-color': `${TEAL}30`,
                     }}
                   >
-                    {i < currentStepIdx ? (
-                      <Check className="w-3 h-3" />
-                    ) : (
-                      i + 1
-                    )}
+                    <textarea
+                      value={currentInput}
+                      onChange={(e) => setCurrentInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={step.placeholder}
+                      rows={step.rows || 2}
+                      autoFocus
+                      className="flex-1 bg-transparent text-[0.88rem] leading-relaxed resize-none focus:outline-none"
+                      style={{ color: WARM_GRAY_800 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSend}
+                      disabled={!canSend}
+                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
                   </div>
-                  <span
-                    className="text-[0.72rem] font-medium hidden sm:inline"
-                    style={{
-                      color: i <= currentStepIdx ? NAVY : WARM_GRAY_400,
-                    }}
-                  >
-                    {s.id === 'modules' ? 'Herramientas' : s.id === 'description' ? 'Tu negocio' : s.id === 'services' ? 'Servicios' : 'Páginas'}
-                  </span>
+                  {step.hint && (
+                    <p className="text-[0.7rem] mt-2 ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                  )}
+                </>
+              )}
+
+              {/* Pages selection */}
+              {step.type === 'pages' && (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {pages.map((page) => {
+                      const isSelected = selectedPages.has(page.key);
+                      const PageIcon = getLucideIcon(page.icon);
+                      return (
+                        <button
+                          key={page.key}
+                          type="button"
+                          onClick={() => {
+                            if (page.is_mandatory) return;
+                            const next = new Set(selectedPages);
+                            if (isSelected) next.delete(page.key);
+                            else next.add(page.key);
+                            setSelectedPages(next);
+                          }}
+                          disabled={page.is_mandatory}
+                          className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.82rem] font-medium border transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default"
+                          style={{
+                            backgroundColor: isSelected ? `${TEAL}0A` : '#fff',
+                            borderColor: isSelected ? TEAL : WARM_GRAY_200,
+                            color: isSelected ? TEAL : WARM_GRAY_600,
+                          }}
+                        >
+                          <PageIcon className="w-3.5 h-3.5" />
+                          {isSelected && <Check className="w-3.5 h-3.5" />}
+                          {page.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[0.72rem]" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                    <button
+                      type="button"
+                      onClick={handleSend}
+                      disabled={!canSend}
+                      className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                    >
+                      Generar mi sitio <Sparkles className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                {i < STEPS.length - 1 && (
-                  <div
-                    className="w-8 h-[2px] rounded-full transition-colors duration-300"
-                    style={{
-                      backgroundColor: i < currentStepIdx ? TEAL : WARM_GRAY_200,
-                    }}
-                  />
-                )}
-              </div>
-            ))}
+              )}
+
+              {/* Modules selection (in conversation mode) */}
+              {step.type === 'modules' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-4 gap-2.5">
+                    {modules.map((mod) => {
+                      const modKey = mod.key as keyof ModuleSelection;
+                      const isSelected = selectedModules.has(modKey);
+                      const ModIcon = getLucideIcon(mod.icon);
+                      return (
+                        <button
+                          key={mod.key}
+                          type="button"
+                          onClick={() => {
+                            const next = new Set(selectedModules);
+                            if (isSelected) {
+                              next.delete(modKey);
+                              if (modKey !== 'has_website') {
+                                const othersActive = modules.some(
+                                  (m) => m.key !== 'has_website' && m.key !== mod.key && next.has(m.key as keyof ModuleSelection)
+                                );
+                                if (!othersActive) next.delete('has_website');
+                              }
+                              setActiveMood('listening');
+                            } else {
+                              next.add(modKey);
+                              if (modKey !== 'has_website') next.add('has_website');
+                              setActiveMood('happy');
+                              setTimeout(() => setActiveMood('listening'), 900);
+                            }
+                            setSelectedModules(next);
+                          }}
+                          className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300"
+                          style={{
+                            backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
+                            borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
+                          }}
+                        >
+                          <div
+                            className="relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-300"
+                            style={{ backgroundColor: `${mod.accent_color}${isSelected ? '18' : '10'}` }}
+                          >
+                            <ModIcon className="w-4 h-4" style={{ color: mod.accent_color }} />
+                            {isSelected && (
+                              <div
+                                className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
+                                style={{ backgroundColor: mod.accent_color }}
+                              >
+                                <Check className="w-2 h-2 text-white" />
+                              </div>
+                            )}
+                          </div>
+                          <span
+                            className="text-[0.7rem] font-medium leading-tight text-center"
+                            style={{ color: isSelected ? NAVY : WARM_GRAY_600 }}
+                          >
+                            {mod.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={!canSend}
+                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                  >
+                    Continuar <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }

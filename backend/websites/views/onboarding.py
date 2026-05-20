@@ -5,12 +5,12 @@ import logging
 import random
 
 from django.db import models, transaction
-from rest_framework import status
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import OnboardingQuestion, OnboardingResponse, WebsiteConfig, WebsiteTemplate
+from ..models import OnboardingQuestion, OnboardingResponse, WebsiteConfig, WebsitePage, WebsiteTemplate
 from ..services.ai_service import AIService
 from ..services.unsplash_service import UnsplashService
 
@@ -19,6 +19,7 @@ from ..serializers import (
     BulkOnboardingResponseSerializer,
     OnboardingQuestionSerializer,
     WebsiteConfigCreateSerializer,
+    WebsitePageSerializer,
     WebsiteTemplateListSerializer,
 )
 
@@ -432,3 +433,37 @@ class QuickStartView(OnboardingView):
                 if idx < len(svc_imgs):
                     item["_image"] = svc_imgs[idx]
                     unsplash.trigger_download(svc_imgs[idx].get("download_location", ""))
+
+
+class OnboardingQuestionListView(generics.ListAPIView):
+    """
+    GET /api/websites/onboarding/questions/
+
+    Devuelve preguntas activas de onboarding con sus modulos requeridos.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = OnboardingQuestionSerializer
+
+    def get_queryset(self):
+        return (
+            OnboardingQuestion.objects.filter(is_active=True)
+            .prefetch_related("required_modules")
+            .order_by("sort_order")
+        )
+
+
+class WebsitePageListView(generics.ListAPIView):
+    """
+    GET /api/websites/onboarding/pages/
+
+    Devuelve paginas disponibles para el onboarding.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = WebsitePageSerializer
+
+    def get_queryset(self):
+        return (
+            WebsitePage.objects.filter(is_active=True).prefetch_related("auto_include_modules").order_by("sort_order")
+        )

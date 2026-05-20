@@ -10,11 +10,13 @@ from .chat import ChatView
 from .config import WebsiteConfigViewSet
 from .media import UploadWebsiteMediaView
 from .onboarding import (
+    OnboardingQuestionListView,
     OnboardingStatusView,
     OnboardingView,
     QuickStartView,
     SaveOnboardingResponsesView,
     StartOnboardingView,
+    WebsitePageListView,
 )
 from .preview import PreviewRenderView, PreviewWebsiteView
 from .publishing import PublishWebsiteView
@@ -47,6 +49,8 @@ __all__ = [
     "SuggestSeoView",
     "UpdateSectionVariantView",
     "UploadWebsiteMediaView",
+    "OnboardingQuestionListView",
     "WebsiteConfigViewSet",
+    "WebsitePageListView",
     "WebsiteTemplateViewSet",
 ]

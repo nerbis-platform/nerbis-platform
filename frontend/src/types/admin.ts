@@ -138,6 +138,7 @@ export interface AdminTenantDetail {
   has_bookings: boolean;
   has_services: boolean;
   has_marketing: boolean;
+  has_management: boolean;
   modules_configured: boolean;
 
   // Onboarding lifecycle
@@ -191,6 +192,7 @@ export interface AdminTenantUpdatePayload {
   has_bookings?: boolean;
   has_services?: boolean;
   has_marketing?: boolean;
+  has_management?: boolean;
 }
 
 /** Query parameters accepted by `GET /api/admin/tenants/`. */

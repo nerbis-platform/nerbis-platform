@@ -100,6 +100,7 @@ class AdminTenantDetailSerializer(serializers.ModelSerializer):
             "has_bookings",
             "has_services",
             "has_marketing",
+            "has_management",
             "modules_configured",
             # Onboarding lifecycle
             "onboarding_phase",
@@ -170,6 +171,7 @@ class AdminTenantUpdateSerializer(serializers.Serializer):
     has_bookings = serializers.BooleanField(required=False)
     has_services = serializers.BooleanField(required=False)
     has_marketing = serializers.BooleanField(required=False)
+    has_management = serializers.BooleanField(required=False)
     modules_configured = serializers.BooleanField(required=False)
 
 

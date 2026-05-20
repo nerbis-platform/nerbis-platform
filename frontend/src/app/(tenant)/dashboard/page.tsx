@@ -193,8 +193,10 @@ export default function DashboardPage() {
   const router = useRouter();
 
   // Admin sin sitio publicado → redirigir antes de renderizar
+  // Exception: management-only tenants can access dashboard without website
+  const isManagementOnly = tenant?.has_management && !tenant?.has_website;
   const shouldRedirect =
-    user?.role === 'admin' && tenant && tenant.website_status !== 'published';
+    user?.role === 'admin' && tenant && tenant.website_status !== 'published' && !isManagementOnly;
 
   useEffect(() => {
     if (!shouldRedirect) return;

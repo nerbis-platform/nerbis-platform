@@ -88,6 +88,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         router.push('/dashboard/website-builder/quick-start');
       } else if (tenant.website_status === 'published') {
         // Fase: operational → allow dashboard
+      } else if (tenant.has_management && !tenant.has_website) {
+        // Management-only tenant → allow dashboard without website
       } else if (tenant.has_website) {
         // Fase: website_building / website_generated → Builder
         router.push('/dashboard/website-builder');
@@ -99,7 +101,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, [mounted, isAuthenticated, isLoading, tenant, user, isBypassRoute, router]);
 
   // Determinar si se necesita redirect (antes de renderizar cualquier layout).
-  // Dashboard solo se permite cuando el sitio está publicado.
+  // Dashboard solo se permite cuando el sitio está publicado OR management-only tenant.
+  const isManagementOnly = tenant?.has_management && !tenant?.has_website;
   const needsRedirect =
     mounted &&
     !isLoading &&
@@ -107,7 +110,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     user?.role === 'admin' &&
     !isBypassRoute &&
     tenant &&
-    tenant.website_status !== 'published';
+    tenant.website_status !== 'published' &&
+    !isManagementOnly;
 
   // Layout limpio para Setup y Website Builder
   if (isCleanLayout) {
