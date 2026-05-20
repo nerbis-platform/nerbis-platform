@@ -72,6 +72,8 @@ export function SocialLinkDialog({
       // Redirigir según estado del tenant (misma lógica que AuthContext)
       if (response.tenant && !response.tenant.modules_configured) {
         router.push('/dashboard/website-builder/quick-start');
+      } else if (response.tenant?.has_management && !response.tenant?.has_website) {
+        router.push('/dashboard');
       } else if (
         response.tenant?.has_website &&
         response.tenant.website_status !== 'published'

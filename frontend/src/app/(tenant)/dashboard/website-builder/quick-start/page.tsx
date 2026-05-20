@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import {
   Check,
@@ -15,18 +15,21 @@ import {
   Search,
   Sparkles,
   LogOut,
-  Globe,
-  ShoppingCart,
-  CalendarCheck,
-  Briefcase,
   UserCircle,
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
-import { quickStartGenerate, QuickStartResponse } from '@/lib/api/websites';
+import {
+  quickStartGenerate,
+  QuickStartResponse,
+  getPlatformModules,
+  getOnboardingQuestions,
+  getOnboardingPages,
+} from '@/lib/api/websites';
 import { configureModules, ModuleSelection, getCurrentUser } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api/client';
-import { Tenant } from '@/types';
+import { Tenant, PlatformModule, OnboardingQuestion, WebsitePage } from '@/types';
 
 // ─── Brand constants ──────────────────────────────────────
 const NAVY = '#1C3B57';
@@ -43,7 +46,7 @@ const WARM_GRAY_800 = '#292524';
 interface ConversationStep {
   id: string;
   message: string;
-  type: 'textarea' | 'input' | 'action' | 'multiselect' | 'modules';
+  type: 'textarea' | 'input' | 'action' | 'multiselect' | 'modules' | 'pages';
   placeholder?: string;
   hint?: string;
   inputType?: string;
@@ -51,96 +54,34 @@ interface ConversationStep {
   rows?: number;
 }
 
-// ─── NERBIS modules (mirrors setup page) ─────────────────
-interface NerbisModule {
-  key: keyof ModuleSelection;
-  label: string;
-  subtitle: string;
-  icon: typeof Globe;
-  accentColor: string;
-  alwaysOn?: boolean; // has_website is always included
-}
-
-const NERBIS_MODULES: NerbisModule[] = [
-  {
-    key: 'has_website',
-    label: 'Sitio Web',
-    subtitle: 'Presencia online con IA',
-    icon: Globe,
-    accentColor: NAVY,
-  },
-  {
-    key: 'has_services',
-    label: 'Servicios',
-    subtitle: 'Muestra y vende tus servicios',
-    icon: Briefcase,
-    accentColor: '#8b5cf6',
-  },
-  {
-    key: 'has_bookings',
-    label: 'Reservas',
-    subtitle: 'Agenda de citas online',
-    icon: CalendarCheck,
-    accentColor: '#6366f1',
-  },
-  {
-    key: 'has_shop',
-    label: 'Tienda Online',
-    subtitle: 'Vende productos 24/7',
-    icon: ShoppingCart,
-    accentColor: '#10b981',
-  },
-];
-
-// ─── Section options (match backend SECTION_OPTION_MAP keys) ──
-interface SectionOption {
-  label: string;
-  value: string;
-  defaultOn: boolean;
-}
-
-const SECTION_OPTIONS: SectionOption[] = [
-  { label: 'Sobre nosotros', value: 'Sobre nosotros', defaultOn: true },
-  { label: 'Testimonios', value: 'Testimonios / Reseñas', defaultOn: true },
-  { label: 'Preguntas frecuentes', value: 'Preguntas frecuentes', defaultOn: true },
-  { label: 'Galería de fotos', value: 'Galería de fotos', defaultOn: false },
-  { label: 'Precios / Tarifas', value: 'Precios / Tarifas', defaultOn: false },
-];
-
 // ─── Agent identity ───────────────────────────────────────
 const AGENT_NAME = 'Pipe';
 
-const STEPS: ConversationStep[] = [
-  {
-    id: 'modules',
-    message: '¿Qué necesitas para tu negocio?',
-    type: 'modules',
-    hint: 'Incluye 14 días gratis. Puedes cambiar después.',
-  },
-  {
-    id: 'description',
-    message: 'Perfecto. Cuéntame sobre tu negocio — ¿a qué se dedican y qué los hace únicos?',
-    type: 'textarea',
-    placeholder: 'Ej: Somos un centro de estética en Pedrezuela con 6 años de experiencia, especializados en tratamientos faciales y corporales con productos Germaine de Capuccini...',
-    hint: 'Entre más detalles, mejor queda tu sitio.',
-    minLength: 20,
-    rows: 3,
-  },
-  {
-    id: 'services',
-    message: 'Genial. ¿Qué servicios ofreces?',
-    type: 'textarea',
-    placeholder: 'Ej:\nLimpieza facial profunda\nRadiofrecuencia facial\nPresoterapia corporal\nDepilación láser diodo',
-    hint: 'Uno por línea o separados por coma.',
-    minLength: 5,
-    rows: 4,
-  },
-  {
-    id: 'sections',
-    message: 'Última pregunta — ¿qué páginas adicionales quieres?',
-    type: 'multiselect',
-    hint: 'Puedes agregar más después.',
-  },
+// ─── Lucide icon resolver ─────────────────────────────────
+function getLucideIcon(name: string): React.ComponentType<{ className?: string; style?: React.CSSProperties }> {
+  // Convert kebab-case to PascalCase: "shopping-cart" → "ShoppingCart"
+  const pascalName = name
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const icons = LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>;
+  return icons[pascalName] || LucideIcons.Circle;
+}
+
+// ─── Fallback data (used while API loads) ─────────────────
+const FALLBACK_MODULES: PlatformModule[] = [
+  { key: 'has_website', label: 'Sitio Web', description: 'Tu presencia online', icon: 'globe', accent_color: '#1C3B57', sort_order: 0, dependencies: [] },
+  { key: 'has_services', label: 'Servicios', description: 'Muestra y vende tus servicios', icon: 'briefcase', accent_color: '#8b5cf6', sort_order: 1, dependencies: ['has_website'] },
+  { key: 'has_bookings', label: 'Reservas', description: 'Agenda de citas online', icon: 'calendar-check', accent_color: '#6366f1', sort_order: 2, dependencies: ['has_website'] },
+  { key: 'has_shop', label: 'Tienda Online', description: 'Vende productos 24/7', icon: 'shopping-cart', accent_color: '#10b981', sort_order: 3, dependencies: ['has_website'] },
+];
+
+const FALLBACK_PAGES: WebsitePage[] = [
+  { key: 'home', label: 'Inicio', description: 'Página principal', icon: 'home', is_mandatory: true, is_default: true, sort_order: 0, auto_include_modules: [] },
+  { key: 'contact', label: 'Contacto', description: 'Formulario de contacto', icon: 'mail', is_mandatory: true, is_default: true, sort_order: 1, auto_include_modules: [] },
+  { key: 'about', label: 'Sobre nosotros', description: 'Tu historia', icon: 'users', is_mandatory: false, is_default: true, sort_order: 2, auto_include_modules: [] },
+  { key: 'blog', label: 'Blog', description: 'Artículos y noticias', icon: 'file-text', is_mandatory: false, is_default: false, sort_order: 6, auto_include_modules: [] },
 ];
 
 // ─── Pipe Keyframes ──────────────────────────────────────
@@ -492,6 +433,26 @@ export default function QuickStartPage() {
     }
   }, [tenant, router]);
 
+  // ─── Fetch config from API ──────────────────────────────
+  const { data: apiModules } = useQuery({
+    queryKey: ['platform-modules'],
+    queryFn: getPlatformModules,
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: apiQuestions } = useQuery({
+    queryKey: ['onboarding-questions'],
+    queryFn: getOnboardingQuestions,
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: apiPages } = useQuery({
+    queryKey: ['onboarding-pages'],
+    queryFn: getOnboardingPages,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const modules = apiModules ?? FALLBACK_MODULES;
+  const pages = apiPages ?? FALLBACK_PAGES;
+
   // ─── Conversation state ───────────────────────────────────
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -500,9 +461,55 @@ export default function QuickStartPage() {
   const [selectedModules, setSelectedModules] = useState<Set<keyof ModuleSelection>>(
     () => new Set()
   );
-  const [selectedSections, setSelectedSections] = useState<Set<string>>(
-    () => new Set(SECTION_OPTIONS.filter((o) => o.defaultOn).map((o) => o.value))
-  );
+  const [selectedPages, setSelectedPages] = useState<Set<string>>(() => {
+    const defaults = (apiPages ?? FALLBACK_PAGES).filter((p) => p.is_default).map((p) => p.key);
+    return new Set(defaults);
+  });
+
+  // ─── Build dynamic steps based on selected modules ──────
+  const steps = useMemo<ConversationStep[]>(() => {
+    // Step 1: always modules selection
+    const result: ConversationStep[] = [
+      { id: 'modules', message: '¿Qué necesitas?', type: 'modules', hint: 'Incluye 14 días gratis. Puedes cambiar después.' },
+    ];
+
+    // Filter questions by selected modules
+    if (apiQuestions) {
+      for (const q of apiQuestions) {
+        if (q.input_type === 'modules') continue; // already added
+        // Show question if no required_modules OR if user selected at least one
+        const shouldShow = q.required_modules.length === 0 ||
+          q.required_modules.some((mk) => selectedModules.has(mk as keyof ModuleSelection));
+        if (shouldShow) {
+          result.push({
+            id: q.key,
+            message: q.message,
+            type: q.input_type === 'multiselect' ? 'pages' : q.input_type as ConversationStep['type'],
+            placeholder: q.placeholder || undefined,
+            hint: q.hint || undefined,
+            minLength: q.min_length || undefined,
+            rows: q.input_type === 'textarea' ? 3 : undefined,
+          });
+        }
+      }
+    } else {
+      // Fallback hardcoded questions while API loads
+      result.push(
+        { id: 'description', message: 'Cuéntame, ¿para qué necesitas tu sitio y qué haces?', type: 'textarea', placeholder: 'Ej: Soy diseñadora gráfica freelance...', hint: 'Entre más detalles, mejor queda tu sitio.', minLength: 20, rows: 3 },
+      );
+      if (selectedModules.has('has_services')) {
+        result.push({ id: 'services', message: '¿Qué servicios ofreces? Incluye nombre, descripción corta y precio aproximado.', type: 'textarea', placeholder: 'Ej:\nDiseño de logo — Creación de identidad visual — $500\nBranding completo — Logo + papelería + guía de marca — $1,200', hint: 'Uno por línea.', minLength: 5, rows: 4 });
+      }
+      if (selectedModules.has('has_shop')) {
+        result.push({ id: 'products', message: '¿Qué productos vendes? Cuéntame las categorías y rango de precios.', type: 'textarea', placeholder: 'Ej:\nCamisetas estampadas — $15-25\nHoodies premium — $40-60', hint: 'Categorías y precios aproximados.', minLength: 5, rows: 4 });
+      }
+      if (selectedModules.has('has_bookings')) {
+        result.push({ id: 'bookings', message: '¿Qué se puede reservar? Cuéntame duración, horarios y si es presencial o virtual.', type: 'textarea', placeholder: 'Ej:\nConsulta inicial — 30 min — virtual\nSesión de coaching — 1 hora — presencial', hint: 'Detalla cada tipo de cita.', minLength: 5, rows: 4 });
+      }
+      result.push({ id: 'pages', message: '¿Qué páginas quieres en tu sitio?', type: 'pages', hint: 'Puedes agregar más después.' });
+    }
+    return result;
+  }, [apiQuestions, selectedModules]);
 
   // ─── Generation state ─────────────────────────────────────
   const [pageState, setPageState] = useState<PageState>('chat');
@@ -569,7 +576,7 @@ export default function QuickStartPage() {
       quickStartGenerate({
         business_description: answers.description || '',
         main_services: answers.services || '',
-        website_sections: Array.from(selectedSections),
+        website_sections: Array.from(selectedPages),
       }),
     onSuccess: (data) => {
       setProgress(100);
@@ -618,7 +625,7 @@ export default function QuickStartPage() {
 
   // ─── Send answer ──────────────────────────────────────────
   const handleSend = useCallback(async () => {
-    const step = STEPS[currentStepIdx];
+    const step = steps[currentStepIdx];
     if (!step) return;
 
     // Handle modules step — call configureModules API
@@ -627,8 +634,8 @@ export default function QuickStartPage() {
       setTimeout(() => setActiveMood('listening'), 600);
 
       // Save display string
-      const labels = NERBIS_MODULES
-        .filter((m) => selectedModules.has(m.key))
+      const labels = modules
+        .filter((m) => selectedModules.has(m.key as keyof ModuleSelection))
         .map((m) => m.label);
       const newAnswers = { ...answers, [step.id]: labels.join(', ') };
       setAnswers(newAnswers);
@@ -654,20 +661,20 @@ export default function QuickStartPage() {
       return;
     }
 
-    // Handle multiselect step (sections)
-    if (step.type === 'multiselect') {
-      if (selectedSections.size === 0) return;
+    // Handle pages step
+    if (step.type === 'pages') {
+      if (selectedPages.size === 0) return;
 
       setActiveMood('surprised');
       setTimeout(() => setActiveMood('listening'), 600);
 
-      const labels = SECTION_OPTIONS
-        .filter((o) => selectedSections.has(o.value))
-        .map((o) => o.label);
+      const labels = pages
+        .filter((p) => selectedPages.has(p.key))
+        .map((p) => p.label);
       const newAnswers = { ...answers, [step.id]: labels.join(', ') };
       setAnswers(newAnswers);
 
-      // This is the last step — start generating
+      // Last step — start generating
       setPageState('generating');
       setGenStep(0);
       setProgress(0);
@@ -690,7 +697,7 @@ export default function QuickStartPage() {
     setCurrentInput('');
 
     // Next step
-    if (currentStepIdx < STEPS.length - 1) {
+    if (currentStepIdx < steps.length - 1) {
       setCurrentStepIdx((prev) => prev + 1);
     } else {
       // All questions answered — start generating
@@ -699,7 +706,7 @@ export default function QuickStartPage() {
       setProgress(0);
       setTimeout(() => generateMutation.mutate(), 100);
     }
-  }, [currentStepIdx, currentInput, answers, selectedModules, selectedSections, generateMutation, setTenant]);
+  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, steps, modules, pages, generateMutation, setTenant]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -778,12 +785,12 @@ export default function QuickStartPage() {
 
   // ─── CHAT STATE — Claude-style AI Chat ──────────────────
   if (pageState === 'chat') {
-    const step = STEPS[currentStepIdx];
+    const step = steps[currentStepIdx];
     const minLen = step?.minLength || 0;
     const canSend = step?.type === 'modules'
       ? selectedModules.size > 0
-      : step?.type === 'multiselect'
-        ? selectedSections.size > 0
+      : step?.type === 'pages'
+        ? selectedPages.size > 0
         : currentInput.trim().length >= minLen;
 
     const hasHistory = currentStepIdx > 0;
@@ -791,7 +798,7 @@ export default function QuickStartPage() {
     // Build chat history from completed steps
     const chatHistory: { role: 'pipe' | 'user'; content: string }[] = [];
     for (let i = 0; i < currentStepIdx; i++) {
-      const s = STEPS[i];
+      const s = steps[i];
       chatHistory.push({ role: 'pipe', content: i === 0
         ? `Hola${firstName ? ` ${firstName}` : ''}, soy ${AGENT_NAME}. ${s.message}`
         : s.message });
@@ -849,9 +856,10 @@ export default function QuickStartPage() {
                   {step.type === 'modules' && (
                     <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100 space-y-12">
                       <div className="grid grid-cols-4 gap-3">
-                        {NERBIS_MODULES.map((mod) => {
-                          const isSelected = selectedModules.has(mod.key);
-                          const ModIcon = mod.icon;
+                        {modules.map((mod) => {
+                          const modKey = mod.key as keyof ModuleSelection;
+                          const isSelected = selectedModules.has(modKey);
+                          const ModIcon = getLucideIcon(mod.icon);
                           return (
                             <button
                               key={mod.key}
@@ -859,17 +867,17 @@ export default function QuickStartPage() {
                               onClick={() => {
                                 const next = new Set(selectedModules);
                                 if (isSelected) {
-                                  next.delete(mod.key);
-                                  if (mod.key !== 'has_website') {
-                                    const othersActive = NERBIS_MODULES.some(
-                                      (m) => m.key !== 'has_website' && m.key !== mod.key && next.has(m.key)
+                                  next.delete(modKey);
+                                  if (modKey !== 'has_website') {
+                                    const othersActive = modules.some(
+                                      (m) => m.key !== 'has_website' && m.key !== mod.key && next.has(m.key as keyof ModuleSelection)
                                     );
                                     if (!othersActive) next.delete('has_website');
                                   }
                                   setActiveMood('listening');
                                 } else {
-                                  next.add(mod.key);
-                                  if (mod.key !== 'has_website') next.add('has_website');
+                                  next.add(modKey);
+                                  if (modKey !== 'has_website') next.add('has_website');
                                   setActiveMood('happy');
                                   setTimeout(() => setActiveMood('listening'), 900);
                                 }
@@ -877,19 +885,19 @@ export default function QuickStartPage() {
                               }}
                               className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
                               style={{
-                                backgroundColor: isSelected ? `${mod.accentColor}08` : '#fff',
-                                borderColor: isSelected ? mod.accentColor : WARM_GRAY_200,
+                                backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
+                                borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
                               }}
                             >
                               <div
                                 className="relative flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-300"
-                                style={{ backgroundColor: `${mod.accentColor}${isSelected ? '18' : '10'}` }}
+                                style={{ backgroundColor: `${mod.accent_color}${isSelected ? '18' : '10'}` }}
                               >
-                                <ModIcon className="w-[18px] h-[18px]" style={{ color: mod.accentColor }} />
+                                <ModIcon className="w-[18px] h-[18px]" style={{ color: mod.accent_color }} />
                                 {isSelected && (
                                   <div
                                     className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center"
-                                    style={{ backgroundColor: mod.accentColor }}
+                                    style={{ backgroundColor: mod.accent_color }}
                                   >
                                     <Check className="w-2 h-2 text-white" />
                                   </div>
@@ -906,7 +914,7 @@ export default function QuickStartPage() {
                                   className="text-[0.58rem] leading-snug block text-center mt-0.5"
                                   style={{ color: WARM_GRAY_400 }}
                                 >
-                                  {mod.subtitle}
+                                  {mod.description}
                                 </span>
                               </div>
                             </button>
@@ -918,8 +926,12 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed"
+                        style={{
+                          backgroundColor: canSend ? TEAL : WARM_GRAY_100,
+                          color: canSend ? '#fff' : WARM_GRAY_400,
+                          border: canSend ? 'none' : `1px solid ${WARM_GRAY_200}`,
+                        }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
                       </button>
@@ -1055,31 +1067,35 @@ export default function QuickStartPage() {
                 </>
               )}
 
-              {/* Multiselect chips */}
-              {step.type === 'multiselect' && (
+              {/* Pages selection */}
+              {step.type === 'pages' && (
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">
-                    {SECTION_OPTIONS.map((option) => {
-                      const isSelected = selectedSections.has(option.value);
+                    {pages.map((page) => {
+                      const isSelected = selectedPages.has(page.key);
+                      const PageIcon = getLucideIcon(page.icon);
                       return (
                         <button
-                          key={option.value}
+                          key={page.key}
                           type="button"
                           onClick={() => {
-                            const next = new Set(selectedSections);
-                            if (isSelected) next.delete(option.value);
-                            else next.add(option.value);
-                            setSelectedSections(next);
+                            if (page.is_mandatory) return;
+                            const next = new Set(selectedPages);
+                            if (isSelected) next.delete(page.key);
+                            else next.add(page.key);
+                            setSelectedPages(next);
                           }}
-                          className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.82rem] font-medium border transition-all duration-150 cursor-pointer"
+                          disabled={page.is_mandatory}
+                          className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.82rem] font-medium border transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default"
                           style={{
                             backgroundColor: isSelected ? `${TEAL}0A` : '#fff',
                             borderColor: isSelected ? TEAL : WARM_GRAY_200,
                             color: isSelected ? TEAL : WARM_GRAY_600,
                           }}
                         >
+                          <PageIcon className="w-3.5 h-3.5" />
                           {isSelected && <Check className="w-3.5 h-3.5" />}
-                          {option.label}
+                          {page.label}
                         </button>
                       );
                     })}
@@ -1096,6 +1112,79 @@ export default function QuickStartPage() {
                       Generar mi sitio <Sparkles className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Modules selection (in conversation mode) */}
+              {step.type === 'modules' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-4 gap-2.5">
+                    {modules.map((mod) => {
+                      const modKey = mod.key as keyof ModuleSelection;
+                      const isSelected = selectedModules.has(modKey);
+                      const ModIcon = getLucideIcon(mod.icon);
+                      return (
+                        <button
+                          key={mod.key}
+                          type="button"
+                          onClick={() => {
+                            const next = new Set(selectedModules);
+                            if (isSelected) {
+                              next.delete(modKey);
+                              if (modKey !== 'has_website') {
+                                const othersActive = modules.some(
+                                  (m) => m.key !== 'has_website' && m.key !== mod.key && next.has(m.key as keyof ModuleSelection)
+                                );
+                                if (!othersActive) next.delete('has_website');
+                              }
+                              setActiveMood('listening');
+                            } else {
+                              next.add(modKey);
+                              if (modKey !== 'has_website') next.add('has_website');
+                              setActiveMood('happy');
+                              setTimeout(() => setActiveMood('listening'), 900);
+                            }
+                            setSelectedModules(next);
+                          }}
+                          className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300"
+                          style={{
+                            backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
+                            borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
+                          }}
+                        >
+                          <div
+                            className="relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-300"
+                            style={{ backgroundColor: `${mod.accent_color}${isSelected ? '18' : '10'}` }}
+                          >
+                            <ModIcon className="w-4 h-4" style={{ color: mod.accent_color }} />
+                            {isSelected && (
+                              <div
+                                className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
+                                style={{ backgroundColor: mod.accent_color }}
+                              >
+                                <Check className="w-2 h-2 text-white" />
+                              </div>
+                            )}
+                          </div>
+                          <span
+                            className="text-[0.7rem] font-medium leading-tight text-center"
+                            style={{ color: isSelected ? NAVY : WARM_GRAY_600 }}
+                          >
+                            {mod.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={!canSend}
+                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                  >
+                    Continuar <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
             </div>

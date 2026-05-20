@@ -310,6 +310,7 @@ class AdminResetOnboardingView(APIView):
                 tenant.has_bookings = False
                 tenant.has_services = False
                 tenant.has_marketing = False
+                tenant.has_management = False
                 update_fields.extend(
                     [
                         "has_website",
@@ -317,6 +318,7 @@ class AdminResetOnboardingView(APIView):
                         "has_bookings",
                         "has_services",
                         "has_marketing",
+                        "has_management",
                     ]
                 )
 

@@ -11,6 +11,8 @@ import {
   GenerateContentResponse,
   ChatResponse,
   PaginatedResponse,
+  PlatformModule,
+  WebsitePage,
 } from '@/types';
 
 // ===================================
@@ -138,6 +140,9 @@ export interface QuickStartRequest {
   main_services: string;
   business_whatsapp?: string;
   website_sections?: string[];
+  brand_tone?: string;
+  primary_color?: string;
+  secondary_color?: string;
 }
 
 export interface QuickStartResponse {
@@ -380,5 +385,28 @@ export async function updateThemeData(
   const { data } = await apiClient.patch<WebsiteConfig>(`/websites/configs/${configId}/`, {
     theme_data: themeData,
   });
+  return data;
+}
+
+// ===================================
+// PLATFORM MODULES
+// ===================================
+
+export async function getPlatformModules(): Promise<PlatformModule[]> {
+  const { data } = await apiClient.get<PlatformModule[]>('/core/modules/');
+  return data;
+}
+
+// ===================================
+// ONBOARDING CONFIG
+// ===================================
+
+export async function getOnboardingQuestions(): Promise<OnboardingQuestion[]> {
+  const { data } = await apiClient.get<OnboardingQuestion[]>('/websites/onboarding/questions/');
+  return data;
+}
+
+export async function getOnboardingPages(): Promise<WebsitePage[]> {
+  const { data } = await apiClient.get<WebsitePage[]>('/websites/onboarding/pages/');
   return data;
 }

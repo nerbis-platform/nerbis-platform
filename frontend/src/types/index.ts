@@ -32,6 +32,7 @@ export interface Tenant {
   has_bookings: boolean;
   has_services: boolean;
   has_marketing: boolean;
+  has_management: boolean;
   has_website: boolean;
   modules_configured: boolean;
   // Website
@@ -651,12 +652,16 @@ export interface WebsiteTemplate {
 
 export interface OnboardingQuestion {
   id: number;
+  key: string;
   template?: number;
   question_key: string;
   question_text: string;
   question_type: QuestionType;
+  message: string;
+  input_type: 'textarea' | 'input' | 'multiselect' | 'modules';
   options?: string[];
   placeholder?: string;
+  hint?: string;
   help_text?: string;
   ai_context?: string;
   is_required: boolean;
@@ -665,6 +670,28 @@ export interface OnboardingQuestion {
   section: QuestionSection;
   sort_order: number;
   is_active: boolean;
+  required_modules: string[];
+}
+
+export interface PlatformModule {
+  key: string;
+  label: string;
+  description: string;
+  icon: string;
+  accent_color: string;
+  sort_order: number;
+  dependencies: string[];
+}
+
+export interface WebsitePage {
+  key: string;
+  label: string;
+  description: string;
+  icon: string;
+  is_mandatory: boolean;
+  is_default: boolean;
+  sort_order: number;
+  auto_include_modules: string[];
 }
 
 export interface OnboardingResponse {

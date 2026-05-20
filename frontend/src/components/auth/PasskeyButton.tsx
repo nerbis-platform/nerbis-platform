@@ -51,6 +51,8 @@ export function PasskeyButton({ email, redirectTo, onSuccess }: PasskeyButtonPro
       if (!target) {
         if (auth.tenant && !auth.tenant.modules_configured) {
           target = '/dashboard/website-builder/quick-start';
+        } else if (auth.tenant?.has_management && !auth.tenant?.has_website) {
+          target = '/dashboard';
         } else if (auth.tenant?.has_website && auth.tenant.website_status !== 'published') {
           target = '/dashboard/website-builder';
         } else {
