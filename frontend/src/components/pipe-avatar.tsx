@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useId } from 'react';
+import { useState, useEffect, useRef, useId, useMemo } from 'react';
 
 // ─── Colors ──────────────────────────────────────────────
 const TEAL = '#0D9488';
@@ -149,17 +149,19 @@ export function PipeAvatar({
 
   const maxLook = s * 0.06;
 
+  const fixedLookOffset = useMemo(() => {
+    if (!lookTarget) return null;
+    const directions = {
+      right: { x: maxLook, y: 0 },
+      left:  { x: -maxLook, y: 0 },
+      up:    { x: 0, y: -maxLook },
+      down:  { x: 0, y: maxLook },
+    };
+    return directions[lookTarget];
+  }, [maxLook, lookTarget]);
+
   useEffect(() => {
-    if (lookTarget) {
-      const directions = {
-        right: { x: maxLook, y: 0 },
-        left:  { x: -maxLook, y: 0 },
-        up:    { x: 0, y: -maxLook },
-        down:  { x: 0, y: maxLook },
-      };
-      setLookOffset(directions[lookTarget]);
-      return;
-    }
+    if (fixedLookOffset) return;
     const onMove = (e: MouseEvent) => {
       const el = containerRef.current;
       if (!el) return;
@@ -176,7 +178,7 @@ export function PipeAvatar({
     };
     window.addEventListener('mousemove', onMove);
     return () => window.removeEventListener('mousemove', onMove);
-  }, [maxLook, lookTarget]);
+  }, [maxLook, fixedLookOffset]);
 
   const handleTap = () => {
     if (tapped) return;
@@ -195,9 +197,10 @@ export function PipeAvatar({
   const eyeRot = activeEyes.rotation;
   const blinkAnim = !tapped && eyes.blinks ? 'pipe-blink 4s ease-in-out infinite' : 'none';
 
-  const eyeLeftX = cx - eyeSpread + lookOffset.x;
-  const eyeRightX = cx + eyeSpread + lookOffset.x;
-  const eyeFinalY = eyeY + eyeOffY + lookOffset.y;
+  const look = fixedLookOffset ?? lookOffset;
+  const eyeLeftX = cx - eyeSpread + look.x;
+  const eyeRightX = cx + eyeSpread + look.x;
+  const eyeFinalY = eyeY + eyeOffY + look.y;
 
   const renderEye = (ex: number, side: 'left' | 'right') => {
     const rot = side === 'left' ? -eyeRot : eyeRot;
@@ -368,7 +371,7 @@ export function PipeStatic({ size = 24 }: { size?: number }) {
 }
 
 // ─── PipeAdmin — Navy-colored Pipe for admin context ─────
-export function PipeAdmin({ size = 36, calm = true }: { size?: number; calm?: boolean }) {
+export function PipeAdmin({ size = 36 }: { size?: number }) {
   const s = size;
   const r = s * 0.42;
   const cx = s * 0.5;
