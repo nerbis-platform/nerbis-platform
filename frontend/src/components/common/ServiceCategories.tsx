@@ -50,7 +50,7 @@ function CategoryCard({ category }: { category: ServiceCategory }) {
       href={`/services?category=${category.id}`}
       className="group shrink-0 w-56"
     >
-      <div className="h-full overflow-hidden border border-border/50 shadow-sm hover:shadow-lg transition-all duration-300 bg-card rounded-2xl group-hover:border-primary/30">
+      <div className="h-full overflow-hidden border border-border/50 shadow-sm hover-lift transition-all duration-300 bg-card rounded-2xl group-hover:border-primary/30">
         {/* Imagen o gradiente con icono */}
         <div className="relative h-28 overflow-hidden">
           {category.image ? (
@@ -66,7 +66,7 @@ function CategoryCard({ category }: { category: ServiceCategory }) {
             </>
           ) : (
             <div className="absolute inset-0 bg-linear-to-br from-primary/30 via-primary/20 to-primary/10 flex items-center justify-center">
-              <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <div className="size-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                 {/* eslint-disable-next-line react-hooks/static-components -- stable module-level icon refs */}
                 <IconComponent className="h-7 w-7 text-primary" />
               </div>

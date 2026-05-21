@@ -28,26 +28,26 @@ export function Hero() {
           quality={85}
           unoptimized
         />
-        {/* Overlay rosa/gold cálido — deja ver la foto con tonos de marca */}
-        <div className="absolute inset-0 bg-linear-to-r from-[#D4A5A5]/70 via-[#D4A5A5]/40 to-[#D4AF37]/20" />
+        {/* Overlay con tonos de marca */}
+        <div className="absolute inset-0 bg-linear-to-r from-primary/40 via-primary/20 to-transparent" />
         {/* Capa de legibilidad suave sobre el lado del texto */}
-        <div className="absolute inset-0 bg-linear-to-r from-white/50 via-white/20 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-r from-background/60 via-background/30 to-transparent" />
         {/* Gradiente inferior para transición al fondo del sitio */}
         <div className="absolute inset-0 bg-linear-to-t from-background/60 via-transparent to-transparent" />
       </div>
 
-      {/* Elementos decorativos - blobs rosa/gold */}
+      {/* Elementos decorativos */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-24 -right-24 w-md h-112 bg-[#D4A5A5]/30 rounded-full blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 w-80 h-80 bg-[#D4AF37]/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-[#F5E6E6]/30 rounded-full blur-3xl" />
+        <div className="absolute -top-24 -right-24 w-md h-112 bg-primary/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-16 -left-16 size-80 bg-accent/15 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 right-1/4 size-64 bg-primary/10 rounded-full blur-3xl" />
       </div>
 
       <div className="container relative z-10 py-16 md:py-20">
         <div className="max-w-2xl">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 dark:bg-card/80 backdrop-blur-sm text-primary mb-6 shadow-sm border border-primary/15">
-            <Sparkles className="h-4 w-4 text-[#D4AF37]" />
+            <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-sm font-medium">Centro de Estética Profesional</span>
           </div>
 

@@ -348,7 +348,7 @@ function AboutOverlappingCards({ data }: { data: SectionData }) {
             return (
               <div key={i} className="overlap-card">
                 <div className="highlight-icon">{CHECK_ICON}</div>
-                <span style={{ fontSize: '0.92rem', fontWeight: 500, color: '#374151' }}>{text}</span>
+                <span style={{ fontSize: '0.92rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>{text}</span>
               </div>
             );
           })}
@@ -586,7 +586,7 @@ function ServicesHorizontalScroll({ data }: { data: SectionData }) {
             </div>
           ))}
         </div>
-        <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: '.8rem', marginTop: 12 }}>&larr; Desliza para ver más &rarr;</p>
+        <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '.8rem', marginTop: 12 }}>&larr; Desliza para ver más &rarr;</p>
         <SectionCTA text="Ver todos los servicios" href="/services" />
       </div>
     </section>

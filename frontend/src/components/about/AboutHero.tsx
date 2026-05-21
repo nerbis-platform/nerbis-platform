@@ -8,7 +8,7 @@ export function AboutHero() {
       {/* Decoración de fondo */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-20 right-10 w-72 h-72 bg-primary/15 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 left-10 w-96 h-96 bg-rose-300/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 left-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
       </div>
 
       <div className="container">
@@ -32,7 +32,7 @@ export function AboutHero() {
 
           {/* Destacado */}
           <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-card border border-border shadow-sm">
-            <Sparkles className="h-5 w-5 text-gold" />
+            <Sparkles className="h-5 w-5 text-primary" />
             <span className="text-sm font-medium">
               Tú pones la intención, <span className="text-primary font-bold">nosotros el arte</span>
             </span>

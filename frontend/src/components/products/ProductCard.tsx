@@ -43,7 +43,7 @@ export function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Card className="overflow-hidden group hover:shadow-lg transition-shadow">
+    <Card className="overflow-hidden group hover-lift transition-shadow">
       <Link href={`/products/${product.id}`}>
         <div className="relative aspect-square overflow-hidden bg-muted">
           {mainImage && !imageError ? (

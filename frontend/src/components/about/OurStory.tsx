@@ -20,7 +20,7 @@ export function OurStory() {
           </div>
 
           {/* Contenido principal */}
-          <div className="space-y-6 text-muted-foreground leading-relaxed text-lg">
+          <div className="flex flex-col gap-6 text-muted-foreground leading-relaxed text-lg">
             <p>
               En <span className="font-semibold text-foreground">Centro de Estética Gerdy</span>, no buscamos cambiarte.
               Buscamos que, cuando te mires al espejo, reconozcas la mejor versión de ti, <span className="italic">sin filtros</span>.
@@ -41,9 +41,9 @@ export function OurStory() {
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
+                <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
                   <span className="text-primary font-bold">1</span>
                 </div>
                 <div>
@@ -53,7 +53,7 @@ export function OurStory() {
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
+                <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
                   <span className="text-primary font-bold">2</span>
                 </div>
                 <div>
@@ -63,7 +63,7 @@ export function OurStory() {
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
+                <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
                   <span className="text-primary font-bold">3</span>
                 </div>
                 <div>
@@ -73,7 +73,7 @@ export function OurStory() {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-primary/10 via-rose-200/10 to-amber-100/10 rounded-2xl p-8 mt-8 border border-primary/10">
+            <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-accent/10 rounded-2xl p-8 mt-8 border border-primary/10">
               <div className="flex items-start gap-4">
                 <Sparkles className="h-6 w-6 text-primary shrink-0 mt-1" />
                 <div>

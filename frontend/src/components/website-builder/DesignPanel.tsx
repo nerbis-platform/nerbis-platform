@@ -275,11 +275,11 @@ function Section({
       >
         <div className="flex items-center gap-2.5">
           <div className={`flex items-center justify-center w-6 h-6 rounded-lg transition-colors duration-200 ${
-            isOpen ? 'bg-[#E2F3F1]' : 'bg-gray-100 group-hover:bg-gray-200/60'
+            isOpen ? 'bg-primary/10' : 'bg-gray-100 group-hover:bg-gray-200/60'
           }`}>
-            <Icon className={`h-3.5 w-3.5 transition-colors duration-200 ${isOpen ? 'text-[#1C3B57]' : 'text-gray-400'}`} />
+            <Icon className={`h-3.5 w-3.5 transition-colors duration-200 ${isOpen ? 'text-foreground' : 'text-gray-400'}`} />
           </div>
-          <span className={`text-[0.78rem] font-semibold transition-colors duration-200 ${isOpen ? 'text-[#1C3B57]' : 'text-gray-500'}`}>
+          <span className={`text-[0.78rem] font-semibold transition-colors duration-200 ${isOpen ? 'text-foreground' : 'text-gray-500'}`}>
             {title}
           </span>
         </div>
@@ -335,7 +335,7 @@ function ColorPicker({
                   className="w-full aspect-square rounded-md border-2 transition-all cursor-pointer hover:scale-110"
                   style={{
                     background: color,
-                    borderColor: color === value ? '#1C3B57' : 'transparent',
+                    borderColor: color === value ? 'var(--color-foreground)' : 'transparent',
                   }}
                 >
                   {color === value && (
@@ -413,7 +413,7 @@ function FontDropdown({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar fuente..."
-                className="w-full px-2 py-1.5 text-[0.7rem] rounded-md border border-gray-200 focus:outline-none focus:border-[#0D9488]"
+                className="w-full px-2 py-1.5 text-[0.7rem] rounded-md border border-gray-200 focus:outline-none focus:border-primary"
                 autoFocus
               />
             </div>
@@ -424,7 +424,7 @@ function FontDropdown({
                   type="button"
                   onClick={() => { onChange(font); setOpen(false); setSearch(''); }}
                   className={`w-full text-left px-3 py-1.5 text-[0.72rem] transition-colors cursor-pointer hover:bg-gray-50 ${
-                    font === value ? 'bg-[#E2F3F1]/40 text-[#1C3B57] font-medium' : 'text-gray-600'
+                    font === value ? 'bg-primary/10/40 text-foreground font-medium' : 'text-gray-600'
                   }`}
                   style={{ fontFamily: `'${font}', sans-serif` }}
                 >
@@ -481,7 +481,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
             onClick={() => onChange({ ...themeData, color_mode: 'light', bg_color: '#FFFFFF' })}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[0.65rem] font-medium rounded-md transition-colors cursor-pointer ${
               themeData.color_mode !== 'dark'
-                ? 'bg-white text-[#1C3B57] shadow-sm'
+                ? 'bg-white text-foreground shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -518,7 +518,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
         {/* Color Harmony — suggest secondary from primary */}
         <div className="mt-3 pt-3 border-t border-gray-100">
           <div className="flex items-center gap-1.5 mb-2">
-            <Wand2 className="h-3 w-3 text-[#0D9488]" />
+            <Wand2 className="h-3 w-3 text-primary" />
             <label className="text-[0.65rem] font-medium text-gray-400 uppercase tracking-wider">
               Colores que combinan
             </label>
@@ -537,7 +537,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                   <div
                     className={`w-8 h-8 rounded-lg border-2 transition-all ${
                       isActive
-                        ? 'border-[#1C3B57] scale-110 shadow-sm'
+                        ? 'border-foreground scale-110 shadow-sm'
                         : 'border-transparent hover:border-gray-300 hover:scale-105'
                     }`}
                     style={{ background: h.color }}
@@ -563,7 +563,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                   onClick={() => { setShowCustomBg(false); updateTheme('bg_color', bg.value); }}
                   className={`p-1.5 rounded-md border-2 text-center transition-colors cursor-pointer ${
                     isActive && !showCustomBg
-                      ? 'border-[#1C3B57]'
+                      ? 'border-foreground'
                       : 'border-gray-100 hover:border-gray-200'
                   }`}
                 >
@@ -572,7 +572,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                     style={{ background: bg.value }}
                   />
                   <p className={`text-[0.5rem] font-medium leading-tight mt-1 ${
-                    isActive && !showCustomBg ? 'text-[#1C3B57]' : 'text-gray-500'
+                    isActive && !showCustomBg ? 'text-foreground' : 'text-gray-500'
                   }`}>
                     {bg.label}
                   </p>
@@ -585,7 +585,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
               onClick={() => setShowCustomBg(prev => !prev)}
               className={`p-1.5 rounded-md border-2 text-center transition-colors cursor-pointer ${
                 showCustomBg && !themeData.bg_color.startsWith('linear-gradient')
-                  ? 'border-[#1C3B57]'
+                  ? 'border-foreground'
                   : 'border-gray-100 hover:border-gray-200'
               }`}
             >
@@ -595,7 +595,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 <span className={`text-sm ${themeData.color_mode === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>+</span>
               </div>
               <p className={`text-[0.5rem] font-medium leading-tight mt-1 ${
-                showCustomBg ? 'text-[#1C3B57]' : 'text-gray-500'
+                showCustomBg ? 'text-foreground' : 'text-gray-500'
               }`}>
                 Custom
               </p>
@@ -627,7 +627,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                   onClick={() => { setShowCustomBg(false); updateTheme('bg_color', gr.value); }}
                   className={`p-1.5 rounded-md border-2 text-center transition-colors cursor-pointer ${
                     isActive
-                      ? 'border-[#1C3B57]'
+                      ? 'border-foreground'
                       : 'border-gray-100 hover:border-gray-200'
                   }`}
                 >
@@ -636,7 +636,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                     style={{ background: gr.value }}
                   />
                   <p className={`text-[0.5rem] font-medium leading-tight mt-1 ${
-                    isActive ? 'text-[#1C3B57]' : 'text-gray-500'
+                    isActive ? 'text-foreground' : 'text-gray-500'
                   }`}>
                     {gr.label}
                   </p>
@@ -653,7 +653,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
               }}
               className={`p-1.5 rounded-md border-2 text-center transition-colors cursor-pointer ${
                 showCustomBg && themeData.bg_color.startsWith('linear-gradient')
-                  ? 'border-[#1C3B57]'
+                  ? 'border-foreground'
                   : 'border-gray-100 hover:border-gray-200'
               }`}
             >
@@ -663,7 +663,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 <span className={`text-sm ${themeData.color_mode === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>+</span>
               </div>
               <p className={`text-[0.5rem] font-medium leading-tight mt-1 ${
-                showCustomBg && themeData.bg_color.startsWith('linear-gradient') ? 'text-[#1C3B57]' : 'text-gray-500'
+                showCustomBg && themeData.bg_color.startsWith('linear-gradient') ? 'text-foreground' : 'text-gray-500'
               }`}>
                 Custom
               </p>
@@ -712,7 +712,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
             onClick={() => setCustomFonts(false)}
             className={`flex-1 py-1.5 text-[0.65rem] font-medium rounded-md transition-colors cursor-pointer ${
               !customFonts
-                ? 'bg-white text-[#1C3B57] shadow-sm'
+                ? 'bg-white text-foreground shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -723,7 +723,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
             onClick={() => setCustomFonts(true)}
             className={`flex-1 py-1.5 text-[0.65rem] font-medium rounded-md transition-colors cursor-pointer ${
               customFonts
-                ? 'bg-white text-[#1C3B57] shadow-sm'
+                ? 'bg-white text-foreground shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -742,14 +742,14 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                   onClick={() => onChange({ ...themeData, font_heading: pair.heading, font_body: pair.body })}
                   className={`p-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                     isActive
-                      ? themeData.color_mode === 'dark' ? 'border-[#0D9488] bg-[#1e293b]' : 'border-[#1C3B57] bg-[#E2F3F1]/30'
+                      ? themeData.color_mode === 'dark' ? 'border-[#0D9488] bg-[#1e293b]' : 'border-foreground bg-primary/10/30'
                       : themeData.color_mode === 'dark' ? 'border-gray-700 bg-gray-800/50 hover:border-gray-600' : 'border-gray-100 hover:border-gray-200'
                   }`}
                 >
                   <p
                     className={`text-[0.85rem] leading-tight mb-0.5 ${
                       isActive
-                        ? themeData.color_mode === 'dark' ? 'text-white' : 'text-[#1C3B57]'
+                        ? themeData.color_mode === 'dark' ? 'text-white' : 'text-foreground'
                         : themeData.color_mode === 'dark' ? 'text-gray-200' : 'text-gray-700'
                     }`}
                     style={{ fontFamily: `'${pair.heading}', sans-serif` }}
@@ -758,7 +758,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                   </p>
                   <p className={`text-[0.65rem] font-medium ${
                     isActive
-                      ? themeData.color_mode === 'dark' ? 'text-[#0D9488]' : 'text-[#1C3B57]'
+                      ? themeData.color_mode === 'dark' ? 'text-primary' : 'text-foreground'
                       : themeData.color_mode === 'dark' ? 'text-gray-300' : 'text-gray-600'
                   }`}>
                     {pair.label}
@@ -817,14 +817,14 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 onClick={() => updateTheme('style', opt.value)}
                 className={`p-2 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                   isActive
-                    ? 'border-[#1C3B57] bg-[#E2F3F1]/30'
+                    ? 'border-foreground bg-primary/10/30'
                     : 'border-gray-100 hover:border-gray-200'
                 }`}
               >
                 {/* Visual mockup */}
                 <StyleMockup style={opt.value} color={themeData.primary_color || '#3b82f6'} />
                 {/* Label + desc */}
-                <p className={`text-[0.65rem] font-medium mt-2 ${isActive ? 'text-[#1C3B57]' : 'text-gray-600'}`}>
+                <p className={`text-[0.65rem] font-medium mt-2 ${isActive ? 'text-foreground' : 'text-gray-600'}`}>
                   {opt.label}
                 </p>
                 <p className="text-[0.5rem] text-gray-400 leading-tight mt-0.5">
@@ -846,13 +846,13 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
               onClick={() => updateTheme('spacing', opt.value)}
               className={`p-2.5 rounded-lg border-2 text-center transition-colors cursor-pointer ${
                 themeData.spacing === opt.value
-                  ? 'border-[#1C3B57] bg-[#E2F3F1]/30'
+                  ? 'border-foreground bg-primary/10/30'
                   : 'border-gray-100 hover:border-gray-200'
               }`}
             >
               <span className="text-lg leading-none block mb-1">{opt.icon}</span>
               <p className={`text-[0.65rem] font-medium ${
-                themeData.spacing === opt.value ? 'text-[#1C3B57]' : 'text-gray-600'
+                themeData.spacing === opt.value ? 'text-foreground' : 'text-gray-600'
               }`}>
                 {opt.label}
               </p>
@@ -876,7 +876,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 onClick={() => updateTheme('button_style', opt.value)}
                 className={`p-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                   isActive
-                    ? 'border-[#1C3B57] bg-[#E2F3F1]/30'
+                    ? 'border-foreground bg-primary/10/30'
                     : 'border-gray-100 hover:border-gray-200'
                 }`}
               >
@@ -885,14 +885,14 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                   <span
                     className={`inline-block px-3 py-1 text-[0.6rem] font-medium text-white ${opt.preview} ${
                       opt.value === 'outline'
-                        ? 'bg-transparent text-[#1C3B57]! border border-[#1C3B57]'
-                        : 'bg-[#1C3B57]'
+                        ? 'bg-transparent text-foreground! border border-foreground'
+                        : 'bg-foreground'
                     }`}
                   >
                     Botón
                   </span>
                 </div>
-                <p className={`text-[0.65rem] font-medium ${isActive ? 'text-[#1C3B57]' : 'text-gray-600'}`}>
+                <p className={`text-[0.65rem] font-medium ${isActive ? 'text-foreground' : 'text-gray-600'}`}>
                   {opt.label}
                 </p>
                 <p className="text-[0.5rem] text-gray-400 leading-tight mt-0.5">
@@ -916,7 +916,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 onClick={() => updateTheme('shadow', opt.value)}
                 className={`p-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                   isActive
-                    ? 'border-[#1C3B57] bg-[#E2F3F1]/30'
+                    ? 'border-foreground bg-primary/10/30'
                     : 'border-gray-100 hover:border-gray-200'
                 }`}
               >
@@ -924,7 +924,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 <div className="mb-2 flex justify-center">
                   <div className={`w-10 h-7 rounded bg-white border border-gray-100 ${opt.preview}`} />
                 </div>
-                <p className={`text-[0.65rem] font-medium ${isActive ? 'text-[#1C3B57]' : 'text-gray-600'}`}>
+                <p className={`text-[0.65rem] font-medium ${isActive ? 'text-foreground' : 'text-gray-600'}`}>
                   {opt.label}
                 </p>
                 <p className="text-[0.5rem] text-gray-400 leading-tight mt-0.5">
@@ -948,11 +948,11 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 onClick={() => updateTheme('animation', opt.value)}
                 className={`p-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                   isActive
-                    ? 'border-[#1C3B57] bg-[#E2F3F1]/30'
+                    ? 'border-foreground bg-primary/10/30'
                     : 'border-gray-100 hover:border-gray-200'
                 }`}
               >
-                <p className={`text-[0.65rem] font-medium ${isActive ? 'text-[#1C3B57]' : 'text-gray-600'}`}>
+                <p className={`text-[0.65rem] font-medium ${isActive ? 'text-foreground' : 'text-gray-600'}`}>
                   {opt.label}
                 </p>
                 <p className="text-[0.5rem] text-gray-400 leading-tight mt-0.5">

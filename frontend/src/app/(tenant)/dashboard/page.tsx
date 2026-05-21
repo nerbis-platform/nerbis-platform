@@ -52,7 +52,7 @@ function CustomerDashboard() {
                 <p className="text-sm text-muted-foreground">Total Órdenes</p>
                 <p className="text-2xl font-bold">{orders?.length || 0}</p>
               </div>
-              <Package className="h-12 w-12 text-muted-foreground" />
+              <Package className="size-12 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -64,7 +64,7 @@ function CustomerDashboard() {
                 <p className="text-sm text-muted-foreground">Próximas Citas</p>
                 <p className="text-2xl font-bold">{appointments?.length || 0}</p>
               </div>
-              <Calendar className="h-12 w-12 text-muted-foreground" />
+              <Calendar className="size-12 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -77,7 +77,7 @@ function CustomerDashboard() {
                   <p className="text-sm text-muted-foreground">Mi Cuenta</p>
                   <p className="text-2xl font-bold">{mounted ? user?.role_display : '-'}</p>
                 </div>
-                <User className="h-12 w-12 text-muted-foreground" />
+                <User className="size-12 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -97,7 +97,7 @@ function CustomerDashboard() {
           </CardHeader>
           <CardContent>
             {appointmentsLoading ? (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {[...Array(3)].map((_, i) => (
                   <Skeleton key={i} className="h-20" />
                 ))}
@@ -107,7 +107,7 @@ function CustomerDashboard() {
                 No tienes citas próximas
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {appointments?.slice(0, 3).map((appointment) => (
                   <div
                     key={appointment.id}
@@ -142,7 +142,7 @@ function CustomerDashboard() {
           </CardHeader>
           <CardContent>
             {ordersLoading ? (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {[...Array(3)].map((_, i) => (
                   <Skeleton key={i} className="h-20" />
                 ))}
@@ -152,7 +152,7 @@ function CustomerDashboard() {
                 No tienes órdenes
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {orders?.slice(0, 3).map((order) => (
                   <div
                     key={order.id}

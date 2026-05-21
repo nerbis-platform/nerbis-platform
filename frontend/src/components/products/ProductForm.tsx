@@ -151,13 +151,13 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-6">
         {/* ── Información Básica ── */}
         <Card>
           <CardHeader>
             <CardTitle>Información Básica</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex flex-col gap-4">
             <FormField
               control={form.control}
               name="name"
@@ -318,7 +318,7 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
           <CardHeader>
             <CardTitle>Imágenes del producto</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex flex-col gap-4">
             {/* Imágenes existentes */}
             {existingImages.length > 0 && (
               <div>
@@ -399,13 +399,13 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
           <CardHeader>
             <CardTitle>Configuración</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex flex-col gap-4">
             <FormField
               control={form.control}
               name="is_active"
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
+                  <div className="flex flex-col gap-0.5">
                     <FormLabel className="text-base">Producto activo</FormLabel>
                     <FormDescription>Los productos activos aparecen en la tienda</FormDescription>
                   </div>
@@ -421,7 +421,7 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
               name="is_featured"
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
+                  <div className="flex flex-col gap-0.5">
                     <FormLabel className="text-base">Producto destacado</FormLabel>
                     <FormDescription>Aparece en la sección de productos destacados</FormDescription>
                   </div>
@@ -437,7 +437,7 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
               name="requires_shipping"
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
+                  <div className="flex flex-col gap-0.5">
                     <FormLabel className="text-base">Requiere envío</FormLabel>
                     <FormDescription>Desactiva para productos digitales</FormDescription>
                   </div>

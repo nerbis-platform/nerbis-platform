@@ -18,7 +18,7 @@ export function BrandLogo({ size = 34, className = '' }: BrandLogoProps) {
     <div className={`flex items-center gap-3.5 ${className}`}>
       <PipeAvatar mood="idle" size={size} calm lookTarget="right" />
       <span
-        className="text-[1.15rem] tracking-[-0.02em] text-[var(--auth-text-on-dark)]"
+        className="text-[1.15rem] tracking-[var(--tracking-display)] text-[var(--auth-text-on-dark)]"
         style={{
           fontFamily: 'var(--auth-font-brand)',
           fontWeight: 800,

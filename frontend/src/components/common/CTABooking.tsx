@@ -23,8 +23,8 @@ export function CTABooking() {
 
       {/* Elementos decorativos */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 right-10 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 left-10 w-48 h-48 bg-primary/15 rounded-full blur-3xl" />
+        <div className="absolute top-10 right-10 size-64 bg-primary/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-10 left-10 size-48 bg-primary/15 rounded-full blur-3xl" />
       </div>
 
       <div className="container relative z-10">
@@ -50,13 +50,13 @@ export function CTABooking() {
           {/* Beneficios rápidos */}
           <div className="flex flex-wrap gap-6 mb-10">
             <div className="flex items-center gap-2 text-white/90">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+              <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center">
                 <Clock className="h-4 w-4 text-primary" />
               </div>
               <span className="text-sm">Confirmación inmediata</span>
             </div>
             <div className="flex items-center gap-2 text-white/90">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+              <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center">
                 <Calendar className="h-4 w-4 text-primary" />
               </div>
               <span className="text-sm">Horarios flexibles</span>

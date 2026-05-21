@@ -27,7 +27,7 @@ function PageLink({ page, href, label, className }: { page: string; href: string
   const isEnabled = usePageEnabled(page);
   if (!isEnabled) return null;
   return (
-    <Link href={href} className={className || "text-base font-medium text-foreground/80 hover:text-primary transition-colors"}>
+    <Link href={href} className={className || "text-base font-medium text-foreground/80 hover:text-primary transition-colors duration-[var(--duration-fast)] ease-out"}>
       {label}
     </Link>
   );
@@ -56,7 +56,7 @@ export function Header() {
         />
 
         {/* Navigation - texto más grande y mejor espaciado */}
-        <nav className="hidden lg:flex items-center space-x-8">
+        <nav className="hidden lg:flex items-center gap-8">
           <ModuleShow module="shop">
             <PageLink page="products" href="/products" label="Productos" />
           </ModuleShow>
@@ -67,18 +67,19 @@ export function Header() {
             <PageLink page="pricing" href="/plans" label="Planes" />
           </ModuleShow>
           <PageLink page="about" href="/about" label="Nosotros" />
-          <Link href="/contact" className="text-base font-medium text-foreground/80 hover:text-primary transition-colors">
+          <Link href="/contact" className="text-base font-medium text-foreground/80 hover:text-primary transition-colors duration-[var(--duration-fast)] ease-out">
             Contacto
           </Link>
         </nav>
 
         {/* Actions */}
-        <div className="flex items-center space-x-2 md:space-x-3">
+        <div className="flex items-center gap-2 md:gap-3">
           {/* Search */}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setSearchOpen(true)}
+            aria-label="Buscar"
             className="hidden sm:flex h-10 w-10 md:h-11 md:w-11"
           >
             <Search className="h-5 w-5 md:h-6 md:w-6" />
@@ -87,7 +88,7 @@ export function Header() {
           {/* Carrito - Solo si tiene el módulo Shop */}
           <ModuleShow module="shop">
             <Link href="/cart">
-              <Button variant="ghost" size="icon" className="relative h-10 w-10 md:h-11 md:w-11">
+              <Button variant="ghost" size="icon" aria-label="Carrito de compras" className="relative h-10 w-10 md:h-11 md:w-11">
                 <ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />
                 {itemsCount > 0 && (
                   <Badge
@@ -110,11 +111,11 @@ export function Header() {
                   <User className="h-5 w-5" />
                   {user.role !== 'customer' && (
                     <span
-                      className="text-[8px] font-bold text-white px-1 mt-0.5 rounded-sm uppercase"
-                      style={{
-                        backgroundColor: user.role === 'admin' ? '#6366f1' : '#f59e0b',
-                        lineHeight: '14px',
-                      }}
+                      className={`text-[8px] font-bold text-white px-1 mt-0.5 rounded-sm uppercase leading-[14px] ${
+                        user.role === 'admin'
+                          ? 'bg-[var(--color-status-info)]'
+                          : 'bg-[var(--color-status-warning)]'
+                      }`}
                     >
                       {user.role === 'admin' ? 'ADMIN' : 'STAFF'}
                     </span>
@@ -128,8 +129,11 @@ export function Header() {
                       <p className="text-sm font-medium">{user.full_name}</p>
                       {user.role !== 'customer' && (
                         <span
-                          className="text-[10px] font-semibold text-white px-1.5 py-0.5 rounded-full leading-none uppercase"
-                          style={{ backgroundColor: user.role === 'admin' ? '#6366f1' : '#f59e0b' }}
+                          className={`text-[10px] font-semibold text-white px-1.5 py-0.5 rounded-full leading-none uppercase ${
+                            user.role === 'admin'
+                              ? 'bg-[var(--color-status-info)]'
+                              : 'bg-[var(--color-status-warning)]'
+                          }`}
                         >
                           {user.role === 'admin' ? 'ADMIN' : 'STAFF'}
                         </span>
@@ -247,7 +251,7 @@ export function Header() {
           )}
 
           {/* Mobile Menu */}
-          <Button variant="ghost" size="icon" className="lg:hidden h-10 w-10 md:h-11 md:w-11">
+          <Button variant="ghost" size="icon" aria-label="Menu de navegacion" className="lg:hidden h-10 w-10 md:h-11 md:w-11">
             <Menu className="h-5 w-5 md:h-6 md:w-6" />
           </Button>
         </div>

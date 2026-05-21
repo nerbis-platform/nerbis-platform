@@ -93,7 +93,7 @@ export function ReviewForm({ itemName, onSubmit, onCancel }: ReviewFormProps) {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-6">
             {/* Rating */}
             <FormField
               control={form.control}
@@ -180,7 +180,7 @@ export function ReviewForm({ itemName, onSubmit, onCancel }: ReviewFormProps) {
                       <button
                         type="button"
                         onClick={() => removeImage(index)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                        className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1"
                       >
                         <X className="h-3 w-3" />
                       </button>

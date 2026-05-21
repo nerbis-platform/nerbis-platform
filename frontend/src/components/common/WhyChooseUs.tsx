@@ -19,8 +19,8 @@ const benefits = [
     icon: Award,
     title: 'Profesionales Certificados',
     description: 'Nuestro equipo cuenta con certificaciones y formación continua en las últimas técnicas.',
-    color: 'text-gold',
-    bgColor: 'bg-gold/10',
+    color: 'text-accent-foreground',
+    bgColor: 'bg-accent/50',
   },
   {
     icon: Sparkles,
@@ -33,29 +33,29 @@ const benefits = [
     icon: ShieldCheck,
     title: 'Higiene y Seguridad',
     description: 'Protocolos estrictos de limpieza y desinfección para tu tranquilidad.',
-    color: 'text-emerald-500',
-    bgColor: 'bg-emerald-500/10',
+    color: 'text-[var(--color-status-success)]',
+    bgColor: 'bg-[var(--color-status-success-bg)]',
   },
   {
     icon: Clock,
     title: 'Puntualidad Garantizada',
     description: 'Respetamos tu tiempo. Tu cita comenzará a la hora programada.',
-    color: 'text-rose-400',
-    bgColor: 'bg-rose-400/10',
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted',
   },
   {
     icon: Heart,
     title: 'Atención Personalizada',
     description: 'Cada tratamiento se adapta a tus necesidades y preferencias únicas.',
-    color: 'text-pink-400',
-    bgColor: 'bg-pink-400/10',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
   },
   {
     icon: Users,
     title: 'Ambiente Acogedor',
     description: 'Un espacio diseñado para que te relajes y disfrutes de la experiencia.',
-    color: 'text-rose-300',
-    bgColor: 'bg-rose-300/10',
+    color: 'text-secondary-foreground',
+    bgColor: 'bg-secondary',
   },
 ];
 
@@ -99,10 +99,10 @@ export function WhyChooseUs() {
             return (
               <div
                 key={index}
-                className="group relative bg-card rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 border border-border/50 hover:border-primary/20"
+                className="group relative bg-card rounded-2xl p-6 shadow-sm hover-lift transition-all duration-300 border border-border/50 hover:border-primary/20"
               >
                 {/* Icono */}
-                <div className={`w-14 h-14 rounded-xl ${benefit.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                <div className={`size-14 rounded-xl ${benefit.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
                   <IconComponent className={`h-7 w-7 ${benefit.color}`} />
                 </div>
 

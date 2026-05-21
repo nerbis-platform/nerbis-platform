@@ -58,7 +58,7 @@ export function CouponInput() {
                   Cupón: <span className="text-primary">{appliedCoupon.code}</span>
                 </p>
                 {isPendingCoupon && (
-                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded shrink-0">
+                  <span className="text-xs bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] px-2 py-0.5 rounded shrink-0">
                     Pendiente
                   </span>
                 )}
@@ -88,9 +88,9 @@ export function CouponInput() {
 
         {/* Advertencias para cupón pendiente */}
         {isPendingCoupon && couponWarnings.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-amber-200">
+          <div className="mt-3 pt-3 border-t border-[var(--color-status-warning-bg)]">
             {couponWarnings.map((warning, index) => (
-              <div key={index} className="flex items-start gap-2 text-xs text-amber-700 mt-1">
+              <div key={index} className="flex items-start gap-2 text-xs text-[var(--color-status-warning)] mt-1">
                 <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
                 <span>{warning}</span>
               </div>
@@ -110,7 +110,7 @@ export function CouponInput() {
 
   // Formulario para aplicar cupón
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -139,7 +139,7 @@ export function CouponInput() {
 
       {/* Mensaje de éxito */}
       {successMessage && (
-        <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 rounded-md p-2">
+        <div className="flex items-center gap-2 text-sm text-[var(--color-status-success)] bg-[var(--color-status-success-bg)] rounded-md p-2">
           <CheckCircle2 className="h-4 w-4" />
           <span>{successMessage}</span>
         </div>

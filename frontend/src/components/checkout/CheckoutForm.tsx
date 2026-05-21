@@ -64,7 +64,7 @@ export function CheckoutForm({ orderId, paymentIntentId, onSuccess }: CheckoutFo
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <PaymentElement />
       
       <Button

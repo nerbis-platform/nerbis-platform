@@ -56,9 +56,9 @@ export function StarRating({
               className={cn(
                 sizeClasses[size],
                 isFilled
-                  ? 'fill-yellow-400 text-yellow-400'
-                  : 'fill-gray-200 text-gray-200',
-                interactive && 'hover:fill-yellow-300 hover:text-yellow-300'
+                  ? 'fill-[var(--color-status-warning)] text-[var(--color-status-warning)]'
+                  : 'fill-muted text-muted',
+                interactive && 'hover:fill-[var(--color-status-warning)] hover:text-[var(--color-status-warning)] hover:opacity-80'
               )}
             />
           </button>
