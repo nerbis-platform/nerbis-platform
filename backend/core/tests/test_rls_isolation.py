@@ -66,12 +66,19 @@ def _exec_as_app(sql: str, params=None, tenant_id=None) -> list:
                 )
             else:
                 cursor.execute("SELECT set_config('app.current_tenant_id', '', false)")
-            cursor.execute(sql, params)
-            if cursor.description:
-                results = cursor.fetchall()
-            else:
-                # Para UPDATE/DELETE, guardar rowcount
-                results = cursor.rowcount
+            # SAVEPOINT para poder recuperarse de errores (ej: RLS violation)
+            # sin romper la transaccion de Django TestCase.
+            cursor.execute("SAVEPOINT rls_test")
+            try:
+                cursor.execute(sql, params)
+                if cursor.description:
+                    results = cursor.fetchall()
+                else:
+                    results = cursor.rowcount
+                cursor.execute("RELEASE SAVEPOINT rls_test")
+            except Exception:
+                cursor.execute("ROLLBACK TO SAVEPOINT rls_test")
+                raise
         finally:
             cursor.execute("RESET ROLE")
             cursor.execute("SELECT set_config('app.current_tenant_id', '', false)")
@@ -324,7 +331,51 @@ class TestRLSCrossTenantMutation(RLSTestMixin, TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Test 5: Sin tenant_id no se ven filas
+# Test 5: INSERT cross-tenant bloqueado por WITH CHECK
+# ---------------------------------------------------------------------------
+@pytest.mark.django_db(transaction=True)
+class TestRLSInsertProtection(RLSTestMixin, TestCase):
+    """Verificar que WITH CHECK impide INSERT con tenant_id distinto al seteado."""
+
+    # Columnas NOT NULL de core_banner (excepto id que es auto-increment)
+    _BANNER_COLS = (
+        "tenant_id, name, message, link_text, banner_type, position, "
+        "background_color, text_color, is_active, is_dismissible, "
+        "priority, rotation_interval, created_at, updated_at"
+    )
+    _BANNER_VALS = "%s, 'Intruso', 'No deberia existir', '', 'info', 'top', '', '', true, false, 0, 0, now(), now()"
+    _BANNER_VALS_OK = (
+        "%s, 'Legitimo', 'Creado correctamente', '', 'info', 'top', '', '', true, false, 0, 0, now(), now()"
+    )
+
+    def test_insert_with_wrong_tenant_id_is_rejected(self):
+        """INSERT de banner con tenant_id de A mientras app.current_tenant_id es B."""
+        with pytest.raises(Exception) as exc_info:
+            _exec_as_app(
+                f"INSERT INTO core_banner ({self._BANNER_COLS}) VALUES ({self._BANNER_VALS})",
+                [str(self.tenant_a.id)],
+                tenant_id=self.tenant_b.id,
+            )
+
+        error_msg = str(exc_info.value).lower()
+        assert "row-level security" in error_msg or "policy" in error_msg, f"Error inesperado: {exc_info.value}"
+
+        # Verificar que el banner no se creo
+        assert not Banner.objects.filter(name="Intruso").exists()
+
+    def test_insert_with_correct_tenant_id_succeeds(self):
+        """INSERT de banner con tenant_id correcto (mismo que app.current_tenant_id)."""
+        _exec_as_app(
+            f"INSERT INTO core_banner ({self._BANNER_COLS}) VALUES ({self._BANNER_VALS_OK})",
+            [str(self.tenant_a.id)],
+            tenant_id=self.tenant_a.id,
+        )
+
+        assert Banner.objects.filter(name="Legitimo", tenant=self.tenant_a).exists()
+
+
+# ---------------------------------------------------------------------------
+# Test 6: Sin tenant_id no se ven filas (moved from Test 5)
 # ---------------------------------------------------------------------------
 @pytest.mark.django_db(transaction=True)
 class TestRLSNoTenantContext(RLSTestMixin, TestCase):
@@ -356,7 +407,7 @@ class TestRLSNoTenantContext(RLSTestMixin, TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Test 6: Verificar RLS habilitado en TODAS las tablas criticas
+# Test 7: Verificar RLS habilitado en TODAS las tablas criticas
 # ---------------------------------------------------------------------------
 @pytest.mark.django_db
 class TestRLSAllCriticalTables(TestCase):
