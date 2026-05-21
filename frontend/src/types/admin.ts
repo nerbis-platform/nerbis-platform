@@ -351,3 +351,132 @@ export interface AdminAuditLogEntry {
   ip_address: string | null;
   created_at: string;
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Platform settings — modules, pages, onboarding questions (Issue #TBD)
+// ──────────────────────────────────────────────────────────────────────
+
+/** Compact reference to a module, used in dependency/relation lists. */
+export interface AdminModuleRef {
+  id: number;
+  key: string;
+  label: string;
+}
+
+/**
+ * Platform module returned by `GET /api/admin/settings/modules/`.
+ * Mirrors `AdminPlatformModuleSerializer`.
+ */
+export interface AdminPlatformModule {
+  id: number;
+  key: string;
+  label: string;
+  description: string;
+  icon: string;
+  accent_color: string;
+  is_active: boolean;
+  sort_order: number;
+  dependencies: number[];
+  dependencies_detail: AdminModuleRef[];
+}
+
+/**
+ * Payload accepted by `POST/PATCH /api/admin/settings/modules/`.
+ * Mirrors `AdminPlatformModuleCreateUpdateSerializer`.
+ */
+export interface AdminPlatformModulePayload {
+  key: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  accent_color?: string;
+  is_active?: boolean;
+  sort_order?: number;
+  dependencies?: number[];
+}
+
+/**
+ * Website page returned by `GET /api/admin/settings/pages/`.
+ * Mirrors `AdminWebsitePageSerializer`.
+ */
+export interface AdminWebsitePage {
+  id: number;
+  key: string;
+  label: string;
+  description: string;
+  icon: string;
+  is_mandatory: boolean;
+  is_default: boolean;
+  sort_order: number;
+  is_active: boolean;
+  auto_include_modules: number[];
+  auto_include_modules_detail: AdminModuleRef[];
+}
+
+/**
+ * Payload accepted by `POST/PATCH /api/admin/settings/pages/`.
+ * Mirrors `AdminWebsitePageCreateUpdateSerializer`.
+ */
+export interface AdminWebsitePagePayload {
+  key: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  is_mandatory?: boolean;
+  is_default?: boolean;
+  sort_order?: number;
+  is_active?: boolean;
+  auto_include_modules?: number[];
+}
+
+/**
+ * Onboarding question returned by `GET /api/admin/settings/questions/`.
+ * Mirrors `AdminOnboardingQuestionSerializer`.
+ */
+export interface AdminOnboardingQuestion {
+  id: number;
+  question_key: string;
+  question_text: string;
+  question_type: string;
+  message: string;
+  input_type: string;
+  hint: string;
+  placeholder: string;
+  help_text: string;
+  options: Record<string, unknown> | null;
+  ai_context: string;
+  section: string;
+  sort_order: number;
+  is_active: boolean;
+  is_required: boolean;
+  min_length: number | null;
+  max_length: number | null;
+  template: number | null;
+  required_modules: number[];
+  required_modules_detail: AdminModuleRef[];
+}
+
+/**
+ * Payload accepted by `POST/PATCH /api/admin/settings/questions/`.
+ * Mirrors `AdminOnboardingQuestionCreateUpdateSerializer`.
+ */
+export interface AdminOnboardingQuestionPayload {
+  question_key: string;
+  question_text: string;
+  question_type?: string;
+  message?: string;
+  input_type?: string;
+  hint?: string;
+  placeholder?: string;
+  help_text?: string;
+  options?: Record<string, unknown> | null;
+  ai_context?: string;
+  section?: string;
+  sort_order?: number;
+  is_active?: boolean;
+  is_required?: boolean;
+  min_length?: number | null;
+  max_length?: number | null;
+  template?: number | null;
+  required_modules?: number[];
+}

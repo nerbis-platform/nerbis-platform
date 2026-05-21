@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Building2, LogOut, ShieldCheck, Users } from 'lucide-react';
+import { ArrowRight, Building2, LogOut, Settings, ShieldCheck, Users } from 'lucide-react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { adminListTenants } from '@/lib/api/admin-tenants';
 import { adminListSuperadmins } from '@/lib/api/admin-auth';
@@ -179,6 +179,25 @@ export default function AdminDashboardPage() {
                 </h4>
                 <p className="mt-0.5 text-xs text-slate-500">
                   Planes, usuarios y estado de cada cuenta.
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-teal-500" />
+            </Link>
+
+            {/* Settings card */}
+            <Link
+              href="/admin/settings/modules"
+              className="group flex items-center gap-5 rounded-lg border border-slate-200 bg-white p-5 transition-all duration-200 hover:border-teal-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:ring-offset-2"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600 transition-colors group-hover:bg-teal-100">
+                <Settings className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-slate-900">
+                  Configuracion
+                </h4>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Modulos, paginas y preguntas de onboarding.
                 </p>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-teal-500" />
