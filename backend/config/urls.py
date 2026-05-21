@@ -40,6 +40,14 @@ def health_check(request):
 
 
 # Importar el admin site personalizado de NERBIS
+from core.admin_settings_views import (
+    AdminOnboardingQuestionDetailView,
+    AdminOnboardingQuestionListCreateView,
+    AdminPlatformModuleDetailView,
+    AdminPlatformModuleListCreateView,
+    AdminWebsitePageDetailView,
+    AdminWebsitePageListCreateView,
+)
 from core.admin_site import nerbis_admin_site
 from core.admin_tenant_views import (
     AdminDeletePasskeyView,
@@ -199,6 +207,31 @@ urlpatterns = [
         "api/admin/users/<int:pk>/social/<str:provider>/",
         AdminUnlinkSocialView.as_view(),
         name="admin-users-unlink-social",
+    ),
+    # Admin settings — catálogos globales de plataforma
+    path(
+        "api/admin/settings/modules/", AdminPlatformModuleListCreateView.as_view(), name="admin-settings-modules-list"
+    ),
+    path(
+        "api/admin/settings/modules/<int:pk>/",
+        AdminPlatformModuleDetailView.as_view(),
+        name="admin-settings-modules-detail",
+    ),
+    path("api/admin/settings/pages/", AdminWebsitePageListCreateView.as_view(), name="admin-settings-pages-list"),
+    path(
+        "api/admin/settings/pages/<int:pk>/",
+        AdminWebsitePageDetailView.as_view(),
+        name="admin-settings-pages-detail",
+    ),
+    path(
+        "api/admin/settings/questions/",
+        AdminOnboardingQuestionListCreateView.as_view(),
+        name="admin-settings-questions-list",
+    ),
+    path(
+        "api/admin/settings/questions/<int:pk>/",
+        AdminOnboardingQuestionDetailView.as_view(),
+        name="admin-settings-questions-detail",
     ),
     # Webhooks (sin middleware de tenant)
     path("api/webhooks/stripe/", stripe_webhook, name="stripe-webhook"),

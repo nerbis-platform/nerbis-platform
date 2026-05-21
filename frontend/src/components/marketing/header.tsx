@@ -19,7 +19,7 @@ export function MarketingHeader() {
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center">
-          <NerbisWordmark size={18} className="text-white" />
+          <NerbisWordmark size={18} className="text-white" variant="full" pipeCalm />
         </Link>
 
         {/* Desktop nav */}

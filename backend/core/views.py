@@ -1350,6 +1350,7 @@ class PlatformModuleListView(generics.ListAPIView):
 
     permission_classes = [IsAuthenticated]
     serializer_class = PlatformModuleSerializer
+    pagination_class = None
     queryset = PlatformModule.objects.filter(is_active=True)
 
 

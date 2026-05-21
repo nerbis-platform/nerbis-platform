@@ -1,74 +1,79 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { PipeAvatar, PipeStatic } from '@/components/pipe-avatar';
+import type { PipeMood } from '@/components/pipe-avatar';
 
 interface NerbisWordmarkProps {
   size?: number;
   className?: string;
-  dark?: boolean;
+  variant?: 'full' | 'text';
+  pipeMood?: PipeMood;
+  pipeSize?: number;
+  pipeCalm?: boolean;
 }
 
-export function NerbisWordmark({ size = 18, className = '' }: NerbisWordmarkProps) {
-  const containerRef = useRef<HTMLSpanElement>(null);
-  const dotRef = useRef<HTMLSpanElement>(null);
-  const iRef = useRef<HTMLElement>(null);
+export function NerbisWordmark({
+  size = 18,
+  className = '',
+  variant = 'text',
+  pipeMood = 'idle',
+  pipeSize,
+  pipeCalm = false,
+}: NerbisWordmarkProps) {
+  if (variant === 'full') {
+    const avatarSize = pipeSize ?? size * 1.8;
 
-  useEffect(() => {
-    const container = containerRef.current;
-    const dot = dotRef.current;
-    const iSpan = iRef.current;
-    if (!container || !dot || !iSpan) return;
+    return (
+      <span
+        className={className}
+        style={{
+          display: 'inline-flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: `${size * 0.4}px`,
+        }}
+      >
+        <PipeAvatar mood={pipeMood} size={avatarSize} calm={pipeCalm} />
+        <span
+          style={{
+            fontWeight: 800,
+            fontSize: `${size}px`,
+            letterSpacing: '-0.02em',
+            lineHeight: 1,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          NERBIS
+        </span>
+      </span>
+    );
+  }
 
-    const position = () => {
-      const parentRect = container.getBoundingClientRect();
-      const iRect = iSpan.getBoundingClientRect();
-      const fontSize = size;
-      const dotSize = fontSize * 0.22;
-      const lsOffset = fontSize * 0.05 / 2;
-      const iCenterX = (iRect.left + iRect.right) / 2 - parentRect.left + lsOffset;
-
-      dot.style.width = `${dotSize}px`;
-      dot.style.height = `${dotSize}px`;
-      dot.style.left = `${iCenterX - dotSize / 2}px`;
-      dot.style.top = '0px';
-    };
-
-    // Position after fonts load
-    if (document.fonts?.ready) {
-      document.fonts.ready.then(position);
-    } else {
-      position();
-    }
-
-    window.addEventListener('resize', position);
-    return () => window.removeEventListener('resize', position);
-  }, [size]);
+  // variant="text" — wordmark with static Pipe 3D face above
+  const dotSize = pipeSize ?? size * 1.2;
 
   return (
     <span
-      ref={containerRef}
       className={className}
       style={{
-        position: 'relative',
-        display: 'inline-block',
-        fontWeight: 800,
-        fontSize: `${size}px`,
-        letterSpacing: '-0.05em',
-        lineHeight: 1,
-        whiteSpace: 'nowrap',
-        paddingTop: '0.14em',
+        display: 'inline-flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: `${size * 0.1}px`,
       }}
     >
-      NERB<i ref={iRef} style={{ fontStyle: 'normal' }}>I</i>S
+      <PipeStatic size={dotSize} />
       <span
-        ref={dotRef}
         style={{
-          position: 'absolute',
-          background: '#0D9488',
-          borderRadius: '50%',
-          pointerEvents: 'none',
+          fontWeight: 800,
+          fontSize: `${size}px`,
+          letterSpacing: '-0.05em',
+          lineHeight: 1,
+          whiteSpace: 'nowrap',
         }}
-      />
+      >
+        NERBIS
+      </span>
     </span>
   );
 }
