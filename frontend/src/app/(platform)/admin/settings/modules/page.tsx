@@ -46,16 +46,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -278,6 +268,10 @@ export default function AdminModulesPage() {
   function openCreate() {
     setEditing(null);
     resetForm();
+    const maxOrder = modules.length > 0
+      ? Math.max(...modules.map((m) => m.sort_order))
+      : -1;
+    setFormSortOrder(maxOrder + 1);
     setDialogOpen(true);
   }
 
@@ -353,19 +347,22 @@ export default function AdminModulesPage() {
 
   // ── Delete ──────────────────────────────────────────────────────────
   async function handleDelete() {
-    if (!deleteTarget) return;
+    const target = deleteTarget;
+    if (!target) return;
     setDeleting(true);
     try {
-      await adminDeleteModule(deleteTarget.id);
-      toast.success(`Modulo "${deleteTarget.label}" eliminado.`);
+      await adminDeleteModule(target.id);
       setDeleteTarget(null);
+      toast.success(`Modulo "${target.label}" eliminado.`);
       void loadModules();
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'No se pudo eliminar el modulo.';
-      toast.error(message);
+    } catch (err: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const resp = (err as any)?.response?.data;
+      const detail = typeof resp === 'object' && resp !== null
+        ? resp.detail || JSON.stringify(resp)
+        : (err instanceof Error ? err.message : 'No se pudo eliminar el modulo.');
+      setDeleteTarget(null);
+      toast.error(detail);
     } finally {
       setDeleting(false);
     }
@@ -595,16 +592,11 @@ export default function AdminModulesPage() {
 
                     {/* Color */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="inline-block h-4 w-4 shrink-0 rounded-full border border-slate-200"
-                          style={{ backgroundColor: mod.accent_color }}
-                          aria-hidden="true"
-                        />
-                        <code className="text-xs text-slate-600">
-                          {mod.accent_color}
-                        </code>
-                      </div>
+                      <span
+                        className="inline-block h-5 w-5 rounded-full border border-slate-200"
+                        style={{ backgroundColor: mod.accent_color }}
+                        title={mod.accent_color}
+                      />
                     </td>
 
                     {/* Dependencias */}
@@ -805,17 +797,14 @@ export default function AdminModulesPage() {
                 <div className="flex items-center gap-2">
                   <input
                     id="mod-color"
-                    type="text"
+                    type="color"
                     value={formAccentColor}
                     onChange={(e) => setFormAccentColor(e.target.value)}
-                    placeholder="#0D9488"
-                    className="h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
+                    className="h-10 w-10 shrink-0 cursor-pointer rounded-lg border border-slate-200 bg-white p-1"
                   />
-                  <span
-                    className="h-10 w-10 shrink-0 rounded-lg border border-slate-200"
-                    style={{ backgroundColor: formAccentColor }}
-                    aria-hidden="true"
-                  />
+                  <span className="text-sm text-slate-500">
+                    {formAccentColor}
+                  </span>
                 </div>
               </div>
             </div>
@@ -903,36 +892,42 @@ export default function AdminModulesPage() {
       </Dialog>
 
       {/* ── Delete Confirmation ──────────────────────────────────────── */}
-      <AlertDialog
+      <Dialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
+          if (!open && !deleting) setDeleteTarget(null);
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar modulo</AlertDialogTitle>
-            <AlertDialogDescription>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Eliminar modulo</DialogTitle>
+            <DialogDescription>
               {deleteTarget
                 ? `Se eliminara permanentemente el modulo "${deleteTarget.label}" (${deleteTarget.key}). Esta accion no se puede deshacer.`
                 : ''}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                void handleDelete();
-              }}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-500 focus:ring-red-500"
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
             >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDelete()}
+              disabled={deleting}
+              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+            >
+              {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
               {deleting ? 'Eliminando...' : 'Si, eliminar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

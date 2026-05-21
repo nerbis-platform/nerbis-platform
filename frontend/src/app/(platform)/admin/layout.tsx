@@ -12,6 +12,7 @@ import {
   AdminAuthProvider,
   useAdminAuth,
 } from '@/contexts/AdminAuthContext';
+import { Toaster } from '@/components/ui/sonner';
 
 function AdminGuard({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAdminAuth();
@@ -51,6 +52,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <AdminAuthProvider>
       <AdminGuard>{children}</AdminGuard>
+      <Toaster position="top-right" />
     </AdminAuthProvider>
   );
 }

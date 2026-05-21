@@ -77,8 +77,6 @@ const FALLBACK_MODULES: PlatformModule[] = [
   { key: 'has_shop', label: 'Tienda Online', description: 'Vende productos 24/7', icon: 'ShoppingCart', accent_color: '#0D9488', sort_order: 1, dependencies: [] },
   { key: 'has_services', label: 'Servicios', description: 'Muestra y vende tus servicios', icon: 'Briefcase', accent_color: '#6366F1', sort_order: 2, dependencies: [] },
   { key: 'has_bookings', label: 'Reservas', description: 'Agenda de citas online', icon: 'Calendar', accent_color: '#F59E0B', sort_order: 3, dependencies: ['has_services'] },
-  { key: 'has_blog', label: 'Blog', description: 'Publica artículos y contenido', icon: 'FileText', accent_color: '#EC4899', sort_order: 4, dependencies: [] },
-  { key: 'has_management', label: 'Gestión Comercial', description: 'Contratos, staff, reportes', icon: 'Settings', accent_color: '#64748B', sort_order: 5, dependencies: [] },
 ];
 
 const FALLBACK_PAGES: WebsitePage[] = [
