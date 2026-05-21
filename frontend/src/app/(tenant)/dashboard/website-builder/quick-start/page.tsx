@@ -454,8 +454,34 @@ export default function QuickStartPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const modules = apiModules ?? [];
+  const modules = apiModules ?? FALLBACK_MODULES;
   const pages = apiPages ?? FALLBACK_PAGES;
+
+  // ─── Dependency helpers ─────────────────────────────────────
+  const toggleModule = useCallback((modKey: keyof ModuleSelection) => {
+    setSelectedModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(modKey)) {
+        // Deselect: also remove modules that depend on this one
+        next.delete(modKey);
+        for (const m of modules) {
+          if (m.dependencies.includes(modKey) && next.has(m.key as keyof ModuleSelection)) {
+            next.delete(m.key as keyof ModuleSelection);
+          }
+        }
+      } else {
+        // Select: also add its dependencies
+        next.add(modKey);
+        const mod = modules.find((m) => m.key === modKey);
+        if (mod) {
+          for (const dep of mod.dependencies) {
+            next.add(dep as keyof ModuleSelection);
+          }
+        }
+      }
+      return next;
+    });
+  }, [modules]);
 
   // ─── Conversation state ───────────────────────────────────
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
@@ -935,16 +961,13 @@ export default function QuickStartPage() {
                               key={mod.key}
                               type="button"
                               onClick={() => {
-                                const next = new Set(selectedModules);
+                                toggleModule(modKey);
                                 if (isSelected) {
-                                  next.delete(modKey);
                                   setActiveMood('listening');
                                 } else {
-                                  next.add(modKey);
                                   setActiveMood('happy');
                                   setTimeout(() => setActiveMood('listening'), 900);
                                 }
-                                setSelectedModules(next);
                               }}
                               className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
                               style={{
@@ -1191,16 +1214,13 @@ export default function QuickStartPage() {
                           key={mod.key}
                           type="button"
                           onClick={() => {
-                            const next = new Set(selectedModules);
+                            toggleModule(modKey);
                             if (isSelected) {
-                              next.delete(modKey);
                               setActiveMood('listening');
                             } else {
-                              next.add(modKey);
                               setActiveMood('happy');
                               setTimeout(() => setActiveMood('listening'), 900);
                             }
-                            setSelectedModules(next);
                           }}
                           className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300"
                           style={{
