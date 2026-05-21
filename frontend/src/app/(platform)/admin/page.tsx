@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { PipeAdmin } from '@/components/pipe-avatar';
 import { ArrowRight, Building2, LogOut, Settings, ShieldCheck, Users } from 'lucide-react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { adminListTenants } from '@/lib/api/admin-tenants';
@@ -44,33 +44,24 @@ export default function AdminDashboardPage() {
     <div className="min-h-screen bg-slate-50">
       {/* Header bar */}
       <header
-        className="relative overflow-hidden border-b border-white/10"
+        className="relative overflow-hidden border-b border-white/5"
         style={{
           background:
-            'linear-gradient(135deg, #0f2233 0%, #1C3B57 50%, #1a4a5e 100%)',
+            'linear-gradient(135deg, #1C1917 0%, #231F1E 50%, #1C1917 100%)',
         }}
       >
         {/* Subtle glow */}
         <div
-          className="absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-15 blur-3xl"
-          style={{ background: 'radial-gradient(circle, #0D9488, transparent 70%)' }}
+          className="absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-[0.07] blur-3xl"
+          style={{ background: 'radial-gradient(circle, #4A7DA8, transparent 70%)' }}
         />
 
         <div className="relative z-10 mx-auto flex max-w-5xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
-              <Image
-                src="/Isotipo_color_NERBIS.png"
-                alt=""
-                width={24}
-                height={24}
-                className="brightness-0 invert"
-                aria-hidden="true"
-              />
-            </div>
+            <PipeAdmin size={40} />
             <div>
-              <h1 className="text-lg font-semibold tracking-[0.12em] text-white">
-                NERBIS
+              <h1 className="text-lg font-extrabold tracking-[-0.02em] text-white">
+                NERBIS <span className="text-sm font-medium tracking-normal text-teal-300/80">Admin</span>
               </h1>
               <p className="text-xs text-white/60">
                 {admin?.email ?? 'superadmin'}

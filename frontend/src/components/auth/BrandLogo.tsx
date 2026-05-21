@@ -1,10 +1,13 @@
 // src/components/auth/BrandLogo.tsx
 // NERBIS brand logo for the auth brand panel.
+// Uses the shared PipeAvatar for consistent brand identity.
 
-import Image from 'next/image';
+'use client';
+
+import { PipeAvatar } from '@/components/pipe-avatar';
 
 interface BrandLogoProps {
-  /** Logo image size in pixels. Defaults to 34. */
+  /** Pipe avatar size in pixels. Defaults to 34. */
   size?: number;
   /** Additional CSS class names for the container. */
   className?: string;
@@ -13,17 +16,9 @@ interface BrandLogoProps {
 export function BrandLogo({ size = 34, className = '' }: BrandLogoProps) {
   return (
     <div className={`flex items-center gap-3.5 ${className}`}>
-      <Image
-        src="/Isotipo_color_NERBIS.png"
-        alt=""
-        width={size}
-        height={size}
-        className="brightness-0 invert g-pendulum"
-        aria-hidden="true"
-        priority
-      />
+      <PipeAvatar mood="idle" size={size} calm lookTarget="right" />
       <span
-        className="text-[1.15rem] tracking-[0.18em] text-[var(--auth-text-on-dark)]"
+        className="text-[1.15rem] tracking-[-0.02em] text-[var(--auth-text-on-dark)]"
         style={{
           fontFamily: 'var(--auth-font-brand)',
           fontWeight: 800,

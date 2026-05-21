@@ -5,9 +5,9 @@
 // `adminClient` (via `admin-settings` helpers) — never the tenant `apiClient`.
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { PipeAdmin } from '@/components/pipe-avatar';
 import {
   ArrowLeft,
   ChevronRight,
@@ -18,8 +18,10 @@ import {
   Plus,
   Power,
   PowerOff,
+  Search,
   Trash2,
 } from 'lucide-react';
+import { icons as lucideIcons, type LucideIcon } from 'lucide-react';
 import {
   adminCreateModule,
   adminDeleteModule,
@@ -60,6 +62,146 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+// ──────────────────────────────────────────────────────────────────────
+// Icon Picker
+// ──────────────────────────────────────────────────────────────────────
+
+const ICON_NAMES = [
+  // Commerce
+  'ShoppingCart', 'ShoppingBag', 'Store', 'CreditCard', 'Wallet', 'Receipt', 'Barcode', 'QrCode', 'Tag', 'Tags', 'Percent', 'DollarSign', 'BadgeDollarSign', 'CircleDollarSign',
+  // Services & Work
+  'Briefcase', 'Building', 'Building2', 'Landmark', 'Factory', 'Warehouse', 'HardHat', 'Wrench', 'Hammer', 'Scissors', 'Paintbrush', 'Palette',
+  // Calendar & Time
+  'Calendar', 'CalendarDays', 'CalendarCheck', 'CalendarClock', 'Clock', 'Timer', 'Hourglass', 'AlarmClock',
+  // Communication
+  'Mail', 'MessageSquare', 'MessageCircle', 'Phone', 'PhoneCall', 'Send', 'Bell', 'BellRing', 'Megaphone', 'Radio',
+  // Content & Media
+  'FileText', 'File', 'Files', 'Newspaper', 'BookOpen', 'Book', 'Bookmark', 'PenTool', 'Pencil', 'Type', 'Image', 'Camera', 'Video', 'Film', 'Music', 'Mic',
+  // People & Social
+  'User', 'Users', 'UserPlus', 'UserCheck', 'Heart', 'Star', 'ThumbsUp', 'Award', 'Trophy', 'Crown', 'Gem',
+  // Navigation & UI
+  'Home', 'Search', 'Menu', 'Grid', 'List', 'Layout', 'LayoutGrid', 'Layers', 'Map', 'MapPin', 'Navigation', 'Compass', 'Globe', 'Link', 'ExternalLink',
+  // Health & Wellness
+  'Activity', 'Stethoscope', 'Pill', 'Syringe', 'Dumbbell', 'Apple', 'Salad', 'Coffee', 'Wine', 'UtensilsCrossed', 'ChefHat',
+  // Tech & Settings
+  'Settings', 'Cog', 'Sliders', 'Monitor', 'Smartphone', 'Tablet', 'Laptop', 'Wifi', 'Bluetooth', 'Cloud', 'Database', 'Server', 'Code', 'Terminal', 'Cpu',
+  // Transport
+  'Car', 'Bike', 'Plane', 'Ship', 'Train',
+  // Nature
+  'Sun', 'Moon', 'Flower', 'TreePine', 'Mountain', 'Umbrella', 'Snowflake', 'Flame', 'Zap', 'Droplets',
+  // Charts & Data
+  'BarChart', 'BarChart3', 'LineChart', 'PieChart', 'TrendingUp', 'TrendingDown', 'Target', 'Crosshair',
+  // Security
+  'Shield', 'ShieldCheck', 'Lock', 'Unlock', 'Key', 'Fingerprint', 'Eye', 'EyeOff',
+  // Misc
+  'Package', 'Box', 'Gift', 'Truck', 'Rocket', 'Sparkles', 'PartyPopper', 'Smile', 'Lightbulb', 'Info', 'HelpCircle', 'AlertCircle', 'CheckCircle', 'XCircle',
+] as const;
+
+function IconPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (icon: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return ICON_NAMES;
+    const q = search.toLowerCase();
+    return ICON_NAMES.filter((name) => name.toLowerCase().includes(q));
+  }, [search]);
+
+  const SelectedIcon = value ? (lucideIcons[value as keyof typeof lucideIcons] as LucideIcon | undefined) : null;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-10 w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm transition-colors hover:border-slate-300 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
+        >
+          {SelectedIcon ? (
+            <>
+              <SelectedIcon className="h-4 w-4 shrink-0 text-slate-700" />
+              <span className="truncate">{value}</span>
+            </>
+          ) : (
+            <span className="text-slate-400">Seleccionar icono...</span>
+          )}
+          <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 rotate-90 text-slate-400" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
+          <Search className="h-4 w-4 shrink-0 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar icono..."
+            className="h-8 w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+            autoFocus
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="text-xs text-slate-400 hover:text-slate-600"
+            >
+              Limpiar
+            </button>
+          )}
+        </div>
+        <ScrollArea className="h-64">
+          {filtered.length === 0 ? (
+            <p className="px-3 py-6 text-center text-sm text-slate-400">
+              No se encontraron iconos
+            </p>
+          ) : (
+            <div className="grid grid-cols-6 gap-1 p-2">
+              {filtered.map((name) => {
+                const Icon = lucideIcons[name as keyof typeof lucideIcons] as LucideIcon | undefined;
+                if (!Icon) return null;
+                const isSelected = value === name;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    title={name}
+                    onClick={() => {
+                      onChange(name);
+                      setOpen(false);
+                      setSearch('');
+                    }}
+                    className={`flex h-10 w-full items-center justify-center rounded-md transition-colors ${
+                      isSelected
+                        ? 'bg-teal-50 text-teal-700 ring-1 ring-teal-300'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className="h-4.5 w-4.5" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+        <div className="border-t border-slate-100 px-3 py-1.5 text-xs text-slate-400">
+          {filtered.length} icono{filtered.length !== 1 ? 's' : ''}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ──────────────────────────────────────────────────────────────────────
 // Component
@@ -148,7 +290,7 @@ export default function AdminModulesPage() {
     setFormAccentColor(mod.accent_color);
     setFormSortOrder(mod.sort_order);
     setFormIsActive(mod.is_active);
-    setFormDependencies(mod.dependencies);
+    setFormDependencies(mod.dependencies_detail?.map((d) => d.id) ?? []);
     setDialogOpen(true);
   }
 
@@ -245,33 +387,22 @@ export default function AdminModulesPage() {
     <div className="min-h-screen bg-slate-50">
       {/* Header bar */}
       <header
-        className="relative overflow-hidden border-b border-white/10"
+        className="relative overflow-hidden border-b border-white/5"
         style={{
           background:
-            'linear-gradient(135deg, #0f2233 0%, #1C3B57 50%, #1a4a5e 100%)',
+            'linear-gradient(135deg, #1C1917 0%, #231F1E 50%, #1C1917 100%)',
         }}
       >
         <div
-          className="absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-15 blur-3xl"
+          className="absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-[0.07] blur-3xl"
           style={{
             background: 'radial-gradient(circle, #0D9488, transparent 70%)',
           }}
         />
         <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
-            <Link
-              href="/admin"
-              aria-label="Volver al panel"
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 transition-colors hover:bg-white/15"
-            >
-              <Image
-                src="/Isotipo_color_NERBIS.png"
-                alt=""
-                width={24}
-                height={24}
-                className="brightness-0 invert"
-                aria-hidden="true"
-              />
+            <Link href="/admin" aria-label="Volver al panel">
+              <PipeAdmin size={32} />
             </Link>
             <div>
               <h1 className="text-lg font-semibold tracking-tight text-white">
@@ -292,7 +423,7 @@ export default function AdminModulesPage() {
             </button>
             <button
               onClick={logout}
-              className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.06] px-3.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
             >
               <LogOut className="h-4 w-4" aria-hidden="true" />
               Salir
@@ -447,9 +578,19 @@ export default function AdminModulesPage() {
 
                     {/* Icono */}
                     <td className="px-4 py-3 text-slate-600">
-                      <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">
-                        {mod.icon || '\u2014'}
-                      </code>
+                      {(() => {
+                        const Icon = mod.icon
+                          ? (lucideIcons[mod.icon as keyof typeof lucideIcons] as LucideIcon | undefined)
+                          : null;
+                        return Icon ? (
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            <span className="text-xs text-slate-400">{mod.icon}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">{'\u2014'}</span>
+                        );
+                      })()}
                     </td>
 
                     {/* Color */}
@@ -469,7 +610,7 @@ export default function AdminModulesPage() {
                     {/* Dependencias */}
                     <td className="px-4 py-3">
                       {mod.dependencies_detail.length === 0 ? (
-                        <span className="text-xs text-slate-400">\u2014</span>
+                        <span className="text-xs text-slate-400">{'\u2014'}</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {mod.dependencies_detail.map((dep) => (
@@ -649,20 +790,10 @@ export default function AdminModulesPage() {
             {/* Icon + Color row */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label
-                  htmlFor="mod-icon"
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                >
-                  Icono (Lucide)
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Icono
                 </label>
-                <input
-                  id="mod-icon"
-                  type="text"
-                  value={formIcon}
-                  onChange={(e) => setFormIcon(e.target.value)}
-                  placeholder="ej: ShoppingCart"
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
-                />
+                <IconPicker value={formIcon} onChange={setFormIcon} />
               </div>
               <div>
                 <label

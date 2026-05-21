@@ -6,7 +6,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { PipeAdmin } from '@/components/pipe-avatar';
 import { AlertTriangle, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
@@ -71,57 +71,45 @@ export default function AdminLoginPage() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
-      {/* Background — dark teal gradient */}
+      {/* Background — warm dark graphite */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            'linear-gradient(135deg, #0f2233 0%, #1C3B57 35%, #1a4a5e 65%, #1C3B57 100%)',
+            'linear-gradient(135deg, #1C1917 0%, #1C1917 40%, #231F1E 70%, #1C1917 100%)',
         }}
       />
 
-      {/* Subtle grid overlay */}
+      {/* Subtle grain texture */}
       <div
-        className="absolute inset-0 opacity-[0.04]"
+        className="pointer-events-none absolute inset-0 opacity-[0.06] mix-blend-overlay"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-          backgroundSize: '64px 64px',
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E\")",
+          backgroundRepeat: 'repeat',
+          backgroundSize: '182px',
         }}
       />
 
-      {/* Radial glow accents */}
+      {/* Subtle warm glow */}
       <div
-        className="absolute -top-32 -right-32 h-96 w-96 rounded-full opacity-20 blur-3xl"
-        style={{ background: 'radial-gradient(circle, #0D9488, transparent 70%)' }}
+        className="absolute -top-32 -right-32 h-96 w-96 rounded-full opacity-[0.07] blur-3xl"
+        style={{ background: 'radial-gradient(circle, #4A7DA8, transparent 70%)' }}
       />
       <div
-        className="absolute -bottom-48 -left-32 h-[30rem] w-[30rem] rounded-full opacity-10 blur-3xl"
-        style={{ background: 'radial-gradient(circle, #0D9488, transparent 70%)' }}
+        className="absolute -bottom-48 -left-32 h-[30rem] w-[30rem] rounded-full opacity-[0.05] blur-3xl"
+        style={{ background: 'radial-gradient(circle, #4A7DA8, transparent 70%)' }}
       />
 
       {/* Content */}
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-6 sm:py-12">
         {/* Logo / brand mark */}
         <div className="fade-up-auth mb-4 flex flex-col items-center gap-3 sm:mb-8">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 shadow-lg shadow-black/10 ring-1 ring-white/20 backdrop-blur-sm">
-            <Image
-              src="/Isotipo_color_NERBIS.png"
-              alt=""
-              width={32}
-              height={32}
-              className="brightness-0 invert"
-              aria-hidden="true"
-              priority
-            />
-          </div>
+          <PipeAdmin size={56} />
           <div className="text-center">
-            <h1 className="text-xl font-semibold tracking-[0.15em] text-white">
-              NERBIS
+            <h1 className="text-xl font-extrabold tracking-[-0.02em] text-white">
+              NERBIS <span className="text-base font-medium tracking-normal text-teal-300/80">Admin</span>
             </h1>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-widest text-white/60">
-              Panel de plataforma
-            </p>
           </div>
         </div>
 
@@ -239,7 +227,7 @@ export default function AdminLoginPage() {
               <button
                 type="submit"
                 disabled={submitting || !email || !password}
-                className="relative flex h-11 w-full items-center justify-center rounded-xl bg-teal-500 text-sm font-medium text-white shadow-lg shadow-teal-500/25 transition-all duration-200 hover:bg-teal-400 hover:shadow-teal-400/30 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:ring-offset-2 focus:ring-offset-[#1C3B57] disabled:opacity-40 disabled:shadow-none disabled:hover:bg-teal-500"
+                className="relative flex h-11 w-full items-center justify-center rounded-xl bg-teal-500 text-sm font-medium text-white shadow-lg shadow-teal-500/25 transition-all duration-200 hover:bg-teal-400 hover:shadow-teal-400/30 focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:ring-offset-2 focus:ring-offset-[#1C1917] disabled:opacity-40 disabled:shadow-none disabled:hover:bg-teal-500"
               >
                 {submitting ? (
                   <>
@@ -255,7 +243,7 @@ export default function AdminLoginPage() {
 
           {/* Footer */}
           <p className="mt-6 text-center text-xs text-white/50">
-            Acceso exclusivo para superadministradores de la plataforma.
+            Acceso exclusivo para administradores de la plataforma.
           </p>
         </div>
       </div>

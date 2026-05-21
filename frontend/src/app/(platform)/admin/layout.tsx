@@ -47,6 +47,7 @@ function AdminGuard({ children }: { children: ReactNode }) {
 }
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
+
   return (
     <AdminAuthProvider>
       <AdminGuard>{children}</AdminGuard>

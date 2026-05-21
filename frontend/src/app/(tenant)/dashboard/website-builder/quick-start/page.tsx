@@ -73,10 +73,12 @@ function getLucideIcon(name: string): React.ComponentType<{ className?: string; 
 
 // ─── Fallback data (used while API loads) ─────────────────
 const FALLBACK_MODULES: PlatformModule[] = [
-  { key: 'has_website', label: 'Sitio Web', description: 'Tu presencia online', icon: 'globe', accent_color: '#1C3B57', sort_order: 0, dependencies: [] },
-  { key: 'has_services', label: 'Servicios', description: 'Muestra y vende tus servicios', icon: 'briefcase', accent_color: '#8b5cf6', sort_order: 1, dependencies: ['has_website'] },
-  { key: 'has_bookings', label: 'Reservas', description: 'Agenda de citas online', icon: 'calendar-check', accent_color: '#6366f1', sort_order: 2, dependencies: ['has_website'] },
-  { key: 'has_shop', label: 'Tienda Online', description: 'Vende productos 24/7', icon: 'shopping-cart', accent_color: '#10b981', sort_order: 3, dependencies: ['has_website'] },
+  { key: 'has_website', label: 'Sitio Web', description: 'Tu presencia online', icon: 'Globe', accent_color: '#1C3B57', sort_order: 0, dependencies: [] },
+  { key: 'has_shop', label: 'Tienda Online', description: 'Vende productos 24/7', icon: 'ShoppingCart', accent_color: '#0D9488', sort_order: 1, dependencies: [] },
+  { key: 'has_services', label: 'Servicios', description: 'Muestra y vende tus servicios', icon: 'Briefcase', accent_color: '#6366F1', sort_order: 2, dependencies: [] },
+  { key: 'has_bookings', label: 'Reservas', description: 'Agenda de citas online', icon: 'Calendar', accent_color: '#F59E0B', sort_order: 3, dependencies: ['has_services'] },
+  { key: 'has_blog', label: 'Blog', description: 'Publica artículos y contenido', icon: 'FileText', accent_color: '#EC4899', sort_order: 4, dependencies: [] },
+  { key: 'has_management', label: 'Gestión Comercial', description: 'Contratos, staff, reportes', icon: 'Settings', accent_color: '#64748B', sort_order: 5, dependencies: [] },
 ];
 
 const FALLBACK_PAGES: WebsitePage[] = [
@@ -452,7 +454,7 @@ export default function QuickStartPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const modules = apiModules ?? FALLBACK_MODULES;
+  const modules = apiModules ?? [];
   const pages = apiPages ?? FALLBACK_PAGES;
 
   // ─── Conversation state ───────────────────────────────────
@@ -715,8 +717,8 @@ export default function QuickStartPage() {
           has_shop: selectedModules.has('has_shop'),
           has_bookings: selectedModules.has('has_bookings'),
           has_services: selectedModules.has('has_services'),
-          has_marketing: false,
-          has_management: false,
+          has_marketing: selectedModules.has('has_marketing'),
+          has_management: selectedModules.has('has_management'),
         };
         const updatedTenant = await configureModules(payload);
         setTenant(updatedTenant);
@@ -923,7 +925,7 @@ export default function QuickStartPage() {
                   {/* Module grid + continue — same width as title */}
                   {step.type === 'modules' && (
                     <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100 space-y-12">
-                      <div className="grid grid-cols-4 gap-3">
+                      <div className="grid grid-cols-3 gap-3">
                         {modules.map((mod) => {
                           const modKey = mod.key as keyof ModuleSelection;
                           const isSelected = selectedModules.has(modKey);
@@ -936,16 +938,9 @@ export default function QuickStartPage() {
                                 const next = new Set(selectedModules);
                                 if (isSelected) {
                                   next.delete(modKey);
-                                  if (modKey !== 'has_website') {
-                                    const othersActive = modules.some(
-                                      (m) => m.key !== 'has_website' && m.key !== mod.key && next.has(m.key as keyof ModuleSelection)
-                                    );
-                                    if (!othersActive) next.delete('has_website');
-                                  }
                                   setActiveMood('listening');
                                 } else {
                                   next.add(modKey);
-                                  if (modKey !== 'has_website') next.add('has_website');
                                   setActiveMood('happy');
                                   setTimeout(() => setActiveMood('listening'), 900);
                                 }
@@ -1186,7 +1181,7 @@ export default function QuickStartPage() {
               {/* Modules selection (in conversation mode) */}
               {step.type === 'modules' && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-4 gap-2.5">
+                  <div className="grid grid-cols-3 gap-2.5">
                     {modules.map((mod) => {
                       const modKey = mod.key as keyof ModuleSelection;
                       const isSelected = selectedModules.has(modKey);
@@ -1199,16 +1194,9 @@ export default function QuickStartPage() {
                             const next = new Set(selectedModules);
                             if (isSelected) {
                               next.delete(modKey);
-                              if (modKey !== 'has_website') {
-                                const othersActive = modules.some(
-                                  (m) => m.key !== 'has_website' && m.key !== mod.key && next.has(m.key as keyof ModuleSelection)
-                                );
-                                if (!othersActive) next.delete('has_website');
-                              }
                               setActiveMood('listening');
                             } else {
                               next.add(modKey);
-                              if (modKey !== 'has_website') next.add('has_website');
                               setActiveMood('happy');
                               setTimeout(() => setActiveMood('listening'), 900);
                             }

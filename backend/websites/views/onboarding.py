@@ -444,6 +444,7 @@ class OnboardingQuestionListView(generics.ListAPIView):
 
     permission_classes = [IsAuthenticated]
     serializer_class = OnboardingQuestionSerializer
+    pagination_class = None
 
     def get_queryset(self):
         return (
@@ -462,6 +463,7 @@ class WebsitePageListView(generics.ListAPIView):
 
     permission_classes = [IsAuthenticated]
     serializer_class = WebsitePageSerializer
+    pagination_class = None
 
     def get_queryset(self):
         return (

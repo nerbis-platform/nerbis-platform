@@ -28,7 +28,7 @@ export function MarketingFooter() {
           {/* Brand */}
           <div>
             <Link href="/" className="flex items-center">
-              <NerbisWordmark size={18} className="text-white" />
+              <NerbisWordmark size={18} className="text-white" variant="full" pipeCalm pipeSize={32} />
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-zinc-500">
               Tu negocio online en 30 segundos.

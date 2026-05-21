@@ -31,10 +31,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
   },
   icons: {
-    icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
-      { url: '/favicon.ico', sizes: '48x48' },
-    ],
+    icon: { url: '/icon.svg', type: 'image/svg+xml' },
     apple: '/apple-icon.png',
   },
 };
