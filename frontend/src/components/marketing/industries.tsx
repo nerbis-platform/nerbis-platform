@@ -81,16 +81,16 @@ export function Industries() {
   }, { scope: sectionRef });
 
   return (
-    <section ref={sectionRef} id="industries" className="px-4 py-16 sm:px-6 sm:py-20" style={{ background: 'var(--color-surface-inverse)' }}>
+    <section ref={sectionRef} id="industries" className="bg-muted/50 px-4 py-16 sm:px-6 sm:py-20">
       <div className="mx-auto max-w-5xl">
         <div className="ind-heading invisible text-center">
-          <p className="text-sm font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             Verticales
           </p>
-          <h2 className="nerbis-display mt-4 text-3xl sm:text-4xl lg:text-5xl" style={{ color: 'var(--color-text-inverse)' }}>
+          <h2 className="nerbis-display mt-4 text-3xl text-foreground sm:text-4xl lg:text-5xl">
             Hecho para tu industria.
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
             Cada sitio se genera con el contenido, estructura y diseno optimo para tu tipo de negocio.
           </p>
         </div>
@@ -99,18 +99,17 @@ export function Industries() {
           {industries.map((industry) => (
             <div
               key={industry.name}
-              className="ind-pill invisible hover-lift group flex items-center gap-2.5 rounded-full border px-4 py-2.5 text-sm transition-all"
-              style={{ borderColor: 'var(--color-border-default)', background: 'color-mix(in oklch, var(--color-surface-raised) 80%, transparent)' }}
+              className="ind-pill invisible hover-lift group flex items-center gap-2.5 rounded-full border border-border bg-background px-4 py-2.5 text-sm transition-all"
             >
               <span className="text-base" role="img" aria-label={industry.name}>
                 {industry.emoji}
               </span>
-              <span className="transition-colors" style={{ color: 'var(--color-text-muted)' }}>
+              <span className="text-muted-foreground transition-colors">
                 {industry.name}
               </span>
             </div>
           ))}
-          <div className="ind-pill invisible flex items-center rounded-full border border-dashed px-4 py-2.5 text-sm" style={{ borderColor: 'var(--primitive-gray-700)', color: 'var(--color-text-disabled)' }}>
+          <div className="ind-pill invisible flex items-center rounded-full border border-dashed border-border px-4 py-2.5 text-sm text-muted-foreground/60">
             +7 mas
           </div>
         </div>

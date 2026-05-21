@@ -43,7 +43,7 @@ export default function MarketingLayout({
   }, { scope: containerRef });
 
   return (
-    <div ref={containerRef} className="min-h-screen" style={{ background: 'var(--color-surface-inverse)' }}>
+    <div ref={containerRef} className="min-h-screen bg-background">
       <MarketingHeader />
       <main className="page-content">{children}</main>
       <MarketingFooter />

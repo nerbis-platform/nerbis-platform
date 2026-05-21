@@ -91,13 +91,13 @@ export function ProblemSolution() {
   }, { scope: sectionRef });
 
   return (
-    <section ref={sectionRef} className="px-4 py-16 sm:px-6 sm:py-20" style={{ background: 'color-mix(in oklch, var(--color-surface-raised) 30%, transparent)' }}>
+    <section ref={sectionRef} className="bg-background px-4 py-16 sm:px-6 sm:py-20">
       <div className="mx-auto max-w-4xl">
         <div className="ps-heading invisible text-center">
-          <p className="text-sm font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             Por que NERBIS
           </p>
-          <h2 className="nerbis-display mt-4 text-3xl sm:text-4xl lg:text-5xl" style={{ color: 'var(--color-text-inverse)' }}>
+          <h2 className="nerbis-display mt-4 text-3xl text-foreground sm:text-4xl lg:text-5xl">
             Deja atras lo generico
           </h2>
         </div>
@@ -105,17 +105,16 @@ export function ProblemSolution() {
         <div className="ps-columns mt-16 grid gap-0 sm:grid-cols-2">
           {/* Before column */}
           <div className="ps-before invisible sm:pr-8" style={{ borderRight: '0 solid transparent' }}>
-            <p className="mb-6 text-sm font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-disabled)' }}>
+            <p className="mb-6 text-sm font-medium uppercase tracking-wide text-muted-foreground/60">
               Lo que haces hoy
             </p>
             {comparisons.map((item) => (
               <div
                 key={item.before}
-                className="flex items-start gap-3 py-4"
-                style={{ borderTop: `1px solid color-mix(in oklch, var(--color-border-default) 50%, transparent)` }}
+                className="flex items-start gap-3 border-t border-border/50 py-4"
               >
-                <span className="mt-0.5" style={{ color: 'var(--primitive-gray-700)' }} aria-hidden="true">&times;</span>
-                <span className="line-through" style={{ color: 'var(--color-text-muted)', textDecorationColor: 'var(--primitive-gray-700)' }}>
+                <span className="mt-0.5 text-muted-foreground/40" aria-hidden="true">&times;</span>
+                <span className="text-muted-foreground line-through decoration-muted-foreground/30">
                   {item.before}
                 </span>
               </div>
@@ -123,26 +122,25 @@ export function ProblemSolution() {
           </div>
 
           {/* After column */}
-          <div className="ps-after invisible mt-8 sm:mt-0 sm:border-l sm:pl-8" style={{ borderColor: 'var(--color-border-default)' }}>
-            <p className="mb-6 text-sm font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
+          <div className="ps-after invisible mt-8 border-border sm:mt-0 sm:border-l sm:pl-8">
+            <p className="mb-6 text-sm font-medium uppercase tracking-wide text-muted-foreground">
               Lo que haces con NERBIS
             </p>
             {comparisons.map((item) => (
               <div
                 key={item.after}
-                className="flex items-start gap-3 py-4"
-                style={{ borderTop: `1px solid color-mix(in oklch, var(--color-border-default) 50%, transparent)` }}
+                className="flex items-start gap-3 border-t border-border/50 py-4"
               >
                 <span
                   className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px]"
                   style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
                   aria-hidden="true"
                 >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--primitive-gray-950)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </span>
-                <span style={{ color: 'var(--color-text-inverse)' }}>{item.after}</span>
+                <span className="text-foreground">{item.after}</span>
               </div>
             ))}
           </div>

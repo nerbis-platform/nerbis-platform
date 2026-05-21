@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
+import { PipeAvatar } from '@/components/pipe-avatar';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -46,10 +47,10 @@ export function CtaFinal() {
   }, { scope: sectionRef });
 
   return (
-    <section ref={sectionRef} className="nerbis-grain relative overflow-hidden px-4 py-24 sm:px-6 sm:py-32" style={{ background: 'var(--color-surface-inverse)' }}>
+    <section ref={sectionRef} className="nerbis-grain relative overflow-hidden bg-foreground px-4 py-24 sm:px-6 sm:py-32">
       {/* Glow */}
       <div
-        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0"
+        className="pointer-events-none absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"
         aria-hidden="true"
       >
         <div
@@ -59,17 +60,18 @@ export function CtaFinal() {
       </div>
 
       <div className="cta-content invisible relative z-10 mx-auto max-w-3xl text-center">
-        <h2 className="nerbis-display text-3xl sm:text-4xl lg:text-5xl" style={{ color: 'var(--color-text-inverse)' }}>
+        <h2 className="nerbis-display text-3xl text-background sm:text-4xl lg:text-5xl">
           Tu negocio merece mas
           <br />
           que un template.
         </h2>
 
-        <div className="mt-10">
+        <div className="mt-10 flex items-center justify-center gap-4">
+          <PipeAvatar mood="happy" size={64} />
           <Link
             href="/register"
-            className="group inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-base font-medium transition-all hover:opacity-90"
-            style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)`, color: 'var(--color-text-inverse)' }}
+            className="group inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-base font-medium text-white transition-all hover:opacity-90"
+            style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
           >
             Crear mi tienda gratis
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
@@ -78,7 +80,7 @@ export function CtaFinal() {
           </Link>
         </div>
 
-        <p className="mt-6 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="mt-6 text-sm text-background/60">
           Sin tarjeta de credito. Sin compromisos.
         </p>
       </div>
