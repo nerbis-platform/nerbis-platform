@@ -28,7 +28,7 @@ export function Hero() {
         const { reduced } = context.conditions as { reduced: boolean; normal: boolean };
 
         if (reduced) {
-          gsap.set('.hero-pipe-wrap, .hero-title, .hero-subtitle, .hero-cta, .hero-preview', { autoAlpha: 1 });
+          gsap.set('.hero-pipe-wrap, .hero-title, .hero-subtitle, .hero-cta', { autoAlpha: 1 });
           return;
         }
 
@@ -38,8 +38,7 @@ export function Hero() {
         tl.from('.hero-pipe-wrap', { scale: 0.5, autoAlpha: 0, duration: 0.7 })
           .from('.hero-title', { y: 60, autoAlpha: 0, duration: 0.8 }, '-=0.3')
           .from('.hero-subtitle', { y: 40, autoAlpha: 0, duration: 0.6 }, '-=0.4')
-          .from('.hero-cta', { y: 30, autoAlpha: 0, duration: 0.5 }, '-=0.3')
-          .from('.hero-preview', { y: 40, autoAlpha: 0, scale: 0.97, duration: 0.8 }, '-=0.3');
+          .from('.hero-cta', { y: 30, autoAlpha: 0, duration: 0.5 }, '-=0.3');
 
         // Parallax on the glow element
         gsap.to('.hero-glow', {
@@ -123,69 +122,6 @@ export function Hero() {
           </span>
         </div>
 
-        {/* Product preview */}
-        <div className="hero-preview invisible mx-auto mt-14 max-w-3xl">
-          <div className="overflow-hidden rounded-xl shadow-2xl shadow-black/10 ring-1 ring-border">
-            {/* Browser chrome */}
-            <div className="flex items-center gap-2 border-b border-border bg-muted px-4 py-2.5">
-              <div className="flex gap-1.5">
-                <div className="h-2.5 w-2.5 rounded-full bg-red-400/60" />
-                <div className="h-2.5 w-2.5 rounded-full bg-yellow-400/60" />
-                <div className="h-2.5 w-2.5 rounded-full bg-green-400/60" />
-              </div>
-              <div className="mx-auto flex h-6 w-full max-w-[240px] items-center justify-center rounded bg-background px-3">
-                <span className="text-[11px] text-muted-foreground">misalon.nerbis.com</span>
-              </div>
-            </div>
-            {/* Site preview */}
-            <div className="bg-background">
-              {/* Nav */}
-              <div className="flex items-center justify-between border-b border-border px-5 py-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="h-5 w-5 rounded" style={{ background: 'var(--primitive-navy-700)' }} />
-                  <div className="h-2 w-16 rounded bg-foreground/70" />
-                </div>
-                <div className="hidden gap-4 sm:flex">
-                  <div className="h-1.5 w-10 rounded bg-muted-foreground/30" />
-                  <div className="h-1.5 w-8 rounded bg-muted-foreground/30" />
-                  <div className="h-1.5 w-12 rounded bg-muted-foreground/30" />
-                </div>
-                <div className="h-5 w-14 rounded-full" style={{ background: 'var(--primitive-brand-600)' }} />
-              </div>
-              {/* Hero of generated site */}
-              <div className="px-5 py-8 sm:px-8 sm:py-12">
-                <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10">
-                  <div className="flex flex-1 flex-col gap-2.5">
-                    <div className="h-1.5 w-16 rounded" style={{ background: 'color-mix(in oklch, var(--primitive-brand-600) 30%, transparent)' }} />
-                    <div className="h-4 w-52 max-w-full rounded bg-foreground/80" />
-                    <div className="h-4 w-40 max-w-full rounded bg-foreground/50" />
-                    <div className="mt-3 flex flex-col gap-1.5">
-                      <div className="h-2 w-full max-w-[220px] rounded bg-muted-foreground/20" />
-                      <div className="h-2 w-4/5 max-w-[180px] rounded bg-muted-foreground/15" />
-                    </div>
-                    <div className="mt-4 flex gap-2">
-                      <div className="h-7 w-20 rounded-full" style={{ background: 'var(--primitive-brand-600)' }} />
-                      <div className="h-7 w-16 rounded-full border border-border bg-background" />
-                    </div>
-                  </div>
-                  <div className="hidden aspect-square w-36 rounded-xl bg-muted sm:block" />
-                </div>
-              </div>
-              {/* Services cards */}
-              <div className="border-t border-border px-5 pb-5 pt-4 sm:px-8">
-                <div className="grid grid-cols-3 gap-2.5">
-                  {['Corte y Peinado', 'Color y Mechas', 'Tratamientos'].map((name) => (
-                    <div key={name} className="rounded-lg border border-border bg-background p-2.5">
-                      <div className="mb-2 h-10 rounded bg-muted" />
-                      <div className="h-1.5 w-3/4 rounded bg-foreground/40" />
-                      <div className="mt-1 h-1.5 w-1/2 rounded bg-muted-foreground/30" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );
