@@ -2,11 +2,6 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 
-// Deterministic counter for SVG gradient IDs — avoids useId() hydration mismatch
-// in Next.js App Router with RSC streaming. Safe because React renders components
-// in the same order on server and client.
-let _pipeIdCounter = 0;
-
 // ─── Colors ──────────────────────────────────────────────
 const TEAL = '#0D9488';
 const NAVY = '#1C3B57';
@@ -145,9 +140,9 @@ export function PipeAvatar({
 
   const eyes = MOOD_EYES[mood];
 
-  const uidRef = useRef<string | null>(null);
-  if (uidRef.current === null) uidRef.current = `pipe-${_pipeIdCounter++}`;
-  const uid = uidRef.current;
+  // Static IDs — all PipeAvatar gradients are identical (same teal colors),
+  // so sharing IDs across instances is visually correct and avoids hydration mismatch.
+  const uid = 'pipe-g';
   const containerRef = useRef<HTMLDivElement>(null);
   const [lookOffset, setLookOffset] = useState({ x: 0, y: 0 });
   const [tapped, setTapped] = useState(false);
@@ -330,9 +325,7 @@ export function PipeStatic({ size = 24 }: { size?: number }) {
   const eyeSpread = baseEyeSpread * eyes.gap;
   const eyeOffY = eyes.offsetY * s;
 
-  const uidRef = useRef<string | null>(null);
-  if (uidRef.current === null) uidRef.current = `pipe-s-${_pipeIdCounter++}`;
-  const uid = uidRef.current;
+  const uid = 'pipe-gs';
 
   return (
     <svg
@@ -395,9 +388,7 @@ export function PipeAdmin({ size = 36 }: { size?: number }) {
   const eyeSpread = baseEyeSpread * eyes.gap;
   const eyeOffY = eyes.offsetY * s;
 
-  const uidRef = useRef<string | null>(null);
-  if (uidRef.current === null) uidRef.current = `pipe-admin-${_pipeIdCounter++}`;
-  const uid = uidRef.current;
+  const uid = 'pipe-ga';
   const containerRef = useRef<HTMLDivElement>(null);
   const [lookOffset, setLookOffset] = useState({ x: 0, y: 0 });
 
