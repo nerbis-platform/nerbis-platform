@@ -26,10 +26,9 @@ function StatItem({ end, suffix, label }: StatItemProps) {
 }
 
 const stats = [
-  { end: 25, suffix: '+', label: 'industrias' },
-  { end: 30, suffix: 's', label: 'para tu sitio' },
-  { end: 100, suffix: '%', label: 'en espanol' },
-  { end: 0, suffix: '', label: 'comisiones' },
+  { end: 30, suffix: 's', label: 'Tiempo de generacion' },
+  { end: 12, suffix: '+', label: 'Industrias soportadas' },
+  { end: 50, suffix: '+', label: 'Componentes disponibles' },
 ];
 
 export function SocialProof() {

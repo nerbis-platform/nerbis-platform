@@ -6,6 +6,7 @@ import { HowItWorks } from '@/components/marketing/how-it-works';
 import { FeaturesGrid } from '@/components/marketing/features-grid';
 import { Industries } from '@/components/marketing/industries';
 import { CtaMid } from '@/components/marketing/cta-mid';
+import { Showcase } from '@/components/marketing/showcase';
 import { CtaFinal } from '@/components/marketing/cta-final';
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default function LandingPage() {
       <SocialProof />
       <ProblemSolution />
       <HowItWorks />
+      <Showcase />
       <FeaturesGrid />
       <CtaMid />
       <Industries />
