@@ -379,11 +379,11 @@ export default function SettingsTeamPage() {
         </h3>
         <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
           {[
-            { label: 'Total de miembros', value: counts.total, icon: Users, color: 'text-[#0D9488]', bg: 'bg-[rgba(13,148,136,0.08)]' },
+            { label: 'Total de miembros', value: counts.total, icon: Users, color: 'text-[#0D9488]', bg: 'bg-[rgba(13,148,136,0.08)]', alwaysShow: true },
             { ...ROLE_CONFIG.admin, label: 'Administradores', value: counts.admins },
             { ...ROLE_CONFIG.staff, label: 'Staff', value: counts.staff },
             { ...ROLE_CONFIG.customer, label: 'Clientes', value: counts.customers },
-          ].map((stat) => (
+          ].filter((stat) => stat.alwaysShow || stat.value > 0).map((stat) => (
             <div key={stat.label} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors">
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${stat.bg}`}>
