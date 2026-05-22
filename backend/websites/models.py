@@ -150,6 +150,9 @@ class OnboardingQuestion(models.Model):
         ("input", "Campo de texto"),
         ("multiselect", "Selección múltiple"),
         ("modules", "Selector de módulos"),
+        ("style_select", "Selector de estilo visual"),
+        ("color_picker", "Selector de colores"),
+        ("tone_select", "Selector de tono"),
     ]
 
     template = models.ForeignKey(
