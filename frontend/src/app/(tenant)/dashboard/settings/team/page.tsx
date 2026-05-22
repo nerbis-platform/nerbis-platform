@@ -383,7 +383,7 @@ export default function SettingsTeamPage() {
             { ...ROLE_CONFIG.admin, label: 'Administradores', value: counts.admins },
             { ...ROLE_CONFIG.staff, label: 'Staff', value: counts.staff },
             { ...ROLE_CONFIG.customer, label: 'Clientes', value: counts.customers },
-          ].filter((stat) => 'alwaysShow' in stat || stat.value > 0).map((stat) => (
+          ].filter((stat) => stat.alwaysShow || stat.value > 0).map((stat) => (
             <div key={stat.label} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors">
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${stat.bg}`}>
