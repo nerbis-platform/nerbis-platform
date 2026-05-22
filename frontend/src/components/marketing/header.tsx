@@ -35,14 +35,8 @@ export function MarketingHeader() {
           ))}
         </div>
 
-        {/* Desktop CTAs */}
-        <div className="hidden items-center gap-3 md:flex">
-          <Link
-            href="/login"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Iniciar sesion
-          </Link>
+        {/* Desktop CTA */}
+        <div className="hidden flex-col items-center md:flex">
           <Link
             href="/register"
             className="group inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90"
@@ -52,6 +46,12 @@ export function MarketingHeader() {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
+          </Link>
+          <Link
+            href="/login"
+            className="mt-0.5 text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground"
+          >
+            ¿Ya tienes cuenta?
           </Link>
         </div>
 
@@ -83,13 +83,6 @@ export function MarketingHeader() {
               </Link>
             ))}
             <hr className="my-2 border-border" />
-            <Link
-              href="/login"
-              className="rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-              onClick={() => setMobileOpen(false)}
-            >
-              Iniciar sesion
-            </Link>
             <Link
               href="/register"
               className="group mt-1 inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-center text-sm font-medium text-white transition-all hover:opacity-90"

@@ -131,7 +131,9 @@ export function Hero() {
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </Link>
-          <span className="text-xs text-muted-foreground">Sin tarjeta de credito</span>
+          <span className="text-xs text-muted-foreground">
+            Sin tarjeta de credito · <Link href="/login" className="underline underline-offset-2 transition-colors hover:text-foreground">¿Ya tienes cuenta?</Link>
+          </span>
         </div>
 
         {/* Product preview */}

@@ -36,6 +36,7 @@ const footerColumns = [
       { label: 'API Docs', href: '#' },
       { label: 'Estado del Servicio', href: '#' },
       { label: 'Comunidad', href: '#' },
+      { label: 'Iniciar Sesión', href: '/login' },
     ],
   },
   {
