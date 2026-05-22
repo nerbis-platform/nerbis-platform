@@ -9,17 +9,13 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { PipeAdmin } from '@/components/pipe-avatar';
 import {
-  ArrowLeft,
   Building2,
   Calendar,
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
   Globe2,
   Loader2,
-  LogOut,
   Mail,
   MapPin,
   Pencil,
@@ -33,7 +29,6 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import {
   adminGetTenant,
   adminListTenantUsers,
@@ -429,7 +424,6 @@ export default function AdminTenantDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { admin, logout } = useAdminAuth();
 
   // ── Tenant detail ───────────────────────────────────────────────────
   const [tenant, setTenant] = useState<AdminTenantDetail | null>(null);
@@ -698,78 +692,18 @@ export default function AdminTenantDetailPage({
   ) : null;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header bar */}
-      <header
-        className="relative overflow-hidden border-b border-white/5"
-        style={{
-          background:
-            'linear-gradient(135deg, #1C1917 0%, #231F1E 50%, #1C1917 100%)',
-        }}
-      >
-        <div
-          className="absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-[0.07] blur-3xl"
-          style={{
-            background: 'radial-gradient(circle, #0D9488, transparent 70%)',
-          }}
-        />
-        <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <Link href="/admin/tenants" aria-label="Volver a tenants">
-              <PipeAdmin size={32} />
-            </Link>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight text-white">
-                {tenant?.name ?? 'Tenant'}
-              </h1>
-              <p className="text-xs text-white/50">
-                {tenant ? `/${tenant.slug}` : admin?.email ?? 'superadmin'}
-              </p>
-            </div>
-            {headerBadge}
-          </div>
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.06] px-3.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            Salir
-          </button>
+    <>
+      <div className="mb-6 flex items-center gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
+            {tenant?.name ?? 'Tenant'}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {tenant ? `/${tenant.slug}` : `ID: ${id}`}
+          </p>
         </div>
-      </header>
-
-      <main className="fade-up-auth mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <nav aria-label="Ruta" className="mb-4">
-          <ol className="flex items-center gap-1.5 text-xs text-slate-600">
-            <li>
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-1 transition-colors hover:text-slate-700"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                Panel
-              </Link>
-            </li>
-            <li aria-hidden="true">
-              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-            </li>
-            <li>
-              <Link
-                href="/admin/tenants"
-                className="transition-colors hover:text-slate-700"
-              >
-                Tenants
-              </Link>
-            </li>
-            <li aria-hidden="true">
-              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-            </li>
-            <li className="truncate font-medium text-slate-700">
-              {tenant?.name ?? id}
-            </li>
-          </ol>
-        </nav>
+        {headerBadge}
+      </div>
 
         {/* Tenant error */}
         {tenantError && (
@@ -1464,7 +1398,6 @@ export default function AdminTenantDetailPage({
             </div>
           )}
         </section>
-      </main>
 
       {/* Edit business data dialog */}
       <Dialog open={editOpen} onOpenChange={(open) => { if (!open && !editSubmitting) setEditOpen(false); }}>
@@ -1617,6 +1550,6 @@ export default function AdminTenantDetailPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }

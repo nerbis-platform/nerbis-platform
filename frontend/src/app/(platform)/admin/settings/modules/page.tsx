@@ -6,14 +6,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import Link from 'next/link';
-import { PipeAdmin } from '@/components/pipe-avatar';
 import {
-  ArrowLeft,
   ChevronRight,
   Edit,
   Loader2,
-  LogOut,
   MoreHorizontal,
   Plus,
   Power,
@@ -29,7 +25,6 @@ import {
   adminUpdateModule,
 } from '@/lib/api/admin-settings';
 import { toast } from 'sonner';
-import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import type {
   AdminPlatformModule,
   AdminPlatformModulePayload,
@@ -198,8 +193,6 @@ function IconPicker({
 // ──────────────────────────────────────────────────────────────────────
 
 export default function AdminModulesPage() {
-  const { admin, logout } = useAdminAuth();
-
   useEffect(() => {
     document.title = 'Modulos — NERBIS Admin';
   }, []);
@@ -381,91 +374,26 @@ export default function AdminModulesPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header bar */}
-      <header
-        className="relative overflow-hidden border-b border-white/5"
-        style={{
-          background:
-            'linear-gradient(135deg, #1C1917 0%, #231F1E 50%, #1C1917 100%)',
-        }}
-      >
-        <div
-          className="absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-[0.07] blur-3xl"
-          style={{
-            background: 'radial-gradient(circle, #0D9488, transparent 70%)',
-          }}
-        />
-        <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <Link href="/admin" aria-label="Volver al panel">
-              <PipeAdmin size={32} />
-            </Link>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight text-white">
-                Modulos
-              </h1>
-              <p className="text-xs text-white/50">
-                {admin?.email ?? 'superadmin'}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={openCreate}
-              className="flex items-center gap-2 rounded-lg bg-teal-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              Nuevo modulo
-            </button>
-            <button
-              onClick={logout}
-              className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.06] px-3.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <LogOut className="h-4 w-4" aria-hidden="true" />
-              Salir
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="fade-up-auth mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <nav aria-label="Ruta" className="mb-4">
-          <ol className="flex items-center gap-1.5 text-xs text-slate-500">
-            <li>
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-1 transition-colors hover:text-slate-700"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                Panel
-              </Link>
-            </li>
-            <li aria-hidden="true">
-              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-            </li>
-            <li>
-              <span className="text-slate-500">Configuracion</span>
-            </li>
-            <li aria-hidden="true">
-              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-            </li>
-            <li className="font-medium text-slate-700">Modulos</li>
-          </ol>
-        </nav>
-
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
-            Modulos de la plataforma
-          </h2>
+    <>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
+            Modulos
+          </h1>
           <p className="mt-1 text-sm text-slate-500">
             {modules.length === 0 && !isLoading
               ? 'No hay modulos configurados.'
               : `${modules.length} modulo${modules.length === 1 ? '' : 's'} configurado${modules.length === 1 ? '' : 's'}.`}
           </p>
         </div>
+        <button
+          onClick={openCreate}
+          className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-500"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Nuevo modulo
+        </button>
+      </div>
 
         {/* Error */}
         {listError && (
@@ -701,7 +629,6 @@ export default function AdminModulesPage() {
             </table>
           </div>
         )}
-      </main>
 
       {/* ── Create / Edit Dialog ─────────────────────────────────────── */}
       <Dialog
@@ -928,6 +855,6 @@ export default function AdminModulesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

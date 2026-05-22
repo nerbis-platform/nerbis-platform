@@ -565,15 +565,21 @@ export default function QuickStartPage() {
 
   // ─── Build dynamic steps based on selected modules ──────
   const steps = useMemo<ConversationStep[]>(() => {
-    // Step 1: always modules selection
+    // Step 1: modules selection (from API or fallback)
+    const modulesQ = apiQuestions?.find((q) => q.input_type === 'modules');
     const result: ConversationStep[] = [
-      { id: 'modules', message: '¿Qué necesitas?', type: 'modules', hint: 'Incluye 14 días gratis. Puedes cambiar después.' },
+      {
+        id: modulesQ?.key ?? 'modules',
+        message: modulesQ?.message ?? '¿Qué necesitas?',
+        type: 'modules',
+        hint: modulesQ?.hint ?? 'Incluye 14 días gratis. Puedes cambiar después.',
+      },
     ];
 
     // Filter questions by selected modules
     if (apiQuestions) {
       for (const q of apiQuestions) {
-        if (q.input_type === 'modules') continue; // already added
+        if (q.input_type === 'modules') continue; // already added above
         // Show question if no required_modules OR if user selected at least one
         const shouldShow = q.required_modules.length === 0 ||
           q.required_modules.some((mk) => selectedModules.has(mk as keyof ModuleSelection));
@@ -1013,7 +1019,7 @@ export default function QuickStartPage() {
     for (let i = 0; i < currentStepIdx; i++) {
       const s = steps[i];
       chatHistory.push({ role: 'pipe', content: i === 0
-        ? `Hola${firstName ? ` ${firstName}` : ''}, soy ${AGENT_NAME}. ${s.message}`
+        ? `Hola${firstName ? ` ${firstName}` : ''}, soy ${AGENT_NAME}, tu asistente creativo. ${s.message}`
         : s.message });
       if (answers[s.id]) {
         chatHistory.push({ role: 'user', content: answers[s.id] });
@@ -1059,9 +1065,10 @@ export default function QuickStartPage() {
                     style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
                   >
                     Hola{firstName ? ' ' : ''}
-                    {firstName && <>{firstName}</>}
-                    {firstName ? ', s' : '. S'}oy{' '}
-                    <span style={{ color: TEAL }}>{AGENT_NAME}</span>.{' '}
+                    {firstName && <span style={{ color: TEAL }}>{firstName}</span>}
+                    {firstName ? ', s' : 'S'}oy{' '}
+                    <span style={{ color: TEAL }}>{AGENT_NAME}</span>
+                    , tu asistente creativo.{' '}
                     {step.message}
                   </h1>
 
