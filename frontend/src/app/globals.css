@@ -503,7 +503,13 @@
   border: 1px solid color-mix(in oklch, var(--color-border-default), transparent 80%);
 }
 
-/* Signature 4: Display typography */
+/* Signature 4: Pipe name — bold wordmark style so users recognize the character */
+.pipe-name {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Signature 5: Display typography */
 .nerbis-display {
   font-family: var(--font-sans);
   font-weight: 700;

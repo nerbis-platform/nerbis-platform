@@ -115,7 +115,7 @@ export function Hero() {
 
         {/* Subtitle */}
         <p className="hero-subtitle invisible mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Pipe, tu asistente de IA, disena tu tienda completa en segundos.
+          <span className="pipe-name">Pipe</span>, tu asistente de IA, disena tu tienda completa en segundos.
           Solo cuentale tu idea.
         </p>
 
