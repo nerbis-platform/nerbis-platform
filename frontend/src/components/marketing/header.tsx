@@ -6,9 +6,9 @@ import { Menu, X } from 'lucide-react';
 import { NerbisWordmark } from './nerbis-wordmark';
 
 const navLinks = [
-  { label: 'Producto', href: '#features' },
-  { label: 'Industrias', href: '#industries' },
-  { label: 'Como funciona', href: '#how-it-works' },
+  { label: 'Producto', href: '/producto' },
+  { label: 'Industrias', href: '/industrias' },
+  { label: 'Precios', href: '/precios' },
 ];
 
 export function MarketingHeader() {
@@ -25,13 +25,13 @@ export function MarketingHeader() {
         {/* Desktop nav */}
         <div className="hidden items-center gap-8 md:flex">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </div>
 
@@ -73,14 +73,14 @@ export function MarketingHeader() {
         <nav id="mobile-menu" aria-label="Menu principal" className="border-t border-border/50 bg-background/95 backdrop-blur-xl md:hidden">
           <div className="flex flex-col gap-1 px-4 py-4">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 className="rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 onClick={() => setMobileOpen(false)}
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
             <hr className="my-2 border-border" />
             <Link
