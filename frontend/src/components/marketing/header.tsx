@@ -42,7 +42,7 @@ export function MarketingHeader() {
             className="group inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90"
             style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
           >
-            Crear mi tienda gratis
+            Empezar gratis
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
@@ -89,7 +89,7 @@ export function MarketingHeader() {
               style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
               onClick={() => setMobileOpen(false)}
             >
-              Crear mi tienda gratis
+              Empezar gratis
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>

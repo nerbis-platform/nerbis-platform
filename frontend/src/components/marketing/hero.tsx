@@ -28,7 +28,7 @@ export function Hero() {
         const { reduced } = context.conditions as { reduced: boolean; normal: boolean };
 
         if (reduced) {
-          gsap.set('.hero-pipe-wrap, .hero-badge, .hero-title, .hero-subtitle, .hero-cta, .hero-preview', { autoAlpha: 1 });
+          gsap.set('.hero-pipe-wrap, .hero-title, .hero-subtitle, .hero-cta, .hero-preview', { autoAlpha: 1 });
           return;
         }
 
@@ -36,7 +36,6 @@ export function Hero() {
         const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
 
         tl.from('.hero-pipe-wrap', { scale: 0.5, autoAlpha: 0, duration: 0.7 })
-          .from('.hero-badge', { y: 30, autoAlpha: 0, duration: 0.5 }, '-=0.3')
           .from('.hero-title', { y: 60, autoAlpha: 0, duration: 0.8 }, '-=0.3')
           .from('.hero-subtitle', { y: 40, autoAlpha: 0, duration: 0.6 }, '-=0.4')
           .from('.hero-cta', { y: 30, autoAlpha: 0, duration: 0.5 }, '-=0.3')
@@ -95,44 +94,32 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Badge */}
-        <div className="hero-badge invisible mb-6 flex justify-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-1.5 text-sm text-muted-foreground">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full opacity-75 motion-safe:animate-ping" style={{ background: 'var(--primitive-brand-400)' }} />
-              <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: 'var(--primitive-brand-400)' }} />
-            </span>
-            Disponible en Latinoamerica
-          </span>
-        </div>
-
         {/* Headline */}
         <h1 className="hero-title nerbis-display invisible text-4xl text-foreground sm:text-5xl lg:text-6xl">
-          Tu negocio digital,
+          ¡Hazlo real!
           <br />
-          <span className="text-primary">creado por IA</span>
+          <span className="text-primary">Tu sitio web, creado por IA</span>
         </h1>
 
         {/* Subtitle */}
         <p className="hero-subtitle invisible mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          <span className="pipe-name">Pipe</span>, tu asistente de IA, disena tu tienda completa en segundos.
-          Solo cuentale tu idea.
+          Solo cuentale tu idea a <span className="pipe-name">Pipe</span>.
+          El se encarga del resto.
         </p>
 
         {/* Single primary CTA with Pipe */}
         <div className="hero-cta invisible mt-8 flex flex-col items-center gap-3">
           <Link
             href="/register"
-            className="group inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-base font-medium text-white transition-all hover:opacity-90"
-            style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
+            className="group inline-flex items-center gap-2 rounded-full bg-foreground px-8 py-3.5 text-base font-medium text-background transition-all hover:opacity-90"
           >
-            Crear mi tienda gratis
+            Empezar gratis
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </Link>
           <span className="text-xs text-muted-foreground">
-            Sin tarjeta de credito · <Link href="/login" className="underline underline-offset-2 transition-colors hover:text-foreground">¿Ya tienes cuenta?</Link>
+            Sin tarjeta de credito · Listo en 30 segundos
           </span>
         </div>
 
