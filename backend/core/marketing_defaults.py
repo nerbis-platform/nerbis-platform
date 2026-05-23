@@ -122,10 +122,7 @@ MARKETING_SECTION_DEFAULTS: list[dict] = [
         "content": {
             "eyebrow": "Verticales",
             "title": "Hecho para tu industria.",
-            "subtitle": (
-                "Cada sitio se genera con el contenido, estructura y "
-                "diseno optimo para tu tipo de negocio."
-            ),
+            "subtitle": ("Cada sitio se genera con el contenido, estructura y diseno optimo para tu tipo de negocio."),
             "industries": [
                 {"name": "Belleza", "emoji": "\u2728"},
                 {"name": "Restaurantes", "emoji": "\ud83c\udf7d\ufe0f"},
@@ -256,9 +253,7 @@ MARKETING_SECTION_DEFAULTS: list[dict] = [
                 "name": "NERBIS",
                 "url": "https://nerbis.com",
                 "logo": "https://nerbis.com/icon.svg",
-                "description": (
-                    "Plataforma que crea tu negocio digital con inteligencia artificial"
-                ),
+                "description": ("Plataforma que crea tu negocio digital con inteligencia artificial"),
                 "social": [
                     "https://twitter.com/nerbisplatform",
                     "https://instagram.com/nerbisplatform",

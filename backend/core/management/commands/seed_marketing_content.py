@@ -50,9 +50,7 @@ class Command(BaseCommand):
                     is_visible=True,
                 )
                 created_count += 1
-                self.stdout.write(
-                    self.style.SUCCESS(f"  + {section_key} (creada)")
-                )
+                self.stdout.write(self.style.SUCCESS(f"  + {section_key} (creada)"))
             elif force:
                 # Existe pero --force sobreescribe
                 existing.content = default["content"]
@@ -60,9 +58,7 @@ class Command(BaseCommand):
                 existing.is_visible = True
                 existing.save(update_fields=["content", "sort_order", "is_visible", "updated_at"])
                 updated_count += 1
-                self.stdout.write(
-                    self.style.WARNING(f"  ~ {section_key} (actualizada --force)")
-                )
+                self.stdout.write(self.style.WARNING(f"  ~ {section_key} (actualizada --force)"))
             else:
                 # Existe y no forzamos — respetar edits del admin
                 skipped_count += 1
@@ -71,8 +67,6 @@ class Command(BaseCommand):
         self.stdout.write("")
         self.stdout.write(
             self.style.SUCCESS(
-                f"Listo: {created_count} creadas, "
-                f"{updated_count} actualizadas, "
-                f"{skipped_count} sin cambios."
+                f"Listo: {created_count} creadas, {updated_count} actualizadas, {skipped_count} sin cambios."
             )
         )
