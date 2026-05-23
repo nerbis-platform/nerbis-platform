@@ -19,15 +19,15 @@ const values = [
     icon: Target,
     title: 'Precisión Técnica',
     description: 'Nuestras manos expertas no solo ejecutan tratamientos, sino que entienden la anatomía y las necesidades cambiantes de tu cuerpo.',
-    color: 'text-rose-400',
-    bgColor: 'bg-rose-400/10',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
   },
   {
     icon: Sparkles,
     title: 'Lujo del Bienestar',
     description: 'Un entorno diseñado para que cada detalle —desde la iluminación hasta el aroma— esté pensado para que tu mente descanse mientras trabajamos en tu transformación.',
-    color: 'text-gold',
-    bgColor: 'bg-gold/10',
+    color: 'text-accent-foreground',
+    bgColor: 'bg-accent/50',
   },
 ];
 
@@ -54,15 +54,15 @@ export function OurValues() {
             return (
               <div
                 key={index}
-                className="group relative bg-card rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-border/50 hover:border-primary/30"
+                className="group relative bg-card rounded-2xl p-8 shadow-lg hover-lift transition-all duration-300 border border-border/50 hover:border-primary/30"
               >
                 {/* Número */}
-                <div className="absolute -top-4 -left-4 w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold shadow-lg">
+                <div className="absolute -top-4 -left-4 size-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold shadow-lg">
                   {index + 1}
                 </div>
 
                 {/* Icono */}
-                <div className={`w-16 h-16 rounded-2xl ${value.bgColor} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto`}>
+                <div className={`size-16 rounded-2xl ${value.bgColor} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto`}>
                   <IconComponent className={`h-8 w-8 ${value.color}`} />
                 </div>
 

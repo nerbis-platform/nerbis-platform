@@ -65,8 +65,8 @@ export default function ContactPage() {
       value: contactEmail,
       href: `mailto:${contactEmail}`,
       action: 'Enviar email',
-      color: 'text-gold',
-      bgColor: 'bg-gold/10',
+      color: 'text-amber-500',
+      bgColor: 'bg-amber-500/10',
     },
     {
       icon: MapPin,
@@ -369,7 +369,7 @@ export default function ContactPage() {
         <section className="py-16">
           <div className="container">
             <Card className="border-0 shadow-xl overflow-hidden">
-              <div className="relative bg-linear-to-r from-primary via-rose-400 to-primary p-12 text-center text-white">
+              <div className="relative bg-linear-to-r from-primary via-primary/80 to-primary p-12 text-center text-white">
                 {/* Decoración */}
                 <div className="absolute inset-0 opacity-10">
                   <div className="absolute top-0 left-1/4 w-32 h-32 bg-white rounded-full blur-2xl" />
@@ -377,7 +377,7 @@ export default function ContactPage() {
                 </div>
 
                 <div className="relative z-10">
-                  <Sparkles className="h-10 w-10 mx-auto mb-4 text-gold" />
+                  <Sparkles className="h-10 w-10 mx-auto mb-4 text-amber-300" />
                   <h2 className="text-3xl md:text-4xl font-bold mb-4">
                     ¿Lista para tu transformación?
                   </h2>

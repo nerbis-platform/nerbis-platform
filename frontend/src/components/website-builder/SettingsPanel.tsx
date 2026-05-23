@@ -351,13 +351,13 @@ function ImageUploadField({
           disabled={uploading}
           className={`w-full ${previewAspect} rounded-lg border-2 border-dashed transition-colors flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
             dragOver
-              ? 'border-[#0D9488] bg-[#E2F3F1]/30'
-              : 'border-gray-200 hover:border-[#0D9488] hover:bg-gray-50/50'
+              ? 'border-primary bg-primary/30'
+              : 'border-gray-200 hover:border-primary hover:bg-gray-50/50'
           } ${uploading ? 'opacity-60 cursor-wait' : ''}`}
         >
           {uploading ? (
             <>
-              <Loader2 className="w-6 h-6 text-[#0D9488] animate-spin" />
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
               <span className="text-[0.68rem] text-gray-400">Subiendo...</span>
             </>
           ) : (
@@ -388,7 +388,7 @@ function ImageUploadField({
                 onBlur={(e) => {
                   if (!e.target.value) setShowUrlInput(false);
                 }}
-                className="flex-1 h-7 px-2 rounded border border-gray-200 text-[0.7rem] text-gray-600 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488]"
+                className="flex-1 h-7 px-2 rounded border border-gray-200 text-[0.7rem] text-gray-600 placeholder:text-gray-300 focus:outline-none focus:border-primary"
                 autoFocus
               />
             </div>
@@ -396,7 +396,7 @@ function ImageUploadField({
             <button
               type="button"
               onClick={() => setShowUrlInput(true)}
-              className="flex items-center gap-1 text-[0.6rem] text-gray-400 hover:text-[#1C3B57] transition-colors"
+              className="flex items-center gap-1 text-[0.6rem] text-gray-400 hover:text-foreground transition-colors"
             >
               <Link2 className="w-3 h-3" />
               ¿Tienes una URL? Pégala aquí
@@ -455,11 +455,11 @@ function Section({
       >
         <div className="flex items-center gap-2.5">
           <div className={`flex items-center justify-center w-6 h-6 rounded-lg transition-colors duration-200 ${
-            isOpen ? 'bg-[#E2F3F1]' : 'bg-gray-100 group-hover:bg-gray-200/60'
+            isOpen ? 'bg-primary/10' : 'bg-gray-100 group-hover:bg-gray-200/60'
           }`}>
-            <Icon className={`h-3.5 w-3.5 transition-colors duration-200 ${isOpen ? 'text-[#1C3B57]' : 'text-gray-400'}`} />
+            <Icon className={`h-3.5 w-3.5 transition-colors duration-200 ${isOpen ? 'text-foreground' : 'text-gray-400'}`} />
           </div>
-          <span className={`text-[0.78rem] font-semibold transition-colors duration-200 ${isOpen ? 'text-[#1C3B57]' : 'text-gray-500'}`}>
+          <span className={`text-[0.78rem] font-semibold transition-colors duration-200 ${isOpen ? 'text-foreground' : 'text-gray-500'}`}>
             {title}
           </span>
           {badge}
@@ -643,7 +643,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
           }}
           className={`flex items-center gap-1.5 mb-3 text-[0.72rem] font-medium px-3 py-2 rounded-lg transition-all cursor-pointer ${
             aiLoading
-              ? 'bg-[#E2F3F1] text-[#1C3B57] cursor-wait'
+              ? 'bg-primary/10 text-foreground cursor-wait'
               : 'bg-gradient-to-r from-[#1C3B57] to-[#2a5578] text-white hover:shadow-md hover:shadow-[#0D9488]/20'
           } disabled:opacity-40 disabled:cursor-not-allowed`}
         >
@@ -653,24 +653,24 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
 
         {/* AI Suggestion results */}
         {aiSuggestion && (
-          <div className="mb-4 p-3 rounded-lg bg-gradient-to-br from-[#E2F3F1] to-[#d4ede9] border border-[#0D9488]/30 space-y-3">
+          <div className="mb-4 p-3 rounded-lg bg-gradient-to-br from-[#E2F3F1] to-[#d4ede9] border border-primary/30 space-y-3">
             <div className="flex items-center gap-1.5 mb-1">
-              <Sparkles className="h-3 w-3 text-[#1C3B57]" />
-              <p className="text-[0.68rem] font-semibold text-[#1C3B57]">Sugerencias de IA</p>
+              <Sparkles className="h-3 w-3 text-foreground" />
+              <p className="text-[0.68rem] font-semibold text-foreground">Sugerencias de IA</p>
             </div>
 
             {/* Suggested title */}
             <div>
-              <p className="text-[0.6rem] text-[#1C3B57]/60 font-medium uppercase tracking-wide mb-1">Título sugerido</p>
+              <p className="text-[0.6rem] text-foreground/60 font-medium uppercase tracking-wide mb-1">Título sugerido</p>
               <div className="flex items-start gap-1.5">
-                <p className="text-[0.75rem] text-[#1C3B57] leading-relaxed flex-1">{aiSuggestion.title}</p>
+                <p className="text-[0.75rem] text-foreground leading-relaxed flex-1">{aiSuggestion.title}</p>
                 <button
                   type="button"
                   onClick={() => {
                     update('meta_title', aiSuggestion.title);
                     setAiSuggestion(prev => prev ? { ...prev, title: '' } : null);
                   }}
-                  className="shrink-0 text-[0.6rem] px-2 py-1 rounded-md bg-white text-[#1C3B57] font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
+                  className="shrink-0 text-[0.6rem] px-2 py-1 rounded-md bg-white text-foreground font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
                 >
                   Aplicar
                 </button>
@@ -679,16 +679,16 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
 
             {/* Suggested description */}
             <div>
-              <p className="text-[0.6rem] text-[#1C3B57]/60 font-medium uppercase tracking-wide mb-1">Descripción sugerida</p>
+              <p className="text-[0.6rem] text-foreground/60 font-medium uppercase tracking-wide mb-1">Descripción sugerida</p>
               <div className="flex items-start gap-1.5">
-                <p className="text-[0.75rem] text-[#1C3B57] leading-relaxed flex-1">{aiSuggestion.description}</p>
+                <p className="text-[0.75rem] text-foreground leading-relaxed flex-1">{aiSuggestion.description}</p>
                 <button
                   type="button"
                   onClick={() => {
                     update('meta_description', aiSuggestion.description);
                     setAiSuggestion(prev => prev ? { ...prev, description: '' } : null);
                   }}
-                  className="shrink-0 text-[0.6rem] px-2 py-1 rounded-md bg-white text-[#1C3B57] font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
+                  className="shrink-0 text-[0.6rem] px-2 py-1 rounded-md bg-white text-foreground font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
                 >
                   Aplicar
                 </button>
@@ -698,7 +698,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             {/* Extra keywords */}
             {aiSuggestion.extra_keywords?.length > 0 && (
               <div>
-                <p className="text-[0.6rem] text-[#1C3B57]/60 font-medium uppercase tracking-wide mb-1">Keywords sugeridas</p>
+                <p className="text-[0.6rem] text-foreground/60 font-medium uppercase tracking-wide mb-1">Keywords sugeridas</p>
                 <div className="flex flex-wrap gap-1">
                   {aiSuggestion.extra_keywords
                     .filter(kw => !settings.keywords.includes(kw.toLowerCase()))
@@ -713,7 +713,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                           extra_keywords: prev.extra_keywords.filter(k => k !== kw),
                         } : null);
                       }}
-                      className="inline-flex items-center gap-1 text-[0.65rem] px-2 py-0.5 rounded-full bg-white text-[#1C3B57] font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 text-[0.65rem] px-2 py-0.5 rounded-full bg-white text-foreground font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
                     >
                       <Plus className="h-2.5 w-2.5" />
                       {kw}
@@ -727,7 +727,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             <button
               type="button"
               onClick={() => setAiSuggestion(null)}
-              className="text-[0.6rem] text-[#1C3B57]/50 hover:text-[#1C3B57] transition-colors cursor-pointer"
+              className="text-[0.6rem] text-foreground/50 hover:text-foreground transition-colors cursor-pointer"
             >
               Cerrar sugerencias
             </button>
@@ -773,7 +773,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             onChange={(e) => update('meta_title', e.target.value)}
             placeholder={siteName || 'Ej: Mi Negocio - Lo mejor de tu ciudad'}
             maxLength={70}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/30 transition-colors"
+            className="w-full h-10 px-3 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors"
           />
           <p className="text-[0.6rem] text-gray-400 mt-1">
             Es el nombre que aparece en Google cuando alguien busca tu negocio. Ej: &quot;Pastelería Doña Rosa - Tortas artesanales&quot;
@@ -798,7 +798,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             placeholder="Ej: Hacemos las mejores tortas artesanales de la ciudad con ingredientes frescos. Pedidos a domicilio y para eventos especiales."
             rows={3}
             maxLength={160}
-            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/30 transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors resize-none"
           />
           <p className="text-[0.6rem] text-gray-400 mt-1">
             Cuéntale a Google de qué se trata tu negocio en 1-2 frases. Esto es lo que la gente lee antes de decidir si entra a tu sitio.
@@ -820,10 +820,10 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
           {settings.keywords.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-2">
               {settings.keywords.map((kw) => (
-                <span key={kw} className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-[#E2F3F1] text-[0.72rem] text-[#1C3B57] font-medium">
+                <span key={kw} className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-primary/10 text-[0.72rem] text-foreground font-medium">
                   <Tag className="h-2.5 w-2.5" />
                   {kw}
-                  <button type="button" onClick={() => removeKeyword(kw)} className="ml-0.5 text-[#1C3B57]/40 hover:text-red-400 cursor-pointer">
+                  <button type="button" onClick={() => removeKeyword(kw)} className="ml-0.5 text-foreground/40 hover:text-red-400 cursor-pointer">
                     <X className="h-2.5 w-2.5" />
                   </button>
                 </span>
@@ -837,13 +837,13 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
               onChange={(e) => setNewKeyword(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKeyword(); } }}
               placeholder="Ej: tortas, pasteles, domicilio..."
-              className="flex-1 h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors"
+              className="flex-1 h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
             />
             <button
               type="button"
               onClick={addKeyword}
               disabled={!newKeyword.trim()}
-              className="h-8 w-8 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 hover:border-[#0D9488] hover:text-[#1C3B57] disabled:opacity-30 transition-colors cursor-pointer"
+              className="h-8 w-8 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 hover:border-primary hover:text-foreground disabled:opacity-30 transition-colors cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -870,7 +870,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                   value={settings.google_site_verification || ''}
                   onChange={(e) => update('google_site_verification', e.target.value)}
                   placeholder="Ej: abc123def456..."
-                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
                 />
                 <p className="text-[0.55rem] text-gray-400 mt-0.5">
                   Entra a search.google.com/search-console, agrega tu sitio y copia el código
@@ -885,7 +885,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                   value={settings.bing_site_verification || ''}
                   onChange={(e) => update('bing_site_verification', e.target.value)}
                   placeholder="Ej: abc123def456..."
-                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
                 />
                 <p className="text-[0.55rem] text-gray-400 mt-0.5">
                   Entra a bing.com/webmasters, agrega tu sitio y copia el código
@@ -926,7 +926,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             type="button"
             onClick={() => update('hide_from_search', !settings.hide_from_search)}
             className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
-              settings.hide_from_search ? 'bg-[#0D9488]' : 'bg-gray-200'
+              settings.hide_from_search ? 'bg-primary' : 'bg-gray-200'
             }`}
           >
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
@@ -955,7 +955,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
         isOpen={openSection === 'social'}
         onToggle={() => toggle('social')}
         badge={filledSocials > 0 ? (
-          <span className="text-[0.6rem] px-1.5 py-0.5 rounded-full bg-[#E2F3F1] text-[#1C3B57] font-medium ml-1">
+          <span className="text-[0.6rem] px-1.5 py-0.5 rounded-full bg-primary/10 text-foreground font-medium ml-1">
             {filledSocials}/{SOCIAL_NETWORKS.length}
           </span>
         ) : undefined}
@@ -1004,7 +1004,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             type="checkbox"
             checked={ogInherit}
             onChange={(e) => update('og_inherit_seo', e.target.checked)}
-            className="w-3.5 h-3.5 rounded border-gray-300 accent-[#0D9488]"
+            className="w-3.5 h-3.5 rounded border-gray-300 accent-primary"
           />
           <span className="text-[0.72rem] text-gray-600">Usar el mismo título y descripción del SEO</span>
         </label>
@@ -1019,7 +1019,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 value={settings.og_title || ''}
                 onChange={(e) => update('og_title', e.target.value)}
                 placeholder="Ej: Las mejores tortas artesanales"
-                className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors"
+                className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
               />
             </div>
             <div>
@@ -1029,7 +1029,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 onChange={(e) => update('og_description', e.target.value)}
                 placeholder="Ej: Hacemos tortas para toda ocasión. Haz tu pedido hoy."
                 rows={2}
-                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors resize-none"
+                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors resize-none"
               />
             </div>
           </div>
@@ -1127,7 +1127,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             type="button"
             onClick={() => update('whatsapp_float_enabled', !settings.whatsapp_float_enabled)}
             className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
-              settings.whatsapp_float_enabled ? 'bg-[#0D9488]' : 'bg-gray-200'
+              settings.whatsapp_float_enabled ? 'bg-primary' : 'bg-gray-200'
             }`}
           >
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
@@ -1161,7 +1161,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                     const localNum = currentCode ? num.slice(currentCode.length).trim() : num.replace(/^\+\d+\s*/, '');
                     update('whatsapp_float_number', newCode + ' ' + localNum);
                   }}
-                  className="h-8 px-1.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 bg-white focus:outline-none focus:border-[#0D9488] transition-colors shrink-0 cursor-pointer"
+                  className="h-8 px-1.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 bg-white focus:outline-none focus:border-primary transition-colors shrink-0 cursor-pointer"
                 >
                   {PHONE_COUNTRIES.map(({ code, flag, country }) => (
                     <option key={`${code}-${country}`} value={code}>{flag} {code}</option>
@@ -1182,7 +1182,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                     update('whatsapp_float_number', currentCode + ' ' + e.target.value);
                   }}
                   placeholder={tenantPhone ? tenantPhone.replace(/^\+\d+\s*/, '') : '300 123 4567'}
-                  className="flex-1 min-w-0 h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors"
+                  className="flex-1 min-w-0 h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
               <p className="text-[0.55rem] text-gray-400 mt-0.5">El indicativo se carga automáticamente según tu país de registro</p>
@@ -1197,7 +1197,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 onChange={(e) => update('whatsapp_float_message', e.target.value)}
                 placeholder="Hola, me interesa obtener más información..."
                 rows={2}
-                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors resize-none"
+                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors resize-none"
               />
             </div>
           </>
@@ -1211,7 +1211,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
         isOpen={openSection === 'analytics'}
         onToggle={() => toggle('analytics')}
         badge={configuredAnalytics > 0 ? (
-          <span className="text-[0.6rem] px-1.5 py-0.5 rounded-full bg-[#E2F3F1] text-[#1C3B57] font-medium ml-1">
+          <span className="text-[0.6rem] px-1.5 py-0.5 rounded-full bg-primary/10 text-foreground font-medium ml-1">
             {configuredAnalytics}/{ANALYTICS_PROVIDERS.length}
           </span>
         ) : undefined}
@@ -1241,7 +1241,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                   value={val}
                   onChange={(e) => update(key as keyof SiteSettings, e.target.value)}
                   placeholder={placeholder}
-                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
                 />
                 <p className="text-[0.55rem] text-gray-400 mt-0.5">{help}</p>
               </div>
@@ -1271,7 +1271,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             type="button"
             onClick={() => update('schema_enabled', !settings.schema_enabled)}
             className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
-              settings.schema_enabled ? 'bg-[#0D9488]' : 'bg-gray-200'
+              settings.schema_enabled ? 'bg-primary' : 'bg-gray-200'
             }`}
           >
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
@@ -1290,7 +1290,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 <select
                   value={settings.schema_business_type || 'LocalBusiness'}
                   onChange={(e) => update('schema_business_type', e.target.value)}
-                  className="w-full h-8 px-2.5 pr-7 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 bg-white appearance-none focus:outline-none focus:border-[#0D9488] transition-colors cursor-pointer"
+                  className="w-full h-8 px-2.5 pr-7 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 bg-white appearance-none focus:outline-none focus:border-primary transition-colors cursor-pointer"
                 >
                   {SCHEMA_BUSINESS_TYPES.map(({ value, label }) => (
                     <option key={value} value={value}>{label}</option>
@@ -1350,7 +1350,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             onChange={(e) => update('custom_head_code', e.target.value)}
             placeholder="<!-- CSS, meta tags, scripts -->"
             rows={4}
-            className="w-full px-3 py-2 rounded-lg border border-gray-700/30 text-[0.78rem] text-gray-200 bg-[#1e293b] font-mono placeholder:text-gray-500 focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/30 transition-colors resize-none"
+            className="w-full px-3 py-2 rounded-lg border border-gray-700/30 text-[0.78rem] text-gray-200 bg-[#1e293b] font-mono placeholder:text-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors resize-none"
           />
           <p className="text-[0.55rem] text-gray-400 mt-1">CSS personalizado, meta tags, scripts de seguimiento</p>
         </div>
@@ -1365,7 +1365,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             onChange={(e) => update('custom_body_code', e.target.value)}
             placeholder="<!-- Widgets, chatbots, embeds -->"
             rows={4}
-            className="w-full px-3 py-2 rounded-lg border border-gray-700/30 text-[0.78rem] text-gray-200 bg-[#1e293b] font-mono placeholder:text-gray-500 focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/30 transition-colors resize-none"
+            className="w-full px-3 py-2 rounded-lg border border-gray-700/30 text-[0.78rem] text-gray-200 bg-[#1e293b] font-mono placeholder:text-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors resize-none"
           />
           <p className="text-[0.55rem] text-gray-400 mt-1">Widgets de chat, chatbots, scripts antes de &lt;/body&gt;</p>
         </div>
@@ -1402,13 +1402,13 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
               onClick={() => update('site_access_mode', value)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                 (settings.site_access_mode || 'public') === value
-                  ? 'border-[#1C3B57] bg-[#E2F3F1]/30'
+                  ? 'border-foreground bg-primary/30'
                   : 'border-gray-100 hover:border-gray-200'
               }`}
             >
               <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${dot}`} />
               <div className="min-w-0 flex-1">
-                <p className={`text-[0.75rem] font-semibold ${(settings.site_access_mode || 'public') === value ? 'text-[#1C3B57]' : 'text-gray-600'}`}>
+                <p className={`text-[0.75rem] font-semibold ${(settings.site_access_mode || 'public') === value ? 'text-foreground' : 'text-gray-600'}`}>
                   {label}
                 </p>
                 <p className="text-[0.6rem] text-gray-400">{description}</p>
@@ -1428,7 +1428,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 onChange={(e) => update('coming_soon_message', e.target.value)}
                 placeholder="Estamos trabajando en algo increíble. ¡Vuelve pronto!"
                 rows={2}
-                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors resize-none"
+                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors resize-none"
               />
             </div>
             <div>
@@ -1439,7 +1439,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 type="date"
                 value={settings.coming_soon_launch_date || ''}
                 onChange={(e) => update('coming_soon_launch_date', e.target.value)}
-                className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 focus:outline-none focus:border-[#0D9488] transition-colors"
+                className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 focus:outline-none focus:border-primary transition-colors"
               />
             </div>
           </div>
@@ -1456,7 +1456,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 value={settings.site_password || ''}
                 onChange={(e) => update('site_password', e.target.value)}
                 placeholder="Contraseña segura"
-                className="w-full h-8 px-2.5 pr-8 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors"
+                className="w-full h-8 px-2.5 pr-8 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
               />
               <button
                 type="button"
@@ -1491,7 +1491,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             type="button"
             onClick={() => update('cookie_banner_enabled', !settings.cookie_banner_enabled)}
             className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
-              settings.cookie_banner_enabled ? 'bg-[#0D9488]' : 'bg-gray-200'
+              settings.cookie_banner_enabled ? 'bg-primary' : 'bg-gray-200'
             }`}
           >
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
@@ -1510,7 +1510,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 onChange={(e) => update('cookie_banner_text', e.target.value)}
                 placeholder="Este sitio usa cookies para mejorar tu experiencia."
                 rows={2}
-                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#0D9488] transition-colors resize-none"
+                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors resize-none"
               />
               <p className="text-[0.55rem] text-gray-400 mt-0.5">Si lo dejas vacío usaremos un mensaje estándar</p>
             </div>
@@ -1569,7 +1569,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 <button
                   onClick={() => update('show_nerbis_badge', !(settings.show_nerbis_badge ?? true))}
                   className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
-                    (settings.show_nerbis_badge ?? true) ? 'bg-[#0D9488]' : 'bg-gray-200'
+                    (settings.show_nerbis_badge ?? true) ? 'bg-primary' : 'bg-gray-200'
                   }`}
                   role="switch"
                   aria-checked={settings.show_nerbis_badge ?? true}

@@ -1,5 +1,12 @@
 'use client';
 
+import { useRef } from 'react';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useGSAP } from '@gsap/react';
+
+gsap.registerPlugin(ScrollTrigger);
+
 const industries = [
   { name: 'Belleza', emoji: '\u2728' },
   { name: 'Restaurantes', emoji: '\uD83C\uDF7D\uFE0F' },
@@ -22,36 +29,87 @@ const industries = [
 ];
 
 export function Industries() {
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useGSAP(() => {
+    if (!sectionRef.current) return;
+
+    const mm = gsap.matchMedia();
+
+    mm.add(
+      {
+        reduced: '(prefers-reduced-motion: reduce)',
+        normal: '(prefers-reduced-motion: no-preference)',
+      },
+      (context) => {
+        const { reduced } = context.conditions as { reduced: boolean; normal: boolean };
+
+        if (reduced) {
+          gsap.set('.ind-heading, .ind-pill', { autoAlpha: 1 });
+          return;
+        }
+
+        // Heading
+        gsap.from('.ind-heading', {
+          y: 40,
+          autoAlpha: 0,
+          duration: 0.6,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: '.ind-heading',
+            start: 'top 85%',
+            toggleActions: 'play none none none',
+          },
+        });
+
+        // Pills batch stagger
+        ScrollTrigger.batch('.ind-pill', {
+          onEnter: (batch) => {
+            gsap.from(batch, {
+              y: 20,
+              autoAlpha: 0,
+              scale: 0.95,
+              stagger: 0.05,
+              duration: 0.4,
+              ease: 'power2.out',
+            });
+          },
+          start: 'top 90%',
+        });
+      }
+    );
+  }, { scope: sectionRef });
+
   return (
-    <section id="industries" className="bg-zinc-950 px-4 py-24 sm:px-6 sm:py-32">
+    <section ref={sectionRef} id="industries" className="bg-muted/50 px-4 py-16 sm:px-6 sm:py-20">
       <div className="mx-auto max-w-5xl">
-        <div className="anim-fade-up text-center">
-          <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+        <div className="ind-heading invisible text-center">
+          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             Verticales
           </p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">
+          <h2 className="nerbis-display mt-4 text-3xl text-foreground sm:text-4xl lg:text-5xl">
             Hecho para tu industria.
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-zinc-400">
+          <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
             Cada sitio se genera con el contenido, estructura y diseno optimo para tu tipo de negocio.
           </p>
         </div>
 
-        <div className="anim-fade-up stagger mt-12 flex flex-wrap justify-center gap-2.5">
+        <div className="mt-12 flex flex-wrap justify-center gap-2.5">
           {industries.map((industry) => (
             <div
               key={industry.name}
-              className="group flex items-center gap-2.5 rounded-full border border-zinc-800 bg-zinc-900/80 px-4 py-2.5 text-sm transition-all hover:border-zinc-600 hover:bg-zinc-800/80"
+              className="ind-pill invisible hover-lift group flex items-center gap-2.5 rounded-full border border-border bg-background px-4 py-2.5 text-sm transition-all"
             >
               <span className="text-base" role="img" aria-label={industry.name}>
                 {industry.emoji}
               </span>
-              <span className="text-zinc-400 transition-colors group-hover:text-white">
+              <span className="text-muted-foreground transition-colors">
                 {industry.name}
               </span>
             </div>
           ))}
-          <div className="flex items-center rounded-full border border-dashed border-zinc-700 px-4 py-2.5 text-sm text-zinc-600">
+          <div className="ind-pill invisible flex items-center rounded-full border border-dashed border-border px-4 py-2.5 text-sm text-muted-foreground/60">
             +7 mas
           </div>
         </div>

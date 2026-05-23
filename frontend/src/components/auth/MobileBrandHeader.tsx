@@ -10,7 +10,7 @@ import { AUTH_GRADIENT, AUTH_RADIAL_GLOW } from './constants';
 export function MobileBrandHeader() {
   return (
     <div
-      className="relative overflow-hidden px-6 py-5 sm:px-8 sm:py-6"
+      className="nerbis-grain relative overflow-hidden px-6 py-5 sm:px-8 sm:py-6"
       style={{ background: AUTH_GRADIENT }}
     >
       {/* Radial glow overlay */}

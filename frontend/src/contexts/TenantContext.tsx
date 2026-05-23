@@ -7,6 +7,7 @@ import { apiClient, ApiError } from '@/lib/api/client';
 import { getClientTenantSlug } from '@/lib/tenant';
 import { applyThemeToDOM, type ThemeConfig } from '@/lib/utils/theme-colors';
 import { ErrorState } from '@/components/feedback/ErrorState';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /** Rutas que no requieren tenant (landing, auth, registro, etc.) */
 const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/reactivate', '/register-business', '/ayuda'];
@@ -161,10 +162,31 @@ export function TenantProvider({ children }: TenantProviderProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-auth-accent mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando...</p>
+      <div className="min-h-screen bg-background">
+        {/* Header skeleton */}
+        <div className="h-16 border-b border-border px-6 flex items-center justify-between">
+          <Skeleton className="h-8 w-28" />
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-8 w-8 rounded-full" />
+          </div>
+        </div>
+
+        {/* Content skeleton */}
+        <div className="mx-auto max-w-6xl px-6 py-10">
+          {/* Hero section */}
+          <Skeleton className="h-64 w-full rounded-lg mb-8" />
+
+          {/* Content rows */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="h-40 w-full rounded-lg" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

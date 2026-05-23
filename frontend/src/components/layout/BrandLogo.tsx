@@ -109,7 +109,7 @@ export function BrandLogo({
       {(!logoOnly || !logo) && (
         <span
           className={cn(
-            'font-bold text-primary',
+            'font-extrabold text-primary tracking-[var(--tracking-display)]',
             sizeConfig.text,
             textClassName
           )}

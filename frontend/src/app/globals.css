@@ -1,7 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
+
+/* ═══════════════════════════════════════════════════════════════
+   NERBIS Design System — 3-Layer Token Architecture
+   primitive → semantic → component (shadcn compat)
+   ═══════════════════════════════════════════════════════════════ */
 
 @theme inline {
   --color-background: var(--background);
@@ -48,7 +53,7 @@
   --radius-4xl: calc(var(--radius) + 16px);
   --animate-marquee: marquee 30s linear infinite;
 
-  /* ── Auth tokens exposed to Tailwind ─────────────── */
+  /* Auth tokens exposed to Tailwind */
   --color-auth-primary: var(--auth-primary);
   --color-auth-primary-hover: var(--auth-primary-hover);
   --color-auth-secondary: var(--auth-secondary);
@@ -65,92 +70,244 @@
 }
 
 :root {
+  /* ─── Layer 1: Primitive Tokens ─────────────────────────────── */
+
+  /* Absolute */
+  --primitive-white: #ffffff;
+  --primitive-black: #000000;
+
+  /* Warm stone gray scale (Tailwind stone) */
+  --primitive-gray-50: #fafaf9;
+  --primitive-gray-100: #f5f5f4;
+  --primitive-gray-200: #e7e5e4;
+  --primitive-gray-300: #d6d3d1;
+  --primitive-gray-400: #a8a29e;
+  --primitive-gray-500: #78716c;
+  --primitive-gray-600: #57534e;
+  --primitive-gray-700: #44403c;
+  --primitive-gray-800: #292524;
+  --primitive-gray-900: #1c1917;
+  --primitive-gray-950: #0c0a09;
+
+  /* Brand — teal scale based on #0D9488 */
+  --primitive-brand-50: #f0fdfa;
+  --primitive-brand-100: #ccfbf1;
+  --primitive-brand-200: #99f6e4;
+  --primitive-brand-300: #5eead4;
+  --primitive-brand-400: #2dd4bf;
+  --primitive-brand-500: #14b8a6;
+  --primitive-brand-600: #0d9488;
+  --primitive-brand-700: #0f766e;
+  --primitive-brand-800: #115e59;
+  --primitive-brand-900: #134e4a;
+
+  /* Navy */
+  --primitive-navy-700: #1C3B57;
+
+  /* Status colors */
+  --primitive-green-500: #22c55e;
+  --primitive-amber-500: #f59e0b;
+  --primitive-red-500: #ef4444;
+  --primitive-blue-500: #3b82f6;
+
+  /* Motion tokens */
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Spacing scale (4px base, powers of 2) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  /* Radius */
   --radius: 0.625rem;
+  --nerbis-radius-sm: 4px;
+  --nerbis-radius-md: 8px;
+  --nerbis-radius-lg: 12px;
+  --nerbis-radius-xl: 16px;
+  --nerbis-radius-2xl: 24px;
 
-  /* NERBIS Platform Identity — Navy + Teal */
-  --background: #FAFAFA;
-  --footer-background: #F5F5F5;
-  --header: #FFFFFF;
-  --foreground: #111827;
+  /* Z-index */
+  --z-base: 0;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-overlay: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+  --z-tooltip: 60;
 
-  /* Cards y Popovers */
-  --card: #FFFFFF;
-  --card-foreground: #111827;
-  --popover: #FFFFFF;
-  --popover-foreground: #111827;
+  /* Shadow scale */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 
-  /* Primary - Navy NERBIS */
-  --primary: #1C3B57;
-  --primary-foreground: #FFFFFF;
+  /* Typography scale (clamp for responsive sizing) */
+  --text-xs: clamp(0.694rem, 0.66rem + 0.17vw, 0.75rem);
+  --text-sm: clamp(0.833rem, 0.79rem + 0.22vw, 0.875rem);
+  --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.063rem);
+  --text-lg: clamp(1.125rem, 1.05rem + 0.38vw, 1.25rem);
+  --text-xl: clamp(1.266rem, 1.15rem + 0.58vw, 1.5rem);
+  --text-2xl: clamp(1.424rem, 1.25rem + 0.87vw, 1.875rem);
+  --text-3xl: clamp(1.602rem, 1.35rem + 1.26vw, 2.25rem);
+  --text-4xl: clamp(1.802rem, 1.45rem + 1.76vw, 2.813rem);
+  --text-5xl: clamp(2.027rem, 1.55rem + 2.39vw, 3.5rem);
+  --text-display: clamp(2.566rem, 1.8rem + 3.83vw, 4.5rem);
 
-  /* Secondary - Neutro frío */
-  --secondary: #F1F5F9;
-  --secondary-foreground: #334155;
+  /* Tracking tokens */
+  --tracking-display: -0.04em;
+  --tracking-h1: -0.03em;
+  --tracking-h2: -0.02em;
+  --tracking-h4: -0.01em;
+  --tracking-body: 0;
 
-  /* Muted - Gris neutro */
-  --muted: #F1F5F9;
-  --muted-foreground: #64748B;
+  /* Line-height tokens */
+  --leading-display: 1.0;
+  --leading-heading: 1.2;
+  --leading-body: 1.6;
+  --leading-caption: 1.4;
 
-  /* Accent - Teal NERBIS */
-  --accent: #E2F3F1;
-  --accent-foreground: #1C3B57;
+  /* ─── Layer 2: Semantic Tokens ──────────────────────────────── */
 
-  /* Estados */
-  --destructive: #DC2626;
+  /* Surfaces */
+  --color-surface-default: var(--primitive-white);
+  --color-surface-raised: var(--primitive-gray-50);
+  --color-surface-sunken: var(--primitive-gray-100);
+  --color-surface-overlay: var(--primitive-white);
+  --color-surface-inverse: var(--primitive-gray-950);
 
-  /* Bordes e inputs */
-  --border: #E2E8F0;
-  --input: #E2E8F0;
-  --ring: #0D9488;
+  /* Text */
+  --color-text-primary: var(--primitive-gray-900);
+  --color-text-secondary: var(--primitive-gray-600);
+  --color-text-muted: var(--primitive-gray-400);
+  --color-text-disabled: var(--primitive-gray-300);
+  --color-text-inverse: var(--primitive-white);
+  --color-text-brand: var(--primitive-brand-600);
 
-  /* Charts - Paleta NERBIS */
-  --chart-1: #1C3B57;
-  --chart-2: #0D9488;
+  /* Borders */
+  --color-border-default: var(--primitive-gray-200);
+  --color-border-subtle: var(--primitive-gray-100);
+  --color-border-strong: var(--primitive-gray-300);
+  --color-border-focus: var(--primitive-brand-600);
+
+  /* Interactive */
+  --color-interactive-default: var(--primitive-brand-600);
+  --color-interactive-hover: var(--primitive-brand-700);
+  --color-interactive-active: var(--primitive-brand-800);
+  --color-interactive-muted: var(--primitive-brand-50);
+  --color-interactive-disabled: var(--primitive-gray-300);
+
+  /* Status */
+  --color-status-success: var(--primitive-green-500);
+  --color-status-success-bg: color-mix(in oklch, var(--primitive-green-500) 10%, transparent);
+  --color-status-warning: var(--primitive-amber-500);
+  --color-status-warning-bg: color-mix(in oklch, var(--primitive-amber-500) 10%, transparent);
+  --color-status-error: var(--primitive-red-500);
+  --color-status-error-bg: color-mix(in oklch, var(--primitive-red-500) 10%, transparent);
+  --color-status-info: var(--primitive-blue-500);
+  --color-status-info-bg: color-mix(in oklch, var(--primitive-blue-500) 10%, transparent);
+
+  /* ─── Layer 3: Component Tokens (shadcn compat) ─────────────── */
+
+  /* Background & foreground */
+  --background: var(--color-surface-raised);
+  --footer-background: var(--primitive-gray-100);
+  --header: var(--color-surface-default);
+  --foreground: var(--color-text-primary);
+
+  /* Cards & Popovers */
+  --card: var(--color-surface-default);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-surface-default);
+  --popover-foreground: var(--color-text-primary);
+
+  /* Primary — Navy NERBIS (preserved for brand identity) */
+  --primary: var(--primitive-navy-700);
+  --primary-foreground: var(--primitive-white);
+
+  /* Secondary */
+  --secondary: var(--color-surface-raised);
+  --secondary-foreground: var(--color-text-secondary);
+
+  /* Muted */
+  --muted: var(--color-surface-sunken);
+  --muted-foreground: var(--color-text-muted);
+
+  /* Accent — Teal muted */
+  --accent: var(--color-interactive-muted);
+  --accent-foreground: var(--primitive-navy-700);
+
+  /* States */
+  --destructive: var(--color-status-error);
+
+  /* Borders & inputs */
+  --border: var(--color-border-default);
+  --input: var(--color-border-default);
+  --ring: var(--color-border-focus);
+
+  /* Charts — NERBIS palette */
+  --chart-1: var(--primitive-navy-700);
+  --chart-2: var(--primitive-brand-600);
   --chart-3: #2563EB;
   --chart-4: #059669;
   --chart-5: #6366F1;
 
   /* Sidebar */
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #111827;
-  --sidebar-primary: #1C3B57;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F1F5F9;
-  --sidebar-accent-foreground: #334155;
-  --sidebar-border: #E2E8F0;
-  --sidebar-ring: #0D9488;
+  --sidebar: var(--color-surface-default);
+  --sidebar-foreground: var(--color-text-primary);
+  --sidebar-primary: var(--primitive-navy-700);
+  --sidebar-primary-foreground: var(--primitive-white);
+  --sidebar-accent: var(--color-surface-raised);
+  --sidebar-accent-foreground: var(--color-text-secondary);
+  --sidebar-border: var(--color-border-default);
+  --sidebar-ring: var(--color-border-focus);
 
-  /* Fuentes del tema (overrideadas por ThemeInjector dentro de .published-website) */
+  /* Theme fonts (overridden by ThemeInjector inside .published-website) */
   --font-heading: var(--font-geist-sans), sans-serif;
   --font-body: var(--font-geist-sans), sans-serif;
 
-  /* ── Auth Design Tokens ────────────────────────────────────── */
+  /* ─── Auth Design Tokens ────────────────────────────────────── */
 
-  /* Auth colors */
-  --auth-primary: #1C3B57;
+  --auth-primary: var(--primitive-navy-700);
   --auth-primary-hover: #162f46;
-  --auth-accent: #0D9488;
-  --auth-accent-light: #0D9488;
-  --auth-secondary: #0D9488;
-  --auth-bg: #FAFAFA;
-  --auth-bg-input: #FFFFFF;
-  --auth-bg-dark: #1C3B57;
-  --auth-text: #111827;
-  --auth-text-muted: #9CA3AF;
-  --auth-text-label: #6B7280;
-  --auth-text-placeholder: #D1D5DB;
-  --auth-text-on-dark: #FFFFFF;
+  --auth-accent: var(--primitive-brand-600);
+  --auth-accent-light: var(--primitive-brand-600);
+  --auth-secondary: var(--primitive-brand-600);
+  --auth-bg: var(--primitive-gray-50);
+  --auth-bg-input: var(--primitive-white);
+  --auth-bg-dark: var(--primitive-navy-700);
+  --auth-text: var(--color-text-primary);
+  --auth-text-muted: var(--primitive-gray-400);
+  --auth-text-label: var(--primitive-gray-500);
+  --auth-text-placeholder: var(--primitive-gray-300);
+  --auth-text-on-dark: var(--primitive-white);
   --auth-text-on-dark-muted: rgba(255, 255, 255, 0.7);
   --auth-text-on-dark-subtle: rgba(255, 255, 255, 0.5);
-  --auth-border: #e7e5e4; /* stone-200 — warm */
-  --auth-border-focus: #0D9488;
-  --auth-border-error: #DC2626;
-  --auth-error: #DC2626;
+  --auth-border: var(--primitive-gray-200);
+  --auth-border-focus: var(--primitive-brand-600);
+  --auth-border-error: var(--color-status-error);
+  --auth-error: var(--color-status-error);
   --auth-success: #059669;
   --auth-warning: #D97706;
 
   /* Auth gradient (brand panel) */
-  --auth-gradient-start: #1C3B57;
+  --auth-gradient-start: var(--primitive-navy-700);
   --auth-gradient-mid: #1a3450;
   --auth-gradient-end: #265e6a;
 
@@ -159,7 +316,7 @@
   --auth-section-padding: 4rem;
   --auth-input-height: 2.75rem;
 
-  /* Auth typography — uses Geist Sans from root layout */
+  /* Auth typography */
   --auth-font-heading: var(--font-geist-sans), -apple-system, 'BlinkMacSystemFont', 'SF Pro Display', system-ui, sans-serif;
   --auth-font-body: var(--font-geist-sans), -apple-system, 'BlinkMacSystemFont', 'SF Pro Display', system-ui, sans-serif;
   --auth-font-brand: var(--font-geist-sans), sans-serif;
@@ -170,67 +327,89 @@
   --auth-radius-card: 0.75rem;
 
   /* Auth animation */
-  --auth-duration-fast: 150ms;
-  --auth-duration-normal: 300ms;
+  --auth-duration-fast: var(--duration-fast);
+  --auth-duration-normal: var(--duration-slow);
   --auth-duration-slow: 700ms;
-  --auth-easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --auth-easing-default: var(--ease-default);
   --auth-easing-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.dark {
-  /* NERBIS Dark — Navy + Teal */
+/* ─── Layer 2b: Dark Mode (intentional palette) ─────────────── */
+
+[data-theme="dark"] {
+  /* Semantic overrides */
+  --color-surface-default: var(--primitive-gray-950);
+  --color-surface-raised: var(--primitive-gray-900);
+  --color-surface-sunken: var(--primitive-black);
+  --color-surface-overlay: var(--primitive-gray-800);
+  --color-surface-inverse: var(--primitive-white);
+
+  --color-text-primary: var(--primitive-gray-50);
+  --color-text-secondary: var(--primitive-gray-400);
+  --color-text-muted: var(--primitive-gray-500);
+  --color-text-disabled: var(--primitive-gray-700);
+  --color-text-inverse: var(--primitive-gray-950);
+  --color-text-brand: var(--primitive-brand-400);
+
+  --color-border-default: var(--primitive-gray-800);
+  --color-border-subtle: var(--primitive-gray-900);
+  --color-border-strong: var(--primitive-gray-700);
+  --color-border-focus: var(--primitive-brand-400);
+
+  --color-interactive-default: var(--primitive-brand-500);
+  --color-interactive-hover: var(--primitive-brand-400);
+  --color-interactive-active: var(--primitive-brand-300);
+  --color-interactive-muted: var(--primitive-brand-900);
+  --color-interactive-disabled: var(--primitive-gray-700);
+
+  /* Component overrides (cascade from semantics) */
   --background: #0F1729;
   --footer-background: #141D2F;
-  --foreground: #F1F5F9;
+  --foreground: var(--color-text-primary);
   --header: #1A2744;
 
-  /* Cards y Popovers */
   --card: #1A2744;
-  --card-foreground: #F1F5F9;
+  --card-foreground: var(--color-text-primary);
   --popover: #1A2744;
-  --popover-foreground: #F1F5F9;
+  --popover-foreground: var(--color-text-primary);
 
-  /* Primary - Navy claro en modo oscuro */
   --primary: #93C5FD;
   --primary-foreground: #0F1729;
 
-  /* Secondary */
   --secondary: #1E3A5F;
-  --secondary-foreground: #F1F5F9;
+  --secondary-foreground: var(--color-text-primary);
 
-  /* Muted */
   --muted: #1E3A5F;
   --muted-foreground: #94A3B8;
 
-  /* Accent - Teal oscuro */
   --accent: #134E4A;
-  --accent-foreground: #F1F5F9;
+  --accent-foreground: var(--color-text-primary);
 
-  /* Estados */
   --destructive: #F87171;
 
-  /* Bordes e inputs */
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.15);
   --ring: #5EEAD4;
 
-  /* Charts */
   --chart-1: #93C5FD;
   --chart-2: #5EEAD4;
   --chart-3: #60A5FA;
   --chart-4: #34D399;
   --chart-5: #A78BFA;
 
-  /* Sidebar */
   --sidebar: #141D2F;
-  --sidebar-foreground: #F1F5F9;
+  --sidebar-foreground: var(--color-text-primary);
   --sidebar-primary: #93C5FD;
   --sidebar-primary-foreground: #0F1729;
   --sidebar-accent: #1E3A5F;
-  --sidebar-accent-foreground: #F1F5F9;
+  --sidebar-accent-foreground: var(--color-text-primary);
   --sidebar-border: rgba(255, 255, 255, 0.1);
   --sidebar-ring: #5EEAD4;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Base Layer
+   ═══════════════════════════════════════════════════════════════ */
 
 @layer base {
   * {
@@ -250,10 +429,42 @@
 
   /* Signature NERBIS — brand selection color */
   ::selection {
-    background-color: var(--primary);
-    color: var(--primary-foreground);
+    background: color-mix(in oklch, var(--color-interactive-default) 20%, transparent);
+    color: var(--color-text-primary);
+  }
+
+  /* Signature NERBIS — focus ring with brand color */
+  :focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Signature NERBIS — custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-default);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-strong);
+  }
+
+  /* Standard scrollbar (Firefox, future Chrome) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-default) transparent;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Utilities
+   ═══════════════════════════════════════════════════════════════ */
 
 @layer utilities {
   .container {
@@ -261,90 +472,72 @@
   }
 }
 
-/* Colores de acento — heredan del tema dinámico */
-:root {
-  --gold: var(--secondary);
-  --gold-light: var(--accent);
-  --rose-deep: var(--primary);
-  --rose-light: var(--secondary);
-  --blush: var(--muted);
-}
+/* ═══════════════════════════════════════════════════════════════
+   NERBIS Signature Elements
+   ═══════════════════════════════════════════════════════════════ */
 
-.dark {
-  --gold: var(--secondary);
-  --gold-light: var(--accent);
-  --rose-deep: var(--primary);
-  --rose-light: var(--secondary);
-  --blush: var(--muted);
-}
-
-/* Clases de utilidad para acentos dorados */
-.text-gold {
-  color: var(--gold);
-}
-
-.bg-gold {
-  background-color: var(--gold);
-}
-
-.bg-gold\/10 {
-  background-color: color-mix(in srgb, var(--gold) 10%, transparent);
-}
-
-.border-gold {
-  border-color: var(--gold);
-}
-
-/* Gradientes elegantes — heredan del tema dinámico */
-.gradient-rose {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--rose-deep) 100%);
-}
-
-.gradient-rose-gold {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-}
-
-.gradient-blush {
-  background: linear-gradient(135deg, var(--background) 0%, var(--secondary) 100%);
-}
-
-.gradient-elegant {
-  background: linear-gradient(135deg, #FFFFFF 0%, var(--background) 50%, var(--secondary) 100%);
-}
-
-/* Efecto de brillo suave para elementos premium */
-.shine-effect {
+/* Signature 1: Warm grain texture overlay */
+.nerbis-grain {
   position: relative;
   overflow: hidden;
 }
 
-.shine-effect::after {
-  content: '';
+.nerbis-grain::before {
+  content: "";
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(255, 255, 255, 0.1) 50%,
-    transparent 100%
-  );
-  transform: rotate(30deg);
-  animation: shine 3s infinite;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 182px;
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: overlay;
 }
 
-@keyframes shine {
-  0% {
-    transform: translateX(-100%) rotate(30deg);
-  }
-  100% {
-    transform: translateX(100%) rotate(30deg);
-  }
+/* Signature 3: Restrained glass accent */
+.nerbis-glass {
+  background: color-mix(in oklch, var(--color-surface-default), transparent 70%);
+  backdrop-filter: blur(12px) saturate(1.5);
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  border: 1px solid color-mix(in oklch, var(--color-border-default), transparent 80%);
 }
 
-/* Sombras suaves — usan color primario del tema */
+/* Signature 4: Pipe name — bold wordmark style so users recognize the character */
+.pipe-name {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Signature 5: Display typography */
+.nerbis-display {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.0;
+  text-wrap: balance;
+}
+
+/* Signature 5: Subtle hover lift (2px, not 4px) */
+.hover-lift {
+  transition: transform var(--duration-normal) ease-out,
+              box-shadow var(--duration-normal) ease-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.hover-lift:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Soft Shadows — use brand color tint
+   ═══════════════════════════════════════════════════════════════ */
+
 .shadow-rose {
   box-shadow: 0 4px 14px 0 color-mix(in srgb, var(--primary) 15%, transparent);
 }
@@ -353,69 +546,10 @@
   box-shadow: 0 10px 40px 0 color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
-/* Hover states mejorados */
-.hover-lift {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
+/* ═══════════════════════════════════════════════════════════════
+   Marquee / infinite carousel
+   ═══════════════════════════════════════════════════════════════ */
 
-.hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px 0 color-mix(in srgb, var(--primary) 25%, transparent);
-}
-
-/* Footer NERBIS - Cielo estrellado */
-.nerbis-stars {
-  position: relative;
-  background: #0a0a0f;
-  overflow: hidden;
-}
-
-.nerbis-stars::before,
-.nerbis-stars::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.nerbis-stars::before {
-  background-image:
-    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.8) 0%, transparent 100%),
-    radial-gradient(1px 1px at 25% 60%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 40% 15%, rgba(255,255,255,0.9) 0%, transparent 100%),
-    radial-gradient(1px 1px at 55% 75%, rgba(255,255,255,0.5) 0%, transparent 100%),
-    radial-gradient(1px 1px at 70% 35%, rgba(255,255,255,0.7) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 85% 80%, rgba(255,255,255,0.8) 0%, transparent 100%),
-    radial-gradient(1px 1px at 15% 85%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(1px 1px at 95% 10%, rgba(255,255,255,0.7) 0%, transparent 100%),
-    radial-gradient(1px 1px at 50% 45%, rgba(255,255,255,0.5) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 30% 40%, rgba(255,255,255,0.9) 0%, transparent 100%),
-    radial-gradient(1px 1px at 65% 55%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(1px 1px at 80% 25%, rgba(255,255,255,0.5) 0%, transparent 100%);
-  animation: twinkle 4s ease-in-out infinite alternate;
-}
-
-.nerbis-stars::after {
-  background-image:
-    radial-gradient(1px 1px at 5% 50%, rgba(255,255,255,0.4) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 20% 30%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(1px 1px at 35% 90%, rgba(255,255,255,0.5) 0%, transparent 100%),
-    radial-gradient(1px 1px at 45% 5%, rgba(255,255,255,0.7) 0%, transparent 100%),
-    radial-gradient(1px 1px at 60% 65%, rgba(255,255,255,0.4) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 75% 50%, rgba(255,255,255,0.8) 0%, transparent 100%),
-    radial-gradient(1px 1px at 90% 70%, rgba(255,255,255,0.5) 0%, transparent 100%),
-    radial-gradient(1px 1px at 12% 10%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(1px 1px at 48% 85%, rgba(255,255,255,0.4) 0%, transparent 100%),
-    radial-gradient(1px 1px at 72% 12%, rgba(255,255,255,0.7) 0%, transparent 100%);
-  animation: twinkle 5s ease-in-out infinite alternate-reverse;
-}
-
-@keyframes twinkle {
-  0% { opacity: 0.6; }
-  100% { opacity: 1; }
-}
-
-/* Marquee / carrusel infinito */
 @keyframes marquee {
   0% {
     transform: translateX(0);
@@ -433,7 +567,27 @@
   animation-play-state: paused;
 }
 
-/* Profile page — animaciones */
+@keyframes marquee-reverse {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.marquee-track-reverse {
+  animation: marquee-reverse 35s linear infinite;
+}
+
+.marquee-container:hover .marquee-track-reverse {
+  animation-play-state: paused;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Profile page — animations
+   ═══════════════════════════════════════════════════════════════ */
+
 @keyframes profile-fade-up {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
@@ -449,30 +603,10 @@
 .profile-delay-4 { animation-delay: 0.24s; opacity: 0; }
 .profile-delay-5 { animation-delay: 0.30s; opacity: 0; }
 
-@media (prefers-reduced-motion: reduce) {
-  .profile-fade-up {
-    animation: none;
-    opacity: 1;
-  }
-  .profile-delay-1,
-  .profile-delay-2,
-  .profile-delay-3,
-  .profile-delay-4,
-  .profile-delay-5 {
-    animation: none;
-    opacity: 1;
-  }
-}
+/* ═══════════════════════════════════════════════════════════════
+   Auth: Logo pendulum animation
+   ═══════════════════════════════════════════════════════════════ */
 
-/* ── Auth: Reduced motion support ────────────────────────────── */
-@media (prefers-reduced-motion: reduce) {
-  [data-auth-animated] {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-  }
-}
-
-/* ── Auth: Logo pendulum animation ───────────────────────────── */
 @keyframes g-pendulum {
   0%   { transform: rotate(0deg); }
   6%   { transform: rotate(-18deg); }
@@ -490,11 +624,10 @@
   will-change: transform;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .g-pendulum { animation: none; }
-}
+/* ═══════════════════════════════════════════════════════════════
+   Auth: Fade-up keyframes
+   ═══════════════════════════════════════════════════════════════ */
 
-/* ── Auth: Keyframes ─────────────────────────────────────────── */
 @keyframes fade-up-auth {
   from {
     opacity: 0;
@@ -520,10 +653,10 @@
   transition: background-color 5000s ease-in-out 0s;
 }
 
-/* ═══════════════════════════════════════════════════
-   SCROLL-TRIGGERED ANIMATIONS (global scope)
+/* ═══════════════════════════════════════════════════════════════
+   Scroll-triggered animations (global scope)
    Used by marketing pages and any non-published-website context.
-   ═══════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════ */
 
 [class*="anim-"]:not(.anim-visible) {
   opacity: 0;
@@ -532,8 +665,8 @@
 
 .anim-fade-up {
   transform: translateY(24px);
-  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.6s var(--ease-default),
+              transform 0.6s var(--ease-default);
 }
 .anim-fade-up.anim-visible {
   opacity: 1;
@@ -541,7 +674,7 @@
 }
 
 .anim-fade-in {
-  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.6s var(--ease-default);
 }
 .anim-fade-in.anim-visible {
   opacity: 1;
@@ -549,8 +682,8 @@
 
 .anim-scale-in {
   transform: scale(0.95);
-  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.6s var(--ease-default),
+              transform 0.6s var(--ease-default);
 }
 .anim-scale-in.anim-visible {
   opacity: 1;
@@ -561,7 +694,7 @@
 .stagger.anim-visible > * {
   opacity: 0;
   transform: translateY(16px);
-  animation: stagger-fade-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: stagger-fade-up 0.5s var(--ease-default) forwards;
 }
 .stagger.anim-visible > *:nth-child(1) { animation-delay: 0ms; }
 .stagger.anim-visible > *:nth-child(2) { animation-delay: 80ms; }
@@ -587,8 +720,43 @@
   }
 }
 
-/* Reduced motion */
+/* ═══════════════════════════════════════════════════════════════
+   Reduced motion — MANDATORY
+   ═══════════════════════════════════════════════════════════════ */
+
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .hover-lift:hover {
+    transform: none;
+  }
+
+  .profile-fade-up,
+  .profile-delay-1,
+  .profile-delay-2,
+  .profile-delay-3,
+  .profile-delay-4,
+  .profile-delay-5 {
+    animation: none;
+    opacity: 1;
+  }
+
+  .g-pendulum {
+    animation: none;
+  }
+
+  [data-auth-animated] {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
   [class*="anim-"] {
     opacity: 1 !important;
     transform: none !important;

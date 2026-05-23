@@ -6,55 +6,59 @@ import { Menu, X } from 'lucide-react';
 import { NerbisWordmark } from './nerbis-wordmark';
 
 const navLinks = [
-  { label: 'Producto', href: '#features' },
-  { label: 'Industrias', href: '#industries' },
-  { label: 'Como funciona', href: '#how-it-works' },
+  { label: 'Producto', href: '/producto' },
+  { label: 'Industrias', href: '/industrias' },
+  { label: 'Precios', href: '/precios' },
 ];
 
 export function MarketingHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-zinc-800/50 bg-zinc-950/80 backdrop-blur-xl">
+    <header className="nerbis-glass sticky top-0 z-50 w-full border-b border-border/50 bg-background/80">
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center">
-          <NerbisWordmark size={18} className="text-white" variant="full" pipeCalm />
+          <NerbisWordmark size={18} className="text-foreground" variant="full" pipeCalm />
         </Link>
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-8 md:flex">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
-              className="text-sm text-zinc-400 transition-colors hover:text-white"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </div>
 
-        {/* Desktop CTAs */}
-        <div className="hidden items-center gap-3 md:flex">
-          <Link
-            href="/login"
-            className="text-sm text-zinc-400 transition-colors hover:text-white"
-          >
-            Iniciar sesion
-          </Link>
+        {/* Desktop CTA */}
+        <div className="hidden flex-col items-center md:flex">
           <Link
             href="/register"
-            className="rounded-full bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+            className="group inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90"
+            style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
           >
-            Crear sitio gratis
+            Empezar gratis
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </Link>
+          <Link
+            href="/login"
+            className="mt-0.5 text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground"
+          >
+            ¿Ya tienes cuenta?
           </Link>
         </div>
 
         {/* Mobile hamburger */}
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:text-white md:hidden"
+          className="flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? 'Cerrar menu' : 'Abrir menu'}
           aria-expanded={mobileOpen}
@@ -66,32 +70,29 @@ export function MarketingHeader() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <nav id="mobile-menu" aria-label="Menu principal" className="border-t border-zinc-800/50 bg-zinc-950/95 backdrop-blur-xl md:hidden">
+        <nav id="mobile-menu" aria-label="Menu principal" className="border-t border-border/50 bg-background/95 backdrop-blur-xl md:hidden">
           <div className="flex flex-col gap-1 px-4 py-4">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
-                className="rounded-lg px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-white"
+                className="rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 onClick={() => setMobileOpen(false)}
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
-            <hr className="my-2 border-zinc-800" />
-            <Link
-              href="/login"
-              className="rounded-lg px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-white"
-              onClick={() => setMobileOpen(false)}
-            >
-              Iniciar sesion
-            </Link>
+            <hr className="my-2 border-border" />
             <Link
               href="/register"
-              className="mt-1 rounded-full bg-white px-4 py-2.5 text-center text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+              className="group mt-1 inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-center text-sm font-medium text-white transition-all hover:opacity-90"
+              style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
               onClick={() => setMobileOpen(false)}
             >
-              Crear sitio gratis
+              Empezar gratis
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
             </Link>
           </div>
         </nav>

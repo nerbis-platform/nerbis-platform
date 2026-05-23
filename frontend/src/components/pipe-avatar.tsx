@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useId, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 // ─── Colors ──────────────────────────────────────────────
 const TEAL = '#0D9488';
@@ -140,8 +140,9 @@ export function PipeAvatar({
 
   const eyes = MOOD_EYES[mood];
 
-  const reactId = useId();
-  const uid = `pipe-${reactId.replace(/:/g, '')}`;
+  // Static IDs — all PipeAvatar gradients are identical (same teal colors),
+  // so sharing IDs across instances is visually correct and avoids hydration mismatch.
+  const uid = 'pipe-g';
   const containerRef = useRef<HTMLDivElement>(null);
   const [lookOffset, setLookOffset] = useState({ x: 0, y: 0 });
   const [tapped, setTapped] = useState(false);
@@ -324,8 +325,7 @@ export function PipeStatic({ size = 24 }: { size?: number }) {
   const eyeSpread = baseEyeSpread * eyes.gap;
   const eyeOffY = eyes.offsetY * s;
 
-  const reactId = useId();
-  const uid = `pipe-s-${reactId.replace(/:/g, '')}`;
+  const uid = 'pipe-gs';
 
   return (
     <svg
@@ -388,8 +388,7 @@ export function PipeAdmin({ size = 36 }: { size?: number }) {
   const eyeSpread = baseEyeSpread * eyes.gap;
   const eyeOffY = eyes.offsetY * s;
 
-  const reactId = useId();
-  const uid = `pipe-admin-${reactId.replace(/:/g, '')}`;
+  const uid = 'pipe-ga';
   const containerRef = useRef<HTMLDivElement>(null);
   const [lookOffset, setLookOffset] = useState({ x: 0, y: 0 });
 

@@ -17,7 +17,7 @@ interface ServiceCardProps {
 
 export function ServiceCard({ service }: ServiceCardProps) {
   return (
-    <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 bg-card rounded-2xl">
+    <Card className="group relative overflow-hidden border-0 shadow-md hover-lift transition-all duration-300 bg-card rounded-2xl">
       {/* Imagen del servicio */}
       <div className="relative h-48 overflow-hidden">
         {service.image ? (
@@ -78,7 +78,7 @@ export function ServiceCard({ service }: ServiceCardProps) {
         {/* Duration & Price row */}
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-border/50">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
               <Clock className="h-4 w-4 text-primary" />
             </div>
             <span className="text-sm font-medium">{service.formatted_duration}</span>
@@ -98,7 +98,7 @@ export function ServiceCard({ service }: ServiceCardProps) {
                 {service.assigned_staff.slice(0, 3).map((staff) => (
                   <Avatar
                     key={staff.id}
-                    className="border-2 border-card w-8 h-8 ring-2 ring-background"
+                    className="border-2 border-card size-8 ring-2 ring-background"
                   >
                     <AvatarImage src={staff.photo} alt={staff.full_name} />
                     <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
@@ -107,7 +107,7 @@ export function ServiceCard({ service }: ServiceCardProps) {
                   </Avatar>
                 ))}
                 {service.assigned_staff.length > 3 && (
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 border-2 border-card ring-2 ring-background text-xs font-semibold text-primary">
+                  <div className="flex items-center justify-center size-8 rounded-full bg-primary/10 border-2 border-card ring-2 ring-background text-xs font-semibold text-primary">
                     +{service.assigned_staff.length - 3}
                   </div>
                 )}

@@ -108,7 +108,7 @@ export default function SectionLibrary({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h2 className="text-[0.95rem] font-semibold text-[#1C3B57]">
+            <h2 className="text-[0.95rem] font-semibold text-foreground">
               Biblioteca de secciones
             </h2>
             <p className="text-[0.72rem] text-gray-400 mt-0.5">
@@ -137,7 +137,7 @@ export default function SectionLibrary({
                   onClick={() => setSelectedSection(section.id)}
                   className={`w-full text-left px-4 py-2.5 text-[0.78rem] transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-[#E2F3F1] text-[#1C3B57] font-medium border-r-2 border-[#1C3B57]'
+                      ? 'bg-primary/10 text-foreground font-medium border-r-2 border-[#1C3B57]'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -151,7 +151,7 @@ export default function SectionLibrary({
           <div className="flex-1 overflow-y-auto p-4">
             {/* Section description */}
             <div className="mb-4">
-              <h3 className="text-[0.85rem] font-semibold text-[#1C3B57]">
+              <h3 className="text-[0.85rem] font-semibold text-foreground">
                 {SECTION_LABELS[selectedSection] || selectedSection}
               </h3>
               <p className="text-[0.72rem] text-gray-400 mt-0.5">
@@ -170,11 +170,11 @@ export default function SectionLibrary({
                         key={variant.id}
                         type="button"
                         onClick={() => handleAddWithVariant(selectedSection, variant.id)}
-                        className="group relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-100 hover:border-[#0D9488] hover:bg-[#E2F3F1]/20 transition-all cursor-pointer"
+                        className="group relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-100 hover:border-primary hover:bg-primary/10/20 transition-all cursor-pointer"
                       >
                         <LayoutIcon type={variant.icon} isActive={false} />
                         <div className="text-center">
-                          <span className="text-[0.75rem] font-medium text-gray-700 group-hover:text-[#1C3B57] block">
+                          <span className="text-[0.75rem] font-medium text-gray-700 group-hover:text-foreground block">
                             {variant.label}
                           </span>
                           <span className="text-[0.65rem] text-gray-400 leading-tight block mt-0.5">
@@ -182,7 +182,7 @@ export default function SectionLibrary({
                           </span>
                         </div>
                         {hasTemplate && (
-                          <span className="absolute top-2 right-2 flex items-center gap-0.5 bg-[#E2F3F1] text-[#1C3B57] text-[0.55rem] font-medium px-1.5 py-0.5 rounded-full">
+                          <span className="absolute top-2 right-2 flex items-center gap-0.5 bg-primary/10 text-foreground text-[0.55rem] font-medium px-1.5 py-0.5 rounded-full">
                             <Sparkles className="h-2 w-2" />
                             Contenido
                           </span>
@@ -204,7 +204,7 @@ export default function SectionLibrary({
                   <button
                     type="button"
                     onClick={() => handleAddBlank(selectedSection)}
-                    className="w-full flex items-center justify-center gap-2 h-9 rounded-lg border border-dashed border-gray-300 text-[0.75rem] text-gray-500 font-medium hover:border-[#0D9488] hover:text-[#1C3B57] transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 h-9 rounded-lg border border-dashed border-gray-300 text-[0.75rem] text-gray-500 font-medium hover:border-primary hover:text-foreground transition-colors cursor-pointer"
                   >
                     <FileText className="h-3.5 w-3.5" />
                     Agregar sin contenido
@@ -214,8 +214,8 @@ export default function SectionLibrary({
             ) : (
               /* Section without variants — show single add option */
               <div className="flex flex-col items-center gap-4 py-8">
-                <div className="w-16 h-16 rounded-2xl bg-[#E2F3F1] flex items-center justify-center">
-                  <FileText className="h-7 w-7 text-[#1C3B57]" />
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <FileText className="h-7 w-7 text-foreground" />
                 </div>
                 <div className="text-center">
                   <p className="text-[0.78rem] text-gray-500">
