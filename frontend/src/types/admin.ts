@@ -353,7 +353,7 @@ export interface AdminAuditLogEntry {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Platform settings — modules, pages, onboarding questions (Issue #TBD)
+// Platform settings — modules, onboarding questions (Issue #TBD)
 // ──────────────────────────────────────────────────────────────────────
 
 /** Compact reference to a module, used in dependency/relation lists. */
@@ -393,40 +393,6 @@ export interface AdminPlatformModulePayload {
   is_active?: boolean;
   sort_order?: number;
   dependencies?: number[];
-}
-
-/**
- * Website page returned by `GET /api/admin/settings/pages/`.
- * Mirrors `AdminWebsitePageSerializer`.
- */
-export interface AdminWebsitePage {
-  id: number;
-  key: string;
-  label: string;
-  description: string;
-  icon: string;
-  is_mandatory: boolean;
-  is_default: boolean;
-  sort_order: number;
-  is_active: boolean;
-  auto_include_modules: number[];
-  auto_include_modules_detail: AdminModuleRef[];
-}
-
-/**
- * Payload accepted by `POST/PATCH /api/admin/settings/pages/`.
- * Mirrors `AdminWebsitePageCreateUpdateSerializer`.
- */
-export interface AdminWebsitePagePayload {
-  key: string;
-  label: string;
-  description?: string;
-  icon?: string;
-  is_mandatory?: boolean;
-  is_default?: boolean;
-  sort_order?: number;
-  is_active?: boolean;
-  auto_include_modules?: number[];
 }
 
 /**

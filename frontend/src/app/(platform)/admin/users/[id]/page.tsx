@@ -23,17 +23,14 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Apple,
-  ArrowLeft,
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
   Chrome,
   Facebook,
   Fingerprint,
   KeyRound,
   Link as LinkIcon,
   Loader2,
-  LogOut,
   Mail,
   RefreshCw,
   Shield,
@@ -246,7 +243,7 @@ export default function AdminUserDetailPage({
 }) {
   const { id } = use(params);
   const userId = Number.parseInt(id, 10);
-  const { admin, logout } = useAdminAuth();
+  const { admin } = useAdminAuth();
 
   // ── User detail state ───────────────────────────────────────────────
   const [user, setUser] = useState<AdminUserDetail | null>(null);
@@ -476,118 +473,31 @@ export default function AdminUserDetailPage({
     : admin?.email ?? 'superadmin';
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header
-        className="relative overflow-hidden border-b border-white/5"
-        style={{
-          background:
-            'linear-gradient(135deg, #1C1917 0%, #231F1E 50%, #1C1917 100%)',
-        }}
-      >
-        <div
-          className="absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-[0.07] blur-3xl"
-          style={{
-            background: 'radial-gradient(circle, #0D9488, transparent 70%)',
-          }}
-        />
-        <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-4">
-            <Link
-              href={backHref}
-              aria-label="Volver"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 transition-colors hover:bg-white/15"
-            >
-              <ArrowLeft
-                className="h-5 w-5 text-white/80"
-                aria-hidden="true"
-              />
-            </Link>
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold tracking-tight text-white">
-                {user?.email ?? 'Usuario'}
-              </h1>
-              <p className="truncate text-xs text-white/50">
-                {headerSubtitle}
-              </p>
-            </div>
-            {user ? (
-              <div className="hidden shrink-0 items-center gap-2 sm:flex">
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${roleBadgeClass(user.role)}`}
-                >
-                  {ROLE_LABELS[user.role]}
-                </span>
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${statusBadgeClass(user.is_active)}`}
-                >
-                  {user.is_active ? 'Activo' : 'Inactivo'}
-                </span>
-              </div>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 items-center gap-3 text-white/70">
-            <span className="hidden text-xs md:inline">
-              {admin?.email ?? ''}
-            </span>
-            <button
-              onClick={logout}
-              className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.06] px-3.5 py-2 text-sm transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <LogOut className="h-4 w-4" aria-hidden="true" />
-              Salir
-            </button>
-          </div>
+    <>
+      <div className="mb-6 flex items-center gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
+            {user?.email ?? 'Usuario'}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {headerSubtitle}
+          </p>
         </div>
-      </header>
-
-      <main className="fade-up-auth mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <nav aria-label="Ruta" className="mb-4">
-          <ol className="flex items-center gap-1.5 text-xs text-slate-500">
-            <li>
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-1 transition-colors hover:text-slate-700"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                Panel
-              </Link>
-            </li>
-            <li aria-hidden="true">
-              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-            </li>
-            <li>
-              <Link
-                href="/admin/tenants"
-                className="transition-colors hover:text-slate-700"
-              >
-                Tenants
-              </Link>
-            </li>
-            {user?.tenant_id && user.tenant_name ? (
-              <>
-                <li aria-hidden="true">
-                  <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-                </li>
-                <li>
-                  <Link
-                    href={`/admin/tenants/${user.tenant_id}`}
-                    className="truncate transition-colors hover:text-slate-700"
-                  >
-                    {user.tenant_name}
-                  </Link>
-                </li>
-              </>
-            ) : null}
-            <li aria-hidden="true">
-              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-            </li>
-            <li className="truncate font-medium text-slate-700">
-              {user?.email ?? id}
-            </li>
-          </ol>
-        </nav>
+        {user ? (
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${roleBadgeClass(user.role)}`}
+            >
+              {ROLE_LABELS[user.role]}
+            </span>
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${statusBadgeClass(user.is_active)}`}
+            >
+              {user.is_active ? 'Activo' : 'Inactivo'}
+            </span>
+          </div>
+        ) : null}
+      </div>
 
         {/* Error banner */}
         {error && (
@@ -1021,7 +931,6 @@ export default function AdminUserDetailPage({
             </p>
           </div>
         ) : null}
-      </main>
 
       {/* ── Status toggle dialog ───────────────────────────────────── */}
       <AlertDialog
@@ -1270,6 +1179,6 @@ export default function AdminUserDetailPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }

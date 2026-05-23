@@ -419,7 +419,7 @@ export async function updateThemeData(
 // ===================================
 
 export async function getPlatformModules(): Promise<PlatformModule[]> {
-  const { data } = await apiClient.get<PlatformModule[]>('/core/modules/');
+  const { data } = await apiClient.get<PlatformModule[]>('/modules/');
   return data;
 }
 

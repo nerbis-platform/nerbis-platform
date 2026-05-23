@@ -187,7 +187,7 @@ function QuestionField({
     case 'choice':
       return (
         <div className={compact ? 'grid grid-cols-2 gap-2' : 'grid gap-2'}>
-          {question.options?.map((option) => (
+          {(question.options as string[] | undefined)?.map((option) => (
             <button
               key={option}
               type="button"
@@ -220,7 +220,7 @@ function QuestionField({
     case 'multi_choice':
       return (
         <div className={compact ? 'grid grid-cols-2 gap-2' : 'grid gap-2'}>
-          {question.options?.map((option) => {
+          {(question.options as string[] | undefined)?.map((option) => {
             const isSelected = arrayValue.includes(option);
             return (
               <button

@@ -1,22 +1,14 @@
 // src/app/(platform)/admin/settings/onboarding/page.tsx
 //
-// Platform superadmin: onboarding configuration page.
-//
-// Manages WebsitePages and OnboardingQuestions via two tabs.
+// Platform superadmin: onboarding questions configuration page.
 // All requests go through `adminClient` (via `admin-settings` helpers) —
 // never the tenant-scoped `apiClient`.
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import Link from 'next/link';
-import { PipeAdmin } from '@/components/pipe-avatar';
 import {
-  ArrowLeft,
-  ChevronRight,
-  FileText,
   HelpCircle,
   Loader2,
-  LogOut,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -25,24 +17,17 @@ import {
 } from 'lucide-react';
 import {
   adminListModules,
-  adminListPages,
-  adminCreatePage,
-  adminUpdatePage,
-  adminDeletePage,
   adminListQuestions,
   adminCreateQuestion,
   adminUpdateQuestion,
   adminDeleteQuestion,
 } from '@/lib/api/admin-settings';
 import { toast } from 'sonner';
-import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import type {
   AdminModuleRef,
   AdminOnboardingQuestion,
   AdminOnboardingQuestionPayload,
   AdminPlatformModule,
-  AdminWebsitePage,
-  AdminWebsitePagePayload,
 } from '@/types/admin';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -79,7 +64,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // ──────────────────────────────────────────────────────────────────────
 // Helpers
@@ -99,34 +83,6 @@ function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return text.slice(0, max) + '\u2026';
 }
-
-// ──────────────────────────────────────────────────────────────────────
-// Page form state
-// ──────────────────────────────────────────────────────────────────────
-
-interface PageFormState {
-  key: string;
-  label: string;
-  description: string;
-  icon: string;
-  is_mandatory: boolean;
-  is_default: boolean;
-  sort_order: number;
-  is_active: boolean;
-  auto_include_modules: number[];
-}
-
-const EMPTY_PAGE_FORM: PageFormState = {
-  key: '',
-  label: '',
-  description: '',
-  icon: '',
-  is_mandatory: false,
-  is_default: false,
-  sort_order: 0,
-  is_active: true,
-  auto_include_modules: [],
-};
 
 // ──────────────────────────────────────────────────────────────────────
 // Question form state
@@ -189,10 +145,14 @@ const INPUT_TYPE_OPTIONS = [
   { value: 'input', label: 'Input' },
   { value: 'textarea', label: 'Textarea' },
   { value: 'multiselect', label: 'Multiselect' },
-  { value: 'modules', label: 'Modules' },
+  { value: 'modules', label: 'Selector de modulos' },
+  { value: 'style_select', label: 'Selector de estilo' },
+  { value: 'color_picker', label: 'Selector de colores' },
+  { value: 'tone_select', label: 'Selector de tono' },
 ];
 
 const SECTION_OPTIONS = [
+  { value: 'setup', label: 'Setup' },
   { value: 'basic', label: 'Basico' },
   { value: 'branding', label: 'Branding' },
   { value: 'content', label: 'Contenido' },
@@ -200,6 +160,7 @@ const SECTION_OPTIONS = [
 ];
 
 const SECTION_BADGE_CLASSES: Record<string, string> = {
+  setup: 'border-teal-200 bg-teal-50 text-teal-700',
   basic: 'border-slate-200 bg-slate-50 text-slate-700',
   branding: 'border-violet-200 bg-violet-50 text-violet-700',
   content: 'border-blue-200 bg-blue-50 text-blue-700',
@@ -222,31 +183,12 @@ const QUESTION_TYPE_BADGE_CLASSES: Record<string, string> = {
 // ──────────────────────────────────────────────────────────────────────
 
 export default function AdminOnboardingSettingsPage() {
-  const { admin, logout } = useAdminAuth();
-
   useEffect(() => {
     document.title = 'Onboarding — NERBIS Admin';
   }, []);
 
   // ── Shared state ──
   const [modules, setModules] = useState<AdminPlatformModule[]>([]);
-  const [activeTab, setActiveTab] = useState('pages');
-
-  // ── Pages state ──
-  const [pages, setPages] = useState<AdminWebsitePage[]>([]);
-  const [pagesLoading, setPagesLoading] = useState(true);
-  const [pagesError, setPagesError] = useState<string | null>(null);
-
-  // ── Pages dialog state ──
-  const [pageDialogOpen, setPageDialogOpen] = useState(false);
-  const [editingPage, setEditingPage] = useState<AdminWebsitePage | null>(null);
-  const [pageForm, setPageForm] = useState<PageFormState>(EMPTY_PAGE_FORM);
-  const [pageSubmitting, setPageSubmitting] = useState(false);
-  const [pageFormError, setPageFormError] = useState<string | null>(null);
-
-  // ── Pages delete state ──
-  const [deletingPage, setDeletingPage] = useState<AdminWebsitePage | null>(null);
-  const [deletePageSubmitting, setDeletePageSubmitting] = useState(false);
 
   // ── Questions state ──
   const [questions, setQuestions] = useState<AdminOnboardingQuestion[]>([]);
@@ -275,19 +217,6 @@ export default function AdminOnboardingSettingsPage() {
     }
   }, []);
 
-  const loadPages = useCallback(async () => {
-    setPagesLoading(true);
-    setPagesError(null);
-    try {
-      const data = await adminListPages();
-      setPages(data);
-    } catch (err) {
-      setPagesError(extractErrorMessage(err, 'No se pudo cargar la lista de paginas.'));
-    } finally {
-      setPagesLoading(false);
-    }
-  }, []);
-
   const loadQuestions = useCallback(async () => {
     setQuestionsLoading(true);
     setQuestionsError(null);
@@ -303,98 +232,8 @@ export default function AdminOnboardingSettingsPage() {
 
   useEffect(() => {
     void loadModules();
-    void loadPages();
     void loadQuestions();
-  }, [loadModules, loadPages, loadQuestions]);
-
-  // ── Page handlers ──
-
-  function openCreatePage() {
-    setEditingPage(null);
-    setPageForm(EMPTY_PAGE_FORM);
-    setPageFormError(null);
-    setPageDialogOpen(true);
-  }
-
-  function openEditPage(p: AdminWebsitePage) {
-    setEditingPage(p);
-    setPageForm({
-      key: p.key,
-      label: p.label,
-      description: p.description,
-      icon: p.icon,
-      is_mandatory: p.is_mandatory,
-      is_default: p.is_default,
-      sort_order: p.sort_order,
-      is_active: p.is_active,
-      auto_include_modules: p.auto_include_modules,
-    });
-    setPageFormError(null);
-    setPageDialogOpen(true);
-  }
-
-  async function handlePageSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPageFormError(null);
-    setPageSubmitting(true);
-
-    const payload: AdminWebsitePagePayload = {
-      key: pageForm.key.trim(),
-      label: pageForm.label.trim(),
-      description: pageForm.description.trim(),
-      icon: pageForm.icon.trim(),
-      is_mandatory: pageForm.is_mandatory,
-      is_default: pageForm.is_default,
-      sort_order: pageForm.sort_order,
-      is_active: pageForm.is_active,
-      auto_include_modules: pageForm.auto_include_modules,
-    };
-
-    try {
-      if (editingPage) {
-        await adminUpdatePage(editingPage.id, payload);
-        toast.success('Pagina actualizada correctamente.');
-      } else {
-        await adminCreatePage(payload);
-        toast.success('Pagina creada correctamente.');
-      }
-      setPageDialogOpen(false);
-      setEditingPage(null);
-      setPageForm(EMPTY_PAGE_FORM);
-      await loadPages();
-    } catch (err) {
-      setPageFormError(
-        extractErrorMessage(err, editingPage ? 'No se pudo actualizar la pagina.' : 'No se pudo crear la pagina.'),
-      );
-    } finally {
-      setPageSubmitting(false);
-    }
-  }
-
-  async function handleTogglePage(p: AdminWebsitePage) {
-    try {
-      await adminUpdatePage(p.id, { is_active: !p.is_active });
-      toast.success(p.is_active ? `${p.label} desactivada.` : `${p.label} activada.`);
-      await loadPages();
-    } catch (err) {
-      toast.error(extractErrorMessage(err, 'No se pudo cambiar el estado.'));
-    }
-  }
-
-  async function handleConfirmDeletePage() {
-    if (!deletingPage) return;
-    setDeletePageSubmitting(true);
-    try {
-      await adminDeletePage(deletingPage.id);
-      toast.success(`${deletingPage.label} eliminada.`);
-      setDeletingPage(null);
-      await loadPages();
-    } catch (err) {
-      toast.error(extractErrorMessage(err, 'No se pudo eliminar la pagina.'));
-    } finally {
-      setDeletePageSubmitting(false);
-    }
-  }
+  }, [loadModules, loadQuestions]);
 
   // ── Question handlers ──
 
@@ -420,7 +259,7 @@ export default function AdminOnboardingSettingsPage() {
       is_required: q.is_required,
       min_length: q.min_length != null ? String(q.min_length) : '',
       max_length: q.max_length != null ? String(q.max_length) : '',
-      required_modules: q.required_modules,
+      required_modules: q.required_modules_detail?.map((m) => m.id) ?? [],
       template: q.template != null ? String(q.template) : '',
       ai_context: q.ai_context,
       options: q.options ? JSON.stringify(q.options, null, 2) : '',
@@ -525,712 +364,200 @@ export default function AdminOnboardingSettingsPage() {
   // ── Render ──
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header bar */}
-      <header
-        className="relative overflow-hidden border-b border-white/5"
-        style={{
-          background:
-            'linear-gradient(135deg, #1C1917 0%, #231F1E 50%, #1C1917 100%)',
-        }}
-      >
-        <div
-          className="absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-[0.07] blur-3xl"
-          style={{
-            background: 'radial-gradient(circle, #0D9488, transparent 70%)',
-          }}
-        />
-        <div className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <Link href="/admin" aria-label="Volver al panel">
-              <PipeAdmin size={32} />
-            </Link>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight text-white">
-                Configuracion de onboarding
-              </h1>
-              <p className="text-xs text-white/50">
-                {admin?.email ?? 'superadmin'}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.06] px-3.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            Salir
-          </button>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="fade-up-auth mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <nav aria-label="Ruta" className="mb-4">
-          <ol className="flex items-center gap-1.5 text-xs text-slate-500">
-            <li>
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-1 transition-colors hover:text-slate-700"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                Panel
-              </Link>
-            </li>
-            <li aria-hidden="true">
-              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-            </li>
-            <li>
-              <span className="text-slate-500">Configuracion</span>
-            </li>
-            <li aria-hidden="true">
-              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-            </li>
-            <li className="font-medium text-slate-700">Onboarding</li>
-          </ol>
-        </nav>
-
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
-            Onboarding
-          </h2>
+    <>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
+            Preguntas de onboarding
+          </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Administra las paginas del sitio web y las preguntas del flujo de onboarding.
+            Configura las preguntas que Pipe le hace a los nuevos negocios.
           </p>
         </div>
+        <button
+          onClick={openCreateQuestion}
+          className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-500"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Nueva pregunta
+        </button>
+      </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <TabsList>
-              <TabsTrigger value="pages" className="gap-1.5">
-                <FileText className="h-4 w-4" aria-hidden="true" />
-                Paginas
-              </TabsTrigger>
-              <TabsTrigger value="questions" className="gap-1.5">
-                <HelpCircle className="h-4 w-4" aria-hidden="true" />
-                Preguntas
-              </TabsTrigger>
-            </TabsList>
+      {questionsError && (
+        <div
+          role="alert"
+          className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          <span>{questionsError}</span>
+          <button
+            type="button"
+            onClick={() => void loadQuestions()}
+            className="rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
 
-            {activeTab === 'pages' && (
-              <button
-                onClick={openCreatePage}
-                className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-500"
+      {questionsLoading ? (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="divide-y divide-slate-100">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-4 px-4 py-4"
+                aria-hidden="true"
               >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Nueva pagina
-              </button>
-            )}
-            {activeTab === 'questions' && (
-              <button
-                onClick={openCreateQuestion}
-                className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-500"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Nueva pregunta
-              </button>
-            )}
+                <div className="h-4 w-28 animate-pulse rounded bg-slate-100" />
+                <div className="h-4 w-48 animate-pulse rounded bg-slate-100" />
+                <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
+                <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
+                <div className="h-4 w-32 animate-pulse rounded bg-slate-100" />
+                <div className="h-4 w-10 animate-pulse rounded bg-slate-100" />
+                <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
+              </div>
+            ))}
           </div>
-
-          {/* ── Tab 1: Paginas ── */}
-          <TabsContent value="pages">
-            {pagesError && (
-              <div
-                role="alert"
-                className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-              >
-                <span>{pagesError}</span>
-                <button
-                  type="button"
-                  onClick={() => void loadPages()}
-                  className="rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
-                >
-                  Reintentar
-                </button>
-              </div>
-            )}
-
-            {pagesLoading ? (
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="divide-y divide-slate-100">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-4 px-4 py-4"
-                      aria-hidden="true"
-                    >
-                      <div className="h-4 w-40 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-32 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-10 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-slate-500">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  Cargando paginas...
-                </div>
-              </div>
-            ) : pages.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                  <FileText className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  No hay paginas configuradas
-                </h3>
-                <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                  Las paginas definen las secciones disponibles en los sitios web generados.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                <table className="min-w-[1000px] w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/50">
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Nombre
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Icono
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Obligatoria
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Por defecto
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Modulos auto-include
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Orden
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Estado
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {pages.map((p) => (
-                      <tr
-                        key={p.id}
-                        className="group transition-colors hover:bg-slate-50/60"
-                      >
-                        <td className="px-4 py-3">
-                          <span className="block font-medium text-slate-900">
-                            {p.label}
-                          </span>
-                          <span className="block text-xs text-slate-500">
-                            {p.key}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate-500">
-                          {p.icon || '\u2014'}
-                        </td>
-                        <td className="px-4 py-3">
-                          {p.is_mandatory ? (
-                            <Badge className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50">
-                              Si
-                            </Badge>
-                          ) : (
-                            <span className="text-slate-400">No</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {p.is_default ? (
-                            <Badge className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50">
-                              Si
-                            </Badge>
-                          ) : (
-                            <span className="text-slate-400">No</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-600">
-                          {modulesLabel(p.auto_include_modules_detail)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium tabular-nums text-slate-700">
-                          {p.sort_order}
-                        </td>
-                        <td className="px-4 py-3">
-                          {p.is_active ? (
-                            <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
-                              Activa
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-slate-500">
-                              Inactiva
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger
-                              aria-label={`Acciones para ${p.label}`}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-colors hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
-                            >
-                              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem
-                                onSelect={(e) => {
-                                  e.preventDefault();
-                                  openEditPage(p);
-                                }}
-                              >
-                                <Pencil className="h-4 w-4" aria-hidden="true" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={(e) => {
-                                  e.preventDefault();
-                                  void handleTogglePage(p);
-                                }}
-                              >
-                                <Power className="h-4 w-4" aria-hidden="true" />
-                                {p.is_active ? 'Desactivar' : 'Activar'}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onSelect={(e) => {
-                                  e.preventDefault();
-                                  setDeletingPage(p);
-                                }}
-                                className="text-red-600 focus:text-red-700"
-                              >
-                                <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                Eliminar
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* ── Tab 2: Preguntas ── */}
-          <TabsContent value="questions">
-            {questionsError && (
-              <div
-                role="alert"
-                className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-              >
-                <span>{questionsError}</span>
-                <button
-                  type="button"
-                  onClick={() => void loadQuestions()}
-                  className="rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
-                >
-                  Reintentar
-                </button>
-              </div>
-            )}
-
-            {questionsLoading ? (
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="divide-y divide-slate-100">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-4 px-4 py-4"
-                      aria-hidden="true"
-                    >
-                      <div className="h-4 w-28 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-48 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-32 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-10 animate-pulse rounded bg-slate-100" />
-                      <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-slate-500">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  Cargando preguntas...
-                </div>
-              </div>
-            ) : questions.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                  <HelpCircle className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  No hay preguntas configuradas
-                </h3>
-                <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                  Las preguntas guian el flujo de onboarding de los nuevos tenants.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                <table className="min-w-[1100px] w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/50">
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Key
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Mensaje
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Tipo
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Seccion
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Modulos requeridos
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Orden
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Estado
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {questions.map((q) => (
-                      <tr
-                        key={q.id}
-                        className="group transition-colors hover:bg-slate-50/60"
-                      >
-                        <td className="px-4 py-3">
-                          <span className="font-medium text-slate-900">
-                            {q.question_key}
-                          </span>
-                        </td>
-                        <td className="max-w-[240px] px-4 py-3 text-slate-600">
-                          {truncate(q.message, 60)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            className={`${QUESTION_TYPE_BADGE_CLASSES[q.question_type] ?? 'border-slate-200 bg-slate-50 text-slate-700'} hover:bg-inherit`}
-                          >
-                            {q.question_type}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            className={`${SECTION_BADGE_CLASSES[q.section] ?? 'border-slate-200 bg-slate-50 text-slate-700'} hover:bg-inherit`}
-                          >
-                            {q.section}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-600">
-                          {modulesLabel(q.required_modules_detail)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium tabular-nums text-slate-700">
-                          {q.sort_order}
-                        </td>
-                        <td className="px-4 py-3">
-                          {q.is_active ? (
-                            <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
-                              Activa
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-slate-500">
-                              Inactiva
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger
-                              aria-label={`Acciones para ${q.question_key}`}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-colors hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
-                            >
-                              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem
-                                onSelect={(e) => {
-                                  e.preventDefault();
-                                  openEditQuestion(q);
-                                }}
-                              >
-                                <Pencil className="h-4 w-4" aria-hidden="true" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={(e) => {
-                                  e.preventDefault();
-                                  void handleToggleQuestion(q);
-                                }}
-                              >
-                                <Power className="h-4 w-4" aria-hidden="true" />
-                                {q.is_active ? 'Desactivar' : 'Activar'}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onSelect={(e) => {
-                                  e.preventDefault();
-                                  setDeletingQuestion(q);
-                                }}
-                                className="text-red-600 focus:text-red-700"
-                              >
-                                <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                Eliminar
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </main>
-
-      {/* ── Page Dialog (Create / Edit) ── */}
-      <Dialog
-        open={pageDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPageDialogOpen(false);
-            setEditingPage(null);
-            setPageForm(EMPTY_PAGE_FORM);
-            setPageFormError(null);
-          }
-        }}
-      >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editingPage ? 'Editar pagina' : 'Nueva pagina'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingPage
-                ? 'Modifica los datos de la pagina del sitio web.'
-                : 'Define una nueva pagina disponible para sitios web.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          {pageFormError && (
-            <div
-              role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-            >
-              {pageFormError}
-            </div>
-          )}
-
-          <form onSubmit={(e) => void handlePageSubmit(e)} className="space-y-4">
-            {/* Key */}
-            <div>
-              <label htmlFor="page-key" className="mb-1.5 block text-sm font-medium text-slate-700">
-                Key
-              </label>
-              <input
-                id="page-key"
-                type="text"
-                required
-                value={pageForm.key}
-                onChange={(e) => setPageForm((f) => ({ ...f, key: e.target.value }))}
-                placeholder="ej. home, about, services"
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
-              />
-            </div>
-
-            {/* Label */}
-            <div>
-              <label htmlFor="page-label" className="mb-1.5 block text-sm font-medium text-slate-700">
-                Nombre
-              </label>
-              <input
-                id="page-label"
-                type="text"
-                required
-                value={pageForm.label}
-                onChange={(e) => setPageForm((f) => ({ ...f, label: e.target.value }))}
-                placeholder="ej. Inicio, Nosotros, Servicios"
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
-              />
-            </div>
-
-            {/* Description */}
-            <div>
-              <label htmlFor="page-description" className="mb-1.5 block text-sm font-medium text-slate-700">
-                Descripcion
-              </label>
-              <textarea
-                id="page-description"
-                rows={2}
-                value={pageForm.description}
-                onChange={(e) => setPageForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Breve descripcion de la pagina"
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
-              />
-            </div>
-
-            {/* Icon */}
-            <div>
-              <label htmlFor="page-icon" className="mb-1.5 block text-sm font-medium text-slate-700">
-                Icono
-              </label>
-              <input
-                id="page-icon"
-                type="text"
-                value={pageForm.icon}
-                onChange={(e) => setPageForm((f) => ({ ...f, icon: e.target.value }))}
-                placeholder="ej. home, info, briefcase"
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
-              />
-            </div>
-
-            {/* Switches row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5">
-                <label htmlFor="page-mandatory" className="text-sm font-medium text-slate-700">
-                  Obligatoria
-                </label>
-                <Switch
-                  id="page-mandatory"
-                  checked={pageForm.is_mandatory}
-                  onCheckedChange={(v) => setPageForm((f) => ({ ...f, is_mandatory: v }))}
-                />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5">
-                <label htmlFor="page-default" className="text-sm font-medium text-slate-700">
-                  Por defecto
-                </label>
-                <Switch
-                  id="page-default"
-                  checked={pageForm.is_default}
-                  onCheckedChange={(v) => setPageForm((f) => ({ ...f, is_default: v }))}
-                />
-              </div>
-            </div>
-
-            {/* Sort order + Active */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="page-sort" className="mb-1.5 block text-sm font-medium text-slate-700">
+          <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Cargando preguntas...
+          </div>
+        </div>
+      ) : questions.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+            <HelpCircle className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <h3 className="text-sm font-semibold text-slate-900">
+            No hay preguntas configuradas
+          </h3>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+            Las preguntas guian el flujo de onboarding de los nuevos tenants.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-[1100px] w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/50">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Key
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Mensaje
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Tipo
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Seccion
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Modulos requeridos
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
                   Orden
-                </label>
-                <input
-                  id="page-sort"
-                  type="number"
-                  value={pageForm.sort_order}
-                  onChange={(e) => setPageForm((f) => ({ ...f, sort_order: Number(e.target.value) }))}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm transition-colors focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
-                />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 self-end">
-                <label htmlFor="page-active" className="text-sm font-medium text-slate-700">
-                  Activa
-                </label>
-                <Switch
-                  id="page-active"
-                  checked={pageForm.is_active}
-                  onCheckedChange={(v) => setPageForm((f) => ({ ...f, is_active: v }))}
-                />
-              </div>
-            </div>
-
-            {/* Auto-include modules */}
-            {modules.length > 0 && (
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Modulos auto-include
-                </label>
-                <div className="space-y-2 rounded-lg border border-slate-200 px-3 py-3">
-                  {modules.map((m) => (
-                    <label
-                      key={m.id}
-                      className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-700"
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Estado
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {questions.map((q) => (
+                <tr
+                  key={q.id}
+                  className="group transition-colors hover:bg-slate-50/60"
+                >
+                  <td className="px-4 py-3">
+                    <span className="font-medium text-slate-900">
+                      {q.question_key}
+                    </span>
+                  </td>
+                  <td className="max-w-[240px] px-4 py-3 text-slate-600">
+                    {truncate(q.message, 60)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge
+                      className={`${QUESTION_TYPE_BADGE_CLASSES[q.question_type] ?? 'border-slate-200 bg-slate-50 text-slate-700'} hover:bg-inherit`}
                     >
-                      <Checkbox
-                        checked={pageForm.auto_include_modules.includes(m.id)}
-                        onCheckedChange={() =>
-                          setPageForm((f) => ({
-                            ...f,
-                            auto_include_modules: toggleModule(m.id, f.auto_include_modules),
-                          }))
-                        }
-                      />
-                      {m.label}
-                      <span className="text-xs text-slate-400">({m.key})</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <DialogFooter>
-              <button
-                type="button"
-                onClick={() => setPageDialogOpen(false)}
-                disabled={pageSubmitting}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={pageSubmitting}
-                className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-500 disabled:opacity-50"
-              >
-                {pageSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-                {editingPage ? 'Guardar cambios' : 'Crear pagina'}
-              </button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Page Delete Confirmation ── */}
-      <AlertDialog
-        open={deletingPage !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeletingPage(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar pagina</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deletingPage
-                ? `Se eliminara permanentemente la pagina "${deletingPage.label}" (${deletingPage.key}). Esta accion no se puede deshacer.`
-                : ''}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletePageSubmitting}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                void handleConfirmDeletePage();
-              }}
-              disabled={deletePageSubmitting}
-              className="bg-red-600 hover:bg-red-500 focus:ring-red-500"
-            >
-              {deletePageSubmitting ? 'Eliminando...' : 'Si, eliminar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                      {q.question_type}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge
+                      className={`${SECTION_BADGE_CLASSES[q.section] ?? 'border-slate-200 bg-slate-50 text-slate-700'} hover:bg-inherit`}
+                    >
+                      {q.section}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-600">
+                    {modulesLabel(q.required_modules_detail)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium tabular-nums text-slate-700">
+                    {q.sort_order}
+                  </td>
+                  <td className="px-4 py-3">
+                    {q.is_active ? (
+                      <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+                        Activa
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-slate-500">
+                        Inactiva
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        aria-label={`Acciones para ${q.question_key}`}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-colors hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
+                      >
+                        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            openEditQuestion(q);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            void handleToggleQuestion(q);
+                          }}
+                        >
+                          <Power className="h-4 w-4" aria-hidden="true" />
+                          {q.is_active ? 'Desactivar' : 'Activar'}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            setDeletingQuestion(q);
+                          }}
+                          className="text-red-600 focus:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* ── Question Dialog (Create / Edit) ── */}
       <Dialog
@@ -1650,6 +977,6 @@ export default function AdminOnboardingSettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }

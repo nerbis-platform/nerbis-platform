@@ -658,8 +658,8 @@ export interface OnboardingQuestion {
   question_text: string;
   question_type: QuestionType;
   message: string;
-  input_type: 'textarea' | 'input' | 'multiselect' | 'modules';
-  options?: string[];
+  input_type: 'textarea' | 'input' | 'multiselect' | 'modules' | 'style_select' | 'color_picker' | 'tone_select';
+  options?: Record<string, unknown>[] | string[];
   placeholder?: string;
   hint?: string;
   help_text?: string;

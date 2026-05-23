@@ -45,15 +45,20 @@ const WARM_GRAY_600 = '#57534E';
 const WARM_GRAY_800 = '#292524';
 
 // ─── Conversational steps ─────────────────────────────────
+interface StyleOption { key: string; label: string; description: string; icon: string; color: string }
+interface PaletteOption { primary: string; secondary: string; label: string }
+interface ToneOption { key: string; label: string; emoji: string }
+
 interface ConversationStep {
   id: string;
   message: string;
-  type: 'textarea' | 'input' | 'action' | 'multiselect' | 'modules' | 'pages';
+  type: 'textarea' | 'input' | 'action' | 'multiselect' | 'modules' | 'pages' | 'style_select' | 'color_picker' | 'tone_select';
   placeholder?: string;
   hint?: string;
   inputType?: string;
   minLength?: number;
   rows?: number;
+  options?: StyleOption[] | PaletteOption[] | ToneOption[];
 }
 
 // ─── Agent identity ───────────────────────────────────────
@@ -77,8 +82,6 @@ const FALLBACK_MODULES: PlatformModule[] = [
   { key: 'has_shop', label: 'Tienda Online', description: 'Vende productos 24/7', icon: 'ShoppingCart', accent_color: '#0D9488', sort_order: 1, dependencies: [] },
   { key: 'has_services', label: 'Servicios', description: 'Muestra y vende tus servicios', icon: 'Briefcase', accent_color: '#6366F1', sort_order: 2, dependencies: [] },
   { key: 'has_bookings', label: 'Reservas', description: 'Agenda de citas online', icon: 'Calendar', accent_color: '#F59E0B', sort_order: 3, dependencies: ['has_services'] },
-  { key: 'has_blog', label: 'Blog', description: 'Publica artículos y contenido', icon: 'FileText', accent_color: '#EC4899', sort_order: 4, dependencies: [] },
-  { key: 'has_management', label: 'Gestión Comercial', description: 'Contratos, staff, reportes', icon: 'Settings', accent_color: '#64748B', sort_order: 5, dependencies: [] },
 ];
 
 const FALLBACK_PAGES: WebsitePage[] = [
@@ -86,6 +89,30 @@ const FALLBACK_PAGES: WebsitePage[] = [
   { key: 'contact', label: 'Contacto', description: 'Formulario de contacto', icon: 'mail', is_mandatory: true, is_default: true, sort_order: 1, auto_include_modules: [] },
   { key: 'about', label: 'Sobre nosotros', description: 'Tu historia', icon: 'users', is_mandatory: false, is_default: true, sort_order: 2, auto_include_modules: [] },
   { key: 'blog', label: 'Blog', description: 'Artículos y noticias', icon: 'file-text', is_mandatory: false, is_default: false, sort_order: 6, auto_include_modules: [] },
+];
+
+const FALLBACK_STYLE_OPTIONS: StyleOption[] = [
+  { key: 'moderno', label: 'Moderno', description: 'Limpio y contemporáneo', icon: 'Sparkles', color: '#6366F1' },
+  { key: 'clasico', label: 'Clásico', description: 'Elegante y atemporal', icon: 'Crown', color: '#D97706' },
+  { key: 'minimalista', label: 'Minimalista', description: 'Menos es más', icon: 'Minus', color: '#1C3B57' },
+  { key: 'vibrante', label: 'Vibrante', description: 'Colorido y energético', icon: 'Zap', color: '#EC4899' },
+];
+
+const FALLBACK_PALETTES: PaletteOption[] = [
+  { primary: '#1C3B57', secondary: '#0D9488', label: 'NERBIS' },
+  { primary: '#1E293B', secondary: '#3B82F6', label: 'Corporativo' },
+  { primary: '#0F172A', secondary: '#10B981', label: 'Tech' },
+  { primary: '#7C3AED', secondary: '#EC4899', label: 'Creativo' },
+  { primary: '#DC2626', secondary: '#F59E0B', label: 'Energético' },
+  { primary: '#059669', secondary: '#34D399', label: 'Natural' },
+];
+
+const FALLBACK_TONE_OPTIONS: ToneOption[] = [
+  { key: 'profesional', label: 'Profesional', emoji: '💼' },
+  { key: 'calido', label: 'Cálido', emoji: '🤗' },
+  { key: 'moderno', label: 'Moderno', emoji: '✨' },
+  { key: 'minimalista', label: 'Minimalista', emoji: '🎯' },
+  { key: 'juvenil', label: 'Juvenil', emoji: '🚀' },
 ];
 
 // ─── Pipe Keyframes ──────────────────────────────────────
@@ -441,17 +468,17 @@ export default function QuickStartPage() {
   const { data: apiModules } = useQuery({
     queryKey: ['platform-modules'],
     queryFn: getPlatformModules,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
   const { data: apiQuestions } = useQuery({
     queryKey: ['onboarding-questions'],
     queryFn: getOnboardingQuestions,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
   const { data: apiPages } = useQuery({
     queryKey: ['onboarding-pages'],
     queryFn: getOnboardingPages,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
 
   const modules = apiModules ?? FALLBACK_MODULES;
@@ -467,6 +494,18 @@ export default function QuickStartPage() {
         for (const m of modules) {
           if (m.dependencies.includes(modKey) && next.has(m.key as keyof ModuleSelection)) {
             next.delete(m.key as keyof ModuleSelection);
+          }
+        }
+        // Also remove dependencies that are no longer needed by any other selected module
+        const deselected = modules.find((m) => m.key === modKey);
+        if (deselected) {
+          for (const dep of deselected.dependencies) {
+            const stillNeeded = modules.some(
+              (m) => m.key !== modKey && next.has(m.key as keyof ModuleSelection) && m.dependencies.includes(dep)
+            );
+            if (!stillNeeded) {
+              next.delete(dep as keyof ModuleSelection);
+            }
           }
         }
       } else {
@@ -495,6 +534,23 @@ export default function QuickStartPage() {
     const defaults = (apiPages ?? FALLBACK_PAGES).filter((p) => p.is_default).map((p) => p.key);
     return new Set(defaults);
   });
+  const [selectedStyle, setSelectedStyle] = useState('');
+  const [selectedTone, setSelectedTone] = useState('');
+  const [primaryColor, setPrimaryColor] = useState('');
+  const [secondaryColor, setSecondaryColor] = useState('');
+
+  // ─── Detect modules included as dependencies ─────────────
+  const includedAsDep = useMemo(() => {
+    const deps = new Set<string>();
+    for (const mod of modules) {
+      if (selectedModules.has(mod.key as keyof ModuleSelection)) {
+        for (const dep of mod.dependencies) {
+          deps.add(dep);
+        }
+      }
+    }
+    return deps;
+  }, [modules, selectedModules]);
 
   // Sync selectedPages when apiPages loads
   useEffect(() => {
@@ -509,28 +565,44 @@ export default function QuickStartPage() {
 
   // ─── Build dynamic steps based on selected modules ──────
   const steps = useMemo<ConversationStep[]>(() => {
-    // Step 1: always modules selection
+    // Step 1: modules selection (from API or fallback)
+    const modulesQ = apiQuestions?.find((q) => q.input_type === 'modules');
     const result: ConversationStep[] = [
-      { id: 'modules', message: '¿Qué necesitas?', type: 'modules', hint: 'Incluye 14 días gratis. Puedes cambiar después.' },
+      {
+        id: modulesQ?.key ?? 'modules',
+        message: modulesQ?.message ?? '¿Qué necesitas?',
+        type: 'modules',
+        hint: modulesQ?.hint ?? 'Incluye 14 días gratis. Puedes cambiar después.',
+      },
     ];
 
     // Filter questions by selected modules
     if (apiQuestions) {
       for (const q of apiQuestions) {
-        if (q.input_type === 'modules') continue; // already added
+        if (q.input_type === 'modules') continue; // already added above
         // Show question if no required_modules OR if user selected at least one
         const shouldShow = q.required_modules.length === 0 ||
           q.required_modules.some((mk) => selectedModules.has(mk as keyof ModuleSelection));
         if (shouldShow) {
-          result.push({
+          const stepType: ConversationStep['type'] = q.input_type === 'multiselect' ? 'pages' : q.input_type as ConversationStep['type'];
+          const step: ConversationStep = {
             id: q.key,
             message: q.message,
-            type: q.input_type === 'multiselect' ? 'pages' : q.input_type as ConversationStep['type'],
+            type: stepType,
             placeholder: q.placeholder || undefined,
             hint: q.hint || undefined,
             minLength: q.min_length || undefined,
             rows: q.input_type === 'textarea' ? 3 : undefined,
-          });
+          };
+          // Pass options for special types
+          if (q.input_type === 'style_select' && q.options?.length) {
+            step.options = q.options as unknown as StyleOption[];
+          } else if (q.input_type === 'color_picker' && q.options?.length) {
+            step.options = q.options as unknown as PaletteOption[];
+          } else if (q.input_type === 'tone_select' && q.options?.length) {
+            step.options = q.options as unknown as ToneOption[];
+          }
+          result.push(step);
         }
       }
     } else {
@@ -679,9 +751,13 @@ export default function QuickStartPage() {
   ) => {
     try {
       await quickStartGenerate({
-        business_description: answersData.description || '',
-        main_services: answersData.services || '',
+        business_description: answersData.description || answersData.pipe_description || '',
+        main_services: answersData.services || answersData.pipe_services || '',
         website_sections: Array.from(sections),
+        brand_tone: selectedTone || undefined,
+        primary_color: primaryColor || undefined,
+        secondary_color: secondaryColor || undefined,
+        business_whatsapp: answersData.pipe_whatsapp || undefined,
       });
       startPolling();
     } catch (error) {
@@ -693,7 +769,7 @@ export default function QuickStartPage() {
         setPageState('error');
       }
     }
-  }, [startPolling]);
+  }, [startPolling, selectedTone, primaryColor, secondaryColor]);
 
   // ─── Rotating generation messages ─────────────────────────
   useEffect(() => {
@@ -778,6 +854,43 @@ export default function QuickStartPage() {
       return;
     }
 
+    // Handle style_select step
+    if (step.type === 'style_select') {
+      if (!selectedStyle) return;
+      setActiveMood('happy');
+      setTimeout(() => setActiveMood('listening'), 900);
+      const styleOpts = (step.options || FALLBACK_STYLE_OPTIONS) as StyleOption[];
+      const label = styleOpts.find((s) => s.key === selectedStyle)?.label || selectedStyle;
+      const newAnswers = { ...answers, [step.id]: label };
+      setAnswers(newAnswers);
+      setCurrentStepIdx((prev) => prev + 1);
+      return;
+    }
+
+    // Handle color_picker step
+    if (step.type === 'color_picker') {
+      setActiveMood('happy');
+      setTimeout(() => setActiveMood('listening'), 900);
+      const label = primaryColor ? `${primaryColor} / ${secondaryColor}` : 'Colores por defecto';
+      const newAnswers = { ...answers, [step.id]: label };
+      setAnswers(newAnswers);
+      setCurrentStepIdx((prev) => prev + 1);
+      return;
+    }
+
+    // Handle tone_select step
+    if (step.type === 'tone_select') {
+      if (!selectedTone) return;
+      setActiveMood('happy');
+      setTimeout(() => setActiveMood('listening'), 900);
+      const toneOpts = (step.options || FALLBACK_TONE_OPTIONS) as ToneOption[];
+      const label = toneOpts.find((t) => t.key === selectedTone)?.label || selectedTone;
+      const newAnswers = { ...answers, [step.id]: label };
+      setAnswers(newAnswers);
+      setCurrentStepIdx((prev) => prev + 1);
+      return;
+    }
+
     const value = currentInput.trim();
     const minLen = step.minLength || 0;
 
@@ -802,7 +915,7 @@ export default function QuickStartPage() {
       setProgress(0);
       setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedPages), 100);
     }
-  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, steps, modules, pages, triggerQuickStartGeneration, setTenant]);
+  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, steps, modules, pages, triggerQuickStartGeneration, setTenant]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -822,6 +935,10 @@ export default function QuickStartPage() {
     setGenStep(0);
     setProgress(0);
     setResult(null);
+    setSelectedStyle('');
+    setSelectedTone('');
+    setPrimaryColor('');
+    setSecondaryColor('');
   }, []);
 
   const firstName = user?.first_name || tenant?.name?.split(' ')[0] || '';
@@ -887,7 +1004,13 @@ export default function QuickStartPage() {
       ? selectedModules.size > 0
       : step?.type === 'pages'
         ? selectedPages.size > 0
-        : currentInput.trim().length >= minLen;
+        : step?.type === 'style_select'
+          ? selectedStyle !== ''
+          : step?.type === 'tone_select'
+            ? selectedTone !== ''
+            : step?.type === 'color_picker'
+              ? true
+              : currentInput.trim().length >= minLen;
 
     const hasHistory = currentStepIdx > 0;
 
@@ -896,7 +1019,7 @@ export default function QuickStartPage() {
     for (let i = 0; i < currentStepIdx; i++) {
       const s = steps[i];
       chatHistory.push({ role: 'pipe', content: i === 0
-        ? `Hola${firstName ? ` ${firstName}` : ''}, soy ${AGENT_NAME}. ${s.message}`
+        ? `Hola${firstName ? ` ${firstName}` : ''}, soy ${AGENT_NAME}, tu asistente creativo. ${s.message}`
         : s.message });
       if (answers[s.id]) {
         chatHistory.push({ role: 'user', content: answers[s.id] });
@@ -942,9 +1065,10 @@ export default function QuickStartPage() {
                     style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
                   >
                     Hola{firstName ? ' ' : ''}
-                    {firstName && <>{firstName}</>}
-                    {firstName ? ', s' : '. S'}oy{' '}
-                    <span style={{ color: TEAL }}>{AGENT_NAME}</span>.{' '}
+                    {firstName && <span style={{ color: TEAL }}>{firstName}</span>}
+                    {firstName ? ', s' : 'S'}oy{' '}
+                    <span style={{ color: TEAL }}>{AGENT_NAME}</span>
+                    , tu asistente creativo.{' '}
                     {step.message}
                   </h1>
 
@@ -955,6 +1079,7 @@ export default function QuickStartPage() {
                         {modules.map((mod) => {
                           const modKey = mod.key as keyof ModuleSelection;
                           const isSelected = selectedModules.has(modKey);
+                          const isIncluded = isSelected && includedAsDep.has(mod.key);
                           const ModIcon = getLucideIcon(mod.icon);
                           return (
                             <button
@@ -969,18 +1094,27 @@ export default function QuickStartPage() {
                                   setTimeout(() => setActiveMood('listening'), 900);
                                 }
                               }}
-                              className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
                               style={{
                                 backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                                 borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
                               }}
                             >
+                              {isIncluded && (
+                                <span
+                                  className="absolute top-0 right-0 flex items-center gap-0.5 text-[0.5rem] font-semibold text-white px-1.5 py-0.5 rounded-bl-lg rounded-tr-[11px]"
+                                  style={{ backgroundColor: mod.accent_color }}
+                                >
+                                  <Check className="w-2.5 h-2.5" />
+                                  Incluido
+                                </span>
+                              )}
                               <div
                                 className="relative flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-300"
                                 style={{ backgroundColor: `${mod.accent_color}${isSelected ? '18' : '10'}` }}
                               >
                                 <ModIcon className="w-[18px] h-[18px]" style={{ color: mod.accent_color }} />
-                                {isSelected && (
+                                {isSelected && !isIncluded && (
                                   <div
                                     className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center"
                                     style={{ backgroundColor: mod.accent_color }}
@@ -1153,6 +1287,174 @@ export default function QuickStartPage() {
                 </>
               )}
 
+              {/* Text input (single line) */}
+              {step.type === 'input' && (
+                <>
+                  <div
+                    className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-all focus-within:ring-2 focus-within:ring-teal-500/20"
+                    style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50 }}
+                  >
+                    <input
+                      type={step.inputType || 'text'}
+                      value={currentInput}
+                      onChange={(e) => setCurrentInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={step.placeholder}
+                      autoFocus
+                      className="flex-1 bg-transparent text-[0.88rem] focus:outline-none"
+                      style={{ color: WARM_GRAY_800 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSend}
+                      disabled={!canSend}
+                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {step.hint && (
+                    <p className="text-[0.7rem] mt-2 ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                  )}
+                </>
+              )}
+
+              {/* Style selector */}
+              {step.type === 'style_select' && (() => {
+                const styleOpts = (step.options || FALLBACK_STYLE_OPTIONS) as StyleOption[];
+                return (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {styleOpts.map((opt) => {
+                        const isActive = selectedStyle === opt.key;
+                        const OptIcon = getLucideIcon(opt.icon);
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setSelectedStyle(opt.key)}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
+                            style={{
+                              backgroundColor: isActive ? `${opt.color}0A` : '#fff',
+                              borderColor: isActive ? opt.color : WARM_GRAY_200,
+                            }}
+                          >
+                            <div
+                              className="flex items-center justify-center w-9 h-9 rounded-lg"
+                              style={{ backgroundColor: `${opt.color}12` }}
+                            >
+                              <OptIcon className="w-4 h-4" style={{ color: opt.color }} />
+                            </div>
+                            <div className="text-left">
+                              <span className="text-[0.82rem] font-medium block" style={{ color: isActive ? opt.color : WARM_GRAY_800 }}>{opt.label}</span>
+                              <span className="text-[0.68rem] block" style={{ color: WARM_GRAY_400 }}>{opt.description}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleSend}
+                        disabled={!canSend}
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                      >
+                        Continuar <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Color picker */}
+              {step.type === 'color_picker' && (() => {
+                const palettes = (step.options || FALLBACK_PALETTES) as PaletteOption[];
+                return (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {palettes.map((pal) => {
+                        const isActive = primaryColor === pal.primary && secondaryColor === pal.secondary;
+                        return (
+                          <button
+                            key={pal.label}
+                            type="button"
+                            onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
+                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200"
+                            style={{
+                              borderColor: isActive ? TEAL : WARM_GRAY_200,
+                              backgroundColor: isActive ? `${TEAL}08` : '#fff',
+                            }}
+                          >
+                            <div className="flex gap-1">
+                              <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.primary }} />
+                              <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.secondary }} />
+                            </div>
+                            <span className="text-[0.72rem] font-medium" style={{ color: isActive ? TEAL : WARM_GRAY_600 }}>{pal.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {step.hint && (
+                      <p className="text-[0.7rem] ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                    )}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleSend}
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all"
+                        style={{ backgroundColor: TEAL, color: '#fff' }}
+                      >
+                        Continuar <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Tone selector */}
+              {step.type === 'tone_select' && (() => {
+                const toneOpts = (step.options || FALLBACK_TONE_OPTIONS) as ToneOption[];
+                return (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {toneOpts.map((opt) => {
+                        const isActive = selectedTone === opt.key;
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setSelectedTone(opt.key)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium"
+                            style={{
+                              borderColor: isActive ? TEAL : WARM_GRAY_200,
+                              backgroundColor: isActive ? `${TEAL}0A` : '#fff',
+                              color: isActive ? TEAL : WARM_GRAY_600,
+                            }}
+                          >
+                            <span>{opt.emoji}</span>
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleSend}
+                        disabled={!canSend}
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                      >
+                        Continuar <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Pages selection */}
               {step.type === 'pages' && (
                 <div className="space-y-3">
@@ -1208,6 +1510,7 @@ export default function QuickStartPage() {
                     {modules.map((mod) => {
                       const modKey = mod.key as keyof ModuleSelection;
                       const isSelected = selectedModules.has(modKey);
+                      const isIncluded = isSelected && includedAsDep.has(mod.key);
                       const ModIcon = getLucideIcon(mod.icon);
                       return (
                         <button
@@ -1222,18 +1525,27 @@ export default function QuickStartPage() {
                               setTimeout(() => setActiveMood('listening'), 900);
                             }
                           }}
-                          className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300"
+                          className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
                           style={{
                             backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                             borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
                           }}
                         >
+                          {isIncluded && (
+                            <span
+                              className="absolute top-0 right-0 flex items-center gap-0.5 text-[0.48rem] font-semibold text-white px-1.5 py-0.5 rounded-bl-lg rounded-tr-[11px]"
+                              style={{ backgroundColor: mod.accent_color }}
+                            >
+                              <Check className="w-2 h-2" />
+                              Incluido
+                            </span>
+                          )}
                           <div
                             className="relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-300"
                             style={{ backgroundColor: `${mod.accent_color}${isSelected ? '18' : '10'}` }}
                           >
                             <ModIcon className="w-4 h-4" style={{ color: mod.accent_color }} />
-                            {isSelected && (
+                            {isSelected && !isIncluded && (
                               <div
                                 className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
                                 style={{ backgroundColor: mod.accent_color }}

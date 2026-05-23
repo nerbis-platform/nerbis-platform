@@ -1,7 +1,7 @@
 // src/lib/api/admin-settings.ts
 //
 // Platform settings management helpers for the superadmin surface.
-// Covers platform modules, website pages, and onboarding questions.
+// Covers platform modules and onboarding questions.
 //
 // ALL calls go through `adminClient` (admin-namespaced axios instance,
 // admin-only JWT). This file MUST NOT import from any tenant-scoped
@@ -12,8 +12,6 @@ import type {
   AdminOnboardingQuestionPayload,
   AdminPlatformModule,
   AdminPlatformModulePayload,
-  AdminWebsitePage,
-  AdminWebsitePagePayload,
 } from '@/types/admin';
 
 // ──────────────────────────────────────────────────────────────────────
@@ -50,42 +48,6 @@ export async function adminUpdateModule(
 
 export async function adminDeleteModule(id: number): Promise<void> {
   await adminClient.delete<void>(`/admin/settings/modules/${id}/`);
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Pages
-// ──────────────────────────────────────────────────────────────────────
-
-export async function adminListPages(): Promise<AdminWebsitePage[]> {
-  const { data } = await adminClient.get<AdminWebsitePage[]>(
-    '/admin/settings/pages/',
-  );
-  return data;
-}
-
-export async function adminCreatePage(
-  payload: AdminWebsitePagePayload,
-): Promise<AdminWebsitePage> {
-  const { data } = await adminClient.post<AdminWebsitePage>(
-    '/admin/settings/pages/',
-    payload,
-  );
-  return data;
-}
-
-export async function adminUpdatePage(
-  id: number,
-  payload: Partial<AdminWebsitePagePayload>,
-): Promise<AdminWebsitePage> {
-  const { data } = await adminClient.patch<AdminWebsitePage>(
-    `/admin/settings/pages/${id}/`,
-    payload,
-  );
-  return data;
-}
-
-export async function adminDeletePage(id: number): Promise<void> {
-  await adminClient.delete<void>(`/admin/settings/pages/${id}/`);
 }
 
 // ──────────────────────────────────────────────────────────────────────
