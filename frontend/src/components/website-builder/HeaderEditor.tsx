@@ -235,7 +235,7 @@ export default function HeaderEditor({
         {/* Preview + Upload */}
         {(logoMode === 'image' || logoMode === 'image_text') && !logoUrl ? (
           <div
-            className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-5 mb-3 cursor-pointer hover:border-primary hover:bg-primary/10/20 transition-colors"
+            className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-5 mb-3 cursor-pointer hover:border-primary hover:bg-primary/20 transition-colors"
             onClick={() => !isUploading && fileInputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
@@ -436,7 +436,7 @@ export default function HeaderEditor({
                     key={sid}
                     type="button"
                     onClick={() => handleAddNavItem(sid)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[0.82rem] text-gray-600 hover:bg-primary/10/50 transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[0.82rem] text-gray-600 hover:bg-primary/50 transition-colors cursor-pointer"
                   >
                     <span className="text-sm">{NAV_ICONS[sid] || '📄'}</span>
                     {NAV_LABELS[sid] || sid}
@@ -898,7 +898,7 @@ function SortableNavItem({
       ref={setNodeRef}
       style={style}
       className={`group flex items-center gap-1.5 rounded-lg transition-all ${
-        isDragging ? 'opacity-50 bg-primary/10/50' : 'hover:bg-gray-50'
+        isDragging ? 'opacity-50 bg-primary/50' : 'hover:bg-gray-50'
       }`}
     >
       <button

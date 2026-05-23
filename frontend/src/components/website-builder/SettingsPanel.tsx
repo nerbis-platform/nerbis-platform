@@ -351,7 +351,7 @@ function ImageUploadField({
           disabled={uploading}
           className={`w-full ${previewAspect} rounded-lg border-2 border-dashed transition-colors flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
             dragOver
-              ? 'border-primary bg-primary/10/30'
+              ? 'border-primary bg-primary/30'
               : 'border-gray-200 hover:border-primary hover:bg-gray-50/50'
           } ${uploading ? 'opacity-60 cursor-wait' : ''}`}
         >
@@ -1402,7 +1402,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
               onClick={() => update('site_access_mode', value)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                 (settings.site_access_mode || 'public') === value
-                  ? 'border-[#1C3B57] bg-primary/10/30'
+                  ? 'border-foreground bg-primary/30'
                   : 'border-gray-100 hover:border-gray-200'
               }`}
             >

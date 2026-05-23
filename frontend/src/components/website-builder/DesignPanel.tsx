@@ -424,7 +424,7 @@ function FontDropdown({
                   type="button"
                   onClick={() => { onChange(font); setOpen(false); setSearch(''); }}
                   className={`w-full text-left px-3 py-1.5 text-[0.72rem] transition-colors cursor-pointer hover:bg-gray-50 ${
-                    font === value ? 'bg-primary/10/40 text-foreground font-medium' : 'text-gray-600'
+                    font === value ? 'bg-primary/40 text-foreground font-medium' : 'text-gray-600'
                   }`}
                   style={{ fontFamily: `'${font}', sans-serif` }}
                 >
@@ -742,7 +742,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                   onClick={() => onChange({ ...themeData, font_heading: pair.heading, font_body: pair.body })}
                   className={`p-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                     isActive
-                      ? themeData.color_mode === 'dark' ? 'border-[#0D9488] bg-[#1e293b]' : 'border-foreground bg-primary/10/30'
+                      ? themeData.color_mode === 'dark' ? 'border-[#0D9488] bg-[#1e293b]' : 'border-foreground bg-primary/30'
                       : themeData.color_mode === 'dark' ? 'border-gray-700 bg-gray-800/50 hover:border-gray-600' : 'border-gray-100 hover:border-gray-200'
                   }`}
                 >
@@ -817,7 +817,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 onClick={() => updateTheme('style', opt.value)}
                 className={`p-2 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                   isActive
-                    ? 'border-foreground bg-primary/10/30'
+                    ? 'border-foreground bg-primary/30'
                     : 'border-gray-100 hover:border-gray-200'
                 }`}
               >
@@ -846,7 +846,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
               onClick={() => updateTheme('spacing', opt.value)}
               className={`p-2.5 rounded-lg border-2 text-center transition-colors cursor-pointer ${
                 themeData.spacing === opt.value
-                  ? 'border-foreground bg-primary/10/30'
+                  ? 'border-foreground bg-primary/30'
                   : 'border-gray-100 hover:border-gray-200'
               }`}
             >
@@ -876,7 +876,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 onClick={() => updateTheme('button_style', opt.value)}
                 className={`p-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                   isActive
-                    ? 'border-foreground bg-primary/10/30'
+                    ? 'border-foreground bg-primary/30'
                     : 'border-gray-100 hover:border-gray-200'
                 }`}
               >
@@ -916,7 +916,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 onClick={() => updateTheme('shadow', opt.value)}
                 className={`p-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                   isActive
-                    ? 'border-foreground bg-primary/10/30'
+                    ? 'border-foreground bg-primary/30'
                     : 'border-gray-100 hover:border-gray-200'
                 }`}
               >
@@ -948,7 +948,7 @@ export default function DesignPanel({ themeData, defaultTheme, onChange, isSavin
                 onClick={() => updateTheme('animation', opt.value)}
                 className={`p-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                   isActive
-                    ? 'border-foreground bg-primary/10/30'
+                    ? 'border-foreground bg-primary/30'
                     : 'border-gray-100 hover:border-gray-200'
                 }`}
               >
