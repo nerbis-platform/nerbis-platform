@@ -23,6 +23,23 @@ export interface AdminMarketingSectionResponse {
   updated_at: string;
 }
 
+/** Raw shape from the backend (uses section_key, not key) */
+interface AdminMarketingSectionRaw {
+  section_key: string;
+  content: Record<string, unknown>;
+  is_visible: boolean;
+  updated_at: string;
+}
+
+function mapRaw(raw: AdminMarketingSectionRaw): AdminMarketingSectionResponse {
+  return {
+    key: raw.section_key as MarketingSectionKey,
+    content: raw.content,
+    is_visible: raw.is_visible,
+    updated_at: raw.updated_at,
+  };
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // List all marketing sections
 // ──────────────────────────────────────────────────────────────────────
@@ -30,10 +47,10 @@ export interface AdminMarketingSectionResponse {
 export async function adminListMarketingSections(): Promise<
   AdminMarketingSectionResponse[]
 > {
-  const { data } = await adminClient.get<AdminMarketingSectionResponse[]>(
+  const { data } = await adminClient.get<AdminMarketingSectionRaw[]>(
     '/admin/settings/marketing/',
   );
-  return data;
+  return data.map(mapRaw);
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -44,11 +61,11 @@ export async function adminUpdateMarketingSection(
   key: MarketingSectionKey,
   payload: Partial<MarketingSectionData>,
 ): Promise<AdminMarketingSectionResponse> {
-  const { data } = await adminClient.put<AdminMarketingSectionResponse>(
+  const { data } = await adminClient.patch<AdminMarketingSectionRaw>(
     `/admin/settings/marketing/${key}/`,
     payload,
   );
-  return data;
+  return mapRaw(data);
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -58,8 +75,8 @@ export async function adminUpdateMarketingSection(
 export async function adminResetMarketingSection(
   key: MarketingSectionKey,
 ): Promise<AdminMarketingSectionResponse> {
-  const { data } = await adminClient.post<AdminMarketingSectionResponse>(
+  const { data } = await adminClient.post<AdminMarketingSectionRaw>(
     `/admin/settings/marketing/${key}/reset/`,
   );
-  return data;
+  return mapRaw(data);
 }
