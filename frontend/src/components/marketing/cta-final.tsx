@@ -6,10 +6,15 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { PipeAvatar } from '@/components/pipe-avatar';
+import type { CtaFinalContent } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
 
-export function CtaFinal() {
+interface CtaFinalProps {
+  content: CtaFinalContent;
+}
+
+export function CtaFinal({ content }: CtaFinalProps) {
   const sectionRef = useRef<HTMLElement>(null);
 
   useGSAP(() => {
@@ -61,19 +66,19 @@ export function CtaFinal() {
 
       <div className="cta-content invisible relative z-10 mx-auto max-w-3xl text-center">
         <h2 className="nerbis-display text-3xl text-background sm:text-4xl lg:text-5xl">
-          Tu negocio merece mas
+          {content.title_line1}
           <br />
-          que un template.
+          {content.title_line2}
         </h2>
 
         <div className="mt-10 flex items-center justify-center gap-4">
           <PipeAvatar mood="happy" size={64} />
           <Link
-            href="/register"
+            href={content.cta_href}
             className="group inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-base font-medium text-white transition-all hover:opacity-90"
             style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
           >
-            Empezar gratis
+            {content.cta_text}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
@@ -81,7 +86,7 @@ export function CtaFinal() {
         </div>
 
         <p className="mt-6 text-sm text-background/60">
-          Sin tarjeta de credito. Sin compromisos.
+          {content.cta_subtext}
         </p>
       </div>
     </section>

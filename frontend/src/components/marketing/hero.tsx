@@ -7,10 +7,15 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { PipeAvatar } from '@/components/pipe-avatar';
 import type { PipeMood } from '@/components/pipe-avatar';
+import type { HeroContent } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
 
-export function Hero() {
+interface HeroProps {
+  content: HeroContent;
+}
+
+export function Hero({ content }: HeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [pipeMood, setPipeMood] = useState<PipeMood>('idle');
 
@@ -95,30 +100,29 @@ export function Hero() {
 
         {/* Headline */}
         <h1 className="hero-title nerbis-display invisible text-4xl text-foreground sm:text-5xl lg:text-6xl">
-          ¡Hazlo real!
+          {content.title_line1}
           <br />
-          <span className="text-primary">Tu sitio web, creado por IA</span>
+          <span className="text-primary">{content.title_line2}</span>
         </h1>
 
         {/* Subtitle */}
         <p className="hero-subtitle invisible mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Solo cuentale tu idea a <span className="pipe-name">Pipe</span>.
-          El se encarga del resto.
+          {content.subtitle}
         </p>
 
         {/* Single primary CTA with Pipe */}
         <div className="hero-cta invisible mt-8 flex flex-col items-center gap-3">
           <Link
-            href="/register"
+            href={content.cta_href}
             className="group inline-flex items-center gap-2 rounded-full bg-foreground px-8 py-3.5 text-base font-medium text-background transition-all hover:opacity-90"
           >
-            Empezar gratis
+            {content.cta_text}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </Link>
           <span className="text-xs text-muted-foreground">
-            Sin tarjeta de credito · Listo en 30 segundos
+            {content.cta_subtext}
           </span>
         </div>
 

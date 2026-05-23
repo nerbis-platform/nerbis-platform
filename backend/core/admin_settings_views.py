@@ -12,16 +12,20 @@ Contrato de sub-agente SDD ``sdd/admin-onboarding-config`` (Phases 1 + 2).
 
 from __future__ import annotations
 
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from core.admin_settings_serializers import (
+    AdminMarketingSectionSerializer,
     AdminOnboardingQuestionSerializer,
     AdminPlatformModuleSerializer,
     AdminWebsitePageSerializer,
 )
-from core.models import PlatformModule
+from core.marketing_defaults import MARKETING_SECTION_DEFAULTS
+from core.models import MarketingSection, PlatformModule
 from core.permissions import IsSuperAdmin
 from websites.models import OnboardingQuestion, WebsitePage
 
@@ -128,3 +132,76 @@ class AdminOnboardingQuestionDetailView(generics.RetrieveUpdateDestroyAPIView):
         .select_related("template")
         .order_by("sort_order")
     )
+
+
+# ---------------------------------------------------------------------------
+# MarketingSection views
+# ---------------------------------------------------------------------------
+
+
+class AdminMarketingSectionListView(generics.ListAPIView):
+    """GET ``/api/admin/settings/marketing/``.
+
+    Lista todas las secciones de marketing (incluidas las no visibles).
+    Sin paginacion — catalogo pequeno (~9 secciones).
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminMarketingSectionSerializer
+    pagination_class = None
+    queryset = MarketingSection.objects.select_related("updated_by").order_by("sort_order")
+
+
+class AdminMarketingSectionDetailView(generics.RetrieveUpdateAPIView):
+    """GET/PUT/PATCH ``/api/admin/settings/marketing/<section_key>/``.
+
+    Actualiza ``content`` y/o ``is_visible`` de una seccion.
+    ``updated_by`` se setea automaticamente desde ``request.user``.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminMarketingSectionSerializer
+    queryset = MarketingSection.objects.select_related("updated_by")
+    lookup_field = "section_key"
+
+    def perform_update(self, serializer: AdminMarketingSectionSerializer) -> None:
+        serializer.save(updated_by=self.request.user)
+
+
+class AdminMarketingSectionResetView(APIView):
+    """POST ``/api/admin/settings/marketing/<section_key>/reset/``.
+
+    Restaura el contenido de una seccion a sus valores por defecto
+    definidos en ``core.marketing_defaults.MARKETING_SECTION_DEFAULTS``.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request, section_key: str) -> Response:
+        try:
+            section = MarketingSection.objects.get(section_key=section_key)
+        except MarketingSection.DoesNotExist:
+            return Response(
+                {"detail": f"Section '{section_key}' not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Find defaults for this section_key
+        defaults = next(
+            (d for d in MARKETING_SECTION_DEFAULTS if d["section_key"] == section_key),
+            None,
+        )
+        if defaults is None:
+            return Response(
+                {"detail": f"No defaults found for section '{section_key}'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        section.content = defaults["content"]
+        section.is_visible = True
+        section.sort_order = defaults.get("sort_order", section.sort_order)
+        section.updated_by = request.user
+        section.save(update_fields=["content", "is_visible", "sort_order", "updated_by", "updated_at"])
+
+        serializer = AdminMarketingSectionSerializer(section)
+        return Response(serializer.data, status=status.HTTP_200_OK)

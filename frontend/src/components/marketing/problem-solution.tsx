@@ -4,29 +4,15 @@ import { useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
+import type { ProblemSolutionContent } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const comparisons = [
-  {
-    before: 'Eliges un template generico',
-    after: 'Pipe, nuestra IA, genera tu sitio unico',
-  },
-  {
-    before: 'Pasas horas personalizando',
-    after: 'Listo en 30 segundos',
-  },
-  {
-    before: 'Necesitas 3 herramientas distintas',
-    after: 'Todo integrado: web + tienda + reservas',
-  },
-  {
-    before: 'Tu sitio se ve como mil otros',
-    after: 'Diseno personalizado por industria',
-  },
-];
+interface ProblemSolutionProps {
+  content: ProblemSolutionContent;
+}
 
-export function ProblemSolution() {
+export function ProblemSolution({ content }: ProblemSolutionProps) {
   const sectionRef = useRef<HTMLElement>(null);
 
   useGSAP(() => {
@@ -95,10 +81,10 @@ export function ProblemSolution() {
       <div className="mx-auto max-w-4xl">
         <div className="ps-heading invisible text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Por que NERBIS
+            {content.badge}
           </p>
           <h2 className="nerbis-display mt-4 text-3xl text-foreground sm:text-4xl lg:text-5xl">
-            Deja atras lo generico
+            {content.title}
           </h2>
         </div>
 
@@ -106,9 +92,9 @@ export function ProblemSolution() {
           {/* Before column */}
           <div className="ps-before invisible sm:pr-8" style={{ borderRight: '0 solid transparent' }}>
             <p className="mb-6 text-sm font-medium uppercase tracking-wide text-muted-foreground/60">
-              Lo que haces hoy
+              {content.before_label}
             </p>
-            {comparisons.map((item) => (
+            {content.comparisons.map((item) => (
               <div
                 key={item.before}
                 className="flex items-start gap-3 border-t border-border/50 py-4"
@@ -124,9 +110,9 @@ export function ProblemSolution() {
           {/* After column */}
           <div className="ps-after invisible mt-8 border-border sm:mt-0 sm:border-l sm:pl-8">
             <p className="mb-6 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-              Lo que haces con NERBIS
+              {content.after_label}
             </p>
-            {comparisons.map((item) => (
+            {content.comparisons.map((item) => (
               <div
                 key={item.after}
                 className="flex items-start gap-3 border-t border-border/50 py-4"

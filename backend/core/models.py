@@ -1878,3 +1878,63 @@ class PlatformModule(models.Model):
 
     def __str__(self):
         return self.label
+
+
+# ===================================
+# MARKETING SECTIONS (sitio publico nerbis.com)
+# ===================================
+
+
+class MarketingSection(models.Model):
+    """
+    Seccion editable del sitio de marketing de NERBIS (nerbis.com).
+
+    Modelo GLOBAL — NO hereda de TenantAwareModel.
+    Cada seccion del landing page (hero, FAQ, CTA, etc.) tiene una fila
+    con su contenido en formato JSON, lo que permite editarlo desde el
+    panel de superadmin sin necesidad de redesplegar el frontend.
+    """
+
+    section_key = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="Clave de seccion",
+        help_text="Identificador unico, ej: hero, faq, cta_final",
+    )
+    content = models.JSONField(
+        default=dict,
+        verbose_name="Contenido",
+        help_text="Datos editables de la seccion en formato JSON",
+    )
+    is_visible = models.BooleanField(
+        default=True,
+        verbose_name="Visible",
+        help_text="Si la seccion se muestra en el sitio publico",
+    )
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Orden",
+        help_text="Posicion en la pagina (menor = mas arriba)",
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Ultima actualizacion",
+    )
+    updated_by = models.ForeignKey(
+        "core.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="marketing_edits",
+        verbose_name="Editado por",
+        help_text="Superadmin que hizo la ultima edicion",
+    )
+
+    class Meta:
+        ordering = ["sort_order"]
+        verbose_name = "Seccion de Marketing"
+        verbose_name_plural = "Secciones de Marketing"
+
+    def __str__(self) -> str:
+        visibility = "visible" if self.is_visible else "oculta"
+        return f"{self.section_key} ({visibility})"

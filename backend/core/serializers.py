@@ -8,7 +8,24 @@ from django.contrib.auth.password_validation import (
 )
 from rest_framework import serializers
 
-from .models import AdminAuditLog, Banner, PlatformModule, SocialAccount, TeamInvitation, Tenant, User
+from .models import (
+    AdminAuditLog,
+    Banner,
+    MarketingSection,
+    PlatformModule,
+    SocialAccount,
+    TeamInvitation,
+    Tenant,
+    User,
+)
+
+
+class PublicMarketingSectionSerializer(serializers.ModelSerializer):
+    """Serializer público read-only para secciones de marketing."""
+
+    class Meta:
+        model = MarketingSection
+        fields = ["content", "is_visible"]
 
 
 class PlatformModuleSerializer(serializers.ModelSerializer):

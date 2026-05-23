@@ -4,14 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 import { NerbisWordmark } from './nerbis-wordmark';
+import type { HeaderContent } from '@/types/marketing';
 
-const navLinks = [
-  { label: 'Producto', href: '/producto' },
-  { label: 'Industrias', href: '/industrias' },
-  { label: 'Precios', href: '/precios' },
-];
+interface MarketingHeaderProps {
+  content: HeaderContent;
+}
 
-export function MarketingHeader() {
+export function MarketingHeader({ content }: MarketingHeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -24,7 +23,7 @@ export function MarketingHeader() {
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) => (
+          {content.nav_links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -38,20 +37,20 @@ export function MarketingHeader() {
         {/* Desktop CTA */}
         <div className="hidden flex-col items-center md:flex">
           <Link
-            href="/register"
+            href={content.cta_href}
             className="group inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90"
             style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
           >
-            Empezar gratis
+            {content.cta_text}
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </Link>
           <Link
-            href="/login"
+            href={content.login_href}
             className="mt-0.5 text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground"
           >
-            ¿Ya tienes cuenta?
+            {content.login_text}
           </Link>
         </div>
 
@@ -72,7 +71,7 @@ export function MarketingHeader() {
       {mobileOpen && (
         <nav id="mobile-menu" aria-label="Menu principal" className="border-t border-border/50 bg-background/95 backdrop-blur-xl md:hidden">
           <div className="flex flex-col gap-1 px-4 py-4">
-            {navLinks.map((link) => (
+            {content.nav_links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -84,12 +83,12 @@ export function MarketingHeader() {
             ))}
             <hr className="my-2 border-border" />
             <Link
-              href="/register"
+              href={content.cta_href}
               className="group mt-1 inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-center text-sm font-medium text-white transition-all hover:opacity-90"
               style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
               onClick={() => setMobileOpen(false)}
             >
-              Empezar gratis
+              {content.cta_text}
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
