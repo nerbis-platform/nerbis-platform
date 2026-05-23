@@ -4,31 +4,15 @@ import { useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
+import type { IndustriesContent } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const industries = [
-  { name: 'Belleza', emoji: '\u2728' },
-  { name: 'Restaurantes', emoji: '\uD83C\uDF7D\uFE0F' },
-  { name: 'Salud', emoji: '\uD83E\uDE7A' },
-  { name: 'Fitness', emoji: '\uD83C\uDFCB\uFE0F' },
-  { name: 'Retail', emoji: '\uD83D\uDECD\uFE0F' },
-  { name: 'Educacion', emoji: '\uD83C\uDF93' },
-  { name: 'Fotografia', emoji: '\uD83D\uDCF7' },
-  { name: 'Servicios', emoji: '\uD83D\uDD27' },
-  { name: 'Automotriz', emoji: '\uD83D\uDE97' },
-  { name: 'Inmobiliaria', emoji: '\uD83C\uDFE0' },
-  { name: 'Arte', emoji: '\uD83C\uDFA8' },
-  { name: 'Musica', emoji: '\uD83C\uDFB5' },
-  { name: 'Clinicas', emoji: '\uD83E\uDE7A' },
-  { name: 'Veterinaria', emoji: '\uD83D\uDC3E' },
-  { name: 'Floristeria', emoji: '\uD83C\uDF3A' },
-  { name: 'Legal', emoji: '\u2696\uFE0F' },
-  { name: 'Turismo', emoji: '\u2708\uFE0F' },
-  { name: 'Tecnologia', emoji: '\uD83D\uDCBB' },
-];
+interface IndustriesProps {
+  content: IndustriesContent;
+}
 
-export function Industries() {
+export function Industries({ content }: IndustriesProps) {
   const sectionRef = useRef<HTMLElement>(null);
 
   useGSAP(() => {
@@ -85,18 +69,18 @@ export function Industries() {
       <div className="mx-auto max-w-5xl">
         <div className="ind-heading invisible text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Verticales
+            {content.badge}
           </p>
           <h2 className="nerbis-display mt-4 text-3xl text-foreground sm:text-4xl lg:text-5xl">
-            Hecho para tu industria.
+            {content.title}
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-            Cada sitio se genera con el contenido, estructura y diseno optimo para tu tipo de negocio.
+            {content.subtitle}
           </p>
         </div>
 
         <div className="mt-12 flex flex-wrap justify-center gap-2.5">
-          {industries.map((industry) => (
+          {content.industries.map((industry) => (
             <div
               key={industry.name}
               className="ind-pill invisible hover-lift group flex items-center gap-2.5 rounded-full border border-border bg-background px-4 py-2.5 text-sm transition-all"
@@ -110,7 +94,7 @@ export function Industries() {
             </div>
           ))}
           <div className="ind-pill invisible flex items-center rounded-full border border-dashed border-border px-4 py-2.5 text-sm text-muted-foreground/60">
-            +7 mas
+            {content.overflow_text}
           </div>
         </div>
       </div>

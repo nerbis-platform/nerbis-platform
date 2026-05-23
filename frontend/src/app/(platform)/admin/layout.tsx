@@ -9,6 +9,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Building2,
+  Globe,
   LayoutDashboard,
   Loader2,
   LogOut,
@@ -33,6 +34,7 @@ const NAV_MAIN = [
 const NAV_CONFIG = [
   { href: '/admin/settings/modules', label: 'Modulos', icon: Package },
   { href: '/admin/settings/onboarding', label: 'Onboarding', icon: Settings },
+  { href: '/admin/settings/marketing', label: 'Marketing', icon: Globe },
 ];
 
 function isActive(pathname: string, href: string) {

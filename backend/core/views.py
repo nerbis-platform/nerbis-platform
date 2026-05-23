@@ -16,7 +16,17 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .cookies import clear_auth_cookies, set_auth_cookies
-from .models import Banner, OTPToken, PasswordSetToken, PlatformModule, SocialAccount, TeamInvitation, Tenant, User
+from .models import (
+    Banner,
+    MarketingSection,
+    OTPToken,
+    PasswordSetToken,
+    PlatformModule,
+    SocialAccount,
+    TeamInvitation,
+    Tenant,
+    User,
+)
 from .permissions import IsTenantAdmin
 from .serializers import (
     AcceptInvitationSerializer,
@@ -26,6 +36,7 @@ from .serializers import (
     InvitationDetailSerializer,
     LoginSerializer,
     PlatformModuleSerializer,
+    PublicMarketingSectionSerializer,
     RegisterSerializer,
     SetPasswordSerializer,
     SocialLinkSerializer,
@@ -2982,3 +2993,38 @@ class AcceptInvitationView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+# ---------------------------------------------------------------------------
+# Endpoints públicos de marketing
+# ---------------------------------------------------------------------------
+
+
+class PublicMarketingSectionsView(APIView):
+    """
+    GET /api/public/marketing-sections/
+
+    Retorna las secciones visibles del sitio de marketing (nerbis.com).
+    Endpoint público, sin autenticación ni tenant context.
+    Respuesta: dict keyed por section_key con content e is_visible.
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="Secciones públicas de marketing",
+        description="Retorna las secciones visibles del landing de NERBIS.",
+        responses={
+            200: OpenApiResponse(description="Dict de secciones keyed por section_key"),
+        },
+    )
+    def get(self, request) -> Response:
+        sections = MarketingSection.objects.filter(is_visible=True).order_by("sort_order")
+        serializer = PublicMarketingSectionSerializer(sections, many=True)
+
+        result: dict[str, dict] = {}
+        for section, data in zip(sections, serializer.data):
+            result[section.section_key] = data
+
+        return Response(result)

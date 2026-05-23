@@ -41,6 +41,9 @@ def health_check(request):
 
 # Importar el admin site personalizado de NERBIS
 from core.admin_settings_views import (
+    AdminMarketingSectionDetailView,
+    AdminMarketingSectionListView,
+    AdminMarketingSectionResetView,
     AdminOnboardingQuestionDetailView,
     AdminOnboardingQuestionListCreateView,
     AdminPlatformModuleDetailView,
@@ -84,6 +87,7 @@ from core.views import (
     PlatformLoginView,
     PlatformSocialLoginView,
     PlatformVerifyResetOTPView,
+    PublicMarketingSectionsView,
     TenantRegisterView,
     subscription_expired_view,
 )
@@ -126,6 +130,12 @@ urlpatterns = [
         "api/public/platform-verify-reset-otp/", PlatformVerifyResetOTPView.as_view(), name="platform-verify-reset-otp"
     ),
     path("api/public/platform-social-login/", PlatformSocialLoginView.as_view(), name="platform-social-login"),
+    # Marketing sections (público, sin tenant)
+    path(
+        "api/public/marketing-sections/",
+        PublicMarketingSectionsView.as_view(),
+        name="public-marketing-sections",
+    ),
     # Invitaciones de equipo (públicas)
     path("api/public/invitation/<str:token>/", InvitationDetailView.as_view(), name="invitation-detail"),
     path("api/public/accept-invitation/<str:token>/", AcceptInvitationView.as_view(), name="accept-invitation"),
@@ -232,6 +242,21 @@ urlpatterns = [
         "api/admin/settings/questions/<int:pk>/",
         AdminOnboardingQuestionDetailView.as_view(),
         name="admin-settings-questions-detail",
+    ),
+    path(
+        "api/admin/settings/marketing/",
+        AdminMarketingSectionListView.as_view(),
+        name="admin-settings-marketing-list",
+    ),
+    path(
+        "api/admin/settings/marketing/<str:section_key>/",
+        AdminMarketingSectionDetailView.as_view(),
+        name="admin-settings-marketing-detail",
+    ),
+    path(
+        "api/admin/settings/marketing/<str:section_key>/reset/",
+        AdminMarketingSectionResetView.as_view(),
+        name="admin-settings-marketing-reset",
     ),
     # Webhooks (sin middleware de tenant)
     path("api/webhooks/stripe/", stripe_webhook, name="stripe-webhook"),

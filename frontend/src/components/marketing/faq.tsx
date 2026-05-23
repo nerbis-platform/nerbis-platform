@@ -5,56 +5,13 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { ChevronDown } from 'lucide-react';
+import type { FaqContent, FaqItem } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
 
-interface FaqItem {
-  question: string;
-  answer: string;
+interface FaqProps {
+  content: FaqContent;
 }
-
-const faqs: FaqItem[] = [
-  {
-    question: '¿Que es NERBIS?',
-    answer:
-      'NERBIS es una plataforma que utiliza inteligencia artificial para crear tu negocio digital completo en segundos. Pipe, nuestro asistente de IA, disena tu sitio web, configura tu tienda online y prepara todo para que empieces a vender.',
-  },
-  {
-    question: '¿Cuanto cuesta usar NERBIS?',
-    answer:
-      'NERBIS ofrece un plan gratuito para empezar. No necesitas tarjeta de credito. Puedes crear tu tienda, personalizarla y publicarla sin costo.',
-  },
-  {
-    question: '¿Cuanto tiempo toma crear mi tienda?',
-    answer:
-      'Pipe genera tu sitio completo en aproximadamente 30 segundos. Solo necesitas contarle sobre tu negocio y el se encarga del diseno, contenido y configuracion.',
-  },
-  {
-    question: '¿Necesito saber programar?',
-    answer:
-      'No. NERBIS esta disenado para emprendedores sin conocimientos tecnicos. Pipe crea todo por ti, y el editor visual te permite personalizar sin escribir codigo.',
-  },
-  {
-    question: '¿Que industrias soporta NERBIS?',
-    answer:
-      'NERBIS soporta mas de 12 industrias incluyendo belleza y bienestar, fitness, gastronomia, moda y retail, salud, educacion y servicios profesionales.',
-  },
-  {
-    question: '¿Puedo usar mi propio dominio?',
-    answer:
-      'Si. Puedes conectar tu dominio personalizado o usar un subdominio gratuito tunegocio.nerbis.com.',
-  },
-  {
-    question: '¿NERBIS incluye pasarela de pagos?',
-    answer:
-      'Si. NERBIS se integra con las principales pasarelas de pago de Latinoamerica para que puedas cobrar desde el primer dia.',
-  },
-  {
-    question: '¿Quien es Pipe?',
-    answer:
-      'Pipe es el asistente de inteligencia artificial de NERBIS. Lleva el nombre en honor a Juan Felipe, familiar del fundador. Pipe analiza tu negocio, disena tu sitio y te ayuda a crecer.',
-  },
-];
 
 function FaqAccordionItem({
   item,
@@ -101,7 +58,7 @@ function FaqAccordionItem({
   );
 }
 
-export function Faq() {
+export function Faq({ content }: FaqProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -172,15 +129,15 @@ export function Faq() {
       <div className="mx-auto max-w-3xl">
         <div className="faq-heading invisible text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            FAQ
+            {content.badge}
           </p>
           <h2 className="nerbis-display mt-4 text-3xl text-foreground sm:text-4xl lg:text-5xl">
-            Preguntas frecuentes
+            {content.title}
           </h2>
         </div>
 
         <div className="mt-12">
-          {faqs.map((item, index) => (
+          {content.items.map((item, index) => (
             <FaqAccordionItem
               key={item.question}
               item={item}

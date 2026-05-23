@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from core.models import PlatformModule
+from core.models import MarketingSection, PlatformModule
 from websites.models import OnboardingQuestion, WebsitePage
 
 # ---------------------------------------------------------------------------
@@ -155,3 +155,32 @@ class AdminOnboardingQuestionSerializer(serializers.ModelSerializer):
             "required_modules",
             "required_modules_detail",
         ]
+
+
+# ---------------------------------------------------------------------------
+# MarketingSection serializer
+# ---------------------------------------------------------------------------
+
+
+class AdminMarketingSectionSerializer(serializers.ModelSerializer):
+    """CRUD de MarketingSection para el panel de superadmin.
+
+    ``updated_by`` se setea automaticamente en la vista (perform_update),
+    por eso es read_only aqui. ``updated_at`` es auto_now en el modelo.
+    """
+
+    updated_by_email = serializers.EmailField(source="updated_by.email", read_only=True, default=None)
+
+    class Meta:
+        model = MarketingSection
+        fields = [
+            "id",
+            "section_key",
+            "content",
+            "is_visible",
+            "sort_order",
+            "updated_at",
+            "updated_by",
+            "updated_by_email",
+        ]
+        read_only_fields = ["id", "section_key", "sort_order", "updated_at", "updated_by"]

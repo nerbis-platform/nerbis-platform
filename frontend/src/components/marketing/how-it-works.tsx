@@ -5,10 +5,15 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { PipeAvatar } from '@/components/pipe-avatar';
+import type { HowItWorksContent } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
 
-export function HowItWorks() {
+interface HowItWorksProps {
+  content: HowItWorksContent;
+}
+
+export function HowItWorks({ content }: HowItWorksProps) {
   const sectionRef = useRef<HTMLElement>(null);
 
   useGSAP(() => {
@@ -64,10 +69,10 @@ export function HowItWorks() {
       <div className="mx-auto max-w-5xl">
         <div className="hiw-heading invisible text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Asi de simple
+            {content.badge}
           </p>
           <h2 className="nerbis-display mt-4 text-3xl text-foreground sm:text-4xl lg:text-5xl">
-            Tres pasos. Cero friccion.
+            {content.title}
           </h2>
         </div>
 
@@ -76,11 +81,11 @@ export function HowItWorks() {
           <div className="hiw-step invisible hover-lift relative rounded-2xl border border-border bg-background p-6">
             <div className="mb-3 flex items-center gap-2">
               <PipeAvatar mood="listening" size={36} calm />
-              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">Paso 1</span>
+              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">{content.steps[0]?.step_label}</span>
             </div>
-            <h3 className="text-lg font-semibold text-foreground">Registrate</h3>
+            <h3 className="text-lg font-semibold text-foreground">{content.steps[0]?.title}</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              Solo necesitas tu nombre, industria y pais.
+              {content.steps[0]?.description}
             </p>
             <div className="mt-5 flex flex-col gap-2.5">
               <div className="flex h-8 items-center rounded-md border border-border bg-muted/30 px-3">
@@ -98,10 +103,10 @@ export function HowItWorks() {
 
           {/* Paso 2 */}
           <div className="hiw-step invisible hover-lift relative rounded-2xl border border-border bg-background p-6">
-            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">Paso 2</span>
-            <h3 className="mt-3 text-lg font-semibold text-foreground">Pipe crea tu sitio</h3>
+            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">{content.steps[1]?.step_label}</span>
+            <h3 className="mt-3 text-lg font-semibold text-foreground">{content.steps[1]?.title}</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              Pipe, nuestro asistente de IA, genera todo en segundos.
+              {content.steps[1]?.description}
             </p>
             <div className="mt-5 flex flex-col gap-3">
               <div>
@@ -139,10 +144,10 @@ export function HowItWorks() {
 
           {/* Paso 3 */}
           <div className="hiw-step invisible hover-lift relative rounded-2xl border border-border bg-background p-6">
-            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">Paso 3</span>
-            <h3 className="mt-3 text-lg font-semibold text-foreground">Personaliza y publica</h3>
+            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">{content.steps[2]?.step_label}</span>
+            <h3 className="mt-3 text-lg font-semibold text-foreground">{content.steps[2]?.title}</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              Edita lo que quieras. O dejalo tal cual.
+              {content.steps[2]?.description}
             </p>
             <div className="mt-5 overflow-hidden rounded-md border border-border bg-muted/30">
               <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
