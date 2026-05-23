@@ -19,10 +19,12 @@ const API_URL =
 
 const FETCH_TIMEOUT_MS = 3000;
 
-interface ApiSectionResponse {
-  key: string;
-  content: Record<string, unknown>;
-  is_visible: boolean;
+/** Shape returned by the API: dict keyed by section_key */
+interface ApiSectionsDict {
+  [key: string]: {
+    content: Record<string, unknown>;
+    is_visible: boolean;
+  };
 }
 
 /**
@@ -38,7 +40,7 @@ export async function getMarketingContent(): Promise<MarketingSections> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-    const res = await fetch(`${API_URL}/marketing/sections/`, {
+    const res = await fetch(`${API_URL}/public/marketing-sections/`, {
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
       next: { revalidate: 60 },
@@ -53,7 +55,7 @@ export async function getMarketingContent(): Promise<MarketingSections> {
       return MARKETING_DEFAULTS;
     }
 
-    const sections: ApiSectionResponse[] = await res.json();
+    const sections: ApiSectionsDict = await res.json();
 
     return mergeSectionsWithDefaults(sections);
   } catch (error) {
@@ -69,22 +71,20 @@ export async function getMarketingContent(): Promise<MarketingSections> {
  * keep their default values.
  */
 function mergeSectionsWithDefaults(
-  apiSections: ApiSectionResponse[],
+  apiSections: ApiSectionsDict,
 ): MarketingSections {
-  // Start with a shallow copy of defaults
   const result = { ...MARKETING_DEFAULTS };
 
   const validKeys = new Set<string>(Object.keys(MARKETING_DEFAULTS));
 
-  for (const section of apiSections) {
-    if (!validKeys.has(section.key)) continue;
+  for (const [sectionKey, section] of Object.entries(apiSections)) {
+    if (!validKeys.has(sectionKey)) continue;
 
-    const key = section.key as MarketingSectionKey;
+    const key = sectionKey as MarketingSectionKey;
     const defaultSection = MARKETING_DEFAULTS[key];
 
     result[key] = {
       is_visible: section.is_visible,
-      // Deep merge: default content as base, API content as override
       content: {
         ...defaultSection.content,
         ...section.content,
