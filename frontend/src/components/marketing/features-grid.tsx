@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { PipeAvatar } from '@/components/pipe-avatar';
+import { PipeStatic } from '@/components/pipe-avatar';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -65,7 +65,7 @@ export function FeaturesGrid() {
       <div className="mx-auto max-w-5xl">
         <div className="features-heading invisible text-center">
           <div className="mb-4 flex justify-center">
-            <PipeAvatar mood="reading" size={32} calm />
+            <PipeStatic size={32} />
           </div>
           <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             Modulos

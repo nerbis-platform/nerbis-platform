@@ -128,7 +128,7 @@ export function MarketingFooter() {
           {/* Brand column */}
           <div className="lg:col-span-3">
             <Link href="/" className="inline-flex items-center">
-              <NerbisWordmark size={18} className="text-background" variant="full" pipeCalm pipeSize={32} />
+              <NerbisWordmark size={18} className="text-background" variant="full" pipeSize={32} />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-background/60">
               La plataforma que crea tu negocio digital con inteligencia artificial.

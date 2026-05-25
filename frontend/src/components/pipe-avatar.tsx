@@ -1,96 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
 // ─── Colors ──────────────────────────────────────────────
 const TEAL = '#0D9488';
 const NAVY = '#1C3B57';
 
-// ─── Pipe Keyframes ──────────────────────────────────────
-const PIPE_KEYFRAMES = `
-@keyframes pipe-breathe {
-  0%, 100% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
-  15% { transform: translateY(-6px) scaleX(0.94) scaleY(1.08) rotate(2deg); }
-  35% { transform: translateY(-8px) scaleX(0.92) scaleY(1.1) rotate(-1deg); }
-  55% { transform: translateY(-4px) scaleX(1.04) scaleY(0.96) rotate(1deg); }
-  75% { transform: translateY(-2px) scaleX(1.02) scaleY(0.98) rotate(-2deg); }
-}
-
-@keyframes pipe-think {
-  0%, 100% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
-  15% { transform: translateY(-6px) scaleX(1.06) scaleY(0.94) rotate(-5deg); }
-  30% { transform: translateY(-3px) scaleX(0.94) scaleY(1.06) rotate(3deg); }
-  50% { transform: translateY(-8px) scaleX(0.92) scaleY(1.1) rotate(-2deg); }
-  70% { transform: translateY(-2px) scaleX(1.04) scaleY(0.96) rotate(4deg); }
-  85% { transform: translateY(-5px) scaleX(0.98) scaleY(1.03) rotate(-1deg); }
-}
-
-@keyframes pipe-happy {
-  0% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
-  8% { transform: translateY(4px) scaleX(1.2) scaleY(0.8) rotate(0deg); }
-  20% { transform: translateY(-22px) scaleX(0.8) scaleY(1.25) rotate(-5deg); }
-  32% { transform: translateY(3px) scaleX(1.22) scaleY(0.78) rotate(3deg); }
-  42% { transform: translateY(-12px) scaleX(0.85) scaleY(1.18) rotate(-3deg); }
-  55% { transform: translateY(2px) scaleX(1.15) scaleY(0.85) rotate(2deg); }
-  68% { transform: translateY(-5px) scaleX(0.92) scaleY(1.08) rotate(-1deg); }
-  82% { transform: translateY(1px) scaleX(1.04) scaleY(0.96) rotate(1deg); }
-  100% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
-}
-
-@keyframes pipe-surprised {
-  0% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
-  8% { transform: translateY(3px) scaleX(1.15) scaleY(0.85) rotate(0deg); }
-  18% { transform: translateY(-20px) scaleX(0.75) scaleY(1.3) rotate(-3deg); }
-  30% { transform: translateY(3px) scaleX(1.2) scaleY(0.82) rotate(4deg); }
-  42% { transform: translateY(-8px) scaleX(0.88) scaleY(1.14) rotate(-2deg); }
-  58% { transform: translateY(2px) scaleX(1.1) scaleY(0.9) rotate(2deg); }
-  72% { transform: translateY(-3px) scaleX(0.96) scaleY(1.05) rotate(-1deg); }
-  100% { transform: translateY(0) scaleX(1) scaleY(1) rotate(0deg); }
-}
-
-@keyframes pipe-listen {
-  0%, 100% { transform: translateY(0) rotate(0deg) scaleX(1) scaleY(1); }
-  15% { transform: translateY(-5px) rotate(8deg) scaleX(0.95) scaleY(1.06); }
-  35% { transform: translateY(-3px) rotate(-6deg) scaleX(1.04) scaleY(0.96); }
-  55% { transform: translateY(-6px) rotate(5deg) scaleX(0.97) scaleY(1.04); }
-  75% { transform: translateY(-2px) rotate(-3deg) scaleX(1.02) scaleY(0.98); }
-}
-
-@keyframes pipe-read {
-  0%, 100% { transform: translateY(0) rotate(0deg) scaleX(1) scaleY(1); }
-  20% { transform: translateY(5px) rotate(6deg) scaleX(1.05) scaleY(0.95); }
-  45% { transform: translateY(2px) rotate(2deg) scaleX(1.02) scaleY(0.98); }
-  65% { transform: translateY(6px) rotate(5deg) scaleX(1.04) scaleY(0.96); }
-  85% { transform: translateY(1px) rotate(1deg) scaleX(1.01) scaleY(0.99); }
-}
-
-@keyframes pipe-nudge {
-  0% { transform: rotate(0deg) scaleX(1) scaleY(1) translateX(0); }
-  8% { transform: rotate(12deg) scaleX(0.88) scaleY(1.12) translateX(4px); }
-  20% { transform: rotate(-10deg) scaleX(1.12) scaleY(0.88) translateX(-5px); }
-  32% { transform: rotate(9deg) scaleX(0.9) scaleY(1.1) translateX(4px); }
-  46% { transform: rotate(-7deg) scaleX(1.08) scaleY(0.92) translateX(-3px); }
-  60% { transform: rotate(4deg) scaleX(0.96) scaleY(1.04) translateX(2px); }
-  76% { transform: rotate(-2deg) scaleX(1.02) scaleY(0.98) translateX(-1px); }
-  88% { transform: rotate(1deg) scaleX(1) scaleY(1) translateX(0); }
-  100% { transform: rotate(0deg) scaleX(1) scaleY(1) translateX(0); }
-}
-
-@keyframes pipe-blink {
-  0%, 42%, 48%, 100% { transform: scaleY(1); }
-  45% { transform: scaleY(0.05); }
-}
-
-@keyframes pipe-pulse {
-  0%, 100% { transform: scale(1); opacity: 0; }
-  50% { transform: scale(1.5); opacity: 0.12; }
-}
-
-@media(prefers-reduced-motion:reduce){.pipe-dot,.pipe-dot *{animation:none!important;transition:none!important}}
-`;
-
 // ─── Types ───────────────────────────────────────────────
-export type PipeMood = 'idle' | 'listening' | 'thinking' | 'happy' | 'surprised' | 'reading' | 'nudge';
+export type PipeMood = 'idle' | 'listening' | 'thinking' | 'happy' | 'surprised' | 'reading' | 'nudge' | 'pleading';
 
 const MOOD_EYES: Record<PipeMood, {
   rxScale: number; ryScale: number; offsetY: number;
@@ -103,6 +20,7 @@ const MOOD_EYES: Record<PipeMood, {
   surprised: { rxScale: 1.35, ryScale: 1.5,  offsetY: -0.015, rotation: 0,   blinks: false, gap: 1.15 },
   reading:   { rxScale: 0.9,  ryScale: 0.35, offsetY: 0.02,   rotation: 0,   blinks: false, gap: 0.95 },
   nudge:     { rxScale: 1.15, ryScale: 1.1,  offsetY: 0,      rotation: 5,   blinks: false, gap: 1.05 },
+  pleading:  { rxScale: 1.5,  ryScale: 1.6,  offsetY: -0.02,  rotation: 0,   blinks: false, gap: 1 },
 };
 
 const MOOD_ANIM: Record<PipeMood, string> = {
@@ -113,7 +31,75 @@ const MOOD_ANIM: Record<PipeMood, string> = {
   surprised: 'pipe-surprised 0.8s cubic-bezier(0.22,1,0.36,1)',
   reading:   'pipe-read 2.8s cubic-bezier(0.37,0,0.63,1) infinite',
   nudge:     'pipe-nudge 1s cubic-bezier(0.37,0,0.63,1)',
+  pleading:  'pipe-breathe 2.5s cubic-bezier(0.37,0,0.63,1) infinite',
 };
+
+// ─── usePipeLook — Singleton mouse-tracking hook ─────────
+// One global mousemove listener shared across all Pipe instances.
+// Uses rAF throttle to avoid firing on every mousemove event.
+
+let listenerCount = 0;
+let currentPos = { x: 0, y: 0 };
+let rafId: number | null = null;
+const subscribers = new Set<() => void>();
+
+function onMouseMove(e: MouseEvent) {
+  currentPos = { x: e.clientX, y: e.clientY };
+  if (rafId === null) {
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      subscribers.forEach((cb) => cb());
+    });
+  }
+}
+
+function usePipeLook(
+  containerRef: React.RefObject<HTMLElement | null>,
+  maxLook: number,
+  enabled: boolean = true,
+): { x: number; y: number } {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+  const update = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const dx = currentPos.x - (rect.left + rect.width / 2);
+    const dy = currentPos.y - (rect.top + rect.height / 2);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist === 0) return;
+    const t = Math.min(dist / 150, 1);
+    setOffset({
+      x: (dx / dist) * maxLook * t,
+      y: (dy / dist) * maxLook * t,
+    });
+  }, [containerRef, maxLook]);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    subscribers.add(update);
+    listenerCount++;
+    if (listenerCount === 1) {
+      window.addEventListener('mousemove', onMouseMove);
+    }
+
+    return () => {
+      subscribers.delete(update);
+      listenerCount--;
+      if (listenerCount === 0) {
+        window.removeEventListener('mousemove', onMouseMove);
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      }
+    };
+  }, [enabled, update]);
+
+  if (!enabled) return { x: 0, y: 0 };
+  return offset;
+}
 
 // ─── PipeAvatar Component ────────────────────────────────
 export function PipeAvatar({
@@ -140,11 +126,8 @@ export function PipeAvatar({
 
   const eyes = MOOD_EYES[mood];
 
-  // Static IDs — all PipeAvatar gradients are identical (same teal colors),
-  // so sharing IDs across instances is visually correct and avoids hydration mismatch.
   const uid = 'pipe-g';
   const containerRef = useRef<HTMLDivElement>(null);
-  const [lookOffset, setLookOffset] = useState({ x: 0, y: 0 });
   const [tapped, setTapped] = useState(false);
   const [hovered, setHovered] = useState(false);
 
@@ -161,25 +144,7 @@ export function PipeAvatar({
     return directions[lookTarget];
   }, [maxLook, lookTarget]);
 
-  useEffect(() => {
-    if (fixedLookOffset) return;
-    const onMove = (e: MouseEvent) => {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const dx = e.clientX - (rect.left + rect.width / 2);
-      const dy = e.clientY - (rect.top + rect.height / 2);
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist === 0) return;
-      const t = Math.min(dist / 150, 1);
-      setLookOffset({
-        x: (dx / dist) * maxLook * t,
-        y: (dy / dist) * maxLook * t,
-      });
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [maxLook, fixedLookOffset]);
+  const trackingOffset = usePipeLook(containerRef, maxLook, !fixedLookOffset);
 
   const handleTap = () => {
     if (tapped) return;
@@ -198,7 +163,7 @@ export function PipeAvatar({
   const eyeRot = activeEyes.rotation;
   const blinkAnim = !tapped && eyes.blinks ? 'pipe-blink 4s ease-in-out infinite' : 'none';
 
-  const look = fixedLookOffset ?? lookOffset;
+  const look = fixedLookOffset ?? trackingOffset;
   const eyeLeftX = cx - eyeSpread + look.x;
   const eyeRightX = cx + eyeSpread + look.x;
   const eyeFinalY = eyeY + eyeOffY + look.y;
@@ -217,10 +182,10 @@ export function PipeAvatar({
           transformOrigin: `${ex}px ${eyeFinalY}px`,
           transform: rot ? `rotate(${rot}deg)` : undefined,
           transition: [
-            'rx 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-            'ry 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-            'cx 0.15s ease-out',
-            'cy 0.15s ease-out',
+            'rx 0.2s ease-out',
+            'ry 0.2s ease-out',
+            'cx 0.05s linear',
+            'cy 0.05s linear',
           ].join(', '),
         }}
       />
@@ -301,14 +266,12 @@ export function PipeAvatar({
         {renderEye(eyeLeftX, 'left')}
         {renderEye(eyeRightX, 'right')}
       </svg>
-
-      <style dangerouslySetInnerHTML={{ __html: PIPE_KEYFRAMES }} />
     </div>
   );
 }
 
-// ─── PipeStatic — 3D sphere with happy eyes, no interactivity ─
-export function PipeStatic({ size = 24 }: { size?: number }) {
+// ─── PipeStatic — 3D sphere with idle eyes, minimal interactivity ─
+export function PipeStatic({ size = 24, blink = false }: { size?: number; blink?: boolean }) {
   const s = size;
   const r = s * 0.42;
   const cx = s * 0.5;
@@ -364,13 +327,17 @@ export function PipeStatic({ size = 24 }: { size?: number }) {
         fill="#fff" opacity={0.4}
       />
 
-      <ellipse cx={cx - eyeSpread} cy={eyeY + eyeOffY} rx={eyeRx} ry={eyeRy} fill="#fff" />
-      <ellipse cx={cx + eyeSpread} cy={eyeY + eyeOffY} rx={eyeRx} ry={eyeRy} fill="#fff" />
+      <ellipse cx={cx - eyeSpread} cy={eyeY + eyeOffY} rx={eyeRx} ry={eyeRy} fill="#fff"
+        style={blink ? { animation: 'pipe-blink 4s ease-in-out infinite', transformOrigin: `${cx - eyeSpread}px ${eyeY + eyeOffY}px` } : undefined}
+      />
+      <ellipse cx={cx + eyeSpread} cy={eyeY + eyeOffY} rx={eyeRx} ry={eyeRy} fill="#fff"
+        style={blink ? { animation: 'pipe-blink 4s ease-in-out infinite', transformOrigin: `${cx + eyeSpread}px ${eyeY + eyeOffY}px` } : undefined}
+      />
     </svg>
   );
 }
 
-// ─── PipeAdmin — Navy-colored Pipe for admin context ─────
+// ─── PipeAdmin — Teal Pipe for admin context with eye tracking ─
 export function PipeAdmin({ size = 36 }: { size?: number }) {
   const s = size;
   const r = s * 0.42;
@@ -390,28 +357,8 @@ export function PipeAdmin({ size = 36 }: { size?: number }) {
 
   const uid = 'pipe-ga';
   const containerRef = useRef<HTMLDivElement>(null);
-  const [lookOffset, setLookOffset] = useState({ x: 0, y: 0 });
-
   const maxLook = s * 0.06;
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const dx = e.clientX - (rect.left + rect.width / 2);
-      const dy = e.clientY - (rect.top + rect.height / 2);
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist === 0) return;
-      const t = Math.min(dist / 150, 1);
-      setLookOffset({
-        x: (dx / dist) * maxLook * t,
-        y: (dy / dist) * maxLook * t,
-      });
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [maxLook]);
+  const lookOffset = usePipeLook(containerRef, maxLook);
 
   const eyeLeftX = cx - eyeSpread + lookOffset.x;
   const eyeRightX = cx + eyeSpread + lookOffset.x;
