@@ -55,20 +55,21 @@ export function Hero({ content }: HeroProps) {
 
   // Detect hover on ANY "Empezar gratis" CTA (hero + header)
   useEffect(() => {
-    let wasHovered = false;
-    function onMove() {
-      const ctas = document.querySelectorAll('a[href="/register"]');
-      let hovering = false;
+    const ctas = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href="/register"]'));
+    const onEnter = () => setCtaHovered(true);
+    const onLeave = () => setCtaHovered(false);
+
+    ctas.forEach((cta) => {
+      cta.addEventListener('mouseenter', onEnter);
+      cta.addEventListener('mouseleave', onLeave);
+    });
+
+    return () => {
       ctas.forEach((cta) => {
-        if (cta.matches(':hover')) hovering = true;
+        cta.removeEventListener('mouseenter', onEnter);
+        cta.removeEventListener('mouseleave', onLeave);
       });
-      if (hovering !== wasHovered) {
-        wasHovered = hovering;
-        setCtaHovered(hovering);
-      }
-    }
-    window.addEventListener('mousemove', onMove, { passive: true });
-    return () => window.removeEventListener('mousemove', onMove);
+    };
   }, []);
 
   useGSAP(() => {
