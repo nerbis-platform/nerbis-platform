@@ -2,6 +2,7 @@ import { getMarketingContent } from '@/lib/api/marketing-content';
 import { MarketingHeader } from '@/components/marketing/header';
 import { MarketingFooter } from '@/components/marketing/footer';
 import { MarketingLayoutShell } from '@/components/marketing/layout-shell';
+import { FloatingPipe } from '@/components/marketing/floating-pipe';
 
 export default async function MarketingLayout({
   children,
@@ -14,6 +15,7 @@ export default async function MarketingLayout({
     <MarketingLayoutShell>
       <MarketingHeader content={sections.header.content} />
       <main className="page-content">{children}</main>
+      <FloatingPipe />
       <MarketingFooter />
     </MarketingLayoutShell>
   );

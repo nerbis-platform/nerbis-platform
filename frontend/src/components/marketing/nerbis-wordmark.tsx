@@ -1,24 +1,19 @@
 'use client';
 
-import { PipeAvatar, PipeStatic } from '@/components/pipe-avatar';
-import type { PipeMood } from '@/components/pipe-avatar';
+import { PipeStatic } from '@/components/pipe-avatar';
 
 interface NerbisWordmarkProps {
   size?: number;
   className?: string;
   variant?: 'full' | 'text';
-  pipeMood?: PipeMood;
   pipeSize?: number;
-  pipeCalm?: boolean;
 }
 
 export function NerbisWordmark({
   size = 18,
   className = '',
   variant = 'text',
-  pipeMood = 'idle',
   pipeSize,
-  pipeCalm = false,
 }: NerbisWordmarkProps) {
   if (variant === 'full') {
     const avatarSize = pipeSize ?? size * 1.8;
@@ -33,7 +28,9 @@ export function NerbisWordmark({
           gap: `${size * 0.4}px`,
         }}
       >
-        <PipeAvatar mood={pipeMood} size={avatarSize} calm={pipeCalm} />
+        <span className="pipe-logo-hover">
+          <PipeStatic size={avatarSize} blink />
+        </span>
         <span
           style={{
             fontWeight: 800,

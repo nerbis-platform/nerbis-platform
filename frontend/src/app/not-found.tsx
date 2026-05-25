@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { PipeAvatar } from '@/components/pipe-avatar';
+import { PipeStatic } from '@/components/pipe-avatar';
 
 export default function NotFound() {
   return (
@@ -18,7 +18,7 @@ export default function NotFound() {
           }}
           aria-hidden="true"
         />
-        <PipeAvatar mood="surprised" size={120} calm />
+        <PipeStatic size={120} />
       </div>
 
       <p className="mt-6 text-sm font-medium uppercase tracking-widest text-muted-foreground/60">

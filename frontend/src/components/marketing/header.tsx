@@ -18,7 +18,7 @@ export function MarketingHeader({ content }: MarketingHeaderProps) {
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center">
-          <NerbisWordmark size={18} className="text-foreground" variant="full" pipeCalm />
+          <NerbisWordmark size={18} className="text-foreground" variant="full" />
         </Link>
 
         {/* Desktop nav */}
@@ -37,6 +37,7 @@ export function MarketingHeader({ content }: MarketingHeaderProps) {
         {/* Desktop CTA */}
         <div className="hidden flex-col items-center md:flex">
           <Link
+            id="header-cta"
             href={content.cta_href}
             className="group inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90"
             style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}

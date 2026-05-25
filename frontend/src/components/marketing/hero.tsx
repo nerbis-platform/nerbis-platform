@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -11,6 +11,38 @@ import type { HeroContent } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
 
+// ─── Floating particles (fireflies around Pipe) ─────────
+function PipeParticles() {
+  const particles = [
+    { size: 2, x: -55, y: -45, duration: 8, delay: 0 },
+    { size: 2.5, x: 50, y: -35, duration: 10, delay: 2 },
+    { size: 2, x: -40, y: 40, duration: 9, delay: 1.5 },
+    { size: 2, x: 45, y: 50, duration: 11, delay: 3 },
+  ];
+
+  return (
+    <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+      {particles.map((p, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full"
+          style={{
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            left: '50%',
+            top: '50%',
+            background: 'var(--primitive-brand-400)',
+            boxShadow: '0 0 3px var(--primitive-brand-400)',
+            opacity: 0,
+            transform: `translate(${p.x}px, ${p.y}px)`,
+            animation: `pipe-firefly ${p.duration}s ease-in-out ${p.delay}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 interface HeroProps {
   content: HeroContent;
 }
@@ -18,6 +50,26 @@ interface HeroProps {
 export function Hero({ content }: HeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [pipeMood, setPipeMood] = useState<PipeMood>('idle');
+  const [pipeHovered, setPipeHovered] = useState(false);
+  const [ctaHovered, setCtaHovered] = useState(false);
+
+  // Detect hover on ANY "Empezar gratis" CTA (hero + header)
+  useEffect(() => {
+    let wasHovered = false;
+    function onMove() {
+      const ctas = document.querySelectorAll('a[href="/register"]');
+      let hovering = false;
+      ctas.forEach((cta) => {
+        if (cta.matches(':hover')) hovering = true;
+      });
+      if (hovering !== wasHovered) {
+        wasHovered = hovering;
+        setCtaHovered(hovering);
+      }
+    }
+    window.addEventListener('mousemove', onMove, { passive: true });
+    return () => window.removeEventListener('mousemove', onMove);
+  }, []);
 
   useGSAP(() => {
     if (!sectionRef.current) return;
@@ -37,13 +89,51 @@ export function Hero({ content }: HeroProps) {
           return;
         }
 
-        // Hero entrance timeline
+        // Hero entrance: Pipe drops from above with elastic bounce + squash
         const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
 
-        tl.from('.hero-pipe-wrap', { scale: 0.5, autoAlpha: 0, duration: 0.7 })
-          .from('.hero-title', { y: 60, autoAlpha: 0, duration: 0.8 }, '-=0.3')
+        tl.from('.hero-pipe-wrap', {
+            y: -120,
+            scale: 0.6,
+            autoAlpha: 0,
+            duration: 0.8,
+            ease: 'bounce.out',
+          })
+          .to('.hero-pipe-wrap', {
+            scaleX: 1.15,
+            scaleY: 0.85,
+            duration: 0.12,
+            ease: 'power2.in',
+          })
+          .to('.hero-pipe-wrap', {
+            scaleX: 1,
+            scaleY: 1,
+            duration: 0.4,
+            ease: 'elastic.out(1, 0.4)',
+          })
+          .from('.hero-title', { y: 60, autoAlpha: 0, duration: 0.8 }, '-=0.5')
           .from('.hero-subtitle', { y: 40, autoAlpha: 0, duration: 0.6 }, '-=0.4')
           .from('.hero-cta', { y: 30, autoAlpha: 0, duration: 0.5 }, '-=0.3');
+
+        // Glow breathes in sync with Pipe
+        gsap.to('.pipe-glow-ambient', {
+          scale: 1.15,
+          opacity: 0.1,
+          duration: 3,
+          ease: 'sine.inOut',
+          repeat: -1,
+          yoyo: true,
+        });
+
+        // Shadow stretches with breathing
+        gsap.to('.pipe-hero-shadow', {
+          scaleX: 1.1,
+          opacity: 0.04,
+          duration: 3,
+          ease: 'sine.inOut',
+          repeat: -1,
+          yoyo: true,
+        });
 
         // Parallax on the glow element
         gsap.to('.hero-glow', {
@@ -57,7 +147,19 @@ export function Hero({ content }: HeroProps) {
           },
         });
 
-        // Scroll-triggered mood change: when hero exits viewport, Pipe goes happy
+        // Pipe parallax — moves slower than content for depth
+        gsap.to('.hero-pipe-wrap', {
+          yPercent: -15,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: 'top top',
+            end: 'bottom top',
+            scrub: true,
+          },
+        });
+
+        // Scroll-triggered mood change
         ScrollTrigger.create({
           trigger: sectionRef.current,
           start: 'bottom 60%',
@@ -67,6 +169,9 @@ export function Hero({ content }: HeroProps) {
       }
     );
   }, { scope: sectionRef });
+
+  // CTA hover → pleading (Puss in Boots eyes), Pipe hover → listening, else scroll mood
+  const effectiveMood: PipeMood = ctaHovered ? 'pleading' : pipeHovered ? 'listening' : pipeMood;
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-muted/30 px-4 pb-24 pt-24 sm:px-6 sm:pb-32 sm:pt-32">
@@ -81,10 +186,14 @@ export function Hero({ content }: HeroProps) {
       <div className="relative z-10 mx-auto max-w-4xl text-center">
         {/* Pipe -- hero visual centerpiece */}
         <div className="hero-pipe-wrap invisible mb-8 flex justify-center">
-          <div className="pipe-hero-glow relative">
-            {/* Ambient glow behind Pipe (very subtle on light) */}
+          <div
+            className="pipe-hero-glow relative"
+            onMouseEnter={() => setPipeHovered(true)}
+            onMouseLeave={() => setPipeHovered(false)}
+          >
+            {/* Ambient glow — breathes in sync */}
             <div
-              className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+              className="pipe-glow-ambient pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
               style={{
                 width: '200px',
                 height: '200px',
@@ -94,7 +203,25 @@ export function Hero({ content }: HeroProps) {
               }}
               aria-hidden="true"
             />
-            <PipeAvatar mood={pipeMood} size={140} />
+
+            {/* Floating particles */}
+            <PipeParticles />
+
+            {/* Living shadow below Pipe */}
+            <div
+              className="pipe-hero-shadow pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2"
+              style={{
+                width: '60px',
+                height: '12px',
+                borderRadius: '50%',
+                background: 'var(--primitive-navy-700)',
+                opacity: 0.06,
+                filter: 'blur(4px)',
+              }}
+              aria-hidden="true"
+            />
+
+            <PipeAvatar mood={effectiveMood} size={140} />
           </div>
         </div>
 
@@ -110,7 +237,7 @@ export function Hero({ content }: HeroProps) {
           {content.subtitle}
         </p>
 
-        {/* Single primary CTA with Pipe */}
+        {/* Single primary CTA */}
         <div className="hero-cta invisible mt-8 flex flex-col items-center gap-3">
           <Link
             href={content.cta_href}

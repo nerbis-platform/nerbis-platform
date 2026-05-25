@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { PipeAvatar } from '@/components/pipe-avatar';
+import { PipeStatic } from '@/components/pipe-avatar';
 
 export const metadata: Metadata = {
   title: 'Producto — NERBIS',
@@ -68,7 +68,7 @@ export default function ProductoPage() {
       <section className="px-4 pb-16 pt-24 sm:px-6 sm:pb-24 sm:pt-32">
         <div className="mx-auto max-w-4xl text-center">
           <div className="mb-6 flex justify-center">
-            <PipeAvatar mood="happy" size={72} calm />
+            <PipeStatic size={72} />
           </div>
           <h1 className="nerbis-display text-4xl text-foreground sm:text-5xl lg:text-6xl">
             Todo lo que necesitas.

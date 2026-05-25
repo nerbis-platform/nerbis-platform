@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { PipeAvatar } from '@/components/pipe-avatar';
+import { PipeStatic } from '@/components/pipe-avatar';
 import type { HowItWorksContent } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -80,7 +80,7 @@ export function HowItWorks({ content }: HowItWorksProps) {
           {/* Paso 1 */}
           <div className="hiw-step invisible hover-lift relative rounded-2xl border border-border bg-background p-6">
             <div className="mb-3 flex items-center gap-2">
-              <PipeAvatar mood="listening" size={36} calm />
+              <PipeStatic size={36} />
               <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">{content.steps[0]?.step_label}</span>
             </div>
             <h3 className="text-lg font-semibold text-foreground">{content.steps[0]?.title}</h3>

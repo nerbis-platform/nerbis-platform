@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { PipeAvatar } from '@/components/pipe-avatar';
+import { PipeStatic } from '@/components/pipe-avatar';
 import type { CtaFinalContent } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -72,7 +72,7 @@ export function CtaFinal({ content }: CtaFinalProps) {
         </h2>
 
         <div className="mt-10 flex items-center justify-center gap-4">
-          <PipeAvatar mood="happy" size={64} />
+          <PipeStatic size={64} />
           <Link
             href={content.cta_href}
             className="group inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-base font-medium text-white transition-all hover:opacity-90"
