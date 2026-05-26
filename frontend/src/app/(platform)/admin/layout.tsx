@@ -39,6 +39,7 @@ const NAV_CONFIG = [
 ];
 
 const NAV_HOME_SECTIONS = [
+  { href: '/admin/settings/web/home/hero', label: 'Hero' },
   { href: '/admin/settings/web/home/gallery', label: 'Galeria de industrias' },
   { href: '/admin/settings/web/home/problem-solution', label: 'Problema vs Solucion' },
   { href: '/admin/settings/web/home/how-it-works', label: 'Como funciona' },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 import { NerbisWordmark } from './nerbis-wordmark';
@@ -12,9 +12,25 @@ interface MarketingHeaderProps {
 
 export function MarketingHeader({ content }: MarketingHeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > 20);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
-    <header className="nerbis-glass sticky top-0 z-50 w-full border-b border-border/50 bg-background/80">
+    <header
+      className={`sticky top-0 z-50 w-full backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 ${
+        scrolled
+          ? 'border-b border-border/40 bg-background/85 shadow-[0_1px_3px_rgba(0,0,0,0.04)]'
+          : 'border-b border-transparent bg-background/60'
+      }`}
+    >
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center">

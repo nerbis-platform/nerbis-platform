@@ -175,7 +175,7 @@ export function Hero({ content }: HeroProps) {
   const effectiveMood: PipeMood = ctaHovered ? 'pleading' : pipeHovered ? 'listening' : pipeMood;
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden bg-muted/30 px-4 pb-24 pt-24 sm:px-6 sm:pb-32 sm:pt-32">
+    <section ref={sectionRef} className="relative overflow-hidden bg-muted/30 px-4 pb-16 pt-24 sm:px-6 sm:pb-20 sm:pt-32">
       {/* Glow -- brand colors (subtle on light bg) */}
       <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
         <div
@@ -233,16 +233,28 @@ export function Hero({ content }: HeroProps) {
           <span className="text-primary">{content.title_line2}</span>
         </h1>
 
-        {/* Subtitle */}
+        {/* Subtitle — "Pipe" highlighted as brand name */}
         <p className="hero-subtitle invisible mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          {content.subtitle}
+          {content.subtitle.split('Pipe').map((part, i, arr) =>
+            i < arr.length - 1 ? (
+              <span key={i}>
+                {part}
+                <span className="font-bold tracking-tight text-foreground">Pipe</span>
+              </span>
+            ) : (
+              <span key={i}>{part}</span>
+            ),
+          )}
         </p>
 
         {/* Single primary CTA */}
         <div className="hero-cta invisible mt-8 flex flex-col items-center gap-3">
           <Link
             href={content.cta_href}
-            className="group inline-flex items-center gap-2 rounded-full bg-foreground px-8 py-3.5 text-base font-medium text-background transition-all hover:opacity-90"
+            className="group inline-flex items-center gap-2 rounded-full bg-foreground px-8 py-3.5 text-base font-medium text-white transition-all duration-300"
+            style={{ backgroundImage: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)`, backgroundSize: '200% 100%', backgroundPosition: '0% 0' }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundPosition = '100% 0'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundPosition = '0% 0'; }}
           >
             {content.cta_text}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5">

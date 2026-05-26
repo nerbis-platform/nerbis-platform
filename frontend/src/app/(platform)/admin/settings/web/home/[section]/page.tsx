@@ -11,6 +11,7 @@ import { MarketingSectionsManager } from '@/components/admin/marketing-sections-
 import type { MarketingSectionKey } from '@/types/marketing';
 
 const SLUG_TO_KEY: Record<string, MarketingSectionKey> = {
+  'hero': 'hero',
   'problem-solution': 'problem_solution',
   'how-it-works': 'how_it_works',
   'cta-mid': 'cta_mid',
@@ -22,6 +23,7 @@ const SLUG_TO_KEY: Record<string, MarketingSectionKey> = {
 };
 
 const SLUG_LABELS: Record<string, string> = {
+  hero: 'Hero',
   gallery: 'Galeria de industrias',
   'problem-solution': 'Problema vs Solucion',
   'how-it-works': 'Como funciona',

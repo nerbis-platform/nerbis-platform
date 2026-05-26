@@ -86,7 +86,7 @@ export function SocialProof({ cards }: { cards: IndustryGalleryCard[] }) {
   return (
     <section ref={sectionRef} className="overflow-hidden bg-background py-12 sm:py-16">
       <p className="sp-title invisible mb-8 text-center text-sm font-medium uppercase tracking-widest text-muted-foreground/60">
-        Pipe crea sitios para
+        Diseñado para
       </p>
 
       {/* Row 1 — moves left */}
