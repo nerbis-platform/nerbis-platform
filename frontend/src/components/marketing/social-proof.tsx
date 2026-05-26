@@ -37,11 +37,12 @@ function GalleryCardItem({ card }: { card: IndustryGalleryCard }) {
 export function SocialProof({ cards }: { cards: IndustryGalleryCard[] }) {
   const sectionRef = useRef<HTMLElement>(null);
 
-  const visibleCards = cards.filter((c) => c.is_visible);
-  const row1 = visibleCards
+  // The public API already filters by is_visible=True, so no need to re-filter here.
+  // Fallback defaults also have is_visible=true, so cards are always displayable.
+  const row1 = cards
     .filter((c) => c.row === 1)
     .sort((a, b) => a.sort_order - b.sort_order);
-  const row2 = visibleCards
+  const row2 = cards
     .filter((c) => c.row === 2)
     .sort((a, b) => a.sort_order - b.sort_order);
 

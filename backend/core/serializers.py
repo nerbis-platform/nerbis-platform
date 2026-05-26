@@ -36,7 +36,7 @@ class PublicIndustryGalleryCardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = IndustryGalleryCard
-        fields = ["id", "name", "image", "gradient", "row", "sort_order"]
+        fields = ["id", "name", "image", "gradient", "row", "sort_order", "is_visible"]
 
     def get_image(self, obj: IndustryGalleryCard) -> str | None:
         if not obj.image:
