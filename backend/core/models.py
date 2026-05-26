@@ -6,6 +6,8 @@ from decimal import Decimal
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.functions import Lower
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils.text import slugify
 
 from .managers import TenantAwareManager, TenantAwareUserManager
@@ -1938,3 +1940,77 @@ class MarketingSection(models.Model):
     def __str__(self) -> str:
         visibility = "visible" if self.is_visible else "oculta"
         return f"{self.section_key} ({visibility})"
+
+
+class IndustryGalleryCard(models.Model):
+    """
+    Card de la galeria de industrias del sitio de marketing de NERBIS.
+
+    Modelo GLOBAL — NO hereda de TenantAwareModel.
+    Cada card representa una industria/vertical que NERBIS soporta,
+    mostrada en el marquee de social proof del landing page.
+    """
+
+    ROW_CHOICES = [
+        (1, "Fila 1"),
+        (2, "Fila 2"),
+    ]
+
+    name = models.CharField(
+        max_length=100,
+        verbose_name="Nombre",
+        help_text="Nombre de la industria, ej: Restaurantes",
+    )
+    image = models.ImageField(
+        upload_to="industries/",
+        blank=True,
+        null=True,
+        verbose_name="Imagen",
+        help_text="Foto representativa de la industria (JPG, PNG, WebP, max 5MB)",
+    )
+    gradient = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Gradiente CSS",
+        help_text="CSS gradient como fallback cuando no hay imagen",
+    )
+    row = models.PositiveSmallIntegerField(
+        choices=ROW_CHOICES,
+        default=1,
+        verbose_name="Fila",
+        help_text="Fila del marquee donde aparece la card",
+    )
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Orden",
+        help_text="Posicion dentro de la fila (menor = mas a la izquierda)",
+    )
+    is_visible = models.BooleanField(
+        default=True,
+        verbose_name="Visible",
+        help_text="Si la card se muestra en el sitio publico",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de creacion",
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Ultima actualizacion",
+    )
+
+    class Meta:
+        ordering = ["row", "sort_order"]
+        verbose_name = "Card de Galeria de Industrias"
+        verbose_name_plural = "Cards de Galeria de Industrias"
+
+    def __str__(self) -> str:
+        return f"{self.name} (fila {self.row})"
+
+
+@receiver(post_delete, sender=IndustryGalleryCard)
+def cleanup_industry_gallery_image(sender, instance: IndustryGalleryCard, **kwargs) -> None:
+    """Elimina el archivo de imagen del filesystem al borrar una card."""
+    if instance.image:
+        instance.image.delete(save=False)

@@ -12,20 +12,26 @@ Contrato de sub-agente SDD ``sdd/admin-onboarding-config`` (Phases 1 + 2).
 
 from __future__ import annotations
 
+from django.db import transaction
 from rest_framework import generics, status
+from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 
 from core.admin_settings_serializers import (
+    AdminIndustryGalleryCardSerializer,
     AdminMarketingSectionSerializer,
     AdminOnboardingQuestionSerializer,
     AdminPlatformModuleSerializer,
     AdminWebsitePageSerializer,
+    IndustryGalleryReorderSerializer,
 )
 from core.marketing_defaults import MARKETING_SECTION_DEFAULTS
-from core.models import MarketingSection, PlatformModule
+from core.models import IndustryGalleryCard, MarketingSection, PlatformModule
 from core.permissions import IsSuperAdmin
 from websites.models import OnboardingQuestion, WebsitePage
 
@@ -205,3 +211,49 @@ class AdminMarketingSectionResetView(APIView):
 
         serializer = AdminMarketingSectionSerializer(section)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# IndustryGalleryCard views
+# ---------------------------------------------------------------------------
+
+
+class AdminIndustryGalleryViewSet(ModelViewSet):
+    """CRUD + reorder para IndustryGalleryCard.
+
+    Endpoints generados por el router:
+    - GET/POST     ``/api/admin/settings/industry-gallery/``
+    - GET/PUT/PATCH/DELETE ``/api/admin/settings/industry-gallery/<pk>/``
+    - POST         ``/api/admin/settings/industry-gallery/reorder/``
+
+    Sin paginacion — catalogo pequeno (~12 cards).
+    Acepta multipart para upload de imagenes.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminIndustryGalleryCardSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    pagination_class = None
+    queryset = IndustryGalleryCard.objects.order_by("row", "sort_order")
+
+    @action(detail=False, methods=["post"], url_path="reorder")
+    def reorder(self, request) -> Response:
+        """Reordena cards en batch: acepta ``{items: [{id, row, sort_order}, ...]}``."""
+        serializer = IndustryGalleryReorderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        items = serializer.validated_data["items"]
+
+        with transaction.atomic():
+            for item in items:
+                IndustryGalleryCard.objects.filter(id=item["id"]).update(
+                    row=item["row"],
+                    sort_order=item["sort_order"],
+                )
+
+        # Return updated list
+        cards = self.get_queryset()
+        return Response(
+            AdminIndustryGalleryCardSerializer(cards, many=True).data,
+            status=status.HTTP_200_OK,
+        )

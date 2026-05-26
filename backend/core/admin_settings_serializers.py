@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from core.models import MarketingSection, PlatformModule
+from core.models import IndustryGalleryCard, MarketingSection, PlatformModule
 from websites.models import OnboardingQuestion, WebsitePage
 
 # ---------------------------------------------------------------------------
@@ -184,3 +184,75 @@ class AdminMarketingSectionSerializer(serializers.ModelSerializer):
             "updated_by_email",
         ]
         read_only_fields = ["id", "section_key", "sort_order", "updated_at", "updated_by"]
+
+
+# ---------------------------------------------------------------------------
+# IndustryGalleryCard serializers
+# ---------------------------------------------------------------------------
+
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+class AdminIndustryGalleryCardSerializer(serializers.ModelSerializer):
+    """CRUD completo de IndustryGalleryCard para el panel de superadmin."""
+
+    class Meta:
+        model = IndustryGalleryCard
+        fields = [
+            "id",
+            "name",
+            "image",
+            "gradient",
+            "row",
+            "sort_order",
+            "is_visible",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_image(self, value):
+        """Valida tamano maximo (5MB) y formatos permitidos (JPG, PNG, WebP)."""
+        if value is None:
+            return value
+
+        if value.size > MAX_IMAGE_SIZE:
+            raise serializers.ValidationError(
+                f"La imagen no puede superar 5 MB (recibido: {value.size / 1024 / 1024:.1f} MB)."
+            )
+
+        content_type = getattr(value, "content_type", "")
+        if content_type and content_type not in ALLOWED_IMAGE_TYPES:
+            raise serializers.ValidationError(f"Formato no permitido: {content_type}. Usa JPG, PNG o WebP.")
+
+        return value
+
+
+class IndustryGalleryReorderItemSerializer(serializers.Serializer):
+    """Un item dentro del payload de reordenamiento."""
+
+    id = serializers.IntegerField()
+    row = serializers.IntegerField(min_value=1, max_value=2)
+    sort_order = serializers.IntegerField(min_value=0)
+
+
+class IndustryGalleryReorderSerializer(serializers.Serializer):
+    """Acepta una lista de {id, row, sort_order} para reordenar cards."""
+
+    items = IndustryGalleryReorderItemSerializer(many=True)
+
+    def validate_items(self, value):
+        if not value:
+            raise serializers.ValidationError("La lista de items no puede estar vacia.")
+
+        ids = [item["id"] for item in value]
+        if len(ids) != len(set(ids)):
+            raise serializers.ValidationError("IDs duplicados en la lista.")
+
+        existing_ids = set(IndustryGalleryCard.objects.filter(id__in=ids).values_list("id", flat=True))
+        missing = set(ids) - existing_ids
+        if missing:
+            raise serializers.ValidationError(f"Cards no encontradas: {sorted(missing)}")
+
+        return value

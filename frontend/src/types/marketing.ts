@@ -123,3 +123,17 @@ export interface MarketingSections {
 
 // Section key union type for type-safe access
 export type MarketingSectionKey = keyof MarketingSections;
+
+// ──────────────────────────────────────────────────────────────────────
+// Industry Gallery Card (from IndustryGalleryCard model)
+// ──────────────────────────────────────────────────────────────────────
+
+export interface IndustryGalleryCard {
+  id: number;
+  name: string;
+  image: string | null; // Full URL or null
+  gradient: string; // CSS gradient fallback
+  row: 1 | 2;
+  sort_order: number;
+  is_visible: boolean;
+}

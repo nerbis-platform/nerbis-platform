@@ -4,41 +4,26 @@ import { useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
+import type { IndustryGalleryCard } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
 
-interface VerticalCard {
-  name: string;
-  /** Atmospheric gradient placeholder — replace with real photo path later */
-  gradient: string;
-}
-
-const row1: VerticalCard[] = [
-  { name: 'Tiendas online', gradient: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' },
-  { name: 'Restaurantes', gradient: 'linear-gradient(135deg, #4a1942 0%, #6b2d5b 50%, #d63031 100%)' },
-  { name: 'Salones de belleza', gradient: 'linear-gradient(135deg, #c6a0a0 0%, #e8c4c4 50%, #f5e6cc 100%)' },
-  { name: 'Gimnasios', gradient: 'linear-gradient(135deg, #0d2137 0%, #1b4332 50%, #2d6a4f 100%)' },
-  { name: 'Coaches', gradient: 'linear-gradient(135deg, #2c3e50 0%, #3498db 50%, #2980b9 100%)' },
-  { name: 'Cafeterias', gradient: 'linear-gradient(135deg, #3e2723 0%, #5d4037 50%, #8d6e63 100%)' },
-];
-
-const row2: VerticalCard[] = [
-  { name: 'Portafolios', gradient: 'linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #2d2d2d 100%)' },
-  { name: 'Blogs', gradient: 'linear-gradient(135deg, #1d3557 0%, #457b9d 50%, #a8dadc 100%)' },
-  { name: 'Consultorios', gradient: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 50%, #a5d6a7 100%)' },
-  { name: 'Estudios creativos', gradient: 'linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #48dbfb 100%)' },
-  { name: 'Agencias', gradient: 'linear-gradient(135deg, #141e30 0%, #243b55 50%, #141e30 100%)' },
-  { name: 'Fotografos', gradient: 'linear-gradient(135deg, #2c2c2c 0%, #3d3d3d 50%, #1a1a1a 100%)' },
-];
-
-function VerticalCardItem({ card }: { card: VerticalCard }) {
+function GalleryCardItem({ card }: { card: IndustryGalleryCard }) {
   return (
     <div className="group relative h-[130px] w-[200px] shrink-0 overflow-hidden rounded-xl sm:h-[140px] sm:w-[220px]">
-      {/* Background — gradient placeholder (replace with next/image later) */}
-      <div
-        className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
-        style={{ background: card.gradient }}
-      />
+      {/* Background — image or gradient */}
+      {card.image ? (
+        <img
+          src={card.image}
+          alt={card.name}
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      ) : (
+        <div
+          className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
+          style={{ background: card.gradient }}
+        />
+      )}
       {/* Overlay for text readability */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
       {/* Label */}
@@ -49,8 +34,16 @@ function VerticalCardItem({ card }: { card: VerticalCard }) {
   );
 }
 
-export function SocialProof() {
+export function SocialProof({ cards }: { cards: IndustryGalleryCard[] }) {
   const sectionRef = useRef<HTMLElement>(null);
+
+  const visibleCards = cards.filter((c) => c.is_visible);
+  const row1 = visibleCards
+    .filter((c) => c.row === 1)
+    .sort((a, b) => a.sort_order - b.sort_order);
+  const row2 = visibleCards
+    .filter((c) => c.row === 2)
+    .sort((a, b) => a.sort_order - b.sort_order);
 
   useGSAP(() => {
     if (!sectionRef.current) return;
@@ -101,7 +94,7 @@ export function SocialProof() {
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-background to-transparent sm:w-32" />
         <div className="marquee-track flex w-max items-center gap-4">
           {items1.map((card, i) => (
-            <VerticalCardItem key={`r1-${card.name}-${i}`} card={card} />
+            <GalleryCardItem key={`r1-${card.id}-${i}`} card={card} />
           ))}
         </div>
       </div>
@@ -112,7 +105,7 @@ export function SocialProof() {
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-background to-transparent sm:w-32" />
         <div className="marquee-track-reverse flex w-max items-center gap-4">
           {items2.map((card, i) => (
-            <VerticalCardItem key={`r2-${card.name}-${i}`} card={card} />
+            <GalleryCardItem key={`r2-${card.id}-${i}`} card={card} />
           ))}
         </div>
       </div>

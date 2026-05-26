@@ -10,9 +10,9 @@ import Link from 'next/link';
 import {
   Building2,
   ChevronDown,
+  ChevronRight,
   Globe,
   LayoutDashboard,
-  Layers,
   Loader2,
   LogOut,
   Package,
@@ -38,8 +38,16 @@ const NAV_CONFIG = [
   { href: '/admin/settings/onboarding', label: 'Onboarding', icon: Settings },
 ];
 
-const NAV_NERBIS_WEB = [
-  { href: '/admin/settings/marketing', label: 'Galeria de industrias', icon: Layers },
+const NAV_HOME_SECTIONS = [
+  { href: '/admin/settings/web/home/gallery', label: 'Galeria de industrias' },
+  { href: '/admin/settings/web/home/problem-solution', label: 'Problema vs Solucion' },
+  { href: '/admin/settings/web/home/how-it-works', label: 'Como funciona' },
+  { href: '/admin/settings/web/home/cta-mid', label: 'CTA Intermedio' },
+  { href: '/admin/settings/web/home/industries', label: 'Industrias' },
+  { href: '/admin/settings/web/home/faq', label: 'FAQ' },
+  { href: '/admin/settings/web/home/cta-final', label: 'CTA Final' },
+  { href: '/admin/settings/web/home/header', label: 'Header / Navegacion' },
+  { href: '/admin/settings/web/home/seo', label: 'SEO y Metadata' },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -51,8 +59,9 @@ function isActive(pathname: string, href: string) {
 function AdminSidebar() {
   const pathname = usePathname();
   const { admin, logout } = useAdminAuth();
-  const isNerbisWebActive = pathname.startsWith('/admin/settings/marketing');
+  const isNerbisWebActive = pathname.startsWith('/admin/settings/web') || pathname.startsWith('/admin/settings/marketing') || pathname.startsWith('/admin/settings/industry-gallery');
   const [nerbisWebOpen, setNerbisWebOpen] = useState(isNerbisWebActive);
+  const [homeOpen, setHomeOpen] = useState(isNerbisWebActive);
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-slate-200 bg-white">
@@ -135,23 +144,39 @@ function AdminSidebar() {
         </button>
         {nerbisWebOpen && (
           <div className="ml-4 space-y-0.5">
-            {NAV_NERBIS_WEB.map((item) => {
-              const active = isActive(pathname, item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-1.5 text-[0.8rem] font-medium transition-colors ${
-                    active
-                      ? 'bg-teal-50 text-teal-700'
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  <item.icon className={`h-3.5 w-3.5 ${active ? 'text-teal-600' : 'text-slate-400'}`} />
-                  {item.label}
-                </Link>
-              );
-            })}
+            {/* Home — collapsible with section sub-items */}
+            <button
+              type="button"
+              onClick={() => setHomeOpen(!homeOpen)}
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-[0.8rem] font-medium transition-colors ${
+                isNerbisWebActive
+                  ? 'text-teal-700'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <ChevronRight className={`h-3 w-3 text-slate-400 transition-transform ${homeOpen ? 'rotate-90' : ''}`} />
+              <span className="flex-1 text-left">Home</span>
+            </button>
+            {homeOpen && (
+              <div className="ml-3 space-y-0.5 border-l border-slate-200 pl-2">
+                {NAV_HOME_SECTIONS.map((item) => {
+                  const active = isActive(pathname, item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`block rounded-lg px-3 py-1 text-[0.75rem] font-medium transition-colors ${
+                        active
+                          ? 'bg-teal-50 text-teal-700'
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </nav>

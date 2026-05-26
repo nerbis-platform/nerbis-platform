@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { getMarketingContent } from '@/lib/api/marketing-content';
+import { getIndustryGalleryCards } from '@/lib/api/industry-gallery';
 import type { MarketingSections } from '@/types/marketing';
 import { Hero } from '@/components/marketing/hero';
 import { SocialProof } from '@/components/marketing/social-proof';
@@ -82,7 +83,10 @@ function buildHowToJsonLd(sections: MarketingSections) {
 // ---------------------------------------------------------------------------
 
 export default async function LandingPage() {
-  const sections = await getMarketingContent();
+  const [sections, galleryCards] = await Promise.all([
+    getMarketingContent(),
+    getIndustryGalleryCards(),
+  ]);
 
   return (
     <>
@@ -116,7 +120,7 @@ export default async function LandingPage() {
 
       {/* Sections — configurable ones receive content and respect is_visible */}
       {sections.hero.is_visible && <Hero content={sections.hero.content} />}
-      <SocialProof />
+      <SocialProof cards={galleryCards} />
       {sections.problem_solution.is_visible && (
         <ProblemSolution content={sections.problem_solution.content} />
       )}
