@@ -107,12 +107,15 @@ export function PipeAvatar({
   size = 36,
   calm = false,
   lookTarget,
+  headset = false,
 }: {
   mood?: PipeMood;
   size?: number;
   calm?: boolean;
   /** Fixed look direction: 'right' | 'left' | 'up' | 'down'. Overrides cursor tracking. */
   lookTarget?: 'right' | 'left' | 'up' | 'down';
+  /** Show call-center headset on Pipe */
+  headset?: boolean;
 }) {
   const s = size;
   const r = s * 0.42;
@@ -265,6 +268,37 @@ export function PipeAvatar({
 
         {renderEye(eyeLeftX, 'left')}
         {renderEye(eyeRightX, 'right')}
+
+        {/* Call-center headset */}
+        {headset && (
+          <g>
+            {/* Headband arc */}
+            <path
+              d={`M${s * 0.1} ${s * 0.38} C${s * 0.1} ${s * 0.0}, ${s * 0.9} ${s * 0.0}, ${s * 0.9} ${s * 0.38}`}
+              stroke="#374151"
+              strokeWidth={s * 0.06}
+              strokeLinecap="round"
+              fill="none"
+            />
+            {/* Left ear cup */}
+            <rect x={s * 0.02} y={s * 0.32} width={s * 0.16} height={s * 0.22} rx={s * 0.08} fill="#374151" />
+            <rect x={s * 0.05} y={s * 0.35} width={s * 0.08} height={s * 0.16} rx={s * 0.04} fill="#4B5563" />
+            {/* Right ear cup */}
+            <rect x={s * 0.82} y={s * 0.32} width={s * 0.16} height={s * 0.22} rx={s * 0.08} fill="#374151" />
+            <rect x={s * 0.85} y={s * 0.35} width={s * 0.08} height={s * 0.16} rx={s * 0.04} fill="#4B5563" />
+            {/* Mic arm from right ear */}
+            <path
+              d={`M${s * 0.82} ${s * 0.5} C${s * 0.96} ${s * 0.56}, ${s * 0.94} ${s * 0.68}, ${s * 0.84} ${s * 0.74}`}
+              stroke="#374151"
+              strokeWidth={s * 0.04}
+              strokeLinecap="round"
+              fill="none"
+            />
+            {/* Mic tip */}
+            <circle cx={s * 0.84} cy={s * 0.75} r={s * 0.06} fill="#374151" />
+            <circle cx={s * 0.84} cy={s * 0.75} r={s * 0.03} fill="#4B5563" />
+          </g>
+        )}
       </svg>
     </div>
   );

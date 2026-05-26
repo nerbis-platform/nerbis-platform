@@ -24,26 +24,26 @@ export const MARKETING_DEFAULTS: MarketingSections = {
   problem_solution: {
     is_visible: true,
     content: {
-      badge: 'Por que NERBIS',
-      title: 'Deja atras lo generico',
+      badge: 'Te suena familiar?',
+      title: 'Tu negocio merece mas',
       before_label: 'Lo que haces hoy',
       after_label: 'Lo que haces con NERBIS',
       comparisons: [
         {
           before: 'Eliges un template generico',
-          after: 'Pipe, nuestra IA, genera tu sitio unico',
+          after: 'Tu sitio es unico desde el primer momento',
         },
         {
           before: 'Pasas horas personalizando',
           after: 'Listo en 30 segundos',
         },
         {
-          before: 'Necesitas 3 herramientas distintas',
-          after: 'Todo integrado: web + tienda + reservas',
+          before: 'Pagas por 3 herramientas que no se hablan entre si',
+          after: 'Web + tienda + reservas, todo en uno',
         },
         {
-          before: 'Tu sitio se ve como mil otros',
-          after: 'Diseno personalizado por industria',
+          before: 'Cada cambio requiere un disenador o un developer',
+          after: 'Edita todo tu mismo, sin codigo',
         },
       ],
     },
