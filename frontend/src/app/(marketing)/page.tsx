@@ -10,7 +10,6 @@ import { HowItWorks } from '@/components/marketing/how-it-works';
 import { FeaturesGrid } from '@/components/marketing/features-grid';
 import { Industries } from '@/components/marketing/industries';
 import { CtaMid } from '@/components/marketing/cta-mid';
-import { Showcase } from '@/components/marketing/showcase';
 import { Faq } from '@/components/marketing/faq';
 import { CtaFinal } from '@/components/marketing/cta-final';
 
@@ -128,7 +127,6 @@ export default async function LandingPage() {
       {sections.how_it_works.is_visible && (
         <HowItWorks content={sections.how_it_works.content} />
       )}
-      <Showcase />
       <FeaturesGrid />
       {sections.cta_mid.is_visible && (
         <CtaMid content={sections.cta_mid.content} />
