@@ -4,10 +4,12 @@ import { useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { PipeStatic } from '@/components/pipe-avatar';
+import { MessageSquareText, PenLine, Rocket } from 'lucide-react';
 import type { HowItWorksContent } from '@/types/marketing';
 
 gsap.registerPlugin(ScrollTrigger);
+
+const ICONS = [MessageSquareText, PenLine, Rocket];
 
 interface HowItWorksProps {
   content: HowItWorksContent;
@@ -30,147 +32,95 @@ export function HowItWorks({ content }: HowItWorksProps) {
         const { reduced } = context.conditions as { reduced: boolean; normal: boolean };
 
         if (reduced) {
-          gsap.set('.hiw-heading, .hiw-step', { autoAlpha: 1 });
+          gsap.set('.hiw-heading, .hiw-primary, .hiw-secondary', { autoAlpha: 1 });
           return;
         }
 
-        // Heading reveal
         gsap.from('.hiw-heading', {
-          y: 40,
-          autoAlpha: 0,
-          duration: 0.6,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: '.hiw-heading',
-            start: 'top 85%',
-            toggleActions: 'play none none none',
-          },
+          y: 30, autoAlpha: 0, duration: 0.4, ease: 'power2.out',
+          scrollTrigger: { trigger: '.hiw-heading', start: 'top 85%', toggleActions: 'play none none none' },
         });
 
-        // Steps stagger sequentially
-        gsap.from('.hiw-step', {
-          y: 50,
-          autoAlpha: 0,
-          duration: 0.6,
-          stagger: 0.2,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: '.hiw-steps',
-            start: 'top 85%',
-            toggleActions: 'play none none none',
-          },
+        const gridTrigger = {
+          trigger: '.hiw-heading',
+          start: 'top 85%',
+          toggleActions: 'play none none none' as const,
+        };
+
+        gsap.from('.hiw-primary', {
+          y: 20, autoAlpha: 0, duration: 0.4, delay: 0.2, ease: 'power2.out',
+          scrollTrigger: gridTrigger,
+        });
+
+        gsap.from('.hiw-secondary', {
+          y: 20, autoAlpha: 0, duration: 0.4, stagger: 0.12, delay: 0.35, ease: 'power2.out',
+          scrollTrigger: gridTrigger,
         });
       }
     );
   }, { scope: sectionRef });
 
+  const primary = content.steps[0];
+  const secondaries = content.steps.slice(1);
+
   return (
-    <section ref={sectionRef} id="how-it-works" className="border-t border-border bg-muted/50 px-4 py-16 sm:px-6 sm:py-20">
-      <div className="mx-auto max-w-5xl">
+    <section ref={sectionRef} id="how-it-works" className="px-4 pt-24 pb-20 sm:px-6 sm:pt-32 sm:pb-24">
+      <div className="mx-auto max-w-4xl">
         <div className="hiw-heading invisible text-center">
-          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-sm font-medium uppercase tracking-[0.12em] text-muted-foreground/60">
             {content.badge}
           </p>
-          <h2 className="nerbis-display mt-4 text-3xl text-foreground sm:text-4xl lg:text-5xl">
+          <h2 className="nerbis-display mt-3 text-3xl text-foreground sm:text-4xl lg:text-5xl">
             {content.title}
           </h2>
         </div>
 
-        <div className="hiw-steps mt-16 grid gap-6 sm:grid-cols-3">
-          {/* Paso 1 */}
-          <div className="hiw-step invisible hover-lift relative rounded-2xl border border-border bg-background p-6">
-            <div className="mb-3 flex items-center gap-2">
-              <PipeStatic size={36} />
-              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">{content.steps[0]?.step_label}</span>
-            </div>
-            <h3 className="text-lg font-semibold text-foreground">{content.steps[0]?.title}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              {content.steps[0]?.description}
-            </p>
-            <div className="mt-5 flex flex-col gap-2.5">
-              <div className="flex h-8 items-center rounded-md border border-border bg-muted/30 px-3">
-                <span className="text-[11px] text-muted-foreground/60">Mi Salon de Belleza</span>
+        {/* Asymmetric grid: primary left (large) + secondaries right (stacked) */}
+        <div className="hiw-grid mt-12 grid gap-4 lg:grid-cols-[7fr_5fr]">
+          {/* Primary block — large */}
+          {primary && (
+            <div className="hiw-primary invisible flex flex-col justify-center rounded-2xl border border-border bg-background p-8 sm:p-10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground">
+                <MessageSquareText size={20} className="text-background" />
               </div>
-              <div className="flex h-8 items-center justify-between rounded-md border border-border bg-muted/30 px-3">
-                <span className="text-[11px] text-muted-foreground/60">Belleza y Bienestar</span>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground"><path d="m6 9 6 6 6-6"/></svg>
-              </div>
-              <div className="flex h-8 w-24 items-center justify-center rounded-md" style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}>
-                <span className="text-[11px] font-medium text-white">Continuar</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Paso 2 */}
-          <div className="hiw-step invisible hover-lift relative rounded-2xl border border-border bg-background p-6">
-            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">{content.steps[1]?.step_label}</span>
-            <h3 className="mt-3 text-lg font-semibold text-foreground">{content.steps[1]?.title}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              {content.steps[1]?.description}
-            </p>
-            <div className="mt-5 flex flex-col gap-3">
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">Analizando tu negocio...</span>
-                  <span className="text-[11px]" style={{ color: 'var(--primitive-brand-600)' }}>Listo</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-muted">
-                  <div className="h-full rounded-full" style={{ width: '100%', background: `linear-gradient(90deg, var(--primitive-navy-700), var(--primitive-brand-600))` }} />
-                </div>
-              </div>
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">Creando contenido...</span>
-                  <span className="text-[11px]" style={{ color: 'var(--primitive-brand-600)' }}>Listo</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-muted">
-                  <div className="h-full rounded-full" style={{ width: '100%', background: `linear-gradient(90deg, var(--primitive-navy-700), var(--primitive-brand-600))` }} />
-                </div>
-              </div>
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">Aplicando diseno...</span>
-                  <span className="text-[11px] font-medium text-foreground">85%</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-muted">
-                  <div className="h-full rounded-full" style={{ width: '85%', background: `linear-gradient(90deg, var(--primitive-navy-700), var(--primitive-brand-600))` }} />
-                </div>
-              </div>
-              <p className="pt-1 text-center text-[11px] text-muted-foreground">
-                Tiempo estimado: <span className="font-medium" style={{ color: 'var(--primitive-brand-600)' }}>28 segundos</span>
+              <p className="mt-1.5 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground/60">
+                {primary.step_label}
+              </p>
+              <h3 className="mt-3 text-xl font-semibold text-foreground sm:text-2xl">
+                {primary.title}
+              </h3>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+                {primary.description}
               </p>
             </div>
-          </div>
+          )}
 
-          {/* Paso 3 */}
-          <div className="hiw-step invisible hover-lift relative rounded-2xl border border-border bg-background p-6">
-            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground/60">{content.steps[2]?.step_label}</span>
-            <h3 className="mt-3 text-lg font-semibold text-foreground">{content.steps[2]?.title}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              {content.steps[2]?.description}
-            </p>
-            <div className="mt-5 overflow-hidden rounded-md border border-border bg-muted/30">
-              <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-red-400/60" />
-                <div className="h-1.5 w-1.5 rounded-full bg-yellow-400/60" />
-                <div className="h-1.5 w-1.5 rounded-full bg-green-400/60" />
-              </div>
-              <div className="flex">
-                <div className="flex w-10 flex-col gap-1.5 border-r border-border p-1.5">
-                  <div className="h-2 w-full rounded" style={{ background: 'color-mix(in oklch, var(--primitive-brand-600) 20%, transparent)' }} />
-                  <div className="h-2 w-full rounded bg-muted" />
-                  <div className="h-2 w-full rounded bg-muted" />
-                </div>
-                <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-                  <div className="h-2 w-16 rounded bg-muted" />
-                  <div className="h-2 w-full rounded bg-muted-foreground/15" />
-                  <div className="h-2 w-3/4 rounded bg-muted-foreground/10" />
-                  <div className="mt-2 flex h-5 w-12 items-center justify-center rounded" style={{ background: 'color-mix(in oklch, var(--primitive-brand-600) 12%, transparent)' }}>
-                    <span className="text-[8px]" style={{ color: 'var(--primitive-brand-600)' }}>Live</span>
+          {/* Secondary blocks — stacked */}
+          <div className="flex flex-col gap-4">
+            {secondaries.map((step, i) => {
+              const Icon = ICONS[i + 1] || Palette;
+              return (
+                <div
+                  key={step.step_label}
+                  className="hiw-secondary invisible flex flex-1 items-start gap-4 rounded-2xl border border-border bg-background p-6"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground">
+                    <Icon size={16} className="text-background" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground/60">
+                      {step.step_label}
+                    </p>
+                    <h3 className="mt-1 text-base font-semibold text-foreground">
+                      {step.title}
+                    </h3>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      {step.description}
+                    </p>
                   </div>
                 </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>

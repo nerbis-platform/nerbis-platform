@@ -52,24 +52,26 @@ export const MARKETING_DEFAULTS: MarketingSections = {
   how_it_works: {
     is_visible: true,
     content: {
-      badge: 'Asi de simple',
-      title: 'Tres pasos. Cero friccion.',
+      badge: 'Sin complicaciones',
+      title: 'Todo lo que necesitas. Nada que te sobre.',
       steps: [
         {
-          step_label: 'Paso 1',
-          title: 'Registrate',
-          description: 'Solo necesitas tu nombre, industria y pais.',
-        },
-        {
-          step_label: 'Paso 2',
-          title: 'Pipe crea tu sitio',
+          step_label: 'Sin código',
+          title: 'No necesitas saber programar',
           description:
-            'Pipe, nuestro asistente de IA, genera todo en segundos.',
+            'Solo cuéntale a Pipe sobre tu negocio. Él diseña, estructura y publica tu sitio. Tú solo decides qué te gusta.',
         },
         {
-          step_label: 'Paso 3',
-          title: 'Personaliza y publica',
-          description: 'Edita lo que quieras. O dejalo tal cual.',
+          step_label: 'Tú decides',
+          title: 'Edita todo después',
+          description:
+            'Cambia textos, fotos y colores cuando quieras. Sin depender de nadie.',
+        },
+        {
+          step_label: 'Sin riesgo',
+          title: 'Gratis para empezar',
+          description:
+            'Sin tarjeta de crédito. Publica hoy, crece a tu ritmo.',
         },
       ],
     },
