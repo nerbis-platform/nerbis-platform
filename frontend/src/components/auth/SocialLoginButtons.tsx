@@ -307,34 +307,38 @@ function SocialLoginButtonsInner({
   };
 
   const actionLabel = mode === 'login' ? 'Iniciar sesión' : 'Registrarse';
+  const actionVerb = mode === 'login' ? 'Continuar' : 'Continuar';
   const appleAvailable = !!process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
 
   const btnClass =
-    'flex h-11 flex-1 items-center justify-center gap-2 rounded-[var(--auth-radius-button)] border border-[var(--auth-border)] bg-[var(--auth-bg-input)] text-[0.75rem] font-medium transition-[background-color,border-color,transform,box-shadow] duration-150 ease-out hover:bg-[var(--auth-bg)] hover:border-[var(--auth-text-muted)] hover:-translate-y-[1px] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 active:translate-y-0 active:shadow-none motion-reduce:hover:translate-y-0 motion-reduce:hover:shadow-none motion-reduce:transition-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0';
+    'flex h-11 w-full items-center justify-center gap-2.5 rounded-[var(--auth-radius-button)] border border-[var(--auth-border)] bg-[var(--auth-bg-input)] text-[0.8125rem] font-medium transition-[background-color,border-color,transform,box-shadow] duration-150 ease-out hover:bg-[var(--auth-bg)] hover:border-[var(--auth-text-muted)] hover:-translate-y-[1px] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 active:translate-y-0 active:shadow-none motion-reduce:hover:translate-y-0 motion-reduce:hover:shadow-none motion-reduce:transition-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0';
 
   return (
     <>
       <section
         aria-label={`${actionLabel} con redes sociales`}
-        className="flex gap-2.5"
+        className="flex flex-col gap-2.5"
         data-auth-animated
       >
+        {/* Google — always shown, full width */}
         <button
           type="button"
           onClick={handleGoogle}
           disabled={isLoading !== null}
-          aria-label={`${actionLabel} con Google`}
+          aria-label={`${actionVerb} con Google`}
           className={btnClass}
           style={{ color: 'var(--auth-text)', fontFamily: 'var(--auth-font-body)' }}
         >
           <GoogleIcon />
-          <span>{isLoading === 'google' ? '...' : 'Google'}</span>
+          <span>{isLoading === 'google' ? 'Conectando...' : `${actionVerb} con Google`}</span>
         </button>
+
+        {/* Apple — full width */}
         <button
           type="button"
           onClick={appleAvailable ? handleApple : undefined}
           disabled={!appleAvailable || isLoading !== null}
-          aria-label={appleAvailable ? `${actionLabel} con Apple` : 'Apple — Próximamente'}
+          aria-label={appleAvailable ? `${actionVerb} con Apple` : 'Apple — Próximamente'}
           title={!appleAvailable ? 'Próximamente' : undefined}
           className={`${btnClass} relative`}
           style={{
@@ -344,24 +348,28 @@ function SocialLoginButtonsInner({
           }}
         >
           <AppleIcon />
-          <span>{isLoading === 'apple' ? '...' : 'Apple'}</span>
+          <span>{isLoading === 'apple' ? 'Conectando...' : `${actionVerb} con Apple`}</span>
           {!appleAvailable && (
             <span className="absolute -top-2.5 -right-2 rounded-full bg-auth-accent px-1.5 py-0.5 text-[0.55rem] font-semibold leading-none text-white shadow-sm">
               Pronto
             </span>
           )}
         </button>
-        <button
-          type="button"
-          onClick={handleFacebook}
-          disabled={isLoading !== null}
-          aria-label={`${actionLabel} con Facebook`}
-          className={btnClass}
-          style={{ color: 'var(--auth-text)', fontFamily: 'var(--auth-font-body)' }}
-        >
-          <FacebookIcon />
-          <span>{isLoading === 'facebook' ? '...' : 'Facebook'}</span>
-        </button>
+
+        {/* Facebook — only in login mode (existing users may have linked it) */}
+        {mode === 'login' && (
+          <button
+            type="button"
+            onClick={handleFacebook}
+            disabled={isLoading !== null}
+            aria-label={`${actionVerb} con Facebook`}
+            className={btnClass}
+            style={{ color: 'var(--auth-text)', fontFamily: 'var(--auth-font-body)' }}
+          >
+            <FacebookIcon />
+            <span>{isLoading === 'facebook' ? 'Conectando...' : `${actionVerb} con Facebook`}</span>
+          </button>
+        )}
       </section>
 
       <SocialLinkDialog

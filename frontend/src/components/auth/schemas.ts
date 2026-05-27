@@ -22,7 +22,7 @@ export const loginSchema = z.object({
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
 
-// ─── Register Business ──────────────────────────────────────────
+// ─── Register Business (legacy — kept for backwards compatibility) ───
 
 export const registerBusinessSchema = z.object({
   business_name: z
@@ -50,6 +50,21 @@ export const registerBusinessSchema = z.object({
 export type RegisterBusinessFormValues = z.infer<
   typeof registerBusinessSchema
 >;
+
+// ─── Register Simple (1-step: email + password + name) ──────────
+
+export const registerSimpleSchema = z.object({
+  first_name: z
+    .string()
+    .min(2, 'El nombre debe tener al menos 2 caracteres'),
+  last_name: z
+    .string()
+    .min(2, 'El apellido debe tener al menos 2 caracteres'),
+  email: z.string().email('Email inválido'),
+  password: passwordRules,
+});
+
+export type RegisterSimpleFormValues = z.infer<typeof registerSimpleSchema>;
 
 // ─── Forgot Password — Email Step ───────────────────────────────
 

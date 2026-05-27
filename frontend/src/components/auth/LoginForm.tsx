@@ -140,7 +140,7 @@ export function LoginForm({
               fontFamily: 'var(--auth-font-heading)',
             }}
           >
-            Bienvenido de nuevo
+            Inicia sesión
           </h2>
           <p
             className="text-[0.85rem] leading-relaxed"
@@ -149,7 +149,7 @@ export function LoginForm({
               fontFamily: 'var(--auth-font-body)',
             }}
           >
-            Accede a tu cuenta para continuar.
+            Accede a tu cuenta para gestionar tu negocio.
           </p>
         </div>
 
@@ -244,7 +244,7 @@ export function LoginForm({
               className="font-medium hover:underline underline-offset-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
               style={{ color: 'var(--auth-primary)' }}
             >
-              Registra tu negocio
+              Crea una gratis
             </button>
           </p>
         </div>

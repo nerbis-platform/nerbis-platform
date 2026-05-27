@@ -11,31 +11,31 @@ import type { BrandSlide } from './types';
  */
 export const brandSlides: BrandSlide[] = [
   {
-    id: 'create-store',
-    headline: 'Crea tu tienda online en minutos',
+    id: 'ai-website',
+    headline: 'Tu sitio web profesional, listo en minutos',
     subtitle:
-      'Con inteligencia artificial, tu sitio web profesional está listo en minutos. Sin conocimientos técnicos, sin complicaciones.',
-    features: ['Sitio web con IA', 'Personalizable', 'Optimizado para móviles'],
+      'Describe tu negocio y nuestra IA genera un sitio web completo, personalizado y optimizado para móviles. Sin código, sin complicaciones.',
+    features: ['Generado con IA', 'Personalizable', 'Optimizado para móviles'],
   },
   {
-    id: 'manage-anywhere',
-    headline: 'Gestiona tu negocio desde cualquier lugar',
+    id: 'all-in-one',
+    headline: 'Todo tu negocio en un solo lugar',
     subtitle:
-      'Panel de control intuitivo para administrar citas, clientes, pagos y más. Todo en un solo lugar, accesible desde cualquier dispositivo.',
-    features: ['Panel de admin', 'Reservas online', 'Gestión de clientes'],
+      'Sitio web, tienda online, reservas, pagos y clientes. Un panel de control intuitivo para gestionar todo desde cualquier dispositivo.',
+    features: ['Tienda online', 'Reservas', 'Gestión de clientes'],
   },
   {
-    id: 'premium-tools',
-    headline: 'Herramientas premium para crecer',
+    id: 'grow',
+    headline: 'Las herramientas para crecer',
     subtitle:
-      'Desde analytics hasta automatizaciones de marketing. Las herramientas que necesitas para escalar tu negocio al siguiente nivel.',
-    features: ['Analytics avanzados', 'Email marketing', 'Automatizaciones'],
+      'Analytics, email marketing y automatizaciones para llevar tu negocio al siguiente nivel. Todo incluido, sin costos extras.',
+    features: ['Analytics', 'Email marketing', 'Automatizaciones'],
   },
   {
-    id: 'support-spanish',
-    headline: 'Soporte dedicado en español',
+    id: 'latam',
+    headline: 'Hecho para Latinoamérica',
     subtitle:
-      'Equipo de soporte que habla tu idioma, entiende tu mercado y está disponible cuando lo necesitas. Nunca te sentirás solo.',
-    features: ['Chat en vivo', 'Tutoriales en español', 'Comunidad activa'],
+      'Soporte en español, pasarelas de pago locales y una comunidad que entiende tu mercado. Construido para emprendedores como tú.',
+    features: ['Soporte en español', 'Pagos locales', 'Comunidad activa'],
   },
 ];

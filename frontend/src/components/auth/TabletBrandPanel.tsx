@@ -14,7 +14,8 @@ export function TabletBrandPanel() {
     <aside
       className="nerbis-grain relative flex h-full flex-col justify-between overflow-hidden px-8 py-8"
       style={{ background: AUTH_GRADIENT }}
-      aria-hidden="true"
+      role="complementary"
+      aria-label="Información de NERBIS"
     >
       {/* Radial glow overlay */}
       <div

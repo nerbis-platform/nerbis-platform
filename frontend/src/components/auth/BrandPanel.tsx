@@ -51,7 +51,8 @@ export function BrandPanel() {
       ref={panelRef}
       className="nerbis-grain relative flex h-full flex-col justify-between overflow-hidden px-12 py-10 xl:px-16"
       style={{ background: AUTH_GRADIENT }}
-      aria-hidden="true"
+      role="complementary"
+      aria-label="Información de NERBIS"
       data-auth-animated
     >
       {/* Radial glow overlay for depth */}
