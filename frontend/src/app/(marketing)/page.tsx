@@ -8,7 +8,6 @@ import { ProblemSolution } from '@/components/marketing/problem-solution';
 import { PipeDemo } from '@/components/marketing/pipe-demo';
 import { HowItWorks } from '@/components/marketing/how-it-works';
 import { FeaturesGrid } from '@/components/marketing/features-grid';
-import { Industries } from '@/components/marketing/industries';
 import { CtaMid } from '@/components/marketing/cta-mid';
 import { Faq } from '@/components/marketing/faq';
 import { CtaFinal } from '@/components/marketing/cta-final';
@@ -131,10 +130,7 @@ export default async function LandingPage() {
       {sections.cta_mid.is_visible && (
         <CtaMid content={sections.cta_mid.content} />
       )}
-      {sections.industries.is_visible && (
-        <Industries content={sections.industries.content} />
-      )}
-      {sections.faq.is_visible && <Faq content={sections.faq.content} />}
+{sections.faq.is_visible && <Faq content={sections.faq.content} />}
       {sections.cta_final.is_visible && (
         <CtaFinal content={sections.cta_final.content} />
       )}
