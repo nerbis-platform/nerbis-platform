@@ -150,9 +150,9 @@ class Order(TenantAwareModel):
     tax_rate = models.DecimalField(
         max_digits=5,
         decimal_places=4,
-        default=Decimal("0.21"),
+        default=Decimal("0.19"),
         verbose_name="Tasa de IVA",
-        help_text="Ej: 0.21 para 21%",
+        help_text="Ej: 0.19 para 19%",
     )
 
     tax_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Monto del IVA")
@@ -176,7 +176,7 @@ class Order(TenantAwareModel):
 
     billing_postal_code = models.CharField(max_length=20, blank=True, verbose_name="Código postal")
 
-    billing_country = models.CharField(max_length=2, default="ES", verbose_name="País")
+    billing_country = models.CharField(max_length=2, default="CO", verbose_name="País")
 
     # Información de envío (para productos)
     shipping_name = models.CharField(max_length=200, blank=True, verbose_name="Nombre de envío")

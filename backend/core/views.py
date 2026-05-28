@@ -1795,6 +1795,12 @@ def get_tenant_config(request):
                 "timezone": tenant.timezone,
                 "language": tenant.language,
             },
+            "legal": {
+                "legal_name": tenant.legal_name,
+                "tax_id": tenant.tax_id,
+                "legal_address": tenant.legal_address,
+                "tax_rate": float(tenant.tax_rate),
+            },
             "contact": {
                 "email": tenant.email,
                 "phone": tenant.phone,

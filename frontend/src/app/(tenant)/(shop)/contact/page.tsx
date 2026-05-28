@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export const metadata: Metadata = {
   title: 'Contacto',
@@ -334,22 +335,24 @@ export default function ContactPage() {
                         />
                       </div>
 
-                      <div className="flex items-start gap-2">
-                        <input
-                          type="checkbox"
-                          id="privacy"
-                          required
-                          className="mt-1 rounded border-border"
-                        />
-                        <label htmlFor="privacy" className="text-sm text-muted-foreground">
-                          Acepto la{' '}
+                      <div className="flex items-start gap-3 space-y-0">
+                        <Checkbox id="privacy" required aria-required="true" />
+                        <label htmlFor="privacy" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
+                          Autorizo el tratamiento de mis datos personales conforme a la{' '}
                           <Link href="/privacy" className="text-primary hover:underline">
-                            Política de Privacidad
+                            Ley 1581 de 2012
                           </Link>{' '}
-                          y{' '}
+                          y acepto los{' '}
                           <Link href="/terms" className="text-primary hover:underline">
-                            Términos y Condiciones
-                          </Link>
+                            Terminos y Condiciones
+                          </Link> *
+                        </label>
+                      </div>
+
+                      <div className="flex items-start gap-3 space-y-0">
+                        <Checkbox id="marketing" />
+                        <label htmlFor="marketing" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
+                          Acepto recibir comunicaciones comerciales y promocionales (opcional, puedes revocar en cualquier momento).
                         </label>
                       </div>
 

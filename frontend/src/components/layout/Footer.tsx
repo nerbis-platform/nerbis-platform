@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Facebook, Instagram, Mail, MapPin, Phone } from 'lucide-react';
 import { PromoBanner } from './PromoBanner';
 import { BrandLogo } from './BrandLogo';
-import { useTenantContact, usePageEnabled } from '@/contexts/TenantContext';
+import { useTenantContact, useTenantLegal, usePageEnabled } from '@/contexts/TenantContext';
 
 function FooterPageLink({ page, href, label }: { page: string; href: string; label: string }) {
   const isEnabled = usePageEnabled(page);
@@ -27,6 +27,7 @@ function FooterPageLink({ page, href, label }: { page: string; href: string; lab
 export function Footer() {
   const footerBrand = process.env.NEXT_PUBLIC_FOOTER_COPYRIGHT || 'NERBIS';
   const contact = useTenantContact();
+  const legal = useTenantLegal();
 
   return (
     <>
@@ -99,6 +100,13 @@ export function Footer() {
                   </Link>
                 </li>
               </ul>
+              {(legal?.legal_name || legal?.tax_id || legal?.legal_address) && (
+                <div className="mt-4 pt-4 border-t border-[var(--color-border-default)]/50 text-xs text-[var(--color-text-secondary)] space-y-1">
+                  {legal.legal_name && <p>{legal.legal_name}</p>}
+                  {legal.tax_id && <p>NIT: {legal.tax_id}</p>}
+                  {legal.legal_address && <p>{legal.legal_address}</p>}
+                </div>
+              )}
             </div>
 
             {/* Contacto */}

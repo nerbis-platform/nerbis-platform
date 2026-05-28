@@ -286,9 +286,9 @@ class Tenant(models.Model):
     tax_rate = models.DecimalField(
         max_digits=5,
         decimal_places=4,
-        default=Decimal("0.21"),
+        default=Decimal("0.19"),
         verbose_name="Tasa de impuesto",
-        help_text="Ej: 0.21 para 21% (España), 0.19 para 19% (Colombia), 0.16 para 16% (México)",
+        help_text="Ej: 0.19 para 19% (Colombia), 0.21 para 21% (España), 0.16 para 16% (México)",
     )
 
     tax_name = models.CharField(
@@ -386,6 +386,11 @@ class Tenant(models.Model):
         verbose_name="Módulos configurados",
         help_text="True cuando el dueño del negocio ya eligió sus módulos.",
     )
+
+    # Información legal (Art. 49 Ley 1480/2011)
+    legal_name = models.CharField(max_length=300, blank=True, verbose_name="Razón social")
+    tax_id = models.CharField(max_length=30, blank=True, verbose_name="NIT / Identificación fiscal")
+    legal_address = models.TextField(blank=True, verbose_name="Dirección de notificación judicial")
 
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
@@ -726,6 +731,12 @@ class User(AbstractUser):
         choices=INTERNAL_ROLE_CHOICES,
         default="admin",
     )
+
+    # Consentimiento legal (Ley 1581/2012 + Ley 2300/2023)
+    data_consent = models.BooleanField(default=False, verbose_name="Consentimiento de datos")
+    data_consent_date = models.DateTimeField(null=True, blank=True, verbose_name="Fecha consentimiento datos")
+    marketing_consent = models.BooleanField(default=False, verbose_name="Consentimiento de marketing")
+    marketing_consent_date = models.DateTimeField(null=True, blank=True, verbose_name="Fecha consentimiento marketing")
 
     # Manager personalizado (filtra por tenant + métodos de UserManager)
     objects = TenantAwareUserManager()

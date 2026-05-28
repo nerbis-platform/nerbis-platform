@@ -218,20 +218,18 @@ export function clearLocalCart(): void {
 /**
  * Calcular totales del carrito local
  */
-export function calculateLocalCartTotals(cart: LocalCart): {
+export function calculateLocalCartTotals(cart: LocalCart, taxRate = 0.19): {
   items_count: number;
   subtotal: number;
   tax_amount: number;
   total: number;
 } {
-  const TAX_RATE = 0.21; // 21% IVA
-
   const items_count = cart.items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.items.reduce(
     (sum, item) => sum + parseFloat(item.unit_price) * item.quantity,
     0
   );
-  const tax_amount = subtotal * TAX_RATE;
+  const tax_amount = subtotal * taxRate;
   const total = subtotal + tax_amount;
 
   return {

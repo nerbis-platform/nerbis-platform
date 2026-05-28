@@ -109,6 +109,8 @@ export interface RegisterTenantData {
   first_name: string;
   last_name: string;
   phone?: string;
+  data_consent: boolean;
+  marketing_consent?: boolean;
 }
 
 export interface AuthTokens {

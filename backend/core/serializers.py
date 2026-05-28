@@ -102,6 +102,11 @@ class TenantSerializer(serializers.ModelSerializer):
             "is_trial",
             # Website
             "website_status",
+            # Legal
+            "legal_name",
+            "tax_id",
+            "legal_address",
+            "tax_rate",
         ]
         read_only_fields = ["id", "slug"]
 
@@ -161,6 +166,8 @@ class UserSerializer(serializers.ModelSerializer):
             "date_joined",
             "has_password",
             "social_accounts",
+            "data_consent",
+            "marketing_consent",
         ]
         read_only_fields = ["id", "tenant", "date_joined"]
 
@@ -294,14 +301,32 @@ class RegisterSerializer(serializers.ModelSerializer):
         write_only=True, required=True, validators=[validate_password], style={"input_type": "password"}
     )
     password2 = serializers.CharField(write_only=True, required=True, style={"input_type": "password"})
+    data_consent = serializers.BooleanField(required=True)
+    marketing_consent = serializers.BooleanField(required=False, default=False)
 
     class Meta:
         model = User
-        fields = ["email", "password", "password2", "first_name", "last_name", "phone"]
+        fields = [
+            "email",
+            "password",
+            "password2",
+            "first_name",
+            "last_name",
+            "phone",
+            "data_consent",
+            "marketing_consent",
+        ]
 
     def validate_email(self, value):
         """Normalizar email a minúsculas"""
         return value.lower()
+
+    def validate_data_consent(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "Debes aceptar la política de tratamiento de datos personales (Ley 1581/2012)"
+            )
+        return value
 
     def validate(self, attrs):
         """Validaciones que requieren múltiples campos"""
@@ -339,7 +364,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         return username
 
     def create(self, validated_data):
+        from django.utils import timezone as tz
+
         validated_data.pop("password2")
+        data_consent = validated_data.pop("data_consent", False)
+        marketing_consent = validated_data.pop("marketing_consent", False)
 
         # Obtener tenant del request
         request = self.context.get("request")
@@ -349,6 +378,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         email = validated_data["email"].lower()
         username = self._generate_username(email, tenant)
 
+        now = tz.now()
         user = User.objects.create_user(
             tenant=tenant,
             username=username,
@@ -358,6 +388,10 @@ class RegisterSerializer(serializers.ModelSerializer):
             last_name=validated_data.get("last_name", ""),
             phone=validated_data.get("phone", ""),
             role="customer",
+            data_consent=data_consent,
+            data_consent_date=now if data_consent else None,
+            marketing_consent=marketing_consent,
+            marketing_consent_date=now if marketing_consent else None,
         )
         return user
 
@@ -453,8 +487,19 @@ class TenantRegisterSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=150, required=False, default="")
     phone = serializers.CharField(max_length=20, required=False, default="", allow_blank=True)
 
+    # Consentimiento legal
+    data_consent = serializers.BooleanField(required=True)
+    marketing_consent = serializers.BooleanField(required=False, default=False)
+
     def validate_email(self, value):
         return value.lower()
+
+    def validate_data_consent(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "Debes aceptar la política de tratamiento de datos personales (Ley 1581/2012)"
+            )
+        return value
 
     def validate_business_name(self, value):
         slug = value.lower().replace(" ", "-")
@@ -476,6 +521,7 @@ class TenantRegisterSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         from django.db import transaction
+        from django.utils import timezone as tz
         from django.utils.text import slugify
 
         validated_data.pop("password2")
@@ -489,6 +535,8 @@ class TenantRegisterSerializer(serializers.Serializer):
         first_name = validated_data.pop("first_name", "")
         last_name = validated_data.pop("last_name", "")
         phone = validated_data.pop("phone", "")
+        data_consent = validated_data.pop("data_consent", False)
+        marketing_consent = validated_data.pop("marketing_consent", False)
 
         with transaction.atomic():
             # Generar slug único
@@ -511,6 +559,7 @@ class TenantRegisterSerializer(serializers.Serializer):
             )
 
             # Crear usuario administrador
+            now = tz.now()
             username = email.split("@")[0].lower()
             user = User.objects.create_user(
                 tenant=tenant,
@@ -521,6 +570,10 @@ class TenantRegisterSerializer(serializers.Serializer):
                 last_name=last_name,
                 phone=phone,
                 role="admin",
+                data_consent=data_consent,
+                data_consent_date=now if data_consent else None,
+                marketing_consent=marketing_consent,
+                marketing_consent_date=now if marketing_consent else None,
             )
 
         return user
