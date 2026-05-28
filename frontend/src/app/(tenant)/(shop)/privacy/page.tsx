@@ -24,7 +24,7 @@ export default function PrivacyPage() {
         <div className="container py-12 max-w-4xl">
           <h1 className="text-4xl font-bold mb-8">Politica de Tratamiento de Datos Personales</h1>
 
-          <div className="prose prose-neutral dark:prose-invert max-w-none space-y-8 text-justify">
+          <div className="prose prose-neutral dark:prose-invert max-w-none space-y-8 text-left">
             <section>
               <h2 className="text-2xl font-semibold mb-4">1. Responsable del tratamiento</h2>
               <p className="text-muted-foreground leading-relaxed">

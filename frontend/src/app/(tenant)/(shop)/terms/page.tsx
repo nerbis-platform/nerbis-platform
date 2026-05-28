@@ -25,7 +25,7 @@ export default function TermsPage() {
         <div className="container py-12 max-w-4xl">
           <h1 className="text-4xl font-bold mb-8">Terminos y Condiciones</h1>
 
-          <div className="prose prose-neutral dark:prose-invert max-w-none space-y-8 text-justify">
+          <div className="prose prose-neutral dark:prose-invert max-w-none space-y-8 text-left">
             <section>
               <h2 className="text-2xl font-semibold mb-4">1. Identificacion del proveedor</h2>
               <p className="text-muted-foreground leading-relaxed">
