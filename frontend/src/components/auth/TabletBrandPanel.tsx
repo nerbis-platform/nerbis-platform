@@ -4,7 +4,6 @@
 
 'use client';
 
-import { BrandLogo } from './BrandLogo';
 import { BrandCarousel } from './BrandCarousel';
 import { brandSlides } from './brand-content';
 
@@ -15,11 +14,6 @@ export function TabletBrandPanel() {
       role="complementary"
       aria-label="Información de NERBIS"
     >
-      {/* Top: Logo */}
-      <div className="relative z-10">
-        <BrandLogo size={28} />
-      </div>
-
       {/* Center: Carousel (compact) */}
       <div className="relative z-10 flex flex-1 items-center">
         <div className="w-full">

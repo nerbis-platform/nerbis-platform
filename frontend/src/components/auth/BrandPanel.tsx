@@ -7,7 +7,6 @@
 import { useRef } from 'react';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { BrandLogo } from './BrandLogo';
 import { BrandCarousel } from './BrandCarousel';
 import { brandSlides } from './brand-content';
 
@@ -28,7 +27,7 @@ export function BrandPanel() {
         const { reduced } = context.conditions as { reduced: boolean; normal: boolean };
 
         if (reduced) {
-          gsap.set('.brand-logo, .brand-carousel, .brand-footer', { autoAlpha: 1 });
+          gsap.set('.brand-carousel, .brand-footer', { autoAlpha: 1 });
           return;
         }
 
@@ -37,8 +36,7 @@ export function BrandPanel() {
           delay: 0.2,
         });
 
-        tl.from('.brand-logo', { y: 20, autoAlpha: 0, duration: 0.5 })
-          .from('.brand-carousel', { y: 30, autoAlpha: 0, duration: 0.6 }, '-=0.3')
+        tl.from('.brand-carousel', { y: 30, autoAlpha: 0, duration: 0.6 })
           .from('.brand-footer', { autoAlpha: 0, duration: 0.4 }, '-=0.2');
       }
     );
@@ -52,11 +50,6 @@ export function BrandPanel() {
       aria-label="Información de NERBIS"
       data-auth-animated
     >
-      {/* Top section: Logo */}
-      <div className="brand-logo invisible relative z-10">
-        <BrandLogo />
-      </div>
-
       {/* Center section: Carousel */}
       <div className="brand-carousel invisible relative z-10 flex-1 flex items-center">
         <div className="w-full">

@@ -7,6 +7,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { BrandPanel } from './BrandPanel';
 import { TabletBrandPanel } from './TabletBrandPanel';
 import { MobileBrandHeader } from './MobileBrandHeader';
+import { BrandLogo } from './BrandLogo';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
@@ -174,15 +175,23 @@ export default function AuthSplitScreenV2({
 
         {/* Right: Form panel */}
         <main
-          className="relative flex w-[55%] flex-1 flex-col items-center justify-center xl:w-[58%]"
+          className="relative flex w-[55%] flex-1 flex-col xl:w-[58%]"
           style={{ background: 'var(--auth-bg)' }}
         >
-          <div
-            ref={formPanelRefDesktop}
-            className="w-full max-w-md px-12"
-            style={formTransitionStyle}
-          >
-            {formContent}
+          {/* Logo — fixed at top */}
+          <div className="px-12 pt-8">
+            <BrandLogo dark size={30} />
+          </div>
+
+          {/* Form — centered in remaining space */}
+          <div className="flex flex-1 items-center justify-center">
+            <div
+              ref={formPanelRefDesktop}
+              className="w-full max-w-md px-12"
+              style={formTransitionStyle}
+            >
+              {formContent}
+            </div>
           </div>
         </main>
       </div>
@@ -199,15 +208,23 @@ export default function AuthSplitScreenV2({
 
         {/* Right: Form panel */}
         <main
-          className="relative flex w-[62%] flex-1 flex-col items-center justify-center"
+          className="relative flex w-[62%] flex-1 flex-col"
           style={{ background: 'var(--auth-bg)' }}
         >
-          <div
-            ref={formPanelRefTablet}
-            className="w-full max-w-md px-8"
-            style={formTransitionStyle}
-          >
-            {formContent}
+          {/* Logo — fixed at top */}
+          <div className="px-8 pt-6">
+            <BrandLogo dark size={26} />
+          </div>
+
+          {/* Form — centered in remaining space */}
+          <div className="flex flex-1 items-center justify-center">
+            <div
+              ref={formPanelRefTablet}
+              className="w-full max-w-md px-8"
+              style={formTransitionStyle}
+            >
+              {formContent}
+            </div>
           </div>
         </main>
       </div>

@@ -13,14 +13,16 @@ interface BrandLogoProps {
   className?: string;
   /** Whether the logo links to home. Defaults to true. */
   linkToHome?: boolean;
+  /** Use dark text (for light backgrounds). Defaults to false (white text). */
+  dark?: boolean;
 }
 
-export function BrandLogo({ size = 34, className = '', linkToHome = true }: BrandLogoProps) {
+export function BrandLogo({ size = 34, className = '', linkToHome = true, dark = false }: BrandLogoProps) {
   const content = (
     <div className={`flex items-center gap-3.5 ${className}`}>
       <PipeStatic size={size} />
       <span
-        className="text-[1.15rem] tracking-[var(--tracking-display)] text-[var(--auth-text-on-dark)]"
+        className={`text-[1.15rem] tracking-[var(--tracking-display)] ${dark ? 'text-[var(--auth-primary)]' : 'text-[var(--auth-text-on-dark)]'}`}
         style={{
           fontFamily: 'var(--auth-font-brand)',
           fontWeight: 800,
