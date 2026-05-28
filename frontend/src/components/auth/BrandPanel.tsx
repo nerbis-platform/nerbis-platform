@@ -1,6 +1,6 @@
 // src/components/auth/BrandPanel.tsx
 // Premium brand storytelling panel for the auth split-screen layout.
-// Shown on lg+ breakpoints only. Contains logo, carousel, and subtle footer.
+// Shown on lg+ breakpoints only. Contains video background, logo, carousel, and footer.
 
 'use client';
 
@@ -10,7 +10,7 @@ import { useGSAP } from '@gsap/react';
 import { BrandLogo } from './BrandLogo';
 import { BrandCarousel } from './BrandCarousel';
 import { brandSlides } from './brand-content';
-import { AUTH_GRADIENT, AUTH_RADIAL_GLOW } from './constants';
+import { AUTH_GRADIENT } from './constants';
 
 export function BrandPanel() {
   const panelRef = useRef<HTMLElement>(null);
@@ -49,16 +49,30 @@ export function BrandPanel() {
   return (
     <aside
       ref={panelRef}
-      className="nerbis-grain relative flex h-full flex-col justify-between overflow-hidden px-12 py-10 xl:px-16"
-      style={{ background: AUTH_GRADIENT }}
+      className="relative flex h-full flex-col justify-between overflow-hidden px-12 py-10 xl:px-16"
       role="complementary"
       aria-label="Información de NERBIS"
       data-auth-animated
     >
-      {/* Radial glow overlay for depth */}
+      {/* Video background — loops silently */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        aria-hidden="true"
+      >
+        <source src="/images/auth-brand-bg.mp4" type="video/mp4" />
+      </video>
+
+      {/* Gradient overlay for text legibility */}
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ background: AUTH_RADIAL_GLOW }}
+        style={{
+          background: AUTH_GRADIENT,
+          opacity: 0.65,
+        }}
         aria-hidden="true"
       />
 
