@@ -1,6 +1,6 @@
 // src/components/auth/BrandPanel.tsx
 // Premium brand storytelling panel for the auth split-screen layout.
-// Shown on lg+ breakpoints only. Contains video background, logo, carousel, and footer.
+// Shown on lg+ breakpoints only. Animated mesh gradient background + logo, carousel, footer.
 
 'use client';
 
@@ -10,7 +10,6 @@ import { useGSAP } from '@gsap/react';
 import { BrandLogo } from './BrandLogo';
 import { BrandCarousel } from './BrandCarousel';
 import { brandSlides } from './brand-content';
-import { AUTH_GRADIENT } from './constants';
 
 export function BrandPanel() {
   const panelRef = useRef<HTMLElement>(null);
@@ -33,7 +32,6 @@ export function BrandPanel() {
           return;
         }
 
-        // Subtle staggered entrance for brand panel content
         const tl = gsap.timeline({
           defaults: { ease: 'power2.out' },
           delay: 0.2,
@@ -49,33 +47,11 @@ export function BrandPanel() {
   return (
     <aside
       ref={panelRef}
-      className="relative flex h-full flex-col justify-between overflow-hidden px-12 py-10 xl:px-16"
+      className="auth-mesh-gradient nerbis-grain relative flex h-full flex-col justify-between overflow-hidden px-12 py-10 xl:px-16"
       role="complementary"
       aria-label="Información de NERBIS"
       data-auth-animated
     >
-      {/* Video background — loops silently */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-        aria-hidden="true"
-      >
-        <source src="/images/auth-brand-bg.mp4" type="video/mp4" />
-      </video>
-
-      {/* Gradient overlay for text legibility */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: AUTH_GRADIENT,
-          opacity: 0.65,
-        }}
-        aria-hidden="true"
-      />
-
       {/* Top section: Logo */}
       <div className="brand-logo invisible relative z-10">
         <BrandLogo />
