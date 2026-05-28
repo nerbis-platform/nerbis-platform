@@ -71,6 +71,13 @@ export interface TenantSubscription {
   is_subscribed: boolean;
 }
 
+export interface TenantLegal {
+  legal_name: string;
+  tax_id: string;
+  legal_address: string;
+  tax_rate: number;
+}
+
 export interface TenantData {
   tenant: TenantInfo;
   modules: TenantModules;
@@ -81,6 +88,7 @@ export interface TenantData {
   pages?: TenantPages;
   theme?: TenantTheme;
   subscription?: TenantSubscription;
+  legal?: TenantLegal;
 }
 
 // Context
@@ -334,4 +342,12 @@ export function usePageEnabled(pageSlug: string): boolean {
 export function useTenantTheme(): TenantTheme | null {
   const data = useTenant();
   return data.theme || null;
+}
+
+/**
+ * Hook para obtener la información legal del tenant (razón social, NIT, dirección fiscal, tasa IVA).
+ */
+export function useTenantLegal(): TenantLegal | null {
+  const data = useTenant();
+  return data.legal || null;
 }

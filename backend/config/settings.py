@@ -496,9 +496,9 @@ if not STRIPE_SECRET_KEY:
 # DEPRECADO: Ahora cada tenant tiene su propia moneda (Tenant.currency),
 # tasa de impuesto (Tenant.tax_rate), y pasarela (PaymentGateway).
 # Estos valores se mantienen como fallback temporal.
-STRIPE_CURRENCY = "eur"
-STRIPE_COUNTRY = "ES"
-TAX_RATE = 0.21
+STRIPE_CURRENCY = "cop"
+STRIPE_COUNTRY = "CO"
+TAX_RATE = 0.19
 
 # ===================================
 # BOOKINGS

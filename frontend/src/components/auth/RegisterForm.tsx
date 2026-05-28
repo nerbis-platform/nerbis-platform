@@ -59,6 +59,8 @@ export function RegisterForm({
       email: '',
       phone: '',
       password: '',
+      data_consent: undefined as unknown as true,
+      marketing_consent: false,
     },
   });
 
@@ -120,6 +122,8 @@ export function RegisterForm({
           first_name: data.first_name,
           last_name: data.last_name,
           phone: data.phone,
+          data_consent: data.data_consent,
+          marketing_consent: data.marketing_consent,
         });
 
         // Si el registro viene desde social login, vincular sin tocar tokens (no bloquea)

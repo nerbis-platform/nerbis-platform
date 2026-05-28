@@ -20,6 +20,7 @@ import { DEBOUNCE_DELAY_MS, LABEL_CLASS, LABEL_STYLE } from './constants';
 import { useDebounce } from './hooks';
 import { PasswordField } from './PasswordField';
 import { SubmitButton } from './SubmitButton';
+import { Checkbox } from '@/components/ui/checkbox';
 
 // ─── Props ──────────────────────────────────────────────────────
 
@@ -224,30 +225,79 @@ export function RegisterStep2({
           autoComplete="new-password"
         />
 
-        {/* Terms */}
-        <p
-          className="text-[0.75rem] leading-relaxed text-center pt-1"
-          style={{
-            color: 'var(--auth-text-muted)',
-            fontFamily: 'var(--auth-font-body)',
-          }}
-        >
-          Al crear tu cuenta aceptas los{' '}
-          <Link
-            href="/terms"
-            className="underline underline-offset-2 hover:text-[var(--auth-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
-          >
-            Términos de Servicio
-          </Link>{' '}
-          y la{' '}
-          <Link
-            href="/privacy"
-            className="underline underline-offset-2 hover:text-[var(--auth-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
-          >
-            Política de Privacidad
-          </Link>
-          .
-        </p>
+        {/* Consentimientos legales */}
+        <div className="space-y-3 pt-1">
+          <FormField
+            control={form.control}
+            name="data_consent"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value === true}
+                    onCheckedChange={field.onChange}
+                    disabled={isLoading}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel
+                    className="text-[0.75rem] leading-relaxed font-normal cursor-pointer"
+                    style={{
+                      color: 'var(--auth-text-muted)',
+                      fontFamily: 'var(--auth-font-body)',
+                    }}
+                  >
+                    Autorizo el tratamiento de mis datos personales conforme a la{' '}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="underline underline-offset-2 hover:text-[var(--auth-text)]"
+                    >
+                      Politica de Privacidad
+                    </Link>{' '}
+                    y acepto los{' '}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      className="underline underline-offset-2 hover:text-[var(--auth-text)]"
+                    >
+                      Terminos y Condiciones
+                    </Link>{' '}
+                    *
+                  </FormLabel>
+                  <FormMessage role="alert" aria-live="polite" />
+                </div>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="marketing_consent"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value ?? false}
+                    onCheckedChange={field.onChange}
+                    disabled={isLoading}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel
+                    className="text-[0.75rem] leading-relaxed font-normal cursor-pointer"
+                    style={{
+                      color: 'var(--auth-text-muted)',
+                      fontFamily: 'var(--auth-font-body)',
+                    }}
+                  >
+                    Acepto recibir comunicaciones comerciales y promocionales (opcional)
+                  </FormLabel>
+                </div>
+              </FormItem>
+            )}
+          />
+        </div>
 
         {/* Motivational text above CTA */}
         <p

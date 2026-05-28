@@ -4,6 +4,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
+import { useTenantLegal } from '@/contexts/TenantContext';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,8 @@ import { CouponInput } from '@/components/cart/CouponInput';
 export default function CartPage() {
   const router = useRouter();
   const { cart, isLoading, isLocalCart, updateItem, removeItem } = useCart();
+  const legal = useTenantLegal();
+  const taxPercent = Math.round((legal?.tax_rate ?? 0.19) * 100);
 
   const handleUpdateQuantity = async (itemId: number | string, newQuantity: number) => {
     try {
@@ -264,7 +267,7 @@ export default function CartPage() {
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">IVA (21%)</span>
+                    <span className="text-muted-foreground">IVA ({taxPercent}%)</span>
                     <span className="font-medium">{formatPrice(cart.tax_amount)}</span>
                   </div>
                 </div>

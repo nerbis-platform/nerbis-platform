@@ -342,14 +342,25 @@ export default function ContactPage() {
                           className="mt-1 rounded border-border"
                         />
                         <label htmlFor="privacy" className="text-sm text-muted-foreground">
-                          Acepto la{' '}
+                          Autorizo el tratamiento de mis datos personales conforme a la{' '}
                           <Link href="/privacy" className="text-primary hover:underline">
-                            Política de Privacidad
+                            Ley 1581 de 2012
                           </Link>{' '}
-                          y{' '}
+                          y acepto los{' '}
                           <Link href="/terms" className="text-primary hover:underline">
-                            Términos y Condiciones
+                            Terminos y Condiciones
                           </Link>
+                        </label>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          id="marketing"
+                          className="mt-1 rounded border-border"
+                        />
+                        <label htmlFor="marketing" className="text-sm text-muted-foreground">
+                          Acepto recibir comunicaciones comerciales y promocionales (opcional, puedes revocar en cualquier momento).
                         </label>
                       </div>
 

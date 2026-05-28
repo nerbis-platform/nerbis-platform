@@ -13,6 +13,8 @@ import { useMutation } from '@tanstack/react-query';
 import { createOrder, createPaymentIntent } from '@/lib/api/orders';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenantLegal } from '@/contexts/TenantContext';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { CheckoutForm } from '@/components/checkout/CheckoutForm';
@@ -30,11 +32,13 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!);
 
 const checkoutSchema = z.object({
   billing_name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
-  billing_email: z.string().email('Email inválido'),
+  billing_email: z.string().email('Email invalido'),
   billing_phone: z.string().optional(),
   billing_address: z.string().optional(),
   billing_city: z.string().optional(),
   billing_postal_code: z.string().optional(),
+  accept_terms: z.literal(true, { errorMap: () => ({ message: 'Debes aceptar los terminos y condiciones' }) }),
+  marketing_consent: z.boolean().optional(),
 });
 
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
@@ -43,6 +47,8 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { cart, clearCart, isLocalCart, syncCartToServer } = useCart();
   const { isAuthenticated, user } = useAuth();
+  const legal = useTenantLegal();
+  const taxPercent = Math.round((legal?.tax_rate ?? 0.19) * 100);
   const [clientSecret, setClientSecret] = useState<string>('');
   const [orderId, setOrderId] = useState<number | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string>('');
@@ -63,6 +69,8 @@ export default function CheckoutPage() {
       billing_address: '',
       billing_city: '',
       billing_postal_code: '',
+      accept_terms: undefined as unknown as true,
+      marketing_consent: false,
     },
   });
 
@@ -274,7 +282,7 @@ export default function CheckoutPage() {
                           </div>
                         )}
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">IVA (21%)</span>
+                          <span className="text-muted-foreground">IVA ({taxPercent}%)</span>
                           <span>{formatPrice(cart.tax_amount)}</span>
                         </div>
                       </div>
@@ -403,7 +411,7 @@ export default function CheckoutPage() {
                           <FormItem>
                             <FormLabel>Teléfono</FormLabel>
                             <FormControl>
-                              <Input placeholder="+34 600 000 000" {...field} />
+                              <Input placeholder="+57 300 000 0000" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -432,7 +440,7 @@ export default function CheckoutPage() {
                             <FormItem>
                               <FormLabel>Ciudad</FormLabel>
                               <FormControl>
-                                <Input placeholder="Madrid" {...field} />
+                                <Input placeholder="Bogota" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -446,9 +454,61 @@ export default function CheckoutPage() {
                             <FormItem>
                               <FormLabel>Código Postal</FormLabel>
                               <FormControl>
-                                <Input placeholder="28001" {...field} />
+                                <Input placeholder="110111" {...field} />
                               </FormControl>
                               <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Consentimientos legales */}
+                      <div className="space-y-3 pt-2">
+                        <FormField
+                          control={form.control}
+                          name="accept_terms"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value === true}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="text-sm font-normal text-muted-foreground">
+                                  Acepto los{' '}
+                                  <a href="/terms" target="_blank" className="text-primary hover:underline">
+                                    Terminos y Condiciones
+                                  </a>{' '}
+                                  y autorizo el tratamiento de mis datos conforme a la{' '}
+                                  <a href="/privacy" target="_blank" className="text-primary hover:underline">
+                                    Politica de Privacidad
+                                  </a>{' '}
+                                  (Ley 1581 de 2012) *
+                                </FormLabel>
+                                <FormMessage />
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="marketing_consent"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value ?? false}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="text-sm font-normal text-muted-foreground">
+                                  Acepto recibir comunicaciones comerciales y promocionales (opcional, puedes revocar en cualquier momento)
+                                </FormLabel>
+                              </div>
                             </FormItem>
                           )}
                         />
@@ -586,7 +646,7 @@ export default function CheckoutPage() {
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">IVA (21%)</span>
+                    <span className="text-muted-foreground">IVA ({taxPercent}%)</span>
                     <span>{formatPrice(cart.tax_amount)}</span>
                   </div>
                 </div>
@@ -597,6 +657,19 @@ export default function CheckoutPage() {
                   <span>Total</span>
                   <span>{formatPrice(cart.total)}</span>
                 </div>
+
+                {/* Identificacion del vendedor */}
+                {(legal?.legal_name || legal?.tax_id) && (
+                  <>
+                    <Separator />
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p className="font-medium">Vendedor:</p>
+                      {legal.legal_name && <p>{legal.legal_name}</p>}
+                      {legal.tax_id && <p>NIT: {legal.tax_id}</p>}
+                      {legal.legal_address && <p>{legal.legal_address}</p>}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
