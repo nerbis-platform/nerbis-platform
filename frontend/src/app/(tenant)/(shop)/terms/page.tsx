@@ -14,7 +14,7 @@ export default function TermsPage() {
   const responsable = legal?.legal_name || tenantInfo.name;
   const nit = legal?.tax_id || '[NIT pendiente de registro]';
   const direccion = legal?.legal_address || contact?.address || '[Direccion pendiente]';
-  const email = contact?.email || '[correo no configurado]';
+  const email = contact?.email;
   const telefono = contact?.phone || '[telefono no configurado]';
   const ciudad = contact?.city || 'Colombia';
 
@@ -33,7 +33,7 @@ export default function TermsPage() {
                 NIT {nit}, con domicilio en {direccion}, {ciudad}.
               </p>
               <ul className="list-disc list-inside text-muted-foreground space-y-2 mt-2">
-                <li>Correo electronico: <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a></li>
+                <li>Correo electronico: {email ? <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a> : <span>correo no configurado</span>}</li>
                 <li>Telefono: {telefono}</li>
               </ul>
               <p className="text-muted-foreground leading-relaxed mt-2">
@@ -99,7 +99,7 @@ export default function TermsPage() {
               </ul>
               <p className="text-muted-foreground leading-relaxed mt-2">
                 Para ejercer el derecho de retracto, el consumidor debera comunicarlo a{' '}
-                <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>{' '}
+                {email ? <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a> : <span>correo no configurado</span>}{' '}
                 dentro del plazo establecido. La devolucion del dinero se realizara en un plazo
                 maximo de treinta (30) dias calendario.
               </p>
@@ -121,7 +121,7 @@ export default function TermsPage() {
               </ul>
               <p className="text-muted-foreground leading-relaxed mt-2">
                 La solicitud debera presentarse por escrito a{' '}
-                <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>.
+                {email ? <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a> : <span>correo no configurado</span>}.
                 La entidad financiera tendra un plazo de <strong>quince (15) dias calendario</strong>{' '}
                 para realizar la reversion efectiva del pago.
               </p>
@@ -152,7 +152,7 @@ export default function TermsPage() {
                 conforme a la Ley 1480 de 2011 y la Ley 1755 de 2015:
               </p>
               <ul className="list-disc list-inside text-muted-foreground space-y-2">
-                <li>Correo electronico: <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a></li>
+                <li>Correo electronico: {email ? <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a> : <span>correo no configurado</span>}</li>
                 <li>Telefono: {telefono}</li>
               </ul>
               <p className="text-muted-foreground leading-relaxed mt-2">
@@ -191,7 +191,7 @@ export default function TermsPage() {
                 quienes hayan otorgado su autorizacion expresa. El usuario podra revocar esta
                 autorizacion en cualquier momento utilizando el enlace de cancelacion incluido
                 en cada comunicacion o escribiendo a{' '}
-                <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>.
+                {email ? <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a> : <span>correo no configurado</span>}.
               </p>
             </section>
 

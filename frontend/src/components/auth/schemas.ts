@@ -43,7 +43,7 @@ export const registerBusinessSchema = z.object({
     .regex(/^[\d\s]*$/, 'Solo números')
     .optional(),
   password: passwordRules,
-  data_consent: z.literal(true, { errorMap: () => ({ message: 'Debes autorizar el tratamiento de datos personales' }) }),
+  data_consent: z.boolean().refine((v) => v === true, { message: 'Debes autorizar el tratamiento de datos personales' }),
   marketing_consent: z.boolean().optional(),
 });
 

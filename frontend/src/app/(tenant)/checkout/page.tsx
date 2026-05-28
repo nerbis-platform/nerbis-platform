@@ -37,7 +37,7 @@ const checkoutSchema = z.object({
   billing_address: z.string().optional(),
   billing_city: z.string().optional(),
   billing_postal_code: z.string().optional(),
-  accept_terms: z.literal(true, { errorMap: () => ({ message: 'Debes aceptar los terminos y condiciones' }) }),
+  accept_terms: z.literal(true, { error: 'Debes aceptar los terminos y condiciones' }),
   marketing_consent: z.boolean().optional(),
 });
 

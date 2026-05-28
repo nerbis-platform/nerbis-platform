@@ -736,9 +736,7 @@ class User(AbstractUser):
     data_consent = models.BooleanField(default=False, verbose_name="Consentimiento de datos")
     data_consent_date = models.DateTimeField(null=True, blank=True, verbose_name="Fecha consentimiento datos")
     marketing_consent = models.BooleanField(default=False, verbose_name="Consentimiento de marketing")
-    marketing_consent_date = models.DateTimeField(
-        null=True, blank=True, verbose_name="Fecha consentimiento marketing"
-    )
+    marketing_consent_date = models.DateTimeField(null=True, blank=True, verbose_name="Fecha consentimiento marketing")
 
     # Manager personalizado (filtra por tenant + métodos de UserManager)
     objects = TenantAwareUserManager()

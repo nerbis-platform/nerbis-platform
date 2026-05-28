@@ -59,7 +59,7 @@ export function RegisterForm({
       email: '',
       phone: '',
       password: '',
-      data_consent: undefined as unknown as true,
+      data_consent: false,
       marketing_consent: false,
     },
   });

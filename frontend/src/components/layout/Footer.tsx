@@ -100,7 +100,7 @@ export function Footer() {
                   </Link>
                 </li>
               </ul>
-              {(legal?.legal_name || legal?.tax_id) && (
+              {(legal?.legal_name || legal?.tax_id || legal?.legal_address) && (
                 <div className="mt-4 pt-4 border-t border-[var(--color-border-default)]/50 text-xs text-[var(--color-text-secondary)] space-y-1">
                   {legal.legal_name && <p>{legal.legal_name}</p>}
                   {legal.tax_id && <p>NIT: {legal.tax_id}</p>}

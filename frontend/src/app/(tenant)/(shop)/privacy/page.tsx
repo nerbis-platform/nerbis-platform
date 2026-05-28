@@ -14,7 +14,7 @@ export default function PrivacyPage() {
   const responsable = legal?.legal_name || tenantInfo.name;
   const nit = legal?.tax_id || '[NIT pendiente de registro]';
   const direccion = legal?.legal_address || contact?.address || '[Direccion pendiente]';
-  const email = contact?.email || '[correo no configurado]';
+  const email = contact?.email;
   const ciudad = contact?.city || 'Colombia';
 
   return (
@@ -36,7 +36,7 @@ export default function PrivacyPage() {
               </p>
               <p className="text-muted-foreground leading-relaxed mt-2">
                 Correo de contacto para asuntos de datos personales:{' '}
-                <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>.
+                {email ? <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a> : <span>correo no configurado</span>}.
               </p>
             </section>
 
@@ -110,7 +110,7 @@ export default function PrivacyPage() {
               </ul>
               <p className="text-muted-foreground leading-relaxed mt-2">
                 Para ejercer estos derechos, el titular podra enviar su solicitud a{' '}
-                <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>,
+                {email ? <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a> : <span>correo no configurado</span>},
                 indicando su nombre completo, numero de identificacion, descripcion de la solicitud y datos
                 de contacto. El Responsable atendera la solicitud dentro de los diez (10) dias habiles
                 siguientes a su recepcion, conforme al articulo 15 de la Ley 1581 de 2012.
@@ -217,7 +217,7 @@ export default function PrivacyPage() {
               <p className="text-muted-foreground leading-relaxed">
                 Para cualquier consulta, solicitud o reclamo relacionado con el tratamiento de datos
                 personales, puedes escribir a{' '}
-                <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>.
+                {email ? <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a> : <span>correo no configurado</span>}.
               </p>
             </section>
 
