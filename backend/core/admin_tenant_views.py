@@ -333,11 +333,15 @@ class AdminRestoreTenantView(APIView):
 
             # Restaurar is_active al estado previo guardado en el audit log
             previous_is_active = True  # default seguro
-            last_delete_log = AdminAuditLog.objects.filter(
-                action=AdminAuditLog.ACTION_DELETE_TENANT,
-                target_type="Tenant",
-                target_id=str(tenant.id),
-            ).order_by("-created_at").first()
+            last_delete_log = (
+                AdminAuditLog.objects.filter(
+                    action=AdminAuditLog.ACTION_DELETE_TENANT,
+                    target_type="Tenant",
+                    target_id=str(tenant.id),
+                )
+                .order_by("-created_at")
+                .first()
+            )
             if last_delete_log and "previous_is_active" in last_delete_log.details:
                 previous_is_active = last_delete_log.details["previous_is_active"]
 
