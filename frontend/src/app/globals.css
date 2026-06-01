@@ -495,6 +495,44 @@
   mix-blend-mode: overlay;
 }
 
+/* Signature 2b: Auth mesh gradient — animated brand panel background */
+.auth-mesh-gradient {
+  background:
+    radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--auth-accent) 40%, transparent) 0%, transparent 18%),
+    radial-gradient(circle at 70% 60%, color-mix(in srgb, var(--auth-accent) 35%, transparent) 0%, transparent 16%),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--auth-gradient-end) 30%, transparent) 0%, transparent 20%),
+    radial-gradient(circle at 40% 70%, color-mix(in srgb, var(--auth-accent) 30%, transparent) 0%, transparent 14%),
+    radial-gradient(circle at 60% 35%, color-mix(in srgb, var(--auth-accent) 25%, transparent) 0%, transparent 12%),
+    linear-gradient(145deg, var(--auth-gradient-start) 0%, color-mix(in srgb, var(--auth-gradient-mid) 70%, var(--auth-accent)) 50%, var(--auth-gradient-start) 100%);
+  background-size: 200% 200%, 200% 200%, 180% 180%, 200% 200%, 180% 180%, 100% 100%;
+  animation: auth-mesh-shift 8s ease-in-out infinite;
+}
+
+@keyframes auth-mesh-shift {
+  0%, 100% {
+    background-position: 40% 35%, 60% 65%, 50% 50%, 35% 60%, 65% 40%, 0% 0%;
+  }
+  25% {
+    background-position: 55% 45%, 45% 50%, 40% 60%, 60% 40%, 40% 55%, 0% 0%;
+  }
+  50% {
+    background-position: 60% 55%, 40% 40%, 55% 45%, 45% 55%, 55% 45%, 0% 0%;
+  }
+  75% {
+    background-position: 45% 60%, 55% 45%, 60% 40%, 50% 50%, 50% 60%, 0% 0%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-mesh-gradient {
+    animation: none;
+    background:
+      radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--auth-accent) 30%, transparent) 0%, transparent 14%),
+      radial-gradient(circle at 75% 75%, color-mix(in srgb, var(--auth-accent) 25%, transparent) 0%, transparent 12%),
+      linear-gradient(145deg, var(--auth-gradient-start) 0%, var(--auth-gradient-mid) 40%, var(--auth-gradient-start) 100%);
+  }
+}
+
 /* Signature 3: Restrained glass accent */
 .nerbis-glass {
   background: color-mix(in oklch, var(--color-surface-default), transparent 70%);

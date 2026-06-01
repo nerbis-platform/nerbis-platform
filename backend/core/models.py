@@ -748,6 +748,7 @@ class User(AbstractUser):
     # Consentimiento legal (Ley 1581/2012 + Ley 2300/2023)
     data_consent = models.BooleanField(default=False, verbose_name="Consentimiento de datos")
     data_consent_date = models.DateTimeField(null=True, blank=True, verbose_name="Fecha consentimiento datos")
+    data_consent_ip = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP consentimiento datos")
     marketing_consent = models.BooleanField(default=False, verbose_name="Consentimiento de marketing")
     marketing_consent_date = models.DateTimeField(null=True, blank=True, verbose_name="Fecha consentimiento marketing")
 

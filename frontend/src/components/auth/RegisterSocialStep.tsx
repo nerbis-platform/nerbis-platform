@@ -1,10 +1,11 @@
 // src/components/auth/RegisterSocialStep.tsx
-// Combined single-step registration when user authenticates via social login.
-// Shows confirmed social profile + business fields + password in one form.
+// Simplified single-step registration when user authenticates via social login.
+// Shows confirmed social profile + password field only (name pre-filled from social).
 
 'use client';
 
 import Link from 'next/link';
+import { Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   FormControl,
@@ -13,19 +14,10 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Check, Loader2 } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
-import type { RegisterBusinessFormValues } from './schemas';
+import type { RegisterSimpleFormValues } from './schemas';
 import type { AuthPrefill } from './types';
-import { countries, LABEL_CLASS, LABEL_STYLE } from './constants';
-import { useBusinessNameCheck } from './hooks';
+import { LABEL_CLASS, LABEL_STYLE } from './constants';
 import { PasswordField } from './PasswordField';
 import { SubmitButton } from './SubmitButton';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,7 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 // ─── Props ──────────────────────────────────────────────────────
 
 interface RegisterSocialStepProps {
-  form: UseFormReturn<RegisterBusinessFormValues>;
+  form: UseFormReturn<RegisterSimpleFormValues>;
   isLoading: boolean;
   prefill: AuthPrefill;
   onToggleMode: () => void;
@@ -55,9 +47,6 @@ export function RegisterSocialStep({
   prefill,
   onToggleMode,
 }: RegisterSocialStepProps) {
-  const businessName = form.watch('business_name');
-  const { exists: businessNameExists, checking: checkingName } = useBusinessNameCheck(businessName);
-
   const providerName = providerLabels[prefill.provider || ''] || 'tu cuenta social';
 
   return (
@@ -73,7 +62,7 @@ export function RegisterSocialStep({
             fontFamily: 'var(--auth-font-heading)',
           }}
         >
-          Ya casi estamos
+          Completa tu cuenta
         </h2>
       </div>
 
@@ -95,10 +84,7 @@ export function RegisterSocialStep({
         ) : (
           <div
             className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold shrink-0"
-            style={{
-              background: 'var(--auth-primary)',
-              color: 'white',
-            }}
+            style={{ background: 'var(--auth-primary)', color: 'white' }}
           >
             {(prefill.first_name?.[0] || prefill.email?.[0] || '?').toUpperCase()}
           </div>
@@ -106,19 +92,13 @@ export function RegisterSocialStep({
         <div className="min-w-0 flex-1">
           <p
             className="text-[0.85rem] font-medium truncate"
-            style={{
-              color: 'var(--auth-text)',
-              fontFamily: 'var(--auth-font-body)',
-            }}
+            style={{ color: 'var(--auth-text)', fontFamily: 'var(--auth-font-body)' }}
           >
             {prefill.email}
           </p>
           <p
             className="text-[0.75rem] truncate"
-            style={{
-              color: 'var(--auth-text-muted)',
-              fontFamily: 'var(--auth-font-body)',
-            }}
+            style={{ color: 'var(--auth-text-muted)', fontFamily: 'var(--auth-font-body)' }}
           >
             Conectado con {providerName}
           </p>
@@ -132,7 +112,7 @@ export function RegisterSocialStep({
 
       {/* Fields */}
       <div className="space-y-5">
-        {/* First name + Last name (editable — social providers may return incomplete data) */}
+        {/* First name + Last name */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField
             control={form.control}
@@ -182,114 +162,6 @@ export function RegisterSocialStep({
           />
         </div>
 
-        {/* Business name */}
-        <FormField
-          control={form.control}
-          name="business_name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
-                Nombre del negocio
-              </FormLabel>
-              <FormControl>
-                <div className="relative">
-                  <Input
-                    placeholder="Ej: Mi Negocio"
-                    disabled={isLoading}
-                    autoFocus
-                    aria-required="true"
-                    aria-invalid={!!form.formState.errors.business_name}
-                    className="h-[var(--auth-input-height)] rounded-[var(--auth-radius-input)] border-[var(--auth-border)] bg-[var(--auth-bg-input)] text-[var(--auth-text)] placeholder:text-[var(--auth-text-placeholder)] transition-[border-color,box-shadow] duration-[var(--auth-duration-fast)] ease-out focus-visible:border-[var(--auth-border-focus)] focus-visible:ring-[3px] focus-visible:ring-[var(--auth-accent)]/10 aria-[invalid=true]:border-[var(--auth-border-error)]"
-                    style={{ fontFamily: 'var(--auth-font-body)' }}
-                    {...field}
-                  />
-                  {checkingName && (
-                    <Loader2
-                      className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin"
-                      style={{ color: 'var(--auth-text-muted)' }}
-                      aria-label="Verificando nombre..."
-                    />
-                  )}
-                </div>
-              </FormControl>
-              <FormMessage role="alert" aria-live="polite" />
-              {businessNameExists && !checkingName && (
-                <p
-                  className="text-[0.75rem] mt-1"
-                  role="alert"
-                  style={{ color: 'var(--auth-warning)' }}
-                >
-                  Este nombre ya está registrado.{' '}
-                  <button
-                    type="button"
-                    onClick={onToggleMode}
-                    className="font-medium underline underline-offset-2 cursor-pointer"
-                    style={{ color: 'inherit' }}
-                  >
-                    Inicia sesión
-                  </button>
-                </p>
-              )}
-            </FormItem>
-          )}
-        />
-
-        {/* Country */}
-        <FormField
-          control={form.control}
-          name="country"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className={LABEL_CLASS} style={LABEL_STYLE}>
-                País
-              </FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                value={field.value}
-                disabled={isLoading}
-              >
-                <FormControl>
-                  <SelectTrigger
-                    aria-required="true"
-                    aria-invalid={!!form.formState.errors.country}
-                    className="data-[size=default]:h-[var(--auth-input-height)] w-full rounded-[var(--auth-radius-input)] border-[var(--auth-border)] bg-[var(--auth-bg-input)] text-sm text-[var(--auth-text)] data-placeholder:text-[var(--auth-text-placeholder)] transition-[border-color,box-shadow] duration-[var(--auth-duration-fast)] ease-out focus-visible:border-[var(--auth-border-focus)] focus-visible:ring-[3px] focus-visible:ring-[var(--auth-accent)]/10 [&_svg]:text-[var(--auth-text-muted)]"
-                    style={{ fontFamily: 'var(--auth-font-body)' }}
-                  >
-                    <SelectValue placeholder="Selecciona tu país">
-                      {field.value && (
-                        <span className="flex items-center gap-2">
-                          <span className="text-base leading-none">
-                            {countries.find((c) => c.value === field.value)?.flag}
-                          </span>
-                          {countries.find((c) => c.value === field.value)?.label}
-                        </span>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent
-                  style={
-                    {
-                      '--accent': 'var(--accent)',
-                      '--accent-foreground': 'var(--auth-primary)',
-                    } as React.CSSProperties
-                  }
-                >
-                  {countries.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      <span className="flex items-center gap-2">
-                        <span className="text-base leading-none">{c.flag}</span>
-                        {c.label}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage role="alert" aria-live="polite" />
-            </FormItem>
-          )}
-        />
-
         {/* Password */}
         <PasswordField
           name="password"
@@ -333,7 +205,7 @@ export function RegisterSocialStep({
                     </Link>{' '}
                     y acepto los{' '}
                     <Link
-                      href="/terms"
+                      href="/legal/terms"
                       target="_blank"
                       className="underline underline-offset-2 hover:text-[var(--auth-text)]"
                     >
@@ -376,12 +248,8 @@ export function RegisterSocialStep({
         </div>
 
         {/* Submit */}
-        <SubmitButton
-          isLoading={isLoading}
-          disabled={businessNameExists || checkingName}
-          loadingLabel="Creando tu negocio..."
-        >
-          Crear mi negocio
+        <SubmitButton isLoading={isLoading} loadingLabel="Creando tu cuenta...">
+          Crear cuenta gratis
         </SubmitButton>
       </div>
 
