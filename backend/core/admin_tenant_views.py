@@ -123,6 +123,13 @@ class AdminTenantListView(generics.ListAPIView):
 
         params = self.request.query_params
 
+        # Soft delete filter: por defecto excluir eliminados
+        deleted = _parse_bool(params.get("deleted"))
+        if deleted is True:
+            qs = qs.filter(is_deleted=True)
+        else:
+            qs = qs.filter(is_deleted=False)
+
         is_active = _parse_bool(params.get("is_active"))
         if is_active is not None:
             qs = qs.filter(is_active=is_active)
@@ -149,8 +156,8 @@ class AdminTenantListView(generics.ListAPIView):
 # ---------------------------------------------------------------------------
 
 
-class AdminTenantDetailView(generics.RetrieveUpdateAPIView):
-    """GET/PATCH ``/api/admin/tenants/<uuid:pk>/``.
+class AdminTenantDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PATCH/DELETE ``/api/admin/tenants/<uuid:pk>/``.
 
     - GET devuelve el detalle completo (con ``user_count`` y ``admin_count``
       anotados).
@@ -160,6 +167,7 @@ class AdminTenantDetailView(generics.RetrieveUpdateAPIView):
       Cambios en ``name``, ``email``, ``phone`` e ``industry`` generan
       ``edit_tenant_data``. Plan, feature flags y fecha de suscripción se
       persisten sin audit log.
+    - DELETE ejecuta un soft delete (``is_deleted=True``, ``is_active=False``).
     """
 
     permission_classes = [IsAuthenticated, IsSuperAdmin]
@@ -254,12 +262,115 @@ class AdminTenantDetailView(generics.RetrieveUpdateAPIView):
             status=status.HTTP_200_OK,
         )
 
-    # DRF llama a ``put`` en RetrieveUpdateAPIView; desactivamos PUT
+    # DRF llama a ``put`` en RetrieveUpdateDestroyAPIView; desactivamos PUT
     # explícitamente para reforzar el contrato "sólo PATCH con allowlist".
     def put(self, request, *args, **kwargs):
         return Response(
             {"detail": 'Method "PUT" not allowed.'},
             status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        """DELETE — soft delete del tenant."""
+        tenant = self.get_object()
+
+        with transaction.atomic():
+            tenant = Tenant.objects.select_for_update().get(pk=tenant.pk)
+
+            if tenant.is_deleted:
+                return Response(
+                    {"detail": "El tenant ya está eliminado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            previous_is_active = tenant.is_active
+            tenant.is_deleted = True
+            tenant.is_active = False
+            from django.utils import timezone
+
+            tenant.deleted_at = timezone.now()
+            tenant.save(update_fields=["is_deleted", "is_active", "deleted_at"])
+
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                action=AdminAuditLog.ACTION_DELETE_TENANT,
+                target_type="Tenant",
+                target_id=str(tenant.id),
+                target_repr=f"tenant: {tenant.slug}",
+                details={"previous_is_active": previous_is_active},
+                ip_address=get_client_ip(request),
+            )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# Tenant restore view
+# ---------------------------------------------------------------------------
+
+
+class AdminRestoreTenantView(APIView):
+    """POST ``/api/admin/tenants/<uuid:pk>/restore/`` — restaurar tenant eliminado."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request, pk, *args, **kwargs):
+        tenant = Tenant.objects.filter(pk=pk).first()
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        with transaction.atomic():
+            tenant = Tenant.objects.select_for_update().get(pk=pk)
+
+            if not tenant.is_deleted:
+                return Response(
+                    {"detail": "El tenant no está eliminado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Restaurar is_active al estado previo guardado en el audit log
+            previous_is_active = True  # default seguro
+            last_delete_log = (
+                AdminAuditLog.objects.filter(
+                    action=AdminAuditLog.ACTION_DELETE_TENANT,
+                    target_type="Tenant",
+                    target_id=str(tenant.id),
+                )
+                .order_by("-created_at")
+                .first()
+            )
+            if last_delete_log and "previous_is_active" in last_delete_log.details:
+                previous_is_active = last_delete_log.details["previous_is_active"]
+
+            tenant.is_deleted = False
+            tenant.is_active = previous_is_active
+            tenant.deleted_at = None
+            tenant.save(update_fields=["is_deleted", "is_active", "deleted_at"])
+
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                action=AdminAuditLog.ACTION_RESTORE_TENANT,
+                target_type="Tenant",
+                target_id=str(tenant.id),
+                target_repr=f"tenant: {tenant.slug}",
+                details={"restored_is_active": previous_is_active},
+                ip_address=get_client_ip(request),
+            )
+
+        refreshed = (
+            Tenant.objects.filter(pk=pk)
+            .annotate(
+                user_count=Count("users"),
+                admin_count=Count("users", filter=Q(users__role="admin")),
+            )
+            .first()
+        )
+        return Response(
+            AdminTenantDetailSerializer(refreshed).data,
+            status=status.HTTP_200_OK,
         )
 
 

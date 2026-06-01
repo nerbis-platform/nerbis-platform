@@ -49,6 +49,8 @@ class AdminTenantListSerializer(serializers.ModelSerializer):
             "days_remaining",
             "user_count",
             "onboarding_phase",
+            "is_deleted",
+            "deleted_at",
             "created_at",
         ]
         read_only_fields = fields
@@ -116,6 +118,9 @@ class AdminTenantDetailSerializer(serializers.ModelSerializer):
             # Métricas anotadas
             "user_count",
             "admin_count",
+            # Soft delete
+            "is_deleted",
+            "deleted_at",
             # Metadata
             "created_at",
             "updated_at",

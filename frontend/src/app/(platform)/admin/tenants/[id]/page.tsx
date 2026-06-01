@@ -9,6 +9,7 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Building2,
   Calendar,
@@ -25,11 +26,13 @@ import {
   ShieldCheck,
   ShieldOff,
   Sparkles,
+  Trash2,
   Users as UsersIcon,
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
+  adminDeleteTenant,
   adminGetTenant,
   adminListTenantUsers,
   adminResetOnboarding,
@@ -133,7 +136,7 @@ const INDUSTRY_LABELS: Record<string, string> = Object.fromEntries(
 
 type RoleFilter = 'all' | AdminTenantUserRole;
 type StatusFilter = 'all' | 'active' | 'inactive';
-type PendingAction = 'activate' | 'deactivate' | null;
+type PendingAction = 'activate' | 'deactivate' | 'delete' | null;
 
 function planBadgeClass(plan: AdminTenantPlan): string {
   switch (plan) {
@@ -426,6 +429,7 @@ export default function AdminTenantDetailPage({
   const { id } = use(params);
 
   // ── Tenant detail ───────────────────────────────────────────────────
+  const router = useRouter();
   const [tenant, setTenant] = useState<AdminTenantDetail | null>(null);
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [tenantLoading, setTenantLoading] = useState(true);
@@ -653,6 +657,13 @@ export default function AdminTenantDetailPage({
     setActionSubmitting(true);
     setActionError(null);
     try {
+      if (pendingAction === 'delete') {
+        await adminDeleteTenant(tenant.id);
+        setPendingAction(null);
+        toast.success(`${tenant.name} enviado a la papelera.`);
+        router.push('/admin/tenants');
+        return;
+      }
       const updated = await adminUpdateTenant(tenant.id, {
         is_active: pendingAction === 'activate',
       });
@@ -669,9 +680,11 @@ export default function AdminTenantDetailPage({
       const message =
         err instanceof Error
           ? err.message
-          : pendingAction === 'activate'
-            ? 'No se pudo reactivar el tenant.'
-            : 'No se pudo suspender el tenant.';
+          : pendingAction === 'delete'
+            ? 'No se pudo eliminar el tenant.'
+            : pendingAction === 'activate'
+              ? 'No se pudo reactivar el tenant.'
+              : 'No se pudo suspender el tenant.';
       setActionError(message);
     } finally {
       setActionSubmitting(false);
@@ -1399,6 +1412,31 @@ export default function AdminTenantDetailPage({
           )}
         </section>
 
+      {/* Danger zone */}
+      {tenant && !tenant.is_deleted && (
+        <section className="mt-10 rounded-xl border border-red-200 bg-red-50/50">
+          <div className="border-b border-red-200 px-5 py-3">
+            <h3 className="text-sm font-semibold text-red-700">Zona de peligro</h3>
+          </div>
+          <div className="flex items-center justify-between px-5 py-4">
+            <div>
+              <p className="text-sm font-medium text-slate-900">Eliminar este tenant</p>
+              <p className="text-sm text-slate-500">
+                El tenant será enviado a la papelera. Sus datos se conservarán y podrás restaurarlo después.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPendingAction('delete')}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-white px-3.5 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-600 hover:text-white"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              Eliminar tenant
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Edit business data dialog */}
       <Dialog open={editOpen} onOpenChange={(open) => { if (!open && !editSubmitting) setEditOpen(false); }}>
         <DialogContent className="sm:max-w-md">
@@ -1513,15 +1551,19 @@ export default function AdminTenantDetailPage({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {pendingAction === 'activate'
-                ? 'Reactivar tenant'
-                : 'Suspender tenant'}
+              {pendingAction === 'delete'
+                ? 'Eliminar tenant'
+                : pendingAction === 'activate'
+                  ? 'Reactivar tenant'
+                  : 'Suspender tenant'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {tenant
-                ? pendingAction === 'activate'
-                  ? `${tenant.name} recuperará acceso a la plataforma y sus usuarios podrán iniciar sesión de nuevo.`
-                  : `${tenant.name} quedará suspendido. Sus usuarios no podrán iniciar sesión hasta que lo reactives.`
+                ? pendingAction === 'delete'
+                  ? `${tenant.name} será enviado a la papelera. Sus datos se conservarán y podrás restaurarlo desde el listado de tenants.`
+                  : pendingAction === 'activate'
+                    ? `${tenant.name} recuperará acceso a la plataforma y sus usuarios podrán iniciar sesión de nuevo.`
+                    : `${tenant.name} quedará suspendido. Sus usuarios no podrán iniciar sesión hasta que lo reactives.`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1536,7 +1578,7 @@ export default function AdminTenantDetailPage({
               }}
               disabled={actionSubmitting}
               className={
-                pendingAction === 'deactivate'
+                pendingAction === 'deactivate' || pendingAction === 'delete'
                   ? 'bg-red-600 hover:bg-red-500 focus:ring-red-500'
                   : undefined
               }
@@ -1545,7 +1587,9 @@ export default function AdminTenantDetailPage({
                 ? 'Procesando...'
                 : pendingAction === 'activate'
                   ? 'Reactivar'
-                  : 'Suspender'}
+                  : pendingAction === 'delete'
+                    ? 'Sí, eliminar'
+                    : 'Suspender'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

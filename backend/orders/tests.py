@@ -172,7 +172,7 @@ class CreateOrderTotalsTest(OrderTestMixin, TenantAwareTestCase):
         order = Order.objects.get(id=response.data["order"]["id"])
 
         expected_subtotal = Decimal("39.90") * 2  # 79.80
-        expected_tax = (expected_subtotal * Decimal("0.21")).quantize(Decimal("0.01"))
+        expected_tax = (expected_subtotal * Decimal("0.19")).quantize(Decimal("0.01"))
         expected_total = expected_subtotal + expected_tax
 
         self.assertEqual(order.subtotal, expected_subtotal)
@@ -244,7 +244,7 @@ class CreateOrderTotalsTest(OrderTestMixin, TenantAwareTestCase):
 
 
 class OrderTaxCalculationTest(OrderTestMixin, TenantAwareTestCase):
-    """Test: orden con IVA 21% correcto."""
+    """Test: orden con IVA 19% correcto (default Colombia)."""
 
     @classmethod
     def setUpTestData(cls):
@@ -257,8 +257,8 @@ class OrderTaxCalculationTest(OrderTestMixin, TenantAwareTestCase):
         )
 
     @patch("orders.views.send_order_confirmation_email")
-    def test_tax_rate_is_21_percent(self, mock_email):
-        """La orden se crea con tax_rate = 0.21."""
+    def test_tax_rate_is_19_percent(self, mock_email):
+        """La orden se crea con tax_rate = 0.19 (IVA Colombia)."""
         self.authenticate_as_customer()
         cart = Cart.objects.create(tenant=self.tenant, user=self.customer_user)
         self.add_product_to_cart(cart, self.product, quantity=1)
@@ -267,11 +267,11 @@ class OrderTaxCalculationTest(OrderTestMixin, TenantAwareTestCase):
         self.assertEqual(response.status_code, 201, response.data)
         order = Order.objects.get(id=response.data["order"]["id"])
 
-        self.assertEqual(order.tax_rate, Decimal("0.21"))
+        self.assertEqual(order.tax_rate, Decimal("0.19"))
 
     @patch("orders.views.send_order_confirmation_email")
     def test_tax_amount_correct_simple(self, mock_email):
-        """IVA de 100.00 EUR = 21.00 EUR."""
+        """IVA de 100.00 = 19.00."""
         self.authenticate_as_customer()
         cart = Cart.objects.create(tenant=self.tenant, user=self.customer_user)
         self.add_product_to_cart(cart, self.product, quantity=1)
@@ -281,12 +281,12 @@ class OrderTaxCalculationTest(OrderTestMixin, TenantAwareTestCase):
         order = Order.objects.get(id=response.data["order"]["id"])
 
         self.assertEqual(order.subtotal, Decimal("100.00"))
-        self.assertEqual(order.tax_amount, Decimal("21.00"))
-        self.assertEqual(order.total, Decimal("121.00"))
+        self.assertEqual(order.tax_amount, Decimal("19.00"))
+        self.assertEqual(order.total, Decimal("119.00"))
 
     @patch("orders.views.send_order_confirmation_email")
     def test_tax_amount_correct_with_quantity(self, mock_email):
-        """IVA de 300.00 EUR (3 x 100) = 63.00 EUR."""
+        """IVA de 300.00 (3 x 100) = 57.00."""
         self.authenticate_as_customer()
         cart = Cart.objects.create(tenant=self.tenant, user=self.customer_user)
         self.add_product_to_cart(cart, self.product, quantity=3)
@@ -296,8 +296,8 @@ class OrderTaxCalculationTest(OrderTestMixin, TenantAwareTestCase):
         order = Order.objects.get(id=response.data["order"]["id"])
 
         self.assertEqual(order.subtotal, Decimal("300.00"))
-        self.assertEqual(order.tax_amount, Decimal("63.00"))
-        self.assertEqual(order.total, Decimal("363.00"))
+        self.assertEqual(order.tax_amount, Decimal("57.00"))
+        self.assertEqual(order.total, Decimal("357.00"))
 
     @patch("orders.views.send_order_confirmation_email")
     def test_total_equals_subtotal_plus_tax(self, mock_email):

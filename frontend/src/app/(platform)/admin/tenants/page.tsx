@@ -3,9 +3,9 @@
 // Platform superadmin: tenant list page.
 //
 // Lists every tenant in the platform with search + filters + pagination
-// and exposes quick activate/suspend actions guarded by AlertDialog
-// confirmations. Data flows through `adminClient` via `admin-tenants.ts` —
-// NEVER the tenant-scoped apiClient.
+// and exposes quick activate/suspend/delete/restore actions guarded by
+// AlertDialog confirmations. Data flows through `adminClient` via
+// `admin-tenants.ts` — NEVER the tenant-scoped apiClient.
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -15,14 +15,18 @@ import {
   Filter,
   Loader2,
   MoreHorizontal,
+  RotateCcw,
   Search,
   ShieldCheck,
   ShieldOff,
+  Trash2,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
+  adminDeleteTenant,
   adminListTenants,
+  adminRestoreTenant,
   adminUpdateTenant,
 } from '@/lib/api/admin-tenants';
 import type {
@@ -137,7 +141,7 @@ function formatDate(iso: string | null | undefined): string {
 
 type PendingAction = {
   tenant: AdminTenant;
-  target: 'activate' | 'deactivate';
+  target: 'activate' | 'deactivate' | 'delete' | 'restore';
 };
 
 // ── Filter chip labels ─────────────────────────────────────────────
@@ -201,6 +205,10 @@ export default function AdminTenantsPage() {
     document.title = 'Tenants — NERBIS Admin';
   }, []);
 
+  // ── Tab state ─────────────────────────────────────────────────────
+  type Tab = 'active' | 'trash';
+  const [tab, setTab] = useState<Tab>('active');
+
   // ── Filters + pagination state ──────────────────────────────────────
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -229,7 +237,7 @@ export default function AdminTenantsPage() {
   // Reset to page 1 whenever filter inputs change.
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, plan, status]);
+  }, [debouncedSearch, plan, status, tab]);
 
   const loadPage = useCallback(async () => {
     setIsLoading(true);
@@ -244,6 +252,7 @@ export default function AdminTenantsPage() {
       if (plan !== 'all') filters.plan = plan;
       if (status === 'active') filters.is_active = true;
       if (status === 'inactive') filters.is_active = false;
+      if (tab === 'trash') filters.deleted = true;
       const data = await adminListTenants(filters);
       setItems(data.results);
       setCount(data.count);
@@ -258,7 +267,7 @@ export default function AdminTenantsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, debouncedSearch, plan, status]);
+  }, [page, debouncedSearch, plan, status, tab]);
 
   useEffect(() => {
     void loadPage();
@@ -289,32 +298,49 @@ export default function AdminTenantsPage() {
     if (!pending) return;
     setSubmitting(true);
     setRowError(null);
+    const { tenant, target } = pending;
     try {
-      const updated = await adminUpdateTenant(pending.tenant.id, {
-        is_active: pending.target === 'activate',
-      });
-      setItems((prev) =>
-        prev.map((row) =>
-          row.id === updated.id
-            ? { ...row, is_active: updated.is_active, subscription_status: updated.subscription_status }
-            : row,
-        ),
-      );
-      const name = pending.tenant.name;
-      const action = pending.target;
-      setPending(null);
-      toast.success(
-        action === 'activate'
-          ? `${name} reactivado correctamente.`
-          : `${name} suspendido correctamente.`,
-      );
+      if (target === 'delete') {
+        await adminDeleteTenant(tenant.id);
+        setItems((prev) => prev.filter((row) => row.id !== tenant.id));
+        setCount((c) => c - 1);
+        setPending(null);
+        toast.success(`${tenant.name} enviado a la papelera.`);
+      } else if (target === 'restore') {
+        await adminRestoreTenant(tenant.id);
+        setItems((prev) => prev.filter((row) => row.id !== tenant.id));
+        setCount((c) => c - 1);
+        setPending(null);
+        toast.success(`${tenant.name} restaurado correctamente.`);
+      } else {
+        const updated = await adminUpdateTenant(tenant.id, {
+          is_active: target === 'activate',
+        });
+        setItems((prev) =>
+          prev.map((row) =>
+            row.id === updated.id
+              ? { ...row, is_active: updated.is_active, subscription_status: updated.subscription_status }
+              : row,
+          ),
+        );
+        setPending(null);
+        toast.success(
+          target === 'activate'
+            ? `${tenant.name} reactivado correctamente.`
+            : `${tenant.name} suspendido correctamente.`,
+        );
+      }
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
-          : pending.target === 'activate'
-            ? 'No se pudo activar el tenant.'
-            : 'No se pudo suspender el tenant.';
+          : target === 'delete'
+            ? 'No se pudo eliminar el tenant.'
+            : target === 'restore'
+              ? 'No se pudo restaurar el tenant.'
+              : target === 'activate'
+                ? 'No se pudo activar el tenant.'
+                : 'No se pudo suspender el tenant.';
       setRowError(message);
     } finally {
       setSubmitting(false);
@@ -334,6 +360,37 @@ export default function AdminTenantsPage() {
                 : `${count} tenant${count === 1 ? '' : 's'} en total.`}
             </p>
           </div>
+        </div>
+
+        {/* ── Tabs: Activos / Papelera ──────────────────────────────── */}
+        <div role="tablist" className="mb-4 flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 w-fit">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'active'}
+            onClick={() => setTab('active')}
+            className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              tab === 'active'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Activos
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'trash'}
+            onClick={() => setTab('trash')}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              tab === 'trash'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Papelera
+          </button>
         </div>
 
         {/* ── Search + Filters toolbar ──────────────────────────────── */}
@@ -532,12 +589,16 @@ export default function AdminTenantsPage() {
             <h3 className="text-sm font-semibold text-slate-900">
               {hasActiveFilters
                 ? 'Ningún tenant coincide con los filtros'
-                : 'Aún no hay tenants registrados'}
+                : tab === 'trash'
+                  ? 'La papelera está vacía'
+                  : 'Aún no hay tenants registrados'}
             </h3>
             <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
               {hasActiveFilters
                 ? 'Prueba ajustar la búsqueda o limpiar los filtros para ver más resultados.'
-                : 'Cuando se registre un negocio, aparecerá aquí para que puedas gestionarlo.'}
+                : tab === 'trash'
+                  ? 'Los tenants eliminados aparecerán aquí para que puedas restaurarlos si es necesario.'
+                  : 'Cuando se registre un negocio, aparecerá aquí para que puedas gestionarlo.'}
             </p>
             {hasActiveFilters && (
               <button
@@ -561,17 +622,21 @@ export default function AdminTenantsPage() {
                     Plan
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                    Estado
+                    {tab === 'trash' ? 'Eliminado' : 'Estado'}
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                    Fase
-                  </th>
+                  {tab === 'active' && (
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Fase
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
                     Usuarios
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
-                    Vence
-                  </th>
+                  {tab === 'active' && (
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Vence
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">
                     Acciones
                   </th>
@@ -604,89 +669,110 @@ export default function AdminTenantsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${subscriptionBadgeClass(
-                          tenant.subscription_status,
-                          tenant.is_active,
-                        )}`}
-                      >
-                        {tenant.is_active
-                          ? SUBSCRIPTION_LABELS[tenant.subscription_status]
-                          : 'Suspendido'}
-                      </span>
+                      {tab === 'trash' ? (
+                        <span className="text-sm text-slate-500">
+                          {formatDate(tenant.deleted_at)}
+                        </span>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${subscriptionBadgeClass(
+                            tenant.subscription_status,
+                            tenant.is_active,
+                          )}`}
+                        >
+                          {tenant.is_active
+                            ? SUBSCRIPTION_LABELS[tenant.subscription_status]
+                            : 'Suspendido'}
+                        </span>
+                      )}
                     </td>
-                    <td className="px-4 py-3">
-                      {(() => {
-                        const pm = PHASE_BADGE_META[tenant.onboarding_phase] ?? PHASE_BADGE_META.onboarding;
-                        return (
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${pm.cls}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full bg-current ${tenant.onboarding_phase !== 'suspended' && tenant.onboarding_phase !== 'operational' ? 'animate-pulse' : ''}`} />
-                            {pm.label}
-                          </span>
-                        );
-                      })()}
-                    </td>
+                    {tab === 'active' && (
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const pm = PHASE_BADGE_META[tenant.onboarding_phase] ?? PHASE_BADGE_META.onboarding;
+                          return (
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${pm.cls}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full bg-current ${tenant.onboarding_phase !== 'suspended' && tenant.onboarding_phase !== 'operational' ? 'animate-pulse' : ''}`} />
+                              {pm.label}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-right font-medium tabular-nums text-slate-700">
                       {tenant.user_count}
                     </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {formatDate(tenant.subscription_ends_at)}
-                    </td>
+                    {tab === 'active' && (
+                      <td className="px-4 py-3 text-slate-500">
+                        {formatDate(tenant.subscription_ends_at)}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          aria-label={`Acciones para ${tenant.name}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-colors hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
+                      {tab === 'trash' ? (
+                        <button
+                          type="button"
+                          onClick={() => setPending({ tenant, target: 'restore' })}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-teal-700 transition-colors hover:bg-teal-50 hover:border-teal-200"
                         >
-                          <MoreHorizontal
-                            className="h-4 w-4"
-                            aria-hidden="true"
-                          />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/tenants/${tenant.id}`}>
-                              Ver detalle
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {tenant.is_active ? (
-                            <DropdownMenuItem
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                setPending({
-                                  tenant,
-                                  target: 'deactivate',
-                                });
-                              }}
-                              className="text-red-600 focus:text-red-700"
-                            >
-                              <ShieldOff
-                                className="h-4 w-4"
-                                aria-hidden="true"
-                              />
-                              Suspender
+                          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                          Restaurar
+                        </button>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            aria-label={`Acciones para ${tenant.name}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-colors hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
+                          >
+                            <MoreHorizontal
+                              className="h-4 w-4"
+                              aria-hidden="true"
+                            />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/admin/tenants/${tenant.id}`}>
+                                Ver detalle
+                              </Link>
                             </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                setPending({
-                                  tenant,
-                                  target: 'activate',
-                                });
-                              }}
-                              className="text-teal-700 focus:text-teal-800"
-                            >
-                              <ShieldCheck
-                                className="h-4 w-4"
-                                aria-hidden="true"
-                              />
-                              Reactivar
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            <DropdownMenuSeparator />
+                            {tenant.is_active ? (
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  setPending({
+                                    tenant,
+                                    target: 'deactivate',
+                                  });
+                                }}
+                                className="text-red-600 focus:text-red-700"
+                              >
+                                <ShieldOff
+                                  className="h-4 w-4"
+                                  aria-hidden="true"
+                                />
+                                Suspender
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  setPending({
+                                    tenant,
+                                    target: 'activate',
+                                  });
+                                }}
+                                className="text-teal-700 focus:text-teal-800"
+                              >
+                                <ShieldCheck
+                                  className="h-4 w-4"
+                                  aria-hidden="true"
+                                />
+                                Reactivar
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -720,7 +806,7 @@ export default function AdminTenantsPage() {
           </div>
         )}
 
-      {/* Activate / Suspend confirmation */}
+      {/* Action confirmation dialog */}
       <AlertDialog
         open={pending !== null}
         onOpenChange={(open) => {
@@ -730,16 +816,24 @@ export default function AdminTenantsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {pending?.target === 'activate'
-                ? 'Reactivar tenant'
-                : 'Suspender tenant'}
+              {pending?.target === 'delete'
+                ? 'Eliminar tenant'
+                : pending?.target === 'restore'
+                  ? 'Restaurar tenant'
+                  : pending?.target === 'activate'
+                    ? 'Reactivar tenant'
+                    : 'Suspender tenant'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {pending
-                ? pending.target === 'activate'
-                  ? `${pending.tenant.name} recuperará acceso a la plataforma y sus usuarios podrán iniciar sesión de nuevo.`
-                  : `${pending.tenant.name} quedará suspendido: sus usuarios no podrán iniciar sesión. Puedes reactivar el tenant más tarde.`
-                : ''}
+              {pending?.target === 'delete'
+                ? `${pending.tenant.name} será enviado a la papelera. Sus datos se conservarán y podrás restaurarlo más tarde.`
+                : pending?.target === 'restore'
+                  ? `${pending.tenant.name} será restaurado y volverá a aparecer en la lista de tenants activos.`
+                  : pending?.target === 'activate'
+                    ? `${pending.tenant.name} recuperará acceso a la plataforma y sus usuarios podrán iniciar sesión de nuevo.`
+                    : pending
+                      ? `${pending.tenant.name} quedará suspendido: sus usuarios no podrán iniciar sesión. Puedes reactivar el tenant más tarde.`
+                      : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -753,16 +847,20 @@ export default function AdminTenantsPage() {
               }}
               disabled={submitting}
               className={
-                pending?.target === 'deactivate'
+                pending?.target === 'deactivate' || pending?.target === 'delete'
                   ? 'bg-red-600 hover:bg-red-500 focus:ring-red-500'
                   : undefined
               }
             >
               {submitting
                 ? 'Procesando...'
-                : pending?.target === 'activate'
-                  ? 'Sí, reactivar'
-                  : 'Sí, suspender'}
+                : pending?.target === 'delete'
+                  ? 'Sí, eliminar'
+                  : pending?.target === 'restore'
+                    ? 'Sí, restaurar'
+                    : pending?.target === 'activate'
+                      ? 'Sí, reactivar'
+                      : 'Sí, suspender'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
