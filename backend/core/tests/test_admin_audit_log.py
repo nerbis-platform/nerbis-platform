@@ -105,6 +105,8 @@ class AdminAuditLogModelTests(TestCase):
             "deactivate_tenant",
             "activate_tenant",
             "edit_tenant_data",
+            "delete_tenant",
+            "restore_tenant",
             "deactivate_user",
             "activate_user",
             "change_user_role",
@@ -120,7 +122,7 @@ class AdminAuditLogModelTests(TestCase):
         }
         actual = {value for value, _ in AdminAuditLog.ACTION_CHOICES}
         self.assertEqual(actual, expected)
-        self.assertEqual(len(AdminAuditLog.ACTION_CHOICES), 15)
+        self.assertEqual(len(AdminAuditLog.ACTION_CHOICES), 17)
 
     # ------------------------------------------------------------------
     # __str__
