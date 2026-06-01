@@ -257,7 +257,7 @@ export function RegisterStep2({
                     </Link>{' '}
                     y acepto los{' '}
                     <Link
-                      href="/terms"
+                      href="/legal/terms"
                       target="_blank"
                       className="underline underline-offset-2 hover:text-[var(--auth-text)]"
                     >

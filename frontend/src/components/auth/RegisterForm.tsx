@@ -7,6 +7,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -65,6 +66,8 @@ export function RegisterForm({
         password2: data.password,
         first_name: data.first_name,
         last_name: data.last_name,
+        data_consent: data.data_consent,
+        marketing_consent: data.marketing_consent,
       });
 
       // Link social account if registration came from social flow
@@ -335,30 +338,50 @@ export function RegisterForm({
             autoComplete="new-password"
           />
 
-          {/* Terms */}
-          <p
-            className="text-[0.75rem] leading-relaxed text-center pt-1"
-            style={{
-              color: 'var(--auth-text-muted)',
-              fontFamily: 'var(--auth-font-body)',
-            }}
-          >
-            Al crear tu cuenta aceptas los{' '}
-            <Link
-              href="/terms"
-              className="underline underline-offset-2 hover:text-[var(--auth-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
-            >
-              Términos de Servicio
-            </Link>{' '}
-            y la{' '}
-            <Link
-              href="/privacy"
-              className="underline underline-offset-2 hover:text-[var(--auth-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--auth-accent)] focus-visible:ring-offset-2 rounded-sm"
-            >
-              Política de Privacidad
-            </Link>
-            .
-          </p>
+          {/* Legal consent (Ley 1581 — explicit checkbox required) */}
+          <FormField
+            control={form.control}
+            name="data_consent"
+            render={({ field }) => (
+              <FormItem className="flex items-start gap-2.5 space-y-0 pt-1">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value === true}
+                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                    disabled={isLoading}
+                    className="mt-0.5 shrink-0"
+                  />
+                </FormControl>
+                <div>
+                  <FormLabel
+                    className="text-[0.75rem] leading-[1.6] font-normal cursor-pointer inline"
+                    style={{
+                      color: 'var(--auth-text-muted)',
+                      fontFamily: 'var(--auth-font-body)',
+                    }}
+                  >
+                    Acepto los{' '}
+                    <Link
+                      href="/legal/terms"
+                      target="_blank"
+                      className="underline underline-offset-2 hover:text-[var(--auth-text)] inline"
+                    >
+                      Términos de Servicio
+                    </Link>
+                    {' '}y autorizo el tratamiento de datos según la{' '}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="underline underline-offset-2 hover:text-[var(--auth-text)] inline"
+                    >
+                      Política de Privacidad
+                    </Link>
+                  </FormLabel>
+                  <FormMessage role="alert" aria-live="polite" className="mt-1" />
+                </div>
+              </FormItem>
+            )}
+          />
 
           {/* Submit */}
           <div className="pt-1">

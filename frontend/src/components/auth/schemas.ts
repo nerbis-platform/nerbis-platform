@@ -62,6 +62,8 @@ export const registerSimpleSchema = z.object({
     .min(2, 'El apellido debe tener al menos 2 caracteres'),
   email: z.string().email('Email inválido'),
   password: passwordRules,
+  data_consent: z.boolean().refine((v) => v === true, { message: 'Debes autorizar el tratamiento de datos personales' }),
+  marketing_consent: z.boolean().optional(),
 });
 
 export type RegisterSimpleFormValues = z.infer<typeof registerSimpleSchema>;

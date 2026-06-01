@@ -363,6 +363,13 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return username
 
+    def _get_client_ip(self, request):
+        """Extraer IP real del cliente (soporta proxies/load balancers)."""
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            return x_forwarded_for.split(",")[0].strip()
+        return request.META.get("REMOTE_ADDR")
+
     def create(self, validated_data):
         from django.utils import timezone as tz
 
@@ -370,9 +377,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         data_consent = validated_data.pop("data_consent", False)
         marketing_consent = validated_data.pop("marketing_consent", False)
 
-        # Obtener tenant del request
+        # Obtener tenant y IP del request
         request = self.context.get("request")
         tenant = request.tenant
+        client_ip = self._get_client_ip(request)
 
         # Generar username automáticamente desde el email
         email = validated_data["email"].lower()
@@ -390,6 +398,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             role="customer",
             data_consent=data_consent,
             data_consent_date=now if data_consent else None,
+            data_consent_ip=client_ip if data_consent else None,
             marketing_consent=marketing_consent,
             marketing_consent_date=now if marketing_consent else None,
         )
@@ -519,6 +528,13 @@ class TenantRegisterSerializer(serializers.Serializer):
 
         return attrs
 
+    def _get_client_ip(self, request):
+        """Extraer IP real del cliente (soporta proxies/load balancers)."""
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            return x_forwarded_for.split(",")[0].strip()
+        return request.META.get("REMOTE_ADDR")
+
     def create(self, validated_data):
         from django.db import transaction
         from django.utils import timezone as tz
@@ -537,6 +553,10 @@ class TenantRegisterSerializer(serializers.Serializer):
         phone = validated_data.pop("phone", "")
         data_consent = validated_data.pop("data_consent", False)
         marketing_consent = validated_data.pop("marketing_consent", False)
+
+        # Capturar IP para evidencia legal
+        request = self.context.get("request")
+        client_ip = self._get_client_ip(request) if request else None
 
         with transaction.atomic():
             # Generar slug único
@@ -572,6 +592,7 @@ class TenantRegisterSerializer(serializers.Serializer):
                 role="admin",
                 data_consent=data_consent,
                 data_consent_date=now if data_consent else None,
+                data_consent_ip=client_ip if data_consent else None,
                 marketing_consent=marketing_consent,
                 marketing_consent_date=now if marketing_consent else None,
             )

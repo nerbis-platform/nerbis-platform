@@ -27,7 +27,7 @@ export function LegalLayout({ children }: { children: React.ReactNode }) {
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link
-              href="/terms"
+              href="/legal/terms"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               Términos de Servicio
@@ -54,7 +54,7 @@ export function LegalLayout({ children }: { children: React.ReactNode }) {
         <div className="container py-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <Link href="/terms" className="hover:text-foreground transition-colors">
+              <Link href="/legal/terms" className="hover:text-foreground transition-colors">
                 Términos de Servicio
               </Link>
               <Link href="/privacy" className="hover:text-foreground transition-colors">
