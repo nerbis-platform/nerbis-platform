@@ -343,7 +343,7 @@ export default function ContactPage() {
                             Ley 1581 de 2012
                           </Link>{' '}
                           y acepto los{' '}
-                          <Link href="/terms" className="text-primary hover:underline">
+                          <Link href="/shop-terms" className="text-primary hover:underline">
                             Terminos y Condiciones
                           </Link> *
                         </label>
