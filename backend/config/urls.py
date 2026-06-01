@@ -57,6 +57,7 @@ from core.admin_tenant_views import (
     AdminDisable2FAView,
     AdminResetOnboardingView,
     AdminResetPasswordView,
+    AdminRestoreTenantView,
     AdminSetPhaseView,
     AdminTenantDetailView,
     AdminTenantListView,
@@ -172,6 +173,11 @@ urlpatterns = [
         "api/admin/tenants/<uuid:pk>/",
         AdminTenantDetailView.as_view(),
         name="admin-tenants-detail",
+    ),
+    path(
+        "api/admin/tenants/<uuid:pk>/restore/",
+        AdminRestoreTenantView.as_view(),
+        name="admin-tenant-restore",
     ),
     path(
         "api/admin/tenants/<uuid:pk>/users/",

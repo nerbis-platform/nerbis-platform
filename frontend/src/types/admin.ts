@@ -93,6 +93,8 @@ export interface AdminTenant {
   days_remaining: number | null;
   user_count: number;
   onboarding_phase: AdminTenantPhase;
+  is_deleted: boolean;
+  deleted_at: string | null;
   created_at: string;
   /**
    * Optional because the backend serializer does not explicitly expose
@@ -159,6 +161,10 @@ export interface AdminTenantDetail {
   user_count: number;
   admin_count: number;
 
+  // Soft delete
+  is_deleted: boolean;
+  deleted_at: string | null;
+
   // Metadata
   created_at: string;
   updated_at: string;
@@ -200,6 +206,7 @@ export interface AdminTenantFilters {
   is_active?: boolean;
   plan?: AdminTenantPlan;
   search?: string;
+  deleted?: boolean;
   page?: number;
   page_size?: number;
   ordering?:

@@ -77,6 +77,19 @@ export async function adminUpdateTenant(
   return data;
 }
 
+export async function adminDeleteTenant(id: string): Promise<void> {
+  await adminClient.delete<void>(`/admin/tenants/${id}/`);
+}
+
+export async function adminRestoreTenant(
+  id: string,
+): Promise<AdminTenantDetail> {
+  const { data } = await adminClient.post<AdminTenantDetail>(
+    `/admin/tenants/${id}/restore/`,
+  );
+  return data;
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // Tenant users
 // ──────────────────────────────────────────────────────────────────────

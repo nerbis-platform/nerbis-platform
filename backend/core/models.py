@@ -392,6 +392,18 @@ class Tenant(models.Model):
     tax_id = models.CharField(max_length=30, blank=True, verbose_name="NIT / Identificación fiscal")
     legal_address = models.TextField(blank=True, verbose_name="Dirección de notificación judicial")
 
+    # Soft delete
+    is_deleted = models.BooleanField(
+        default=False,
+        verbose_name="Eliminado (soft delete)",
+        help_text="True = en papelera. No se destruyen datos, solo se oculta del listado.",
+    )
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de eliminación",
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
 
@@ -1694,12 +1706,16 @@ class AdminAuditLog(models.Model):
     ACTION_UNBLOCK_SUPERADMIN = "unblock_superadmin"
     ACTION_DELETE_SUPERADMIN = "delete_superadmin"
     ACTION_CHANGE_SUPERADMIN_ROLE = "change_superadmin_role"
+    ACTION_DELETE_TENANT = "delete_tenant"
+    ACTION_RESTORE_TENANT = "restore_tenant"
     ACTION_CREATE_SUPERADMIN = "create_superadmin"
 
     ACTION_CHOICES = [
         (ACTION_DEACTIVATE_TENANT, "Deactivate tenant"),
         (ACTION_ACTIVATE_TENANT, "Activate tenant"),
         (ACTION_EDIT_TENANT_DATA, "Edit tenant data"),
+        (ACTION_DELETE_TENANT, "Soft delete tenant"),
+        (ACTION_RESTORE_TENANT, "Restore tenant"),
         (ACTION_DEACTIVATE_USER, "Deactivate user"),
         (ACTION_ACTIVATE_USER, "Activate user"),
         (ACTION_CHANGE_USER_ROLE, "Change user role"),
