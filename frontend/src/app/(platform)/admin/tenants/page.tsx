@@ -363,9 +363,11 @@ export default function AdminTenantsPage() {
         </div>
 
         {/* ── Tabs: Activos / Papelera ──────────────────────────────── */}
-        <div className="mb-4 flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 w-fit">
+        <div role="tablist" className="mb-4 flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 w-fit">
           <button
             type="button"
+            role="tab"
+            aria-selected={tab === 'active'}
             onClick={() => setTab('active')}
             className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
               tab === 'active'
@@ -377,6 +379,8 @@ export default function AdminTenantsPage() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={tab === 'trash'}
             onClick={() => setTab('trash')}
             className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
               tab === 'trash'

@@ -274,14 +274,15 @@ class AdminTenantDetailView(generics.RetrieveUpdateDestroyAPIView):
         """DELETE — soft delete del tenant."""
         tenant = self.get_object()
 
-        if tenant.is_deleted:
-            return Response(
-                {"detail": "El tenant ya está eliminado."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         with transaction.atomic():
             tenant = Tenant.objects.select_for_update().get(pk=tenant.pk)
+
+            if tenant.is_deleted:
+                return Response(
+                    {"detail": "El tenant ya está eliminado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             previous_is_active = tenant.is_active
             tenant.is_deleted = True
             tenant.is_active = False
@@ -321,16 +322,27 @@ class AdminRestoreTenantView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if not tenant.is_deleted:
-            return Response(
-                {"detail": "El tenant no está eliminado."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         with transaction.atomic():
             tenant = Tenant.objects.select_for_update().get(pk=pk)
+
+            if not tenant.is_deleted:
+                return Response(
+                    {"detail": "El tenant no está eliminado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Restaurar is_active al estado previo guardado en el audit log
+            previous_is_active = True  # default seguro
+            last_delete_log = AdminAuditLog.objects.filter(
+                action=AdminAuditLog.ACTION_DELETE_TENANT,
+                target_type="Tenant",
+                target_id=str(tenant.id),
+            ).order_by("-created_at").first()
+            if last_delete_log and "previous_is_active" in last_delete_log.details:
+                previous_is_active = last_delete_log.details["previous_is_active"]
+
             tenant.is_deleted = False
-            tenant.is_active = True
+            tenant.is_active = previous_is_active
             tenant.deleted_at = None
             tenant.save(update_fields=["is_deleted", "is_active", "deleted_at"])
 
@@ -340,7 +352,7 @@ class AdminRestoreTenantView(APIView):
                 target_type="Tenant",
                 target_id=str(tenant.id),
                 target_repr=f"tenant: {tenant.slug}",
-                details={},
+                details={"restored_is_active": previous_is_active},
                 ip_address=get_client_ip(request),
             )
 

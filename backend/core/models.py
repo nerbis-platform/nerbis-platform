@@ -418,6 +418,7 @@ class Tenant(models.Model):
             models.Index(fields=["slug"]),
             models.Index(fields=["schema_name"]),
             models.Index(fields=["is_active"]),
+            models.Index(fields=["is_deleted"]),
         ]
 
     def __str__(self):

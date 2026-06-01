@@ -478,7 +478,7 @@ export default function CheckoutPage() {
                               <div className="space-y-1 leading-none">
                                 <FormLabel className="text-sm font-normal text-muted-foreground">
                                   Acepto los{' '}
-                                  <a href="/shop-terms" target="_blank" className="text-primary hover:underline">
+                                  <a href="/shop-terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                                     Terminos y Condiciones
                                   </a>{' '}
                                   y autorizo el tratamiento de mis datos conforme a la{' '}

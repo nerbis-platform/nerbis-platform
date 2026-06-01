@@ -1413,7 +1413,7 @@ export default function AdminTenantDetailPage({
         </section>
 
       {/* Danger zone */}
-      {tenant && (
+      {tenant && !tenant.is_deleted && (
         <section className="mt-10 rounded-xl border border-red-200 bg-red-50/50">
           <div className="border-b border-red-200 px-5 py-3">
             <h3 className="text-sm font-semibold text-red-700">Zona de peligro</h3>
