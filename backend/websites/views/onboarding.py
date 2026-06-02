@@ -85,10 +85,16 @@ class StartOnboardingView(OnboardingView):
             config.media_data = {}
             config.seo_data = {}
             config.enabled_pages = []
-            config.save(update_fields=[
-                "content_data", "pages_data", "theme_data",
-                "media_data", "seo_data", "enabled_pages",
-            ])
+            config.save(
+                update_fields=[
+                    "content_data",
+                    "pages_data",
+                    "theme_data",
+                    "media_data",
+                    "seo_data",
+                    "enabled_pages",
+                ]
+            )
 
         # Obtener preguntas del template
         questions = self._get_questions_for_template(template)
