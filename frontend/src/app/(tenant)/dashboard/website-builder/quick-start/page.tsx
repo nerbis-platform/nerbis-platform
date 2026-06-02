@@ -545,7 +545,7 @@ export default function QuickStartPage() {
         for (const [key, val] of Object.entries(status.responses)) {
           restoredAnswers[key] = Array.isArray(val) ? val.join(', ') : String(val);
         }
-        setAnswers(prev => ({ ...restoredAnswers, ...prev }));
+        setAnswers(prev => ({ ...prev, ...restoredAnswers }));
       }
     }).catch(() => { /* API unavailable — use localStorage only */ });
 
@@ -732,10 +732,6 @@ export default function QuickStartPage() {
     }
   }, [pageState, tenant?.id]);
 
-  // ─── Auto-advance pages step (Pipe decides, no user click needed) ──
-  const pagesAutoAdvancedRef = useRef(false);
-  const autoAdvancePagesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // ─── Send answer ──────────────────────────────────────────
   const handleSend = useCallback(async () => {
     const step = steps[currentStepIdx];
@@ -774,7 +770,7 @@ export default function QuickStartPage() {
       return;
     }
 
-    // Handle pages step
+    // Handle pages step — user confirms after reviewing recommended pages
     if (step.type === 'pages') {
       if (selectedPages.size === 0) return;
 
@@ -784,11 +780,15 @@ export default function QuickStartPage() {
       const newAnswers = { ...answers, [step.id]: Array.from(selectedPages).join(', ') };
       setAnswers(newAnswers);
 
-      // Last step — start generating
-      setPageState('generating');
-      setGenStep(0);
-      setProgress(0);
-      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedPages), 100);
+      const isLastStep = currentStepIdx === steps.length - 1;
+      if (isLastStep) {
+        setPageState('generating');
+        setGenStep(0);
+        setProgress(0);
+        setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedPages), 100);
+      } else {
+        setCurrentStepIdx((prev) => prev + 1);
+      }
       return;
     }
 
@@ -1169,26 +1169,7 @@ export default function QuickStartPage() {
                           { text: '. Si después quieres agregar o quitar alguna, puedes hacerlo en el editor.' },
                         ]}
                         speed={18}
-                        onDone={() => {
-                          setTypewriterDone(true);
-                          if (pagesAutoAdvancedRef.current) return;
-                          pagesAutoAdvancedRef.current = true;
-                          const isLastStep = currentStepIdx === steps.length - 1;
-                          autoAdvancePagesRef.current = setTimeout(() => {
-                            const newAnswers = { ...answers, [step.id]: Array.from(selectedPages).join(', ') };
-                            setAnswers(newAnswers);
-                            setActiveMood('surprised');
-                            setTimeout(() => setActiveMood('listening'), 600);
-                            if (isLastStep) {
-                              setPageState('generating');
-                              setGenStep(0);
-                              setProgress(0);
-                              triggerQuickStartGeneration(newAnswers, selectedPages);
-                            } else {
-                              setCurrentStepIdx((prev) => prev + 1);
-                            }
-                          }, 500);
-                        }}
+                        onDone={() => setTypewriterDone(true)}
                       />
                     ) : (
                       <Typewriter text={step.message} speed={20} onDone={() => setTypewriterDone(true)} />
