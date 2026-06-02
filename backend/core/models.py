@@ -2000,6 +2000,16 @@ class IndustryGalleryCard(models.Model):
         verbose_name="Ultima actualizacion",
     )
 
+    def save(self, *args, **kwargs):
+        if self.pk:
+            try:
+                old = IndustryGalleryCard.objects.get(pk=self.pk)
+                if old.image and self.image != old.image:
+                    old.image.delete(save=False)
+            except IndustryGalleryCard.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+
     class Meta:
         ordering = ["row", "sort_order"]
         verbose_name = "Card de Galeria de Industrias"

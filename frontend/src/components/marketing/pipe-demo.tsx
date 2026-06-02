@@ -83,14 +83,14 @@ function PreviewNav() {
   return (
     <div className="pd-nav pd-el flex items-center justify-between border-b border-border/60 px-4 py-2">
       <span className="text-[10px] font-bold tracking-tight text-foreground">MODA NERBIS</span>
-      <div className="hidden gap-3 sm:flex">
+      <nav className="hidden gap-3 sm:flex" aria-label="Navegación demo">
         <span className="text-[8px] text-muted-foreground">Catálogo</span>
         <span className="text-[8px] text-muted-foreground">Nosotros</span>
         <span className="text-[8px] text-muted-foreground">Contacto</span>
-      </div>
-      <div className="rounded-md bg-foreground px-2.5 py-0.5 text-[8px] font-medium text-white">
+      </nav>
+      <span role="presentation" className="rounded-md bg-foreground px-2.5 py-0.5 text-[8px] font-medium text-white">
         Comprar
-      </div>
+      </span>
     </div>
   );
 }
@@ -101,7 +101,7 @@ function PreviewHero() {
       {/* Hero background image */}
       <img
         src="/images/demo/Hero.png"
-        alt=""
+        alt="Hero de Moda Nerbis"
         className="absolute inset-0 h-full w-full object-cover opacity-20"
       />
       <div className="relative flex items-center gap-4">
@@ -123,7 +123,7 @@ function PreviewHero() {
         </div>
         <img
           src="/images/demo/Hero.png"
-          alt=""
+          alt="Producto destacado Moda Nerbis"
           className="hidden h-20 w-20 rounded-lg object-cover sm:block"
         />
       </div>
@@ -147,7 +147,7 @@ function PreviewServices() {
       <div className="grid grid-cols-2 gap-1.5">
         {products.map((p) => (
           <div key={p.name} className="pd-card overflow-hidden rounded-lg border border-border bg-background">
-            <img src={p.img} alt="" className="h-10 w-full object-cover" />
+            <img src={p.img} alt={p.name} className="h-10 w-full object-cover" />
             <div className="px-1.5 py-1">
               <span className="block text-[7px] font-medium text-foreground">{p.name}</span>
               <span className="text-[6px] text-muted-foreground">{p.price}</span>
@@ -169,7 +169,7 @@ function PreviewGallery() {
           <img
             key={i}
             src={src}
-            alt=""
+            alt={`Producto de galería ${i + 1}`}
             className="pd-gallery-item aspect-square rounded-md object-cover"
           />
         ))}
@@ -219,23 +219,23 @@ function PreviewContact() {
             +57 300 123 4567<br />
             hola@modanerbis.com
           </p>
-          <div className="mt-1.5 flex gap-1">
-            <div className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-foreground/10">
+          <div className="mt-1.5 flex gap-1" aria-label="Redes sociales">
+            <a href="#" aria-label="Twitter" className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-foreground/10">
               <svg aria-hidden="true" width="6" height="6" viewBox="0 0 24 24" fill="currentColor" className="text-foreground/50">
                 <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" />
               </svg>
-            </div>
-            <div className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-foreground/10">
+            </a>
+            <a href="#" aria-label="Instagram" className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-foreground/10">
               <svg aria-hidden="true" width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-foreground/50">
                 <rect x="2" y="2" width="20" height="20" rx="5" />
                 <circle cx="12" cy="12" r="5" />
               </svg>
-            </div>
-            <div className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-foreground/10">
+            </a>
+            <a href="#" aria-label="Facebook" className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-foreground/10">
               <svg aria-hidden="true" width="6" height="6" viewBox="0 0 24 24" fill="currentColor" className="text-foreground/50">
                 <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
               </svg>
-            </div>
+            </a>
           </div>
         </div>
         <div

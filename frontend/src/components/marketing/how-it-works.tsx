@@ -98,7 +98,7 @@ export function HowItWorks({ content }: HowItWorksProps) {
           {/* Secondary blocks — stacked */}
           <div className="flex flex-col gap-4">
             {secondaries.map((step, i) => {
-              const Icon = ICONS[i + 1] || Palette;
+              const Icon = ICONS[i + 1] || MessageSquareText;
               return (
                 <div
                   key={step.step_label}
