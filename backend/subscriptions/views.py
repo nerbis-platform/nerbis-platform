@@ -38,14 +38,16 @@ class MarketplaceCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None  # Deshabilitar paginación
 
     def get_queryset(self):
-        """Solo categorías activas con planes activos"""
-        return MarketplaceCategory.objects.filter(is_active=True).prefetch_related("plans")
+        """Solo categorías activas con planes activos del tenant actual"""
+        return MarketplaceCategory.objects.filter(is_active=True, tenant=self.request.tenant).prefetch_related("plans")
 
     @action(detail=True, methods=["get"])
     def plans(self, request, slug=None):
         """Obtener todos los planes de una categoría"""
         category = self.get_object()
-        plans = MarketplacePlan.objects.filter(category=category, is_active=True).order_by("order", "name")
+        plans = MarketplacePlan.objects.filter(category=category, is_active=True, tenant=request.tenant).order_by(
+            "order", "name"
+        )
 
         serializer = MarketplacePlanListSerializer(plans, many=True)
         return Response(serializer.data)
@@ -63,8 +65,8 @@ class MarketplacePlanViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None  # Deshabilitar paginación
 
     def get_queryset(self):
-        """Solo planes activos"""
-        queryset = MarketplacePlan.objects.filter(is_active=True).select_related("category")
+        """Solo planes activos del tenant actual"""
+        queryset = MarketplacePlan.objects.filter(is_active=True, tenant=self.request.tenant).select_related("category")
 
         # Filtrar por categoría si se especifica
         category_slug = self.request.query_params.get("category", None)
@@ -134,7 +136,10 @@ def purchase_plan(request):
     serializer = CreateContractSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
-    plan = MarketplacePlan.objects.get(id=serializer.validated_data["service_plan_id"])
+    plan = MarketplacePlan.objects.get(
+        id=serializer.validated_data["service_plan_id"],
+        tenant=request.tenant,
+    )
 
     # Verificar si el usuario ya tiene un contrato activo de este plan
     existing_contract = MarketplaceContract.objects.filter(
@@ -160,7 +165,7 @@ def purchase_plan(request):
 def featured_plans(request):
     """Obtener planes destacados para la página principal"""
     plans = (
-        MarketplacePlan.objects.filter(is_active=True, is_featured=True)
+        MarketplacePlan.objects.filter(is_active=True, is_featured=True, tenant=request.tenant)
         .select_related("category")
         .order_by("order", "name")[:6]
     )
