@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { NerbisWordmark } from '@/components/marketing/nerbis-wordmark';
 import {
-  Check,
-  AlertCircle,
+  ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
+  Check,
   Send,
   FileText,
   Layout,
@@ -59,6 +60,7 @@ interface ConversationStep {
   hint?: string;
   inputType?: string;
   minLength?: number;
+  maxLength?: number;
   rows?: number;
   options?: StyleOption[] | PaletteOption[] | ToneOption[];
 }
@@ -138,7 +140,7 @@ const SECTION_LABELS: Record<string, string> = {
   faq: 'Preguntas frecuentes',
 };
 
-type PageState = 'chat' | 'generating' | 'success' | 'error' | 'limit-reached';
+type PageState = 'chat' | 'generating' | 'success' | 'error' | 'limit-reached' | 'unsupported-industry';
 
 export default function QuickStartPage() {
   const router = useRouter();
@@ -286,6 +288,7 @@ export default function QuickStartPage() {
             placeholder: q.placeholder || undefined,
             hint: q.hint || undefined,
             minLength: q.min_length || undefined,
+            maxLength: q.max_length || undefined,
             rows: q.input_type === 'textarea' ? 3 : undefined,
           };
           // Pass options for special types
@@ -302,16 +305,16 @@ export default function QuickStartPage() {
     } else {
       // Fallback hardcoded questions while API loads
       result.push(
-        { id: 'description', message: 'Cuéntame, ¿para qué necesitas tu sitio y qué haces?', type: 'textarea', placeholder: 'Ej: Soy diseñadora gráfica freelance...', hint: 'Entre más detalles, mejor queda tu sitio.', minLength: 20, rows: 3 },
+        { id: 'description', message: 'Cuéntame, ¿para qué necesitas tu sitio y qué haces?', type: 'textarea', placeholder: 'Ej: Soy diseñadora gráfica freelance...', hint: 'Entre más detalles, mejor queda tu sitio.', minLength: 20, maxLength: 1000, rows: 3 },
       );
       if (selectedModules.has('has_services')) {
-        result.push({ id: 'services', message: '¿Qué servicios ofreces? Incluye nombre, descripción corta y precio aproximado.', type: 'textarea', placeholder: 'Ej:\nDiseño de logo — Creación de identidad visual — $500\nBranding completo — Logo + papelería + guía de marca — $1,200', hint: 'Uno por línea.', minLength: 5, rows: 4 });
+        result.push({ id: 'services', message: '¿Qué servicios ofreces? Incluye nombre, descripción corta y precio aproximado.', type: 'textarea', placeholder: 'Ej:\nDiseño de logo — Creación de identidad visual — $500\nBranding completo — Logo + papelería + guía de marca — $1,200', hint: 'Uno por línea.', minLength: 5, maxLength: 2000, rows: 4 });
       }
       if (selectedModules.has('has_shop')) {
-        result.push({ id: 'products', message: '¿Qué productos vendes? Cuéntame las categorías y rango de precios.', type: 'textarea', placeholder: 'Ej:\nCamisetas estampadas — $15-25\nHoodies premium — $40-60', hint: 'Categorías y precios aproximados.', minLength: 5, rows: 4 });
+        result.push({ id: 'products', message: '¿Qué productos vendes? Cuéntame las categorías y rango de precios.', type: 'textarea', placeholder: 'Ej:\nCamisetas estampadas — $15-25\nHoodies premium — $40-60', hint: 'Categorías y precios aproximados.', minLength: 5, maxLength: 2000, rows: 4 });
       }
       if (selectedModules.has('has_bookings')) {
-        result.push({ id: 'bookings', message: '¿Qué se puede reservar? Cuéntame duración, horarios y si es presencial o virtual.', type: 'textarea', placeholder: 'Ej:\nConsulta inicial — 30 min — virtual\nSesión de coaching — 1 hora — presencial', hint: 'Detalla cada tipo de cita.', minLength: 5, rows: 4 });
+        result.push({ id: 'bookings', message: '¿Qué se puede reservar? Cuéntame duración, horarios y si es presencial o virtual.', type: 'textarea', placeholder: 'Ej:\nConsulta inicial — 30 min — virtual\nSesión de coaching — 1 hora — presencial', hint: 'Detalla cada tipo de cita.', minLength: 5, maxLength: 2000, rows: 4 });
       }
       result.push({ id: 'pages', message: '¿Qué páginas quieres en tu sitio?', type: 'pages', hint: 'Puedes agregar más después.' });
     }
@@ -324,7 +327,53 @@ export default function QuickStartPage() {
   const [genStep, setGenStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<QuickStartResponse | null>(null);
+  const [usageLimitInfo, setUsageLimitInfo] = useState<{ used: number; limit: number } | null>(null);
 
+  // ─── Session storage keys (scoped to tenant to prevent cross-tenant leaks) ──
+  const SS_KEY = `nerbis_quickstart_state_${tenant?.id || 'unknown'}`;
+
+  // ─── Restore state from sessionStorage on mount ────────────
+  const hasRestored = useRef(false);
+  useEffect(() => {
+    if (hasRestored.current) return;
+    hasRestored.current = true;
+    try {
+      const saved = sessionStorage.getItem(SS_KEY);
+      if (!saved) return;
+      const state = JSON.parse(saved);
+      if (state.currentStepIdx > 0) {
+        setCurrentStepIdx(state.currentStepIdx);
+        setAnswers(state.answers || {});
+        if (state.selectedModules?.length) {
+          setSelectedModules(new Set(state.selectedModules));
+          explicitModulesRef.current = new Set(state.explicitModules || []);
+        }
+        if (state.selectedPages?.length) setSelectedPages(new Set(state.selectedPages));
+        if (state.selectedStyle) setSelectedStyle(state.selectedStyle);
+        if (state.selectedTone) setSelectedTone(state.selectedTone);
+        if (state.primaryColor) setPrimaryColor(state.primaryColor);
+        if (state.secondaryColor) setSecondaryColor(state.secondaryColor);
+      }
+    } catch { /* corrupted storage — start fresh */ }
+  }, []);
+
+  // ─── Persist state to sessionStorage on changes ────────────
+  useEffect(() => {
+    if (pageState !== 'chat') return;
+    try {
+      sessionStorage.setItem(SS_KEY, JSON.stringify({
+        currentStepIdx,
+        answers,
+        selectedModules: Array.from(selectedModules),
+        explicitModules: Array.from(explicitModulesRef.current),
+        selectedPages: Array.from(selectedPages),
+        selectedStyle,
+        selectedTone,
+        primaryColor,
+        secondaryColor,
+      }));
+    } catch { /* storage full — silently ignore */ }
+  }, [currentStepIdx, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, pageState]);
 
   // ─── Simulate typing delay for each new message ──────────
   useEffect(() => {
@@ -458,7 +507,13 @@ export default function QuickStartPage() {
       if (error instanceof ApiError && error.status === 409) {
         startPolling();
       } else if (error instanceof ApiError && error.status === 402) {
+        const data = error.data as { used?: number; limit?: number } | undefined;
+        if (data?.used !== undefined && data?.limit !== undefined) {
+          setUsageLimitInfo({ used: data.used, limit: data.limit });
+        }
         setPageState('limit-reached');
+      } else if (error instanceof ApiError && error.status === 400 && error.message?.includes('industria')) {
+        setPageState('unsupported-industry');
       } else {
         setPageState('error');
       }
@@ -633,7 +688,27 @@ export default function QuickStartPage() {
     setSelectedTone('');
     setPrimaryColor('');
     setSecondaryColor('');
+    setUsageLimitInfo(null);
+    sessionStorage.removeItem(SS_KEY);
   }, []);
+
+  const handleBack = useCallback(() => {
+    if (currentStepIdx <= 0) return;
+    const prevStep = steps[currentStepIdx - 1];
+    // Restore previous answer into the input for textarea/input types
+    if (prevStep && (prevStep.type === 'textarea' || prevStep.type === 'input')) {
+      setCurrentInput(answers[prevStep.id] || '');
+    } else {
+      setCurrentInput('');
+    }
+    // Remove the current step's answer so it can be re-answered
+    setAnswers((prev) => {
+      const next = { ...prev };
+      delete next[prevStep.id];
+      return next;
+    });
+    setCurrentStepIdx((prev) => prev - 1);
+  }, [currentStepIdx, steps, answers]);
 
   const firstName = user?.first_name || tenant?.name?.split(' ')[0] || '';
 
@@ -954,6 +1029,21 @@ export default function QuickStartPage() {
             style={{ borderColor: WARM_GRAY_100 }}
           >
             <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
+              {/* Back button */}
+              {currentStepIdx > 0 && (
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="flex items-center gap-1 text-[0.75rem] font-medium mb-2 transition-colors"
+                  style={{ color: WARM_GRAY_400 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = TEAL)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Volver al paso anterior
+                </button>
+              )}
+
               {/* Textarea input */}
               {step.type === 'textarea' && (
                 <>
@@ -968,10 +1058,15 @@ export default function QuickStartPage() {
                   >
                     <textarea
                       value={currentInput}
-                      onChange={(e) => setCurrentInput(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (step.maxLength && val.length > step.maxLength) return;
+                        setCurrentInput(val);
+                      }}
                       onKeyDown={handleKeyDown}
                       placeholder={step.placeholder}
                       rows={step.rows || 2}
+                      maxLength={step.maxLength}
                       autoFocus
                       className="flex-1 bg-transparent text-[0.88rem] leading-relaxed resize-none focus:outline-none"
                       style={{ color: WARM_GRAY_800 }}
@@ -986,9 +1081,19 @@ export default function QuickStartPage() {
                       <Send className="w-4 h-4" />
                     </button>
                   </div>
-                  {step.hint && (
-                    <p className="text-[0.7rem] mt-2 ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
-                  )}
+                  <div className="flex items-center justify-between mt-2 mx-1">
+                    {step.hint ? (
+                      <p className="text-[0.7rem]" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                    ) : <span />}
+                    {step.maxLength && (
+                      <p
+                        className="text-[0.7rem] tabular-nums"
+                        style={{ color: currentInput.length > step.maxLength * 0.9 ? '#B91C1C' : WARM_GRAY_600 }}
+                      >
+                        {currentInput.length}/{step.maxLength}
+                      </p>
+                    )}
+                  </div>
                 </>
               )}
 
@@ -1002,9 +1107,14 @@ export default function QuickStartPage() {
                     <input
                       type={step.inputType || 'text'}
                       value={currentInput}
-                      onChange={(e) => setCurrentInput(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (step.maxLength && val.length > step.maxLength) return;
+                        setCurrentInput(val);
+                      }}
                       onKeyDown={handleKeyDown}
                       placeholder={step.placeholder}
+                      maxLength={step.maxLength}
                       autoFocus
                       className="flex-1 bg-transparent text-[0.88rem] focus:outline-none"
                       style={{ color: WARM_GRAY_800 }}
@@ -1427,7 +1537,7 @@ export default function QuickStartPage() {
     );
   }
 
-  // ─── ERROR / LIMIT STATES ─────────────────────────────────
+  // ─── ERROR / LIMIT / UNSUPPORTED STATES ──────────────────
   return (
     <div
       className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
@@ -1437,11 +1547,8 @@ export default function QuickStartPage() {
 
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         <div className="w-full max-w-md text-center">
-          <div
-            className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6"
-            style={{ backgroundColor: '#FEE2E2' }}
-          >
-            <AlertCircle className="w-8 h-8" style={{ color: '#DC2626' }} />
+          <div className="mb-5">
+            <PipeAvatar mood="idle" size={48} />
           </div>
 
           {pageState === 'limit-reached' ? (
@@ -1453,12 +1560,80 @@ export default function QuickStartPage() {
                 Límite de generaciones alcanzado
               </h2>
               <p
+                className="mb-2 text-[0.92rem]"
+                style={{ color: WARM_GRAY_500 }}
+              >
+                Usaste todas las generaciones disponibles este mes.
+              </p>
+              {usageLimitInfo && (
+                <p
+                  className="mb-6 text-[0.8rem] font-medium"
+                  style={{ color: WARM_GRAY_400 }}
+                >
+                  {usageLimitInfo.used} de {usageLimitInfo.limit} generaciones usadas
+                </p>
+              )}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link
+                  href="/precios"
+                  className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
+                  style={{ backgroundColor: TEAL, color: '#fff' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.opacity = '0.92';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                >
+                  Ver planes
+                  <ArrowUpRight className="w-4 h-4" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard')}
+                  className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-all duration-150"
+                  style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
+                >
+                  Ir al dashboard
+                </button>
+              </div>
+            </>
+          ) : pageState === 'unsupported-industry' ? (
+            <>
+              <h2
+                className="text-xl font-semibold mb-2"
+                style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
+              >
+                Tu tipo de negocio aún no está disponible
+              </h2>
+              <p
                 className="mb-6 text-[0.92rem]"
                 style={{ color: WARM_GRAY_500 }}
               >
-                Usaste todas las generaciones de este mes.
-                Mejora tu plan para continuar.
+                El modo rápido aún no soporta tu industria.
+                Te llevamos al asistente completo donde puedes elegir un template manualmente.
               </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard/website-builder')}
+                  className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
+                  style={{ backgroundColor: TEAL, color: '#fff' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.opacity = '0.92';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                >
+                  Ir al asistente completo
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </>
           ) : (
             <>
@@ -1475,27 +1650,26 @@ export default function QuickStartPage() {
                 Hubo un problema con la generación. Puedes intentar de nuevo
                 con los mismos datos.
               </p>
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-all duration-150"
+                style={{
+                  borderColor: WARM_GRAY_200,
+                  backgroundColor: '#fff',
+                  color: WARM_GRAY_800,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = WARM_GRAY_100;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fff';
+                }}
+              >
+                Intentar de nuevo
+              </button>
             </>
           )}
-
-          <button
-            type="button"
-            onClick={handleRetry}
-            className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-all duration-150"
-            style={{
-              borderColor: WARM_GRAY_200,
-              backgroundColor: '#fff',
-              color: WARM_GRAY_800,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = WARM_GRAY_100;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#fff';
-            }}
-          >
-            Intentar de nuevo
-          </button>
         </div>
       </div>
     </div>
