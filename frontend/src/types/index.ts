@@ -696,6 +696,16 @@ export interface WebsitePage {
   auto_include_modules: string[];
 }
 
+export interface WebsiteSection {
+  id: number;
+  key: string;
+  label: string;
+  description: string;
+  page: number | null;
+  is_default: boolean;
+  sort_order: number;
+}
+
 export interface OnboardingResponse {
   id: number;
   website_config: number;

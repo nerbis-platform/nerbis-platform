@@ -52,6 +52,8 @@ from core.admin_settings_views import (
     AdminPlatformModuleListCreateView,
     AdminWebsitePageDetailView,
     AdminWebsitePageListCreateView,
+    AdminWebsiteSectionDetailView,
+    AdminWebsiteSectionListCreateView,
 )
 from core.admin_site import nerbis_admin_site
 from core.admin_tenant_views import (
@@ -268,6 +270,16 @@ urlpatterns = [
         "api/admin/settings/questions/<int:pk>/",
         AdminOnboardingQuestionDetailView.as_view(),
         name="admin-settings-questions-detail",
+    ),
+    path(
+        "api/admin/settings/sections/",
+        AdminWebsiteSectionListCreateView.as_view(),
+        name="admin-settings-sections-list",
+    ),
+    path(
+        "api/admin/settings/sections/<int:pk>/",
+        AdminWebsiteSectionDetailView.as_view(),
+        name="admin-settings-sections-detail",
     ),
     path(
         "api/admin/settings/marketing/",

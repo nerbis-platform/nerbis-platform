@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import OnboardingQuestion, OnboardingResponse, WebsiteConfig, WebsitePage, WebsiteTemplate
+from ..models import OnboardingQuestion, OnboardingResponse, WebsiteConfig, WebsitePage, WebsiteSection, WebsiteTemplate
 from ..services.ai_service import AIService
 from ..services.unsplash_service import UnsplashService
 
@@ -20,6 +20,7 @@ from ..serializers import (
     OnboardingQuestionSerializer,
     WebsiteConfigCreateSerializer,
     WebsitePageSerializer,
+    WebsiteSectionSerializer,
     WebsiteTemplateListSerializer,
 )
 
@@ -469,3 +470,14 @@ class WebsitePageListView(generics.ListAPIView):
         return (
             WebsitePage.objects.filter(is_active=True).prefetch_related("auto_include_modules").order_by("sort_order")
         )
+
+
+class WebsiteSectionListView(generics.ListAPIView):
+    """GET /api/websites/onboarding/sections/ — active sections ordered."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = WebsiteSectionSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return WebsiteSection.objects.filter(is_active=True).select_related("page").order_by("sort_order")

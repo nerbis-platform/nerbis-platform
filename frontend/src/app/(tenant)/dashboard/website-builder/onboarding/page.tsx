@@ -18,8 +18,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getOnboardingStatus, saveOnboardingResponses, getWebsiteTemplate } from '@/lib/api/websites';
-import { OnboardingQuestion, QuestionSection } from '@/types';
+import { getOnboardingStatus, saveOnboardingResponses, getWebsiteTemplate, getWebsiteSections } from '@/lib/api/websites';
+import { OnboardingQuestion, QuestionSection, WebsiteSection } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import LogoOptimizer from '@/components/website-builder/LogoOptimizer';
@@ -394,6 +394,12 @@ export default function OnboardingPage() {
     enabled: !!templateId,
   });
 
+  // Fetch website sections from API (for default pre-selection + options)
+  const { data: sectionsData } = useQuery<WebsiteSection[]>({
+    queryKey: ['websiteSections'],
+    queryFn: getWebsiteSections,
+  });
+
   // Initialize responses from saved data
   useEffect(() => {
     if (statusData?.responses) {
@@ -430,21 +436,38 @@ export default function OnboardingPage() {
     });
   }, [tenant, user]);
 
-  // Pre-select website_sections based on tenant flags (only if no saved response)
+  // Pre-select website_sections: API sections first, hardcoded fallback
   useEffect(() => {
-    if (tenant && !responses['website_sections']) {
-      const defaults = getDefaultSections(tenant);
-      if (defaults.length > 0) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setResponses((prev) => {
-          if (!prev['website_sections']) {
-            return { ...prev, website_sections: defaults };
-          }
-          return prev;
-        });
+    if (!responses['website_sections']) {
+      // Try API sections first, fallback to hardcoded
+      if (sectionsData && sectionsData.length > 0) {
+        const defaults = sectionsData
+          .filter((s) => s.is_default)
+          .map((s) => s.label);
+        if (defaults.length > 0) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setResponses((prev) => {
+            if (!prev['website_sections']) {
+              return { ...prev, website_sections: defaults };
+            }
+            return prev;
+          });
+        }
+      } else if (tenant) {
+        // Fallback to hardcoded defaults
+        const defaults = getDefaultSections(tenant);
+        if (defaults.length > 0) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setResponses((prev) => {
+            if (!prev['website_sections']) {
+              return { ...prev, website_sections: defaults };
+            }
+            return prev;
+          });
+        }
       }
     }
-  }, [tenant, responses]);
+  }, [tenant, sectionsData, responses]);
 
   // Redirect if not in onboarding status (skip if user navigated back via stepper)
   useEffect(() => {
@@ -843,7 +866,11 @@ export default function OnboardingPage() {
                 {/* Content section: single sections selector */}
                 {isContent && sectionsQ && (
                   <QuestionBlock
-                    question={sectionsQ}
+                    question={
+                      sectionsData && sectionsData.length > 0
+                        ? { ...sectionsQ, options: sectionsData.map((s) => s.label) }
+                        : sectionsQ
+                    }
                     responses={responses}
                     errors={errors}
                     updateResponse={updateResponse}

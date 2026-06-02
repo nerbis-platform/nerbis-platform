@@ -15,7 +15,7 @@ from __future__ import annotations
 from rest_framework import serializers
 
 from core.models import IndustryGalleryCard, MarketingSection, PlatformModule
-from websites.models import OnboardingQuestion, WebsitePage
+from websites.models import OnboardingQuestion, WebsitePage, WebsiteSection
 
 # ---------------------------------------------------------------------------
 # PlatformModule serializers
@@ -155,6 +155,46 @@ class AdminOnboardingQuestionSerializer(serializers.ModelSerializer):
             "required_modules",
             "required_modules_detail",
         ]
+
+
+# ---------------------------------------------------------------------------
+# WebsiteSection serializer
+# ---------------------------------------------------------------------------
+
+
+class WebsitePageMinimalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WebsitePage
+        fields = ["id", "key", "label"]
+
+
+class AdminWebsiteSectionSerializer(serializers.ModelSerializer):
+    """CRUD completo de WebsiteSection.
+
+    Patron dual-field para FK ``page``:
+    - ``page`` (write): PK para escritura.
+    - ``page_detail`` (read): representacion nested para lectura.
+    """
+
+    page_detail = WebsitePageMinimalSerializer(source="page", read_only=True)
+    page = serializers.PrimaryKeyRelatedField(queryset=WebsitePage.objects.all(), required=False, allow_null=True)
+
+    class Meta:
+        model = WebsiteSection
+        fields = [
+            "id",
+            "key",
+            "label",
+            "description",
+            "page",
+            "page_detail",
+            "is_default",
+            "sort_order",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
 
 
 # ---------------------------------------------------------------------------

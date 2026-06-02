@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from core.models import PlatformModule
-from websites.models import WebsitePage
+from websites.models import WebsitePage, WebsiteSection
 
 
 class Command(BaseCommand):
@@ -13,6 +13,7 @@ class Command(BaseCommand):
         self._seed_modules()
         self._seed_pages()
         self._link_pages_to_modules()
+        self._seed_sections()
         self.stdout.write(self.style.SUCCESS("Onboarding seed data complete!"))
 
     def _seed_modules(self):
@@ -156,3 +157,23 @@ class Command(BaseCommand):
             if page_key in pages and module_key in modules:
                 pages[page_key].auto_include_modules.set([modules[module_key]])
                 self.stdout.write(f"  Linked page '{page_key}' -> module '{module_key}'")
+
+    def _seed_sections(self):
+        sections_data = [
+            {"key": "hero", "label": "Hero", "is_default": True, "sort_order": 0},
+            {"key": "featured_services", "label": "Servicios destacados", "is_default": True, "sort_order": 1},
+            {"key": "about_preview", "label": "Sobre nosotros", "is_default": True, "sort_order": 2},
+            {"key": "testimonials", "label": "Testimonios", "is_default": True, "sort_order": 3},
+            {"key": "faq", "label": "Preguntas frecuentes", "is_default": False, "sort_order": 4},
+            {"key": "gallery", "label": "Galería", "is_default": False, "sort_order": 5},
+            {"key": "cta", "label": "Llamada a la acción", "is_default": True, "sort_order": 6},
+            {"key": "partners", "label": "Partners / Aliados", "is_default": False, "sort_order": 7},
+        ]
+
+        for data in sections_data:
+            obj, created = WebsiteSection.objects.update_or_create(
+                key=data["key"],
+                defaults=data,
+            )
+            status = "Created" if created else "Updated"
+            self.stdout.write(f"  {status} section: {obj.label}")

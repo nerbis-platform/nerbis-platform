@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import Image from 'next/image';
+import { NerbisWordmark } from '@/components/marketing/nerbis-wordmark';
 import {
   Check,
   AlertCircle,
@@ -178,44 +178,6 @@ export default function QuickStartPage() {
   const modules = apiModules ?? FALLBACK_MODULES;
   const pages = apiPages ?? FALLBACK_PAGES;
 
-  // ─── Dependency helpers ─────────────────────────────────────
-  const toggleModule = useCallback((modKey: keyof ModuleSelection) => {
-    setSelectedModules((prev) => {
-      const next = new Set(prev);
-      if (next.has(modKey)) {
-        // Deselect: also remove modules that depend on this one
-        next.delete(modKey);
-        for (const m of modules) {
-          if (m.dependencies.includes(modKey) && next.has(m.key as keyof ModuleSelection)) {
-            next.delete(m.key as keyof ModuleSelection);
-          }
-        }
-        // Also remove dependencies that are no longer needed by any other selected module
-        const deselected = modules.find((m) => m.key === modKey);
-        if (deselected) {
-          for (const dep of deselected.dependencies) {
-            const stillNeeded = modules.some(
-              (m) => m.key !== modKey && next.has(m.key as keyof ModuleSelection) && m.dependencies.includes(dep)
-            );
-            if (!stillNeeded) {
-              next.delete(dep as keyof ModuleSelection);
-            }
-          }
-        }
-      } else {
-        // Select: also add its dependencies
-        next.add(modKey);
-        const mod = modules.find((m) => m.key === modKey);
-        if (mod) {
-          for (const dep of mod.dependencies) {
-            next.add(dep as keyof ModuleSelection);
-          }
-        }
-      }
-      return next;
-    });
-  }, [modules]);
-
   // ─── Conversation state ───────────────────────────────────
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -224,6 +186,9 @@ export default function QuickStartPage() {
   const [selectedModules, setSelectedModules] = useState<Set<keyof ModuleSelection>>(
     () => new Set()
   );
+  // Track modules explicitly clicked by the user (vs auto-included as dependency).
+  // Using a ref so toggleModule always reads the latest value without stale closures.
+  const explicitModulesRef = useRef<Set<keyof ModuleSelection>>(new Set());
   const [selectedPages, setSelectedPages] = useState<Set<string>>(() => {
     const defaults = (apiPages ?? FALLBACK_PAGES).filter((p) => p.is_default).map((p) => p.key);
     return new Set(defaults);
@@ -232,6 +197,41 @@ export default function QuickStartPage() {
   const [selectedTone, setSelectedTone] = useState('');
   const [primaryColor, setPrimaryColor] = useState('');
   const [secondaryColor, setSecondaryColor] = useState('');
+
+  // ─── Dependency helpers ─────────────────────────────────────
+
+  // Rebuild the full selected set from explicit selections + their transitive deps
+  const resolveSelected = useCallback((explicit: Set<keyof ModuleSelection>): Set<keyof ModuleSelection> => {
+    const result = new Set<keyof ModuleSelection>();
+    for (const key of explicit) {
+      result.add(key);
+      const mod = modules.find((m) => m.key === key);
+      if (mod) {
+        for (const dep of mod.dependencies) {
+          result.add(dep as keyof ModuleSelection);
+        }
+      }
+    }
+    return result;
+  }, [modules]);
+
+  const toggleModule = useCallback((modKey: keyof ModuleSelection) => {
+    const explicit = explicitModulesRef.current;
+
+    if (explicit.has(modKey)) {
+      explicit.delete(modKey);
+      // Also remove dependents (modules that require this one)
+      for (const m of modules) {
+        if (m.dependencies.includes(modKey)) {
+          explicit.delete(m.key as keyof ModuleSelection);
+        }
+      }
+    } else {
+      explicit.add(modKey);
+    }
+
+    setSelectedModules(resolveSelected(explicit));
+  }, [modules, resolveSelected]);
 
   // ─── Detect modules included as dependencies ─────────────
   const includedAsDep = useMemo(() => {
@@ -648,19 +648,7 @@ export default function QuickStartPage() {
     >
       <div className="max-w-2xl mx-auto px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <Image
-            src="/Isotipo_color_NERBIS.png"
-            alt="NERBIS"
-            width={32}
-            height={32}
-            style={{ width: 32, height: 'auto' }}
-          />
-          <span
-            className="text-[0.82rem] font-semibold tracking-wider"
-            style={{ color: NAVY }}
-          >
-            NERBIS
-          </span>
+          <NerbisWordmark size={14} variant="full" pipeSize={28} className="text-[#1C3B57]" />
         </div>
         <div className="flex items-center gap-3">
           <Link
@@ -754,17 +742,40 @@ export default function QuickStartPage() {
                 </div>
               ) : (
                 <>
-                  <h1
-                    className="text-xl sm:text-2xl font-semibold text-center mb-14 animate-in fade-in duration-500"
-                    style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
+                  <div
+                    className="relative mb-14 animate-in fade-in duration-500 rounded-2xl px-5 py-4 text-center"
+                    style={{
+                      backgroundColor: '#f8f9fa',
+                      border: `1px solid ${WARM_GRAY_100}`,
+                      maxWidth: '22rem',
+                    }}
                   >
-                    Hola{firstName ? ' ' : ''}
-                    {firstName && <span style={{ color: TEAL }}>{firstName}</span>}
-                    {firstName ? ', s' : 'S'}oy{' '}
-                    <span style={{ color: TEAL }}>{AGENT_NAME}</span>
-                    , tu asistente creativo.{' '}
-                    {step.message}
-                  </h1>
+                    {/* Speech bubble tail */}
+                    <div
+                      className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
+                      style={{
+                        backgroundColor: '#f8f9fa',
+                        borderLeft: `1px solid ${WARM_GRAY_100}`,
+                        borderTop: `1px solid ${WARM_GRAY_100}`,
+                      }}
+                    />
+                    <p
+                      className="text-sm font-medium"
+                      style={{ color: WARM_GRAY_800 }}
+                    >
+                      Hola{firstName ? ' ' : ''}
+                      {firstName && <span style={{ color: TEAL }}>{firstName}</span>}
+                      {firstName ? ', s' : 'S'}oy{' '}
+                      <span className="font-semibold" style={{ color: TEAL }}>{AGENT_NAME}</span>
+                      , tu asistente creativo.
+                    </p>
+                    <p
+                      className="text-lg font-semibold mt-1.5"
+                      style={{ color: WARM_GRAY_800, letterSpacing: '-0.01em' }}
+                    >
+                      {step.message}
+                    </p>
+                  </div>
 
                   {/* Module grid + continue — same width as title */}
                   {step.type === 'modules' && (

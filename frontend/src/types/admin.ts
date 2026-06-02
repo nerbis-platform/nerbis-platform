@@ -453,3 +453,86 @@ export interface AdminOnboardingQuestionPayload {
   template?: number | null;
   required_modules?: number[];
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Website pages — platform settings (Issue #214)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Website page returned by `GET /api/admin/settings/pages/`.
+ * Mirrors `AdminWebsitePageSerializer`.
+ */
+export interface AdminWebsitePage {
+  id: number;
+  key: string;
+  label: string;
+  description: string;
+  icon: string;
+  is_mandatory: boolean;
+  is_default: boolean;
+  sort_order: number;
+  is_active: boolean;
+  auto_include_modules_detail: AdminModuleRef[];
+  auto_include_modules: number[];
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Payload accepted by `POST/PATCH /api/admin/settings/pages/`.
+ * Mirrors `AdminWebsitePageCreateUpdateSerializer`.
+ */
+export interface AdminWebsitePagePayload {
+  key: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  is_mandatory?: boolean;
+  is_default?: boolean;
+  sort_order?: number;
+  is_active?: boolean;
+  auto_include_modules?: number[];
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Website sections — platform settings (Issue #214)
+// ──────────────────────────────────────────────────────────────────────
+
+/** Compact reference to a page, used in section relations. */
+export interface AdminPageRef {
+  id: number;
+  key: string;
+  label: string;
+}
+
+/**
+ * Website section returned by `GET /api/admin/settings/sections/`.
+ * Mirrors `AdminWebsiteSectionSerializer`.
+ */
+export interface AdminWebsiteSection {
+  id: number;
+  key: string;
+  label: string;
+  description: string;
+  page: number | null;
+  page_detail: AdminPageRef | null;
+  is_default: boolean;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Payload accepted by `POST/PATCH /api/admin/settings/sections/`.
+ * Mirrors `AdminWebsiteSectionCreateUpdateSerializer`.
+ */
+export interface AdminWebsiteSectionPayload {
+  key: string;
+  label: string;
+  description?: string;
+  page?: number | null;
+  is_default?: boolean;
+  sort_order?: number;
+  is_active?: boolean;
+}
