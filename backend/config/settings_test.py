@@ -36,6 +36,7 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
     "admin_login": None,
     "token_refresh": None,
     "public_check": None,
+    "public_site": None,
 }
 
 # ===================================

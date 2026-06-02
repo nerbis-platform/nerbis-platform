@@ -19,6 +19,7 @@ from .onboarding import (
     WebsitePageListView,
 )
 from .preview import PreviewRenderView, PreviewWebsiteView
+from .public import PublicSiteView
 from .publishing import PublishWebsiteView
 from .sections import (
     AddSectionView,
@@ -41,6 +42,7 @@ __all__ = [
     "QuickStartView",
     "PreviewRenderView",
     "PreviewWebsiteView",
+    "PublicSiteView",
     "PublishWebsiteView",
     "RemoveSectionView",
     "ReorderSectionsView",
