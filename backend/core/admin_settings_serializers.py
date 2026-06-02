@@ -177,9 +177,7 @@ class AdminWebsiteSectionSerializer(serializers.ModelSerializer):
     """
 
     page_detail = WebsitePageMinimalSerializer(source="page", read_only=True)
-    page = serializers.PrimaryKeyRelatedField(
-        queryset=WebsitePage.objects.all(), required=False, allow_null=True
-    )
+    page = serializers.PrimaryKeyRelatedField(queryset=WebsitePage.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = WebsiteSection
