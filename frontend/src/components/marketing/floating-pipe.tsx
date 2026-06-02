@@ -11,18 +11,16 @@ const DISMISS_KEY = 'pipe-bubble-dismissed';
 export function FloatingPipe() {
   const [visible, setVisible] = useState(false);
   const [bubbleVisible, setBubbleVisible] = useState(false);
-  const [bubbleDismissed, setBubbleDismissed] = useState(false);
-  const [ctaHovered, setCtaHovered] = useState(false);
-
-  // Check localStorage on mount — reappear after 24h
-  useEffect(() => {
+  const [bubbleDismissed, setBubbleDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
     const dismissedAt = localStorage.getItem(DISMISS_KEY);
-    if (dismissedAt) {
-      const minutesSince = (Date.now() - Number(dismissedAt)) / (1000 * 60);
-      if (minutesSince < 15) setBubbleDismissed(true);
-      else localStorage.removeItem(DISMISS_KEY);
-    }
-  }, []);
+    if (!dismissedAt) return false;
+    const minutesSince = (Date.now() - Number(dismissedAt)) / (1000 * 60);
+    if (minutesSince < 15) return true;
+    localStorage.removeItem(DISMISS_KEY);
+    return false;
+  });
+  const [ctaHovered, setCtaHovered] = useState(false);
 
   // Show Pipe when hero Pipe scrolls out of view
   useEffect(() => {
