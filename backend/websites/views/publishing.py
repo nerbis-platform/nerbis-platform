@@ -44,6 +44,7 @@ class PublishWebsiteView(APIView):
         serializer.is_valid(raise_exception=True)
 
         new_subdomain = serializer.validated_data.get("subdomain")
+        old_subdomain = config.subdomain
         if new_subdomain:
             config.subdomain = new_subdomain
 
@@ -61,7 +62,7 @@ class PublishWebsiteView(APIView):
         config.published_at = timezone.now()
         config.save(update_fields=["published_data", "status", "published_at", "subdomain"])
 
-        self._invalidate_public_cache(config, old_published_data)
+        self._invalidate_public_cache(config, old_published_data, old_subdomain)
 
         return Response(
             {
@@ -73,17 +74,26 @@ class PublishWebsiteView(APIView):
         )
 
     @staticmethod
-    def _invalidate_public_cache(config, old_published_data):
-        """Delete cached public site pages after re-publish."""
-        slug = config.subdomain or config.tenant.slug
+    def _invalidate_public_cache(config, old_published_data, old_subdomain=None):
+        """Eliminar páginas públicas en caché tras volver a publicar."""
+        slugs = {config.tenant.slug}
+        if config.subdomain:
+            slugs.add(config.subdomain)
+        if old_subdomain:
+            slugs.add(old_subdomain)
+
         old_pages = old_published_data.get("pages_data", {}).get("pages", [])
         new_pages = config.published_data.get("pages_data", {}).get("pages", [])
         page_ids = {p.get("id") for p in old_pages} | {p.get("id") for p in new_pages}
         page_ids.add("home")
         page_ids.discard(None)
-        for pid in page_ids:
-            cache.delete(f"public_site:{slug}:{pid}")
-        logger.info("Invalidated %d cache keys for slug=%s", len(page_ids), slug)
+
+        deleted = 0
+        for slug in slugs:
+            for pid in page_ids:
+                cache.delete(f"public_site:{slug}:{pid}")
+                deleted += 1
+        logger.info("Invalidated %d cache keys for slugs=%s", deleted, slugs)
 
     def _get_tenant(self, request):
         if not hasattr(request.user, "tenant") or not request.user.tenant:

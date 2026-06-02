@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import pytest
 from django.core.cache import cache
-from django.test import override_settings
 from rest_framework.test import APIClient
 
 from core.context import clear_current_tenant
@@ -169,14 +168,6 @@ class TestPublicSiteView:
             assert client.get(self.url).status_code == 200
             assert mock_cls.return_value.render.call_count == 1
 
-    @override_settings(
-        REST_FRAMEWORK={
-            "DEFAULT_THROTTLE_RATES": {"public_site": "2/min"},
-            "DEFAULT_AUTHENTICATION_CLASSES": [
-                "rest_framework_simplejwt.authentication.JWTAuthentication",
-            ],
-        }
-    )
     def test_rate_limiting_returns_429(self, published_config):
         from websites.throttles import PublicSiteThrottle
 

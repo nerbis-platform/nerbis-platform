@@ -157,8 +157,6 @@ urlpatterns = [
     ),
     # Public site serving
     path("api/public/sites/<str:slug>/", PublicSiteView.as_view(), name="public-site"),
-    # Public site serving
-    path("api/public/sites/<str:slug>/", PublicSiteView.as_view(), name="public-site"),
     # Invitaciones de equipo (públicas)
     path("api/public/invitation/<str:token>/", InvitationDetailView.as_view(), name="invitation-detail"),
     path("api/public/accept-invitation/<str:token>/", AcceptInvitationView.as_view(), name="accept-invitation"),
