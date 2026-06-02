@@ -1,5 +1,6 @@
 # backend/ecommerce/models.py
 
+import logging
 from decimal import Decimal
 
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -7,6 +8,8 @@ from django.db import models
 from django.utils.text import slugify
 
 from core.models import TenantAwareModel
+
+logger = logging.getLogger(__name__)
 
 
 class ProductCategory(TenantAwareModel):
@@ -202,6 +205,7 @@ class Product(TenantAwareModel):
         try:
             return self.inventory.stock > 0
         except Exception:
+            logger.warning("Error verificando stock para producto %s", self.pk, exc_info=True)
             return False
 
     @property

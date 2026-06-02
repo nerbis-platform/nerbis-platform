@@ -6,6 +6,22 @@ Mantener este módulo libre de dependencias a vistas / serializers para evitar c
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def safe_delay(task, *args, **kwargs):
+    """Ejecuta task.delay() con fallback sincrono si Celery no esta disponible."""
+    try:
+        return task.delay(*args, **kwargs)
+    except Exception:
+        logger.warning(
+            "Celery no disponible, ejecutando %s sincronamente",
+            task.name,
+        )
+        return task(*args, **kwargs)
+
 
 def get_client_ip(request) -> str | None:
     """
