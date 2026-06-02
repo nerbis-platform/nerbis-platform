@@ -20,12 +20,12 @@ export function middleware(request: NextRequest) {
   // ── Admin auth guard (early-return) ──
   // Protects /admin routes server-side before serving any HTML.
   // /admin/login is always accessible.
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && pathname !== '/admin/login') {
     const token = request.cookies.get(ADMIN_ACCESS_COOKIE)?.value;
     if (!validateAdminToken(token)) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = '/admin/login';
-      return NextResponse.redirect(loginUrl, 307);
+      return NextResponse.redirect(loginUrl, 302);
     }
   }
 
