@@ -78,7 +78,7 @@ export function SocialLinkDialog({
         response.tenant?.has_website &&
         response.tenant.website_status !== 'published'
       ) {
-        router.push('/dashboard/website-builder');
+        router.push('/dashboard/website-builder/quick-start');
       } else {
         router.push('/dashboard');
       }

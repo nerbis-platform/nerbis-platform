@@ -91,11 +91,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       } else if (tenant.has_management && !tenant.has_website) {
         // Management-only tenant → allow dashboard without website
       } else if (tenant.has_website) {
-        // Fase: website_building / website_generated → Builder
-        router.push('/dashboard/website-builder');
+        // Fase: website_building / website_generated → Quick Start con Pipe
+        router.push('/dashboard/website-builder/quick-start');
       } else {
-        // Fase: modules_configured sin website → Website Builder
-        router.push('/dashboard/website-builder');
+        // Fase: modules_configured sin website → Quick Start con Pipe
+        router.push('/dashboard/website-builder/quick-start');
       }
     }
   }, [mounted, isAuthenticated, isLoading, tenant, user, isBypassRoute, router]);

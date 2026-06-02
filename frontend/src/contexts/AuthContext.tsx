@@ -91,11 +91,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Management-only tenant → Dashboard directly (no website needed)
       router.push('/dashboard');
     } else if (tenant && tenant.has_website) {
-      // Fase: website_building / website_generated → Website Builder
-      router.push('/dashboard/website-builder');
+      // Fase: website_building / website_generated → Quick Start con Pipe
+      router.push('/dashboard/website-builder/quick-start');
     } else {
-      // Fase: modules_configured (sin website creado aún) → Website Builder
-      router.push('/dashboard/website-builder');
+      // Fase: modules_configured (sin website creado aún) → Quick Start con Pipe
+      router.push('/dashboard/website-builder/quick-start');
     }
   };
 

@@ -147,17 +147,15 @@ export default function QuickStartPage() {
   const { user, tenant, logout, setTenant } = useAuth();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // ─── Phase guard: si ya pasó onboarding, redirigir ────────
+  // ─── Phase guard: redirigir si ya tiene sitio generado ────
   useEffect(() => {
     if (!tenant) return;
-    if (tenant.modules_configured) {
-      // Ya configuró módulos — no debería estar en Quick Start
-      if (tenant.website_status === 'published') {
-        router.replace('/dashboard');
-      } else {
-        router.replace('/dashboard/website-builder');
-      }
+    if (tenant.website_status === 'published') {
+      router.replace('/dashboard');
+    } else if (tenant.website_status === 'review') {
+      router.replace('/dashboard/website-builder/editor');
     }
+    // Para generating/onboarding/draft/sin website: quedarse en quick-start
   }, [tenant, router]);
 
   // ─── Fetch config from API ──────────────────────────────
@@ -318,6 +316,64 @@ export default function QuickStartPage() {
       }
       result.push({ id: 'pages', message: '¿Qué páginas quieres en tu sitio?', type: 'pages', hint: 'Puedes agregar más después.' });
     }
+
+    // Insert extra conversational questions before the 'pages' step
+    const existingKeys = new Set(result.map(s => s.id));
+    const extraSteps: ConversationStep[] = [];
+
+    if (!existingKeys.has('target_audience')) {
+      extraSteps.push({
+        id: 'target_audience',
+        message: '¿Quién es tu cliente ideal? Edad, intereses, qué busca...',
+        type: 'textarea',
+        placeholder: 'Ej: Mujeres 25-45 interesadas en bienestar y cuidado personal',
+        hint: 'Esto ayuda a que el contenido conecte con tu público.',
+        minLength: 10,
+        rows: 2,
+      });
+    }
+
+    if (!existingKeys.has('unique_selling_point')) {
+      extraSteps.push({
+        id: 'unique_selling_point',
+        message: '¿Qué te hace diferente a tu competencia?',
+        type: 'textarea',
+        placeholder: 'Ej: 10 años de experiencia + atención personalizada',
+        hint: 'Tu diferenciador aparecerá destacado en el sitio.',
+        minLength: 10,
+        rows: 2,
+      });
+    }
+
+    if (!existingKeys.has('business_email')) {
+      extraSteps.push({
+        id: 'business_email',
+        message: '¿Cuál es el email de contacto de tu negocio?',
+        type: 'input',
+        placeholder: 'tu@negocio.com',
+        inputType: 'email',
+      });
+    }
+
+    if (!existingKeys.has('business_phone')) {
+      extraSteps.push({
+        id: 'business_phone',
+        message: '¿Tu número de teléfono para que te contacten?',
+        type: 'input',
+        placeholder: '+57 300 123 4567',
+        inputType: 'tel',
+      });
+    }
+
+    if (extraSteps.length > 0) {
+      const pagesIdx = result.findIndex(s => s.type === 'pages');
+      if (pagesIdx >= 0) {
+        result.splice(pagesIdx, 0, ...extraSteps);
+      } else {
+        result.push(...extraSteps);
+      }
+    }
+
     return result;
   }, [apiQuestions, selectedModules]);
 
@@ -501,6 +557,10 @@ export default function QuickStartPage() {
         primary_color: primaryColor || undefined,
         secondary_color: secondaryColor || undefined,
         business_whatsapp: answersData.pipe_whatsapp || undefined,
+        target_audience: answersData.target_audience || answersData.pipe_target_audience || undefined,
+        unique_selling_point: answersData.unique_selling_point || answersData.pipe_unique_selling_point || undefined,
+        business_email: answersData.business_email || answersData.pipe_business_email || undefined,
+        business_phone: answersData.business_phone || answersData.pipe_business_phone || undefined,
       });
       startPolling();
     } catch (error) {
@@ -971,17 +1031,14 @@ export default function QuickStartPage() {
                     </div>
                   </div>
                 ) : (
-                  /* Pipe text — left aligned, no bubble, with small avatar */
-                  <div className="flex gap-3 items-start">
-                    <div className="flex-shrink-0 mt-0.5">
-                      <PipeAvatar mood="idle" size={28} />
-                    </div>
-                    <p
-                      className="text-[0.88rem] leading-relaxed pt-0.5"
-                      style={{ color: WARM_GRAY_800 }}
+                  /* Pipe text — left aligned, subtle bubble */
+                  <div className="flex justify-start">
+                    <div
+                      className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-[0.88rem] leading-relaxed max-w-[75%]"
+                      style={{ backgroundColor: '#E2F3F1', color: WARM_GRAY_800 }}
                     >
                       {msg.content}
-                    </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1028,7 +1085,7 @@ export default function QuickStartPage() {
             className="border-t animate-in fade-in slide-in-from-bottom-2 duration-300"
             style={{ borderColor: WARM_GRAY_100 }}
           >
-            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-4 pb-8">
               {/* Back button */}
               {currentStepIdx > 0 && (
                 <button
@@ -1618,7 +1675,7 @@ export default function QuickStartPage() {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   type="button"
-                  onClick={() => router.push('/dashboard/website-builder')}
+                  onClick={() => router.push('/dashboard/website-builder/quick-start')}
                   className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
                   style={{ backgroundColor: TEAL, color: '#fff' }}
                   onMouseEnter={(e) => {

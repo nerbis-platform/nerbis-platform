@@ -203,7 +203,7 @@ export default function DashboardPage() {
     if (!tenant!.modules_configured) {
       router.replace('/dashboard/website-builder/quick-start');
     } else {
-      router.replace('/dashboard/website-builder');
+      router.replace('/dashboard/website-builder/quick-start');
     }
   }, [shouldRedirect, tenant, router]);
 

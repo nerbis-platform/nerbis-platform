@@ -361,6 +361,29 @@ class QuickStartSerializer(serializers.Serializer):
         required=False,
         help_text="Color secundario en hex (ej: #0D9488)",
     )
+    target_audience = serializers.CharField(
+        max_length=500,
+        required=False,
+        allow_blank=True,
+        help_text="Publico objetivo del negocio (ej: 'mujeres 25-45 que buscan bienestar')",
+    )
+    unique_selling_point = serializers.CharField(
+        max_length=500,
+        required=False,
+        allow_blank=True,
+        help_text="Que diferencia al negocio de la competencia",
+    )
+    business_email = serializers.EmailField(
+        required=False,
+        allow_blank=True,
+        help_text="Email de contacto del negocio",
+    )
+    business_phone = serializers.CharField(
+        max_length=20,
+        required=False,
+        allow_blank=True,
+        help_text="Telefono de contacto del negocio",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

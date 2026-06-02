@@ -277,19 +277,27 @@ class QuickStartView(OnboardingView):
                 },
             )
 
-        # 3. Armar onboarding_responses a partir de los 3 campos + tenant data
+        # 3. Armar onboarding_responses a partir de campos + tenant data
         data = serializer.validated_data
         responses_dict = {
             "business_name": tenant.name,
             "business_description": data["business_description"],
             "main_services": data["main_services"],
             "business_whatsapp": data.get("business_whatsapp") or tenant.phone or "",
-            "business_phone": tenant.phone or "",
-            "business_email": tenant.email or "",
+            "business_phone": data.get("business_phone") or tenant.phone or "",
+            "business_email": data.get("business_email") or tenant.email or "",
             "business_address": tenant.address or "",
+            "target_audience": data.get("target_audience", ""),
+            "unique_selling_point": data.get("unique_selling_point", ""),
         }
         if data.get("website_sections"):
             responses_dict["website_sections"] = data["website_sections"]
+        if data.get("brand_tone"):
+            responses_dict["brand_tone"] = data["brand_tone"]
+        if data.get("primary_color"):
+            responses_dict["primary_color"] = data["primary_color"]
+        if data.get("secondary_color"):
+            responses_dict["secondary_color"] = data["secondary_color"]
 
         # 4. Verificar limite de generaciones
         ai_service = AIService(tenant=tenant, website_config=config)
