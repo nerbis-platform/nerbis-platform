@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import Image from 'next/image';
+import { NerbisWordmark } from '@/components/marketing/nerbis-wordmark';
 import {
   Check,
   AlertCircle,
@@ -648,19 +648,7 @@ export default function QuickStartPage() {
     >
       <div className="max-w-2xl mx-auto px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <Image
-            src="/Isotipo_color_NERBIS.png"
-            alt="NERBIS"
-            width={32}
-            height={32}
-            style={{ width: 32, height: 'auto' }}
-          />
-          <span
-            className="text-[0.82rem] font-semibold tracking-wider"
-            style={{ color: NAVY }}
-          >
-            NERBIS
-          </span>
+          <NerbisWordmark size={14} variant="full" pipeSize={28} className="text-[#1C3B57]" />
         </div>
         <div className="flex items-center gap-3">
           <Link
