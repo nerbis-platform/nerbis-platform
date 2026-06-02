@@ -11,7 +11,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 function getTenantSlug(): string {
   // En el servidor, usar el valor por defecto
   if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_DEFAULT_TENANT_SLUG || 'gc-belleza';
+    return process.env.NEXT_PUBLIC_DEFAULT_TENANT_SLUG || 'demo';
   }
 
   // Prioridad 1: tenant guardado en localStorage (post-login/registro)
