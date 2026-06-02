@@ -20,15 +20,23 @@ def set_auth_cookies(
     ``{cookie_prefix}_refresh``.  For tenant auth use the default prefix
     ``"nerbis"``; for superadmin auth pass ``"nerbis_admin"``.
 
+    When ``cookie_prefix`` is ``"nerbis_admin"``, uses the shorter
+    ``ADMIN_JWT`` lifetimes from settings.
+
     Returns the same *response* object (mutated) so callers can chain::
 
         return set_auth_cookies(Response(data), access, refresh)
     """
+    if cookie_prefix == "nerbis_admin":
+        jwt_config = settings.ADMIN_JWT
+    else:
+        jwt_config = settings.SIMPLE_JWT
+
     access_max_age = int(
-        settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds(),
+        jwt_config["ACCESS_TOKEN_LIFETIME"].total_seconds(),
     )
     refresh_max_age = int(
-        settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds(),
+        jwt_config["REFRESH_TOKEN_LIFETIME"].total_seconds(),
     )
 
     common_kwargs: dict[str, object] = {

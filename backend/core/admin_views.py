@@ -45,12 +45,19 @@ def build_superadmin_tokens(user: User) -> dict:
       - El payload DEBE contener `is_superuser=True` y `scope="admin"`.
       - El payload NO DEBE contener `tenant_id`, `tenant_slug` ni `role`.
       - Nunca compartir constructor con caminos de código de tenant.
+      - Usa ADMIN_JWT lifetimes (más cortos que tenant, configurables por env).
     """
+    from django.conf import settings as django_settings
+
+    admin_jwt = django_settings.ADMIN_JWT
+
     refresh = RefreshToken.for_user(user)
+    refresh.set_exp(lifetime=admin_jwt["REFRESH_TOKEN_LIFETIME"])
     refresh["is_superuser"] = True
     refresh["scope"] = "admin"
 
     access = refresh.access_token
+    access.set_exp(lifetime=admin_jwt["ACCESS_TOKEN_LIFETIME"])
     access["is_superuser"] = True
     access["scope"] = "admin"
 

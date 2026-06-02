@@ -385,7 +385,7 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    # Tiempo de vida de los tokens
+    # Tiempo de vida de los tokens (tenant)
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     # Rotación de tokens
@@ -401,6 +401,17 @@ SIMPLE_JWT = {
     # Claims: ISSUER omitted intentionally — adding it would invalidate
     # all existing tokens, forcing a mass logout.  Roll out in two steps
     # (issue new tokens with iss → then enforce) if desired in the future.
+}
+
+# Superadmin token lifetimes — shorter than tenant for security.
+# Configurable via env vars: ADMIN_ACCESS_TOKEN_MINUTES, ADMIN_REFRESH_TOKEN_HOURS.
+ADMIN_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(os.getenv("ADMIN_ACCESS_TOKEN_MINUTES", "15")),
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        hours=int(os.getenv("ADMIN_REFRESH_TOKEN_HOURS", "4")),
+    ),
 }
 
 # ===================================
