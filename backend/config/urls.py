@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.urls import include, path
 from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from rest_framework.routers import DefaultRouter
 
 
 def health_check(request):
@@ -41,6 +42,7 @@ def health_check(request):
 
 # Importar el admin site personalizado de NERBIS
 from core.admin_settings_views import (
+    AdminIndustryGalleryViewSet,
     AdminMarketingSectionDetailView,
     AdminMarketingSectionListView,
     AdminMarketingSectionResetView,
@@ -88,11 +90,20 @@ from core.views import (
     PlatformLoginView,
     PlatformSocialLoginView,
     PlatformVerifyResetOTPView,
+    PublicIndustryGalleryView,
     PublicMarketingSectionsView,
     TenantRegisterView,
     subscription_expired_view,
 )
 from orders.webhooks import stripe_webhook
+
+# Router para ViewSets de admin settings
+admin_settings_router = DefaultRouter(trailing_slash=True)
+admin_settings_router.register(
+    r"industry-gallery",
+    AdminIndustryGalleryViewSet,
+    basename="admin-settings-industry-gallery",
+)
 
 urlpatterns = [
     # Health check (para ALB/ECS)
@@ -136,6 +147,12 @@ urlpatterns = [
         "api/public/marketing-sections/",
         PublicMarketingSectionsView.as_view(),
         name="public-marketing-sections",
+    ),
+    # Industry gallery (público, sin tenant)
+    path(
+        "api/public/industry-gallery/",
+        PublicIndustryGalleryView.as_view(),
+        name="public-industry-gallery",
     ),
     # Invitaciones de equipo (públicas)
     path("api/public/invitation/<str:token>/", InvitationDetailView.as_view(), name="invitation-detail"),
@@ -264,6 +281,8 @@ urlpatterns = [
         AdminMarketingSectionResetView.as_view(),
         name="admin-settings-marketing-reset",
     ),
+    # Admin settings — industry gallery (ViewSet via router)
+    path("api/admin/settings/", include(admin_settings_router.urls)),
     # Webhooks (sin middleware de tenant)
     path("api/webhooks/stripe/", stripe_webhook, name="stripe-webhook"),
     # Documentación

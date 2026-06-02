@@ -4,11 +4,13 @@
 // Wraps all /admin/* routes with auth guard + sidebar.
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Building2,
+  ChevronDown,
+  ChevronRight,
   Globe,
   LayoutDashboard,
   Loader2,
@@ -34,7 +36,19 @@ const NAV_MAIN = [
 const NAV_CONFIG = [
   { href: '/admin/settings/modules', label: 'Modulos', icon: Package },
   { href: '/admin/settings/onboarding', label: 'Onboarding', icon: Settings },
-  { href: '/admin/settings/marketing', label: 'Marketing', icon: Globe },
+];
+
+const NAV_HOME_SECTIONS = [
+  { href: '/admin/settings/web/home/hero', label: 'Hero' },
+  { href: '/admin/settings/web/home/gallery', label: 'Galeria de industrias' },
+  { href: '/admin/settings/web/home/problem-solution', label: 'Problema vs Solucion' },
+  { href: '/admin/settings/web/home/how-it-works', label: 'Como funciona' },
+  { href: '/admin/settings/web/home/cta-mid', label: 'CTA Intermedio' },
+  { href: '/admin/settings/web/home/industries', label: 'Industrias' },
+  { href: '/admin/settings/web/home/faq', label: 'FAQ' },
+  { href: '/admin/settings/web/home/cta-final', label: 'CTA Final' },
+  { href: '/admin/settings/web/home/header', label: 'Header / Navegacion' },
+  { href: '/admin/settings/web/home/seo', label: 'SEO y Metadata' },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -46,6 +60,12 @@ function isActive(pathname: string, href: string) {
 function AdminSidebar() {
   const pathname = usePathname();
   const { admin, logout } = useAdminAuth();
+  const isNerbisWebActive = pathname.startsWith('/admin/settings/web') || pathname.startsWith('/admin/settings/marketing') || pathname.startsWith('/admin/settings/industry-gallery');
+  const [nerbisWebOpen, setNerbisWebOpen] = useState(isNerbisWebActive);
+  const [homeOpen, setHomeOpen] = useState(isNerbisWebActive);
+
+  const effectiveNerbisWebOpen = nerbisWebOpen || isNerbisWebActive;
+  const effectiveHomeOpen = homeOpen || isNerbisWebActive;
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-slate-200 bg-white">
@@ -106,6 +126,67 @@ function AdminSidebar() {
             </Link>
           );
         })}
+
+        {/* Web nerbis.com — collapsible */}
+        <div className="pt-4 pb-1">
+          <p className="px-3 text-[0.65rem] font-semibold uppercase tracking-widest text-slate-400">
+            Web nerbis.com
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setNerbisWebOpen(!effectiveNerbisWebOpen)}
+          aria-expanded={effectiveNerbisWebOpen}
+          aria-controls="nerbis-web-panel"
+          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[0.82rem] font-medium transition-colors ${
+            isNerbisWebActive
+              ? 'text-teal-700'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <Globe className={`h-4 w-4 ${isNerbisWebActive ? 'text-teal-600' : 'text-slate-400'}`} />
+          <span className="flex-1 text-left">nerbis.com</span>
+          <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${effectiveNerbisWebOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {effectiveNerbisWebOpen && (
+          <div id="nerbis-web-panel" className="ml-4 space-y-0.5">
+            {/* Home — collapsible with section sub-items */}
+            <button
+              type="button"
+              onClick={() => setHomeOpen(!effectiveHomeOpen)}
+              aria-expanded={effectiveHomeOpen}
+              aria-controls="home-sections-panel"
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-[0.8rem] font-medium transition-colors ${
+                isNerbisWebActive
+                  ? 'text-teal-700'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <ChevronRight className={`h-3 w-3 text-slate-400 transition-transform ${effectiveHomeOpen ? 'rotate-90' : ''}`} />
+              <span className="flex-1 text-left">Home</span>
+            </button>
+            {effectiveHomeOpen && (
+              <div id="home-sections-panel" className="ml-3 space-y-0.5 border-l border-slate-200 pl-2">
+                {NAV_HOME_SECTIONS.map((item) => {
+                  const active = isActive(pathname, item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`block rounded-lg px-3 py-1 text-[0.75rem] font-medium transition-colors ${
+                        active
+                          ? 'bg-teal-50 text-teal-700'
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Logout */}

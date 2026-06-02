@@ -18,6 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .cookies import clear_auth_cookies, set_auth_cookies
 from .models import (
     Banner,
+    IndustryGalleryCard,
     MarketingSection,
     OTPToken,
     PasswordSetToken,
@@ -36,6 +37,7 @@ from .serializers import (
     InvitationDetailSerializer,
     LoginSerializer,
     PlatformModuleSerializer,
+    PublicIndustryGalleryCardSerializer,
     PublicMarketingSectionSerializer,
     RegisterSerializer,
     SetPasswordSerializer,
@@ -3034,3 +3036,18 @@ class PublicMarketingSectionsView(APIView):
             result[section.section_key] = data
 
         return Response(result)
+
+
+class PublicIndustryGalleryView(generics.ListAPIView):
+    """
+    GET /api/public/industry-gallery/
+
+    Retorna las cards visibles de la galeria de industrias.
+    Endpoint publico, sin autenticacion ni tenant context.
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+    serializer_class = PublicIndustryGalleryCardSerializer
+    pagination_class = None
+    queryset = IndustryGalleryCard.objects.filter(is_visible=True).order_by("row", "sort_order")

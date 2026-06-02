@@ -29,7 +29,7 @@ export function ProblemSolution({ content }: ProblemSolutionProps) {
         const { reduced } = context.conditions as { reduced: boolean; normal: boolean };
 
         if (reduced) {
-          gsap.set('.ps-heading, .ps-before, .ps-after', { autoAlpha: 1 });
+          gsap.set('.ps-heading, .ps-before, .ps-after, .ps-row', { autoAlpha: 1 });
           return;
         }
 
@@ -46,11 +46,11 @@ export function ProblemSolution({ content }: ProblemSolutionProps) {
           },
         });
 
-        // Before column slides in from left
+        // Column labels
         gsap.from('.ps-before', {
-          x: -40,
+          x: -30,
           autoAlpha: 0,
-          duration: 0.7,
+          duration: 0.5,
           ease: 'power2.out',
           scrollTrigger: {
             trigger: '.ps-columns',
@@ -59,16 +59,28 @@ export function ProblemSolution({ content }: ProblemSolutionProps) {
           },
         });
 
-        // After column slides in from right
         gsap.from('.ps-after', {
-          x: 40,
+          x: 30,
           autoAlpha: 0,
-          duration: 0.7,
-          delay: 0.15,
+          duration: 0.5,
           ease: 'power2.out',
           scrollTrigger: {
             trigger: '.ps-columns',
             start: 'top 85%',
+            toggleActions: 'play none none none',
+          },
+        });
+
+        // Rows stagger in
+        gsap.from('.ps-row', {
+          y: 20,
+          autoAlpha: 0,
+          duration: 0.5,
+          stagger: 0.1,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: '.ps-columns',
+            start: 'top 80%',
             toggleActions: 'play none none none',
           },
         });
@@ -77,59 +89,71 @@ export function ProblemSolution({ content }: ProblemSolutionProps) {
   }, { scope: sectionRef });
 
   return (
-    <section ref={sectionRef} className="bg-background px-4 py-16 sm:px-6 sm:py-20">
+    <section ref={sectionRef} className="bg-muted/30 px-4 py-20 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-4xl">
-        <div className="ps-heading invisible text-center">
-          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="ps-heading invisible">
+          <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground/60">
             {content.badge}
           </p>
-          <h2 className="nerbis-display mt-4 text-3xl text-foreground sm:text-4xl lg:text-5xl">
-            {content.title}
+          <h2 className="nerbis-display mt-3 max-w-2xl text-3xl text-foreground sm:text-4xl lg:text-5xl">
+            {content.title.includes('merece mas')
+              ? (() => {
+                  const parts = content.title.split('merece mas');
+                  return <>
+                    {parts[0]}
+                    <span className="text-primary">merece más</span>
+                    {parts[1]}
+                  </>;
+                })()
+              : content.title}
           </h2>
         </div>
 
-        <div className="ps-columns mt-16 grid gap-0 sm:grid-cols-2">
-          {/* Before column */}
-          <div className="ps-before invisible sm:pr-8" style={{ borderRight: '0 solid transparent' }}>
-            <p className="mb-6 text-sm font-medium uppercase tracking-wide text-muted-foreground/60">
+        <div className="ps-columns relative mt-16">
+          {/* Column headers */}
+          <div className="grid sm:grid-cols-[5fr_7fr]">
+            <p className="ps-before invisible order-2 mb-6 text-sm font-medium uppercase tracking-widest text-muted-foreground/40 sm:order-1 sm:pr-10">
               {content.before_label}
             </p>
-            {content.comparisons.map((item) => (
+            <p className="ps-after invisible order-1 mb-6 text-sm font-medium uppercase tracking-widest text-muted-foreground sm:order-2 sm:pl-10">
+              {content.after_label}
+            </p>
+          </div>
+
+          {/* Comparison rows — aligned across columns */}
+          {content.comparisons.map((item, index) => (
+            <div key={index} className="ps-row invisible relative grid sm:grid-cols-[5fr_7fr]">
+              {/* Vertical separator per row */}
               <div
-                key={item.before}
-                className="flex items-start gap-3 border-t border-border/50 py-4"
-              >
-                <span className="mt-0.5 text-muted-foreground/40" aria-hidden="true">&times;</span>
-                <span className="text-muted-foreground line-through decoration-muted-foreground/30">
+                className="pointer-events-none absolute inset-y-0 left-[calc(5/12*100%)] hidden w-px sm:block"
+                style={{ backgroundColor: 'var(--border)', opacity: 0.4 }}
+                aria-hidden="true"
+              />
+
+              {/* Before */}
+              <div className="order-2 border-t border-border/40 py-4 sm:order-1 sm:pr-10">
+                <span className="text-muted-foreground/50 line-through decoration-muted-foreground/20">
                   {item.before}
                 </span>
               </div>
-            ))}
-          </div>
 
-          {/* After column */}
-          <div className="ps-after invisible mt-8 border-border sm:mt-0 sm:border-l sm:pl-8">
-            <p className="mb-6 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-              {content.after_label}
-            </p>
-            {content.comparisons.map((item) => (
-              <div
-                key={item.after}
-                className="flex items-start gap-3 border-t border-border/50 py-4"
-              >
+              {/* After */}
+              <div className="order-1 flex items-start gap-3 border-t border-border/40 py-4 sm:order-2 sm:pl-10">
                 <span
-                  className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px]"
-                  style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
+                  className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: 'var(--primitive-brand-600)' }}
                   aria-hidden="true"
                 >
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </span>
-                <span className="text-foreground">{item.after}</span>
+                <span className={index === 0 ? 'font-medium text-foreground' : 'text-foreground/80'}>
+                  {item.after}
+                </span>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>

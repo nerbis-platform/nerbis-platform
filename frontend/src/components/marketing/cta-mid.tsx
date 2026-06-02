@@ -34,10 +34,11 @@ export function CtaMid({ content }: CtaMidProps) {
           return;
         }
 
-        gsap.from('.ctam-content', {
-          y: 30,
-          autoAlpha: 0,
-          duration: 0.6,
+        gsap.set('.ctam-content', { autoAlpha: 0, y: 30 });
+        gsap.to('.ctam-content', {
+          y: 0,
+          autoAlpha: 1,
+          duration: 0.4,
           ease: 'power2.out',
           scrollTrigger: {
             trigger: sectionRef.current,
@@ -62,7 +63,7 @@ export function CtaMid({ content }: CtaMidProps) {
         </div>
         <Link
           href={content.cta_href}
-          className="group inline-flex shrink-0 items-center gap-2 rounded-full px-6 py-3 text-sm font-medium text-white transition-all hover:opacity-90"
+          className="group inline-flex shrink-0 items-center gap-2 rounded-lg px-6 py-3 text-sm font-medium text-white transition-all hover:opacity-90"
           style={{ background: `linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)` }}
         >
           {content.cta_text}

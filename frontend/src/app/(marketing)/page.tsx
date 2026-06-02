@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { getMarketingContent } from '@/lib/api/marketing-content';
+import { getIndustryGalleryCards } from '@/lib/api/industry-gallery';
 import type { MarketingSections } from '@/types/marketing';
 import { Hero } from '@/components/marketing/hero';
 import { SocialProof } from '@/components/marketing/social-proof';
@@ -7,9 +8,7 @@ import { ProblemSolution } from '@/components/marketing/problem-solution';
 import { PipeDemo } from '@/components/marketing/pipe-demo';
 import { HowItWorks } from '@/components/marketing/how-it-works';
 import { FeaturesGrid } from '@/components/marketing/features-grid';
-import { Industries } from '@/components/marketing/industries';
 import { CtaMid } from '@/components/marketing/cta-mid';
-import { Showcase } from '@/components/marketing/showcase';
 import { Faq } from '@/components/marketing/faq';
 import { CtaFinal } from '@/components/marketing/cta-final';
 
@@ -82,7 +81,10 @@ function buildHowToJsonLd(sections: MarketingSections) {
 // ---------------------------------------------------------------------------
 
 export default async function LandingPage() {
-  const sections = await getMarketingContent();
+  const [sections, galleryCards] = await Promise.all([
+    getMarketingContent(),
+    getIndustryGalleryCards(),
+  ]);
 
   return (
     <>
@@ -116,7 +118,7 @@ export default async function LandingPage() {
 
       {/* Sections — configurable ones receive content and respect is_visible */}
       {sections.hero.is_visible && <Hero content={sections.hero.content} />}
-      <SocialProof />
+      <SocialProof cards={galleryCards} />
       {sections.problem_solution.is_visible && (
         <ProblemSolution content={sections.problem_solution.content} />
       )}
@@ -124,15 +126,11 @@ export default async function LandingPage() {
       {sections.how_it_works.is_visible && (
         <HowItWorks content={sections.how_it_works.content} />
       )}
-      <Showcase />
       <FeaturesGrid />
       {sections.cta_mid.is_visible && (
         <CtaMid content={sections.cta_mid.content} />
       )}
-      {sections.industries.is_visible && (
-        <Industries content={sections.industries.content} />
-      )}
-      {sections.faq.is_visible && <Faq content={sections.faq.content} />}
+{sections.faq.is_visible && <Faq content={sections.faq.content} />}
       {sections.cta_final.is_visible && (
         <CtaFinal content={sections.cta_final.content} />
       )}

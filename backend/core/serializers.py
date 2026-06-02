@@ -11,6 +11,7 @@ from rest_framework import serializers
 from .models import (
     AdminAuditLog,
     Banner,
+    IndustryGalleryCard,
     MarketingSection,
     PlatformModule,
     SocialAccount,
@@ -26,6 +27,24 @@ class PublicMarketingSectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = MarketingSection
         fields = ["content", "is_visible"]
+
+
+class PublicIndustryGalleryCardSerializer(serializers.ModelSerializer):
+    """Serializer público read-only para cards de la galeria de industrias."""
+
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = IndustryGalleryCard
+        fields = ["id", "name", "image", "gradient", "row", "sort_order", "is_visible"]
+
+    def get_image(self, obj: IndustryGalleryCard) -> str | None:
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
 
 
 class PlatformModuleSerializer(serializers.ModelSerializer):
