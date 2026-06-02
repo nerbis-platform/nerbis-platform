@@ -191,13 +191,19 @@ export function IndustryGalleryManager() {
     const file = e.target.files?.[0] ?? null;
     setImageFile(file);
     if (file) {
+      if (imagePreview?.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
       const url = URL.createObjectURL(file);
       setImagePreview(url);
     } else {
-      // Keep existing preview if editing
       setImagePreview(editingCard?.image ?? null);
     }
   }
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview?.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
 
   function clearImage() {
     setImageFile(null);

@@ -213,7 +213,7 @@ class AdminIndustryGalleryCardSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def validate_image(self, value):
-        """Valida tamano maximo (5MB) y formatos permitidos (JPG, PNG, WebP)."""
+        """Valida tamano maximo (5MB) y formato real con Pillow."""
         if value is None:
             return value
 
@@ -222,11 +222,35 @@ class AdminIndustryGalleryCardSerializer(serializers.ModelSerializer):
                 f"La imagen no puede superar 5 MB (recibido: {value.size / 1024 / 1024:.1f} MB)."
             )
 
-        content_type = getattr(value, "content_type", "")
-        if content_type and content_type not in ALLOWED_IMAGE_TYPES:
-            raise serializers.ValidationError(f"Formato no permitido: {content_type}. Usa JPG, PNG o WebP.")
+        from PIL import Image, UnidentifiedImageError
 
+        pillow_to_mime = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
+        try:
+            img = Image.open(value)
+            img.verify()
+        except (UnidentifiedImageError, OSError):
+            raise serializers.ValidationError("El archivo no es una imagen válida.")
+
+        detected_mime = pillow_to_mime.get(img.format)
+        if detected_mime not in ALLOWED_IMAGE_TYPES:
+            raise serializers.ValidationError(
+                f"Formato no permitido: {img.format}. Usa JPG, PNG o WebP."
+            )
+
+        value.seek(0)
         return value
+
+    def validate(self, attrs):
+        """Si is_visible=True, debe tener imagen o gradiente."""
+        is_visible = attrs.get("is_visible", getattr(self.instance, "is_visible", False) if self.instance else False)
+        image = attrs.get("image", getattr(self.instance, "image", None) if self.instance else None)
+        gradient = attrs.get("gradient", getattr(self.instance, "gradient", "") if self.instance else "")
+
+        if is_visible and not image and not (gradient and gradient.strip()):
+            raise serializers.ValidationError(
+                "Una card visible debe tener imagen o gradiente de fondo."
+            )
+        return attrs
 
 
 class IndustryGalleryReorderItemSerializer(serializers.Serializer):

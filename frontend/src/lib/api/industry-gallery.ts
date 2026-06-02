@@ -44,17 +44,15 @@ const GALLERY_DEFAULTS: IndustryGalleryCard[] = [
  * - ISR-friendly: revalidates every 60 seconds
  */
 export async function getIndustryGalleryCards(): Promise<IndustryGalleryCard[]> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
+  try {
     const res = await fetch(`${API_URL}/public/industry-gallery/`, {
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
       next: { revalidate: 60 },
     });
-
-    clearTimeout(timeoutId);
 
     if (!res.ok) {
       console.error(
@@ -74,6 +72,8 @@ export async function getIndustryGalleryCards(): Promise<IndustryGalleryCard[]> 
     // AbortError (timeout), network error, JSON parse error, etc.
     console.error('[industry-gallery] Failed to fetch gallery cards:', error);
     return GALLERY_DEFAULTS;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

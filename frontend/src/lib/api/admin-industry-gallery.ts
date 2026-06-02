@@ -31,7 +31,6 @@ export async function adminCreateGalleryCard(
   const { data } = await adminClient.post<IndustryGalleryCard>(
     '/admin/settings/industry-gallery/',
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return data;
 }
@@ -47,7 +46,6 @@ export async function adminUpdateGalleryCard(
   const { data } = await adminClient.patch<IndustryGalleryCard>(
     `/admin/settings/industry-gallery/${id}/`,
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return data;
 }

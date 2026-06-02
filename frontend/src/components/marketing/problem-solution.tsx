@@ -97,10 +97,14 @@ export function ProblemSolution({ content }: ProblemSolutionProps) {
           </p>
           <h2 className="nerbis-display mt-3 max-w-2xl text-3xl text-foreground sm:text-4xl lg:text-5xl">
             {content.title.includes('merece mas')
-              ? <>
-                  {content.title.split('merece mas')[0]}
-                  <span className="text-primary">merece más</span>
-                </>
+              ? (() => {
+                  const parts = content.title.split('merece mas');
+                  return <>
+                    {parts[0]}
+                    <span className="text-primary">merece más</span>
+                    {parts[1]}
+                  </>;
+                })()
               : content.title}
           </h2>
         </div>

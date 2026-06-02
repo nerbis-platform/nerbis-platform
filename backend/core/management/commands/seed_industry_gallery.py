@@ -13,6 +13,7 @@ Con --force, elimina todas las cards existentes y recrea desde cero.
 """
 
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from core.models import IndustryGalleryCard
 
@@ -114,12 +115,13 @@ class Command(BaseCommand):
             )
             return
 
-        if force and existing_count > 0:
-            IndustryGalleryCard.objects.all().delete()
-            self.stdout.write(self.style.WARNING(f"  ~ {existing_count} cards eliminadas (--force)"))
-
         cards = [IndustryGalleryCard(**data) for data in INDUSTRY_GALLERY_DEFAULTS]
-        IndustryGalleryCard.objects.bulk_create(cards)
+
+        with transaction.atomic():
+            if force and existing_count > 0:
+                IndustryGalleryCard.objects.all().delete()
+                self.stdout.write(self.style.WARNING(f"  ~ {existing_count} cards eliminadas (--force)"))
+            IndustryGalleryCard.objects.bulk_create(cards)
 
         self.stdout.write("")
         for card in cards:

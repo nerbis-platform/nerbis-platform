@@ -4,7 +4,7 @@ import uuid
 from decimal import Decimal
 
 from django.contrib.auth.models import AbstractUser
-from django.db import models
+from django.db import models, transaction
 from django.db.models.functions import Lower
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
@@ -2001,14 +2001,17 @@ class IndustryGalleryCard(models.Model):
     )
 
     def save(self, *args, **kwargs):
+        old_image = None
         if self.pk:
             try:
                 old = IndustryGalleryCard.objects.get(pk=self.pk)
                 if old.image and self.image != old.image:
-                    old.image.delete(save=False)
+                    old_image = old.image
             except IndustryGalleryCard.DoesNotExist:
                 pass
         super().save(*args, **kwargs)
+        if old_image:
+            transaction.on_commit(lambda: old_image.delete(save=False))
 
     class Meta:
         ordering = ["row", "sort_order"]

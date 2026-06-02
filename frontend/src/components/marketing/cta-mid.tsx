@@ -52,7 +52,7 @@ export function CtaMid({ content }: CtaMidProps) {
 
   return (
     <section ref={sectionRef} className="border-y border-border bg-background px-4 py-10 sm:px-6 sm:py-12">
-      <div className="ctam-content mx-auto flex max-w-4xl flex-col items-center justify-between gap-6 sm:flex-row">
+      <div className="ctam-content invisible mx-auto flex max-w-4xl flex-col items-center justify-between gap-6 sm:flex-row">
         <div>
           <h3 className="text-xl font-semibold text-foreground sm:text-2xl">
             {content.title}

@@ -401,7 +401,7 @@ function SectionCard({
                   ) : (
                     <input
                       id={`${sectionKey}-${field.key}`}
-                      type={field.type === 'url' ? 'text' : 'text'}
+                      type={field.type === 'url' ? 'url' : 'text'}
                       value={getFieldValue(field.key)}
                       onChange={(e) => setFieldValue(field.key, e.target.value)}
                       className={INPUT_CLASS}
