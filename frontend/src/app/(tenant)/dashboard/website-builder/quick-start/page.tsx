@@ -742,17 +742,40 @@ export default function QuickStartPage() {
                 </div>
               ) : (
                 <>
-                  <h1
-                    className="text-xl sm:text-2xl font-semibold text-center mb-14 animate-in fade-in duration-500"
-                    style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
+                  <div
+                    className="relative mb-14 animate-in fade-in duration-500 rounded-2xl px-5 py-4 text-center"
+                    style={{
+                      backgroundColor: '#f8f9fa',
+                      border: `1px solid ${WARM_GRAY_100}`,
+                      maxWidth: '22rem',
+                    }}
                   >
-                    Hola{firstName ? ' ' : ''}
-                    {firstName && <span style={{ color: TEAL }}>{firstName}</span>}
-                    {firstName ? ', s' : 'S'}oy{' '}
-                    <span style={{ color: TEAL }}>{AGENT_NAME}</span>
-                    , tu asistente creativo.{' '}
-                    {step.message}
-                  </h1>
+                    {/* Speech bubble tail */}
+                    <div
+                      className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
+                      style={{
+                        backgroundColor: '#f8f9fa',
+                        borderLeft: `1px solid ${WARM_GRAY_100}`,
+                        borderTop: `1px solid ${WARM_GRAY_100}`,
+                      }}
+                    />
+                    <p
+                      className="text-sm font-medium"
+                      style={{ color: WARM_GRAY_800 }}
+                    >
+                      Hola{firstName ? ' ' : ''}
+                      {firstName && <span style={{ color: TEAL }}>{firstName}</span>}
+                      {firstName ? ', s' : 'S'}oy{' '}
+                      <span className="font-semibold" style={{ color: TEAL }}>{AGENT_NAME}</span>
+                      , tu asistente creativo.
+                    </p>
+                    <p
+                      className="text-lg font-semibold mt-1.5"
+                      style={{ color: WARM_GRAY_800, letterSpacing: '-0.01em' }}
+                    >
+                      {step.message}
+                    </p>
+                  </div>
 
                   {/* Module grid + continue — same width as title */}
                   {step.type === 'modules' && (
