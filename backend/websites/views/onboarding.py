@@ -76,9 +76,19 @@ class StartOnboardingView(OnboardingView):
             },
         )
 
-        # Si cambió el template, limpiar respuestas del template anterior
+        # Si cambió el template, limpiar respuestas y datos generados del template anterior
         if not created and old_template_id and old_template_id != template.id:
             OnboardingResponse.objects.filter(website_config=config).delete()
+            config.content_data = {}
+            config.pages_data = {}
+            config.theme_data = {}
+            config.media_data = {}
+            config.seo_data = {}
+            config.enabled_pages = []
+            config.save(update_fields=[
+                "content_data", "pages_data", "theme_data",
+                "media_data", "seo_data", "enabled_pages",
+            ])
 
         # Obtener preguntas del template
         questions = self._get_questions_for_template(template)
