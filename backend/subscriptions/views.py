@@ -2,9 +2,18 @@
 
 
 from rest_framework import status, viewsets
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import (
+    action,
+    api_view,
+    permission_classes,
+)
+from rest_framework.decorators import (
+    throttle_classes as throttle_classes_decorator,
+)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+
+from websites.throttles import PublicSiteThrottle
 
 from .models import MarketplaceCategory, MarketplaceContract, MarketplacePlan
 from .serializers import (
@@ -24,6 +33,7 @@ class MarketplaceCategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
     serializer_class = MarketplaceCategorySerializer
     permission_classes = [AllowAny]
+    throttle_classes = [PublicSiteThrottle]
     lookup_field = "slug"
     pagination_class = None  # Deshabilitar paginación
 
@@ -48,6 +58,7 @@ class MarketplacePlanViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [PublicSiteThrottle]
     lookup_field = "slug"
     pagination_class = None  # Deshabilitar paginación
 
@@ -145,6 +156,7 @@ def purchase_plan(request):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+@throttle_classes_decorator([PublicSiteThrottle])
 def featured_plans(request):
     """Obtener planes destacados para la página principal"""
     plans = (

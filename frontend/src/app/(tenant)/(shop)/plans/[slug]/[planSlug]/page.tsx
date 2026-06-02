@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { apiClient } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { sanitizeHtml } from '@/lib/sanitize';
 import type { SubscriptionPlan } from '@/types';
 
 interface PageProps {
@@ -150,7 +151,7 @@ export default function PlanDetailPage({ params }: PageProps) {
               <h2 className="text-2xl font-bold mb-4">Descripción</h2>
               <div
                 className="prose max-w-none"
-                dangerouslySetInnerHTML={{ __html: plan.full_description }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(plan.full_description) }}
               />
             </div>
           )}

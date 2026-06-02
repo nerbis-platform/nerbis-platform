@@ -68,7 +68,11 @@ class TenantAwareManager(TenantManager):
         if tenant:
             return qs.filter(**{self.tenant_field: tenant})
 
-        return qs
+        return qs.none()  # fail-closed: sin tenant = sin datos
+
+    def unscoped(self):
+        """Retorna queryset sin filtro de tenant. Usar solo en admin/management commands."""
+        return super().get_queryset()
 
 
 class TenantAwareUserManager(UserManager):
@@ -95,7 +99,11 @@ class TenantAwareUserManager(UserManager):
         if tenant:
             return qs.filter(**{self.tenant_field: tenant})
 
-        return qs
+        return qs.none()  # fail-closed: sin tenant = sin datos
+
+    def unscoped(self):
+        """Retorna queryset sin filtro de tenant. Usar solo en admin/management commands."""
+        return super().get_queryset()
 
     def for_tenant(self, tenant):
         """

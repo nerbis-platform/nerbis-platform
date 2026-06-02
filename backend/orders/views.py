@@ -1,5 +1,7 @@
 # backend/orders/views.py
 
+import logging
+
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -18,6 +20,8 @@ from .serializers import (
     PaymentIntentSerializer,
 )
 from .stripe_utils import create_payment_intent
+
+logger = logging.getLogger(__name__)
 
 
 class OrderViewSet(viewsets.ReadOnlyModelViewSet):
@@ -246,9 +250,11 @@ class CheckoutViewSet(viewsets.ViewSet):
                 }
             )
 
-        except Exception as e:
+        except Exception:
+            logger.exception("Error al crear payment intent para orden %s", order_id)
             return Response(
-                {"error": f"Error al procesar pago: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Error interno al procesar el pago. Intente nuevamente."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     @action(detail=False, methods=["post"], url_path="confirm-payment")
@@ -278,11 +284,11 @@ class CheckoutViewSet(viewsets.ViewSet):
         try:
             # Verificar orden
             order = Order.objects.get(id=order_id, tenant=request.tenant, customer=request.user)
-            print(f"📋 Confirmando pago para orden {order.order_number}")
+            logger.info("Confirmando pago para orden %s", order.order_number)
 
             # Si ya está pagada, retornar éxito
             if order.status == "paid":
-                print(f"✅ Orden {order.order_number} ya estaba pagada")
+                logger.info("Orden %s ya estaba pagada", order.order_number)
                 return Response(
                     {
                         "message": "Orden ya confirmada",
@@ -302,7 +308,7 @@ class CheckoutViewSet(viewsets.ViewSet):
             # Verificar estado del Payment Intent en Stripe
             stripe.api_key = gateway.secret_key
             payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
-            print(f"💳 Estado del Payment Intent: {payment_intent.status}")
+            logger.info("Estado del Payment Intent: %s", payment_intent.status)
 
             if payment_intent.status == "succeeded":
                 # Buscar el pago
@@ -310,13 +316,13 @@ class CheckoutViewSet(viewsets.ViewSet):
                     payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id, order=order)
                     # Marcar pago como exitoso
                     payment.mark_as_succeeded()
-                    print(f"✅ Payment {payment.id} marcado como exitoso")
+                    logger.info("Payment %s marcado como exitoso", payment.id)
                 except Payment.DoesNotExist:
-                    print(f"⚠️ Payment no encontrado para intent {payment_intent_id}")
+                    logger.warning("Payment no encontrado para intent %s", payment_intent_id)
 
                 # Marcar orden como pagada
                 order.mark_as_paid()
-                print(f"✅ Orden {order.order_number} marcada como pagada")
+                logger.info("Orden %s marcada como pagada", order.order_number)
 
                 # Confirmar todas las citas de la orden
                 appointments_confirmed = 0
@@ -328,9 +334,15 @@ class CheckoutViewSet(viewsets.ViewSet):
                         appointment.is_paid = True
                         appointment.save()
                         appointments_confirmed += 1
-                        print(f"✅ Cita {appointment.id} confirmada ({old_status} → confirmed)")
+                        logger.info(
+                            "Cita %s confirmada (%s -> confirmed)", appointment.id, old_status
+                        )
 
-                print(f"🎉 Total: {appointments_confirmed} citas confirmadas para orden {order.order_number}")
+                logger.info(
+                    "Total: %s citas confirmadas para orden %s",
+                    appointments_confirmed,
+                    order.order_number,
+                )
 
                 return Response(
                     {
@@ -350,13 +362,11 @@ class CheckoutViewSet(viewsets.ViewSet):
                 )
 
         except Order.DoesNotExist:
-            print(f"❌ Orden {order_id} no encontrada")
+            logger.warning("Orden %s no encontrada para usuario %s", order_id, request.user.id)
             return Response({"error": "Orden no encontrada"}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            print(f"❌ Error en confirm_payment: {str(e)}")
-            import traceback
-
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Error al confirmar pago para orden %s", order_id)
             return Response(
-                {"error": f"Error al confirmar pago: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Error interno al confirmar el pago. Intente nuevamente."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
