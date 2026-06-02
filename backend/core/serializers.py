@@ -19,6 +19,7 @@ from .models import (
     Tenant,
     User,
 )
+from .utils import get_client_ip
 
 
 class PublicMarketingSectionSerializer(serializers.ModelSerializer):
@@ -382,13 +383,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return username
 
-    def _get_client_ip(self, request):
-        """Extraer IP real del cliente (soporta proxies/load balancers)."""
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()
-        return request.META.get("REMOTE_ADDR")
-
     def create(self, validated_data):
         from django.utils import timezone as tz
 
@@ -399,7 +393,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         # Obtener tenant y IP del request
         request = self.context.get("request")
         tenant = request.tenant
-        client_ip = self._get_client_ip(request)
+        client_ip = get_client_ip(request)
 
         # Generar username automáticamente desde el email
         email = validated_data["email"].lower()
@@ -547,13 +541,6 @@ class TenantRegisterSerializer(serializers.Serializer):
 
         return attrs
 
-    def _get_client_ip(self, request):
-        """Extraer IP real del cliente (soporta proxies/load balancers)."""
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()
-        return request.META.get("REMOTE_ADDR")
-
     def create(self, validated_data):
         from django.db import transaction
         from django.utils import timezone as tz
@@ -575,7 +562,7 @@ class TenantRegisterSerializer(serializers.Serializer):
 
         # Capturar IP para evidencia legal
         request = self.context.get("request")
-        client_ip = self._get_client_ip(request) if request else None
+        client_ip = get_client_ip(request) if request else None
 
         with transaction.atomic():
             # Generar slug único

@@ -128,7 +128,7 @@ class PreviewRenderView(APIView):
             if tenant.subscription.status != "trial":
                 show_badge = seo.get("show_nerbis_badge", True)
         except Exception:
-            pass
+            logger.warning("Error al verificar badge en preview para tenant %s", tenant.slug, exc_info=True)
 
         badge_logo_url = request.build_absolute_uri(_static("images/nerbis-badge.png"))
 

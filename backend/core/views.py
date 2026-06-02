@@ -64,6 +64,7 @@ from .throttles import (
     SocialLoginThrottle,
     TokenRefreshThrottle,
 )
+from .utils import safe_delay
 
 logger = logging.getLogger(__name__)
 from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
@@ -141,11 +142,7 @@ class RegisterView(generics.CreateAPIView):
         try:
             from notifications.tasks import send_welcome_email
 
-            try:
-                send_welcome_email.delay(user.id)
-            except Exception:
-                # Si Celery no está disponible, enviar sincrónicamente
-                send_welcome_email(user.id)
+            safe_delay(send_welcome_email, user.id)
         except Exception as e:
             logger.warning(f"No se pudo enviar email de bienvenida a {user.email}: {e}")
 
@@ -281,10 +278,7 @@ class TenantRegisterView(generics.CreateAPIView):
         try:
             from notifications.tasks import send_welcome_email
 
-            try:
-                send_welcome_email.delay(user.id)
-            except Exception:
-                send_welcome_email(user.id)
+            safe_delay(send_welcome_email, user.id)
         except Exception as e:
             logger.warning(f"No se pudo enviar email de bienvenida a {user.email}: {e}")
 
@@ -539,10 +533,7 @@ class PlatformForgotPasswordView(APIView):
             for user in users:
                 try:
                     otp = OTPToken.create_for_user(user, purpose="password_reset")
-                    try:
-                        send_otp_email.delay(user.id, otp.code, "password_reset")
-                    except Exception:
-                        send_otp_email(user.id, otp.code, "password_reset")
+                    safe_delay(send_otp_email, user.id, otp.code, "password_reset")
                 except Exception as e:
                     logger.warning(f"Fallo enviando OTP password_reset a user={user.id}: {e}")
         else:
@@ -1430,10 +1421,7 @@ class RequestPasswordResetOTPView(APIView):
         # Enviar email con OTP (async con Celery)
         from notifications.tasks import send_otp_email
 
-        try:
-            send_otp_email.delay(user.id, otp.code, "password_reset")
-        except Exception:
-            send_otp_email(user.id, otp.code, "password_reset")
+        safe_delay(send_otp_email, user.id, otp.code, "password_reset")
 
         return Response(
             {
@@ -1609,10 +1597,7 @@ class RequestReactivationOTPView(APIView):
         # Enviar email con OTP (async con Celery)
         from notifications.tasks import send_otp_email
 
-        try:
-            send_otp_email.delay(user.id, otp.code, "account_reactivation")
-        except Exception:
-            send_otp_email(user.id, otp.code, "account_reactivation")
+        safe_delay(send_otp_email, user.id, otp.code, "account_reactivation")
 
         return generic_ok
 
@@ -1860,7 +1845,7 @@ def _get_tenant_theme(tenant):
             full_theme = {**(config.template.default_theme or {}), **config.theme_data}
             theme.update(full_theme)
     except Exception:
-        pass
+        logger.warning("Error al obtener tema del tenant %s", tenant.pk, exc_info=True)
     return theme
 
 
@@ -1872,6 +1857,7 @@ def _get_enabled_pages(tenant):
         config = WebsiteConfig.objects.filter(tenant=tenant).first()
         return {"enabled": config.enabled_pages if config else []}
     except Exception:
+        logger.warning("Error al obtener paginas habilitadas del tenant %s", tenant.pk, exc_info=True)
         return {"enabled": []}
 
 

@@ -14,9 +14,12 @@ Contrato de sub-agente SDD ``sdd/tenant-user-management`` (Issue #110, Phase 2).
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from rest_framework import serializers
+
+logger = logging.getLogger(__name__)
 
 from core.models import SocialAccount, Tenant, TenantPhaseLog, User, WebAuthnCredential
 
@@ -137,7 +140,7 @@ class AdminTenantDetailSerializer(serializers.ModelSerializer):
 
                 config = WebsiteConfig.objects.filter(tenant=obj).first()
             except Exception:
-                pass
+                logger.warning("Error al obtener website_config para tenant %s", obj.pk, exc_info=True)
         return config.status if config else None
 
 
