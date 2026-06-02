@@ -15,7 +15,7 @@ const BASE_DOMAINS = [
  * Tenant por defecto para desarrollo local.
  * Se usa cuando no se puede detectar un subdominio.
  */
-const DEFAULT_TENANT_SLUG = process.env.NEXT_PUBLIC_DEFAULT_TENANT_SLUG || 'gc-belleza';
+const DEFAULT_TENANT_SLUG = process.env.NEXT_PUBLIC_DEFAULT_TENANT_SLUG || 'demo';
 
 /**
  * Detecta el slug del tenant desde el hostname.

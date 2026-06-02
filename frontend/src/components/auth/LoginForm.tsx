@@ -4,6 +4,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { getClientTenantSlug } from '@/lib/tenant';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import {
@@ -98,7 +99,7 @@ export function LoginForm({
       setShowReactivateDialog(false);
       await requestReactivationOTP({
         ...inactiveAccountData,
-        tenant_slug: process.env.NEXT_PUBLIC_TENANT_SLUG || 'gc-belleza',
+        tenant_slug: getClientTenantSlug(),
       });
       toast.success('Te hemos enviado un código de verificación a tu email');
       router.push(

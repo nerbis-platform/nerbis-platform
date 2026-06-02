@@ -115,18 +115,24 @@ export function Footer() {
                 Contacto
               </h4>
               <ul className="flex flex-col gap-3 text-sm">
-                <li className="flex items-center gap-2 text-[var(--color-text-secondary)]">
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  {contact?.address || process.env.NEXT_PUBLIC_CONTACT_ADDRESS}
-                </li>
-                <li className="flex items-center gap-2 text-[var(--color-text-secondary)]">
-                  <Phone className="h-4 w-4 shrink-0" />
-                  {contact?.phone || process.env.NEXT_PUBLIC_CONTACT_PHONE}
-                </li>
-                <li className="flex items-center gap-2 text-[var(--color-text-secondary)]">
-                  <Mail className="h-4 w-4 shrink-0" />
-                  {contact?.email || process.env.NEXT_PUBLIC_CONTACT_EMAIL}
-                </li>
+                {contact?.address && (
+                  <li className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    {contact.address}
+                  </li>
+                )}
+                {contact?.phone && (
+                  <li className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                    <Phone className="h-4 w-4 shrink-0" />
+                    {contact.phone}
+                  </li>
+                )}
+                {contact?.email && (
+                  <li className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                    <Mail className="h-4 w-4 shrink-0" />
+                    {contact.email}
+                  </li>
+                )}
               </ul>
 
               {/* Social */}
