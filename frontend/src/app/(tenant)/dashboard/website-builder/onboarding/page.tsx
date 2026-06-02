@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
@@ -14,6 +14,8 @@ import {
   Sparkles,
   Check,
   Upload,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +34,67 @@ const SECTIONS: { key: QuestionSection; label: string; icon: React.ElementType }
   { key: 'content', label: 'Páginas', icon: FileText },
   { key: 'contact', label: 'Contacto', icon: Phone },
 ];
+
+// ─── sessionStorage helpers ──────────────────────────────────
+
+const SESSION_KEY_RESPONSES = (slug: string) => `onboarding_${slug}_responses`;
+const SESSION_KEY_SECTION = (slug: string) => `onboarding_${slug}_section`;
+
+function saveToSession(slug: string, responses: Record<string, string | string[]>, section: number) {
+  try {
+    sessionStorage.setItem(SESSION_KEY_RESPONSES(slug), JSON.stringify(responses));
+    sessionStorage.setItem(SESSION_KEY_SECTION(slug), String(section));
+  } catch {
+    // sessionStorage full or unavailable — silent fail
+  }
+}
+
+function loadFromSession(slug: string): { responses: Record<string, string | string[]>; section: number } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY_RESPONSES(slug));
+    const sec = sessionStorage.getItem(SESSION_KEY_SECTION(slug));
+    if (!raw) return null;
+    return { responses: JSON.parse(raw), section: sec ? parseInt(sec, 10) : 0 };
+  } catch {
+    return null;
+  }
+}
+
+function clearSession(slug: string) {
+  try {
+    sessionStorage.removeItem(SESSION_KEY_RESPONSES(slug));
+    sessionStorage.removeItem(SESSION_KEY_SECTION(slug));
+  } catch {
+    // silent
+  }
+}
+
+// ─── Format validators ──────────────────────────────────────
+
+const FORMAT_VALIDATORS: Record<string, { regex: RegExp; message: string; minDigits?: number }> = {
+  business_email: {
+    regex: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    message: 'Ingresa un email válido (ej: nombre@empresa.com)',
+  },
+  business_phone: {
+    regex: /^\+?[\d\s\-()]+$/,
+    message: 'Solo números, espacios, guiones y paréntesis',
+    minDigits: 7,
+  },
+  business_whatsapp: {
+    regex: /^\+?[\d\s\-()]+$/,
+    message: 'Solo números, espacios, guiones y paréntesis',
+    minDigits: 7,
+  },
+  primary_color: {
+    regex: /^#[0-9a-fA-F]{6}$/,
+    message: 'Usa formato hexadecimal (ej: #0D9488)',
+  },
+  secondary_color: {
+    regex: /^#[0-9a-fA-F]{6}$/,
+    message: 'Usa formato hexadecimal (ej: #1C3B57)',
+  },
+};
 
 // ─── Image upload + color extraction ─────────────────────────
 
@@ -376,19 +439,30 @@ export default function OnboardingPage() {
   const searchParams = useSearchParams();
   const isNavBack = searchParams.get('nav') === '1';
   const { tenant, user } = useAuth();
-  const [currentSection, setCurrentSection] = useState(0);
-  const [responses, setResponses] = useState<Record<string, string | string[]>>({});
+
+  // Hydrate initial state from sessionStorage
+  const [currentSection, setCurrentSection] = useState(() => {
+    if (typeof window === 'undefined' || !tenant?.slug) return 0;
+    const cached = loadFromSession(tenant.slug);
+    return cached?.section ?? 0;
+  });
+  const [responses, setResponses] = useState<Record<string, string | string[]>>(() => {
+    if (typeof window === 'undefined' || !tenant?.slug) return {};
+    const cached = loadFromSession(tenant.slug);
+    return cached?.responses ?? {};
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const hasRecoveredSection = useRef(false);
 
   // Fetch onboarding status (includes saved responses)
-  const { data: statusData, isLoading: isLoadingStatus } = useQuery({
+  const { data: statusData, isLoading: isLoadingStatus, isError: isStatusError, refetch: refetchStatus } = useQuery({
     queryKey: ['onboardingStatus'],
     queryFn: getOnboardingStatus,
   });
 
   // Fetch template with questions
   const templateId = statusData?.template?.id;
-  const { data: templateData, isLoading: isLoadingTemplate } = useQuery({
+  const { data: templateData, isLoading: isLoadingTemplate, isError: isTemplateError, refetch: refetchTemplate } = useQuery({
     queryKey: ['websiteTemplate', templateId],
     queryFn: () => getWebsiteTemplate(templateId!),
     enabled: !!templateId,
@@ -482,6 +556,24 @@ export default function OnboardingPage() {
     }
   }, [statusData, router, isNavBack]);
 
+  // Debounced autosave to sessionStorage
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveToSessionDebounced = useCallback((slug: string, data: Record<string, string | string[]>, section: number) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveToSession(slug, data, section), 1000);
+  }, []);
+
+  useEffect(() => {
+    if (!tenant?.slug) return;
+    saveToSessionDebounced(tenant.slug, responses, currentSection);
+  }, [responses, currentSection, tenant?.slug, saveToSessionDebounced]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
+
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: (data: Record<string, string | string[]>) => saveOnboardingResponses(data),
@@ -493,6 +585,29 @@ export default function OnboardingPage() {
     ...section,
     questions: questions.filter((q) => q.section === section.key),
   })).filter((s) => s.questions.length > 0);
+
+  // Section recovery: jump to first section with incomplete required fields
+  useEffect(() => {
+    if (hasRecoveredSection.current || questionsBySection.length === 0) return;
+    if (Object.keys(responses).length === 0) return; // Wait for data to load
+    hasRecoveredSection.current = true;
+
+    for (let i = 0; i < questionsBySection.length; i++) {
+      const section = questionsBySection[i];
+      for (const q of section.questions) {
+        if (q.is_required) {
+          const val = responses[q.question_key];
+          if (!val || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0)) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setCurrentSection(i);
+            return;
+          }
+        }
+      }
+    }
+    // All required fields complete — go to last section
+    setCurrentSection(questionsBySection.length - 1);
+  }, [questionsBySection, responses]);
 
   const currentSectionData = questionsBySection[currentSection];
   const isLastSection = currentSection === questionsBySection.length - 1;
@@ -520,6 +635,19 @@ export default function OnboardingPage() {
         } else if (q.min_length && typeof val === 'string' && val.length < q.min_length) {
           newErrors[q.question_key] = `Mínimo ${q.min_length} caracteres`;
         }
+      }
+    }
+
+    // Format validation for non-empty fields
+    for (const q of currentSectionData.questions) {
+      const validator = FORMAT_VALIDATORS[q.question_key];
+      if (!validator) continue;
+      const val = responses[q.question_key];
+      if (!val || typeof val !== 'string' || val.trim() === '') continue; // skip empty
+      if (!validator.regex.test(val)) {
+        newErrors[q.question_key] = validator.message;
+      } else if (validator.minDigits && val.replace(/\D/g, '').length < validator.minDigits) {
+        newErrors[q.question_key] = `Mínimo ${validator.minDigits} dígitos`;
       }
     }
 
@@ -556,6 +684,7 @@ export default function OnboardingPage() {
       await saveCurrentSection();
 
       if (isLastSection) {
+        if (tenant?.slug) clearSession(tenant.slug);
         toast.success('Información guardada correctamente');
         router.push('/dashboard/website-builder/generate');
       } else {
@@ -577,8 +706,9 @@ export default function OnboardingPage() {
   };
 
   const isLoading = isLoadingStatus || isLoadingTemplate;
+  const isError = isStatusError || isTemplateError;
 
-  if (isLoading) {
+  if (isLoading && !isError) {
     return (
       <div className="space-y-8">
         <div className="max-w-lg">
@@ -598,6 +728,24 @@ export default function OnboardingPage() {
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <AlertTriangle className="h-8 w-8 text-red-400" />
+        <p className="text-gray-600 text-[0.88rem]">No pudimos cargar los datos del formulario.</p>
+        <p className="text-gray-400 text-[0.78rem]">Verifica tu conexión e intenta de nuevo.</p>
+        <button
+          type="button"
+          onClick={() => { refetchStatus(); refetchTemplate(); }}
+          className="flex items-center gap-2 h-10 px-5 rounded-lg border border-gray-200 text-[0.85rem] font-medium text-[#1C3B57] transition-all hover:border-[#0D9488] hover:text-[#0D9488] cursor-pointer"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Reintentar
+        </button>
       </div>
     );
   }
