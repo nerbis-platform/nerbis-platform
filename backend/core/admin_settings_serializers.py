@@ -233,9 +233,7 @@ class AdminIndustryGalleryCardSerializer(serializers.ModelSerializer):
 
         detected_mime = pillow_to_mime.get(img.format)
         if detected_mime not in ALLOWED_IMAGE_TYPES:
-            raise serializers.ValidationError(
-                f"Formato no permitido: {img.format}. Usa JPG, PNG o WebP."
-            )
+            raise serializers.ValidationError(f"Formato no permitido: {img.format}. Usa JPG, PNG o WebP.")
 
         value.seek(0)
         return value
@@ -247,9 +245,7 @@ class AdminIndustryGalleryCardSerializer(serializers.ModelSerializer):
         gradient = attrs.get("gradient", getattr(self.instance, "gradient", "") if self.instance else "")
 
         if is_visible and not image and not (gradient and gradient.strip()):
-            raise serializers.ValidationError(
-                "Una card visible debe tener imagen o gradiente de fondo."
-            )
+            raise serializers.ValidationError("Una card visible debe tener imagen o gradiente de fondo.")
         return attrs
 
 
