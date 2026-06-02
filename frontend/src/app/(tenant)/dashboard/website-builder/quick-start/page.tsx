@@ -329,8 +329,8 @@ export default function QuickStartPage() {
   const [result, setResult] = useState<QuickStartResponse | null>(null);
   const [usageLimitInfo, setUsageLimitInfo] = useState<{ used: number; limit: number } | null>(null);
 
-  // ─── Session storage keys ──────────────────────────────────
-  const SS_KEY = 'nerbis_quickstart_state';
+  // ─── Session storage keys (scoped to tenant to prevent cross-tenant leaks) ──
+  const SS_KEY = `nerbis_quickstart_state_${tenant?.id || 'unknown'}`;
 
   // ─── Restore state from sessionStorage on mount ────────────
   const hasRestored = useRef(false);
@@ -1088,7 +1088,7 @@ export default function QuickStartPage() {
                     {step.maxLength && (
                       <p
                         className="text-[0.7rem] tabular-nums"
-                        style={{ color: currentInput.length > step.maxLength * 0.9 ? '#DC2626' : WARM_GRAY_400 }}
+                        style={{ color: currentInput.length > step.maxLength * 0.9 ? '#B91C1C' : WARM_GRAY_600 }}
                       >
                         {currentInput.length}/{step.maxLength}
                       </p>
