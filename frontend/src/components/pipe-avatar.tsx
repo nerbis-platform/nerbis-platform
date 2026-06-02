@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useId, useMemo, useCallback } from 'react';
 
 // ─── Colors ──────────────────────────────────────────────
 const TEAL = '#0D9488';
@@ -129,7 +129,7 @@ export function PipeAvatar({
 
   const eyes = MOOD_EYES[mood];
 
-  const uid = useMemo(() => `pipe-${Math.random().toString(36).slice(2, 8)}`, []);
+  const uid = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const [tapped, setTapped] = useState(false);
   const [hovered, setHovered] = useState(false);
