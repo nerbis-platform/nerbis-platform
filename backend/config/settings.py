@@ -371,6 +371,7 @@ REST_FRAMEWORK = {
         "admin_login": "5/min",
         "token_refresh": "30/min",
         "public_check": "20/min",
+        "public_site": "60/min",
         # API general (por usuario autenticado)
         "user": "120/min",
         # Por tenant: se configura dinámicamente según el plan

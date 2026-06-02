@@ -1,6 +1,9 @@
 # backend/websites/views/publishing.py
-"""View para la publicación del sitio web."""
+"""View para la publicacion del sitio web."""
 
+import logging
+
+from django.core.cache import cache
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -9,6 +12,8 @@ from rest_framework.views import APIView
 
 from ..models import WebsiteConfig
 from ..serializers import PublishWebsiteSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class PublishWebsiteView(APIView):
@@ -32,18 +37,18 @@ class PublishWebsiteView(APIView):
 
         if config.status not in ["review", "published"]:
             return Response(
-                {"error": "El sitio debe estar en revisión para publicar"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "El sitio debe estar en revision para publicar"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         serializer = PublishWebsiteSerializer(data=request.data, context={"tenant": tenant})
         serializer.is_valid(raise_exception=True)
 
-        # Actualizar subdominio si se proporciona
         new_subdomain = serializer.validated_data.get("subdomain")
         if new_subdomain:
             config.subdomain = new_subdomain
 
-        # Crear snapshot de datos publicados
+        old_published_data = config.published_data or {}
+
         config.published_data = {
             "content_data": config.content_data or {},
             "theme_data": config.theme_data or {},
@@ -52,10 +57,11 @@ class PublishWebsiteView(APIView):
             "media_data": config.media_data or {},
         }
 
-        # Publicar
         config.status = "published"
         config.published_at = timezone.now()
         config.save(update_fields=["published_data", "status", "published_at", "subdomain"])
+
+        self._invalidate_public_cache(config, old_published_data)
 
         return Response(
             {
@@ -65,6 +71,19 @@ class PublishWebsiteView(APIView):
                 "published_at": config.published_at,
             }
         )
+
+    @staticmethod
+    def _invalidate_public_cache(config, old_published_data):
+        """Delete cached public site pages after re-publish."""
+        slug = config.subdomain or config.tenant.slug
+        old_pages = old_published_data.get("pages_data", {}).get("pages", [])
+        new_pages = config.published_data.get("pages_data", {}).get("pages", [])
+        page_ids = {p.get("id") for p in old_pages} | {p.get("id") for p in new_pages}
+        page_ids.add("home")
+        page_ids.discard(None)
+        for pid in page_ids:
+            cache.delete(f"public_site:{slug}:{pid}")
+        logger.info("Invalidated %d cache keys for slug=%s", len(page_ids), slug)
 
     def _get_tenant(self, request):
         if not hasattr(request.user, "tenant") or not request.user.tenant:
