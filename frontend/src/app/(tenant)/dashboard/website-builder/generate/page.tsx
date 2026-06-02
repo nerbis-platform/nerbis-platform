@@ -173,6 +173,8 @@ export default function GeneratePage() {
           }
         }).catch(() => {
           toast.error('Error al cargar tu sitio. Intenta de nuevo.');
+          setPageState('error');
+          hasTriggered.current = false;
         });
       }
     } else if (status === 'generating') {

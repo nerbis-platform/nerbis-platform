@@ -576,7 +576,6 @@ export default function QuickStartPage() {
         setTenant(updatedTenant);
       } catch {
         toast.error('Error al configurar los módulos. Intenta de nuevo.');
-        setPageState('error');
         return;
       }
 

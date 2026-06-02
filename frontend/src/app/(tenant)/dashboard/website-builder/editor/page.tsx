@@ -169,7 +169,7 @@ export default function EditorPage() {
     queryFn: getOnboardingStatus,
   });
 
-  const { data: config, isLoading: configLoading } = useQuery({
+  const { data: config, isLoading: configLoading, isError: configError } = useQuery({
     queryKey: ['websiteConfig'],
     queryFn: getWebsiteConfig,
     enabled: !!statusData && !['not_started', 'draft'].includes(statusData.status),
@@ -527,6 +527,7 @@ export default function EditorPage() {
   const publishMutation = useMutation({
     mutationFn: () => publishWebsite(),
     onSuccess: () => {
+      setShowPublishDialog(false);
       setPublishSuccess(true);
       queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
       queryClient.invalidateQueries({ queryKey: ['onboardingStatus'] });
@@ -897,6 +898,25 @@ export default function EditorPage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [globalUndo, globalRedo, handleSaveAllNow]);
+
+  // ─── Error state ────────────────────────────────────────
+  if (configError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4">
+          <AlertCircle className="h-5 w-5 text-red-500" />
+        </div>
+        <p className="text-[0.85rem] text-gray-600 mb-3">Error al cargar el editor</p>
+        <button
+          type="button"
+          onClick={() => queryClient.invalidateQueries({ queryKey: ['websiteConfig'] })}
+          className="text-[0.82rem] text-[#0D9488] hover:underline cursor-pointer"
+        >
+          Intentar de nuevo
+        </button>
+      </div>
+    );
+  }
 
   // ─── Loading state ───────────────────────────────────────
   if (statusLoading || configLoading || !config?.content_data) {
@@ -1641,7 +1661,6 @@ export default function EditorPage() {
                 onClick={async () => {
                   // Save any unsaved changes first, then publish
                   handleSaveAllNow();
-                  setShowPublishDialog(false);
                   publishMutation.mutate();
                 }}
                 disabled={publishMutation.isPending}

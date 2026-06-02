@@ -805,7 +805,7 @@ export default function OnboardingPage() {
                   // Allow clicking on completed or current sections
                   if (index <= currentSection) {
                     if (index < currentSection) {
-                      try { await saveCurrentSection(); } catch { /* silent */ }
+                      try { await saveCurrentSection(); } catch { toast.warning('No se pudo guardar esta sección. Tus datos podrían no haberse guardado.'); }
                     }
                     setCurrentSection(index);
                   }
