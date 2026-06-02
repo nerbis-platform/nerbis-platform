@@ -178,7 +178,16 @@ class TestPublicSiteView:
         }
     )
     def test_rate_limiting_returns_429(self, published_config):
-        client = APIClient()
-        for _ in range(2):
-            assert client.get(self.url).status_code == 200
-        assert client.get(self.url).status_code == 429
+        from websites.throttles import PublicSiteThrottle
+
+        original_rate = PublicSiteThrottle.THROTTLE_RATES.get("public_site")
+        PublicSiteThrottle.THROTTLE_RATES["public_site"] = "2/min"
+        PublicSiteThrottle.cache.clear()
+        try:
+            client = APIClient()
+            for _ in range(2):
+                assert client.get(self.url).status_code == 200
+            assert client.get(self.url).status_code == 429
+        finally:
+            PublicSiteThrottle.THROTTLE_RATES["public_site"] = original_rate
+            PublicSiteThrottle.cache.clear()
