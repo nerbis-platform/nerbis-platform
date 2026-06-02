@@ -700,7 +700,7 @@ export default function OnboardingPage() {
     try {
       await saveCurrentSection();
     } catch {
-      // Silent — don't block navigation back
+      toast.warning('No se pudo guardar esta sección. Tus datos podrían no haberse guardado.');
     }
     setCurrentSection((prev) => prev - 1);
   };

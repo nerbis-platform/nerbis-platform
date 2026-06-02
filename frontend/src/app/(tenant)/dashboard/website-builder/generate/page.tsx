@@ -24,6 +24,7 @@ import {
 } from '@/lib/api/websites';
 import { GenerateContentResponse } from '@/types';
 import { ApiError } from '@/lib/api/client';
+import { toast } from 'sonner';
 
 // ─── Status messages shown during generation ─────────────────
 const GENERATION_STEPS = [
@@ -170,6 +171,8 @@ export default function GeneratePage() {
           } else {
             router.push('/dashboard/website-builder/editor');
           }
+        }).catch(() => {
+          toast.error('Error al cargar tu sitio. Intenta de nuevo.');
         });
       }
     } else if (status === 'generating') {

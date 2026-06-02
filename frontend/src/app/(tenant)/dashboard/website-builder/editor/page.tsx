@@ -440,6 +440,13 @@ export default function EditorPage() {
         refetchPreview();
       }
     },
+    onError: () => {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Lo siento, hubo un error al procesar tu mensaje. Intenta de nuevo.' },
+      ]);
+      toast.error('Error al enviar el mensaje');
+    },
   });
 
   const settingsMutation = useMutation({
@@ -523,6 +530,9 @@ export default function EditorPage() {
       setPublishSuccess(true);
       queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
       queryClient.invalidateQueries({ queryKey: ['onboardingStatus'] });
+    },
+    onError: () => {
+      toast.error('Error al publicar tu sitio. Intenta de nuevo.');
     },
   });
 
