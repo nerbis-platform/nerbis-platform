@@ -34,6 +34,7 @@ import {
 import { configureModules, ModuleSelection, getCurrentUser } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api/client';
+import { toast } from 'sonner';
 import { Tenant, PlatformModule, OnboardingQuestion, WebsitePage } from '@/types';
 
 // ─── Brand constants ──────────────────────────────────────
@@ -574,7 +575,7 @@ export default function QuickStartPage() {
         const updatedTenant = await configureModules(payload);
         setTenant(updatedTenant);
       } catch {
-        setPageState('error');
+        toast.error('Error al configurar los módulos. Intenta de nuevo.');
         return;
       }
 

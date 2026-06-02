@@ -43,12 +43,8 @@ export async function getWebsiteTemplate(id: number): Promise<WebsiteTemplate> {
  * Obtener la configuración del sitio web del tenant actual
  */
 export async function getWebsiteConfig(): Promise<WebsiteConfig | null> {
-  try {
-    const { data } = await apiClient.get<PaginatedResponse<WebsiteConfig>>('/websites/configs/');
-    return data.results.length > 0 ? data.results[0] : null;
-  } catch {
-    return null;
-  }
+  const { data } = await apiClient.get<PaginatedResponse<WebsiteConfig>>('/websites/configs/');
+  return data.results.length > 0 ? data.results[0] : null;
 }
 
 /**
