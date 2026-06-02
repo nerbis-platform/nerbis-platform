@@ -12,6 +12,9 @@ class Plan(models.Model):
     """
     [DEPRECATED] Planes de suscripcion fijos.
 
+    Hereda de models.Model (NO TenantAwareModel) porque los planes son
+    un catálogo global de la plataforma, no datos de un tenant específico.
+
     Este modelo se mantiene temporalmente para migracion.
     El nuevo sistema usa Module para precios modulares.
     """

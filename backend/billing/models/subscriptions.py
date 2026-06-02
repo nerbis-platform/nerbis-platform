@@ -17,6 +17,10 @@ class Subscription(models.Model):
     """
     Suscripcion de un tenant.
 
+    Hereda de models.Model (NO TenantAwareModel) porque tiene un OneToOneField
+    explícito a Tenant — el aislamiento se da por la relación directa, no por
+    el manager automático.
+
     Cada tenant tiene una suscripcion que incluye:
     - Precio base (web estatica)
     - Modulos adicionales contratados
@@ -175,11 +179,14 @@ class Subscription(models.Model):
     def yearly_total(self):
         """Total anual con descuentos aplicados. Web base gratis si hay otros modulos."""
         skip_base = self._has_non_base_modules
-        modules_yearly = sum(
-            sm.module.yearly_price
-            for sm in self.subscription_modules.filter(is_active=True)
-            if not (skip_base and sm.module.is_base)
-        )
+        total = Decimal("0")
+        for sm in self.subscription_modules.filter(is_active=True):
+            if skip_base and sm.module.is_base:
+                continue
+            monthly = sm.price_locked if sm.price_locked else sm.module.monthly_price
+            months_to_pay = 12 - sm.module.annual_discount_months
+            total += monthly * months_to_pay
+        modules_yearly = total
 
         # Extras (sin descuento anual por ser variable)
         extras_yearly = self.extras_monthly_price * 12
@@ -233,13 +240,19 @@ class Subscription(models.Model):
         """
         Sincroniza los modulos activos al tenant.
         Actualiza los flags has_shop, has_bookings, etc.
+        Si la suscripcion no esta activa, desactiva todos los flags.
         """
         tenant = self.tenant
         if not tenant:
             return
 
-        # Solo sincronizar si la suscripcion esta activa
         if not self.is_active:
+            # Suscripcion inactiva: desactivar todos los modulos del tenant
+            tenant.has_shop = False
+            tenant.has_bookings = False
+            tenant.has_services = False
+            tenant.has_marketing = False
+            tenant.save(update_fields=["has_shop", "has_bookings", "has_services", "has_marketing"])
             return
 
         # Obtener modulos activos

@@ -13,6 +13,9 @@ class PricingConfig(models.Model):
     """
     Configuracion global del sistema de billing (singleton).
 
+    Hereda de models.Model (NO TenantAwareModel) porque es una configuración
+    global de la plataforma (una sola fila), no datos de un tenant específico.
+
     Contiene configuraciones que aplican a todas las suscripciones:
     - Periodo de prueba
     - Precios de extras (pay-as-you-go)

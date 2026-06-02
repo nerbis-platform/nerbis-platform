@@ -16,6 +16,9 @@ from .subscriptions import Subscription
 class UsageRecord(models.Model):
     """
     Registro de uso para facturacion pay-as-you-go.
+
+    Hereda de models.Model (NO TenantAwareModel) porque el aislamiento se da
+    por la relación Subscription → Tenant. No se consulta directamente por tenant.
     """
 
     RESOURCE_CHOICES = [
@@ -76,6 +79,9 @@ class UsageRecord(models.Model):
 class Invoice(models.Model):
     """
     Factura generada para un periodo de facturacion.
+
+    Hereda de models.Model (NO TenantAwareModel) porque el aislamiento se da
+    por la relación Subscription → Tenant.
     """
 
     STATUS_CHOICES = [
@@ -158,8 +164,7 @@ class Invoice(models.Model):
         return f"{self.number} - {self.subscription.tenant.name} (${self.total:,.0f})"
 
     def save(self, *args, **kwargs):
-        if not self.total:
-            self.calculate_total()
+        self.calculate_total()
         super().save(*args, **kwargs)
 
     def calculate_total(self):
@@ -204,6 +209,5 @@ class InvoiceLineItem(models.Model):
         return f"{self.description} - ${self.total:,.0f}"
 
     def save(self, *args, **kwargs):
-        if not self.total:
-            self.total = self.quantity * self.unit_price
+        self.total = self.quantity * self.unit_price
         super().save(*args, **kwargs)

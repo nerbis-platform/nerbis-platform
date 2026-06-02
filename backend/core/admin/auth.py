@@ -249,8 +249,22 @@ class WebAuthnCredentialAdmin(UnfoldModelAdmin):
 
     @admin.action(description="Revocar passkeys seleccionados")
     def revoke_passkeys(self, request, queryset):
-        count = queryset.count()
-        queryset.delete()
+        from django.contrib.admin.models import DELETION, LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        ct = ContentType.objects.get_for_model(WebAuthnCredential)
+        count = 0
+        for credential in queryset:
+            LogEntry.objects.log_action(
+                user_id=request.user.pk,
+                content_type_id=ct.pk,
+                object_id=str(credential.pk),
+                object_repr=f"{credential.name} (user={credential.user_id})",
+                action_flag=DELETION,
+                change_message=f"Passkey revocado por admin id={request.user.pk}",
+            )
+            credential.delete()
+            count += 1
         self.message_user(
             request,
             f"Se revocaron {count} passkey(s). Los usuarios deberán registrar uno nuevo.",

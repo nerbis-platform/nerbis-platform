@@ -8,12 +8,18 @@ from decimal import Decimal
 from django.core.validators import MinValueValidator
 from django.db import models
 
+_NON_NEGATIVE = [MinValueValidator(Decimal("0"))]
+
 
 class Module(models.Model):
     """
-    Servicios/Modulos de NERBIS.
+    Catálogo global de servicios/módulos de NERBIS.
 
-    Cada modulo representa un producto de NERBIS:
+    Hereda de models.Model (NO TenantAwareModel) porque es un catálogo
+    compartido de la plataforma, no datos de un tenant específico.
+    Los tenants acceden a módulos vía Subscription → SubscriptionModule.
+
+    Cada módulo representa un producto de NERBIS:
     - Web (base, requerido)
     - Shop (ecommerce)
     - Bookings (reservas)
@@ -94,6 +100,7 @@ class Module(models.Model):
         max_digits=8,
         decimal_places=2,
         default=Decimal("0"),
+        validators=_NON_NEGATIVE,
         help_text="Precio por cita adicional (0 = no aplica)",
     )
     extra_employee_price = models.DecimalField(
@@ -101,6 +108,7 @@ class Module(models.Model):
         max_digits=8,
         decimal_places=2,
         default=Decimal("0"),
+        validators=_NON_NEGATIVE,
         help_text="Precio mensual por empleado adicional (0 = no aplica)",
     )
     extra_product_price = models.DecimalField(
@@ -108,6 +116,7 @@ class Module(models.Model):
         max_digits=8,
         decimal_places=2,
         default=Decimal("0"),
+        validators=_NON_NEGATIVE,
         help_text="Precio por producto adicional (0 = no aplica)",
     )
     extra_sms_price = models.DecimalField(
@@ -115,6 +124,7 @@ class Module(models.Model):
         max_digits=8,
         decimal_places=2,
         default=Decimal("0"),
+        validators=_NON_NEGATIVE,
         help_text="Precio por SMS adicional (0 = no aplica)",
     )
     extra_whatsapp_price = models.DecimalField(
@@ -122,6 +132,7 @@ class Module(models.Model):
         max_digits=8,
         decimal_places=2,
         default=Decimal("0"),
+        validators=_NON_NEGATIVE,
         help_text="Precio por mensaje WhatsApp adicional (0 = no aplica)",
     )
     extra_storage_price = models.DecimalField(
@@ -129,6 +140,7 @@ class Module(models.Model):
         max_digits=8,
         decimal_places=2,
         default=Decimal("0"),
+        validators=_NON_NEGATIVE,
         help_text="Precio mensual por GB adicional (0 = no aplica)",
     )
     extra_ai_request_price = models.DecimalField(
@@ -136,6 +148,7 @@ class Module(models.Model):
         max_digits=8,
         decimal_places=2,
         default=Decimal("0"),
+        validators=_NON_NEGATIVE,
         help_text="Precio por generacion de IA adicional en plan mensual (0 = no aplica)",
     )
 

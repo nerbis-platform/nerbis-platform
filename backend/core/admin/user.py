@@ -120,6 +120,9 @@ class UserAdmin(UnfoldModelAdmin, BaseUserAdmin):
 
     inlines = [SocialAccountInline, WebAuthnCredentialInline]
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("social_accounts")
+
     def has_module_permission(self, request):
         """Permitir ver el modulo Users"""
         return is_superadmin(request.user)

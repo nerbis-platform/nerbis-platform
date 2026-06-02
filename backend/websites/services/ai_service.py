@@ -394,6 +394,7 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
         messages.append({"role": "user", "content": f"{context_prefix}{message}"})
 
         try:
+            self._last_model_used = settings.ANTHROPIC_MODEL
             response = self.client.messages.create(
                 model=settings.ANTHROPIC_MODEL, max_tokens=2048, system=system_prompt, messages=messages
             )
@@ -596,6 +597,7 @@ Tu trabajo es generar un título y descripción optimizados para Google.
 Responde SOLO con el JSON, sin explicaciones."""
 
         try:
+            self._last_model_used = settings.ANTHROPIC_MODEL
             response = self.client.messages.create(
                 model=settings.ANTHROPIC_MODEL,
                 max_tokens=512,
