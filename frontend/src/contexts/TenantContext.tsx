@@ -1,13 +1,13 @@
 // frontend/src/contexts/TenantContext.tsx
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { apiClient, ApiError } from '@/lib/api/client';
 import { getClientTenantSlug } from '@/lib/tenant';
 import { applyThemeToDOM, type ThemeConfig } from '@/lib/utils/theme-colors';
 import { ErrorState } from '@/components/feedback/ErrorState';
-import { Skeleton } from '@/components/ui/skeleton';
+
 
 /** Rutas que no requieren tenant (landing, auth, registro, etc.) */
 const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/reactivate', '/register-business', '/ayuda'];
@@ -111,11 +111,17 @@ export function TenantProvider({ children }: TenantProviderProps) {
     p === '/' ? pathname === '/' : pathname?.startsWith(p)
   );
 
+  const loadingRef = useRef(false);
+
   useEffect(() => {
     if (isPublicPage) {
       setLoading(false);
       return;
     }
+
+    // Prevent duplicate requests (React StrictMode, re-mounts, etc.)
+    if (loadingRef.current) return;
+    loadingRef.current = true;
 
     const loadTenantConfig = async () => {
       try {
@@ -140,6 +146,14 @@ export function TenantProvider({ children }: TenantProviderProps) {
             window.location.href = '/login';
             return;
           }
+          if (err.status === 429) {
+            // Rate limited — reintentar después de 3 segundos
+            setTimeout(() => {
+              loadingRef.current = false;
+              loadTenantConfig();
+            }, 3000);
+            return;
+          }
         }
         console.error('Error loading tenant config:', err);
         if (err instanceof ApiError && err.code === 'NETWORK_ERROR') {
@@ -149,6 +163,7 @@ export function TenantProvider({ children }: TenantProviderProps) {
         }
       } finally {
         setLoading(false);
+        loadingRef.current = false;
       }
     };
 
@@ -170,31 +185,19 @@ export function TenantProvider({ children }: TenantProviderProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        {/* Header skeleton */}
-        <div className="h-16 border-b border-border px-6 flex items-center justify-between">
-          <Skeleton className="h-8 w-28" />
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-8 w-20" />
-            <Skeleton className="h-8 w-8 rounded-full" />
-          </div>
-        </div>
-
-        {/* Content skeleton */}
-        <div className="mx-auto max-w-6xl px-6 py-10">
-          {/* Hero section */}
-          <Skeleton className="h-64 w-full rounded-lg mb-8" />
-
-          {/* Content rows */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="h-40 w-full rounded-lg" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            ))}
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-2 h-2 rounded-full animate-bounce"
+              style={{
+                backgroundColor: '#9CA3AF',
+                animationDelay: `${i * 150}ms`,
+                animationDuration: '0.8s',
+              }}
+            />
+          ))}
         </div>
       </div>
     );

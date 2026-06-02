@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import Image from 'next/image';
+import { NerbisWordmark } from '@/components/marketing/nerbis-wordmark';
 import {
   Check,
   AlertCircle,
@@ -26,14 +26,15 @@ import {
   QuickStartResponse,
   getPlatformModules,
   getOnboardingQuestions,
-  getOnboardingPages,
   getGenerationStatus,
   GenerationStatusResponse,
+  saveOnboardingResponses,
+  getOnboardingStatus,
 } from '@/lib/api/websites';
 import { configureModules, ModuleSelection, getCurrentUser } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api/client';
-import { Tenant, PlatformModule, OnboardingQuestion, WebsitePage } from '@/types';
+import { Tenant, PlatformModule } from '@/types';
 
 // ─── Brand constants ──────────────────────────────────────
 const NAVY = '#1C3B57';
@@ -46,10 +47,48 @@ const WARM_GRAY_500 = '#78716C';
 const WARM_GRAY_600 = '#57534E';
 const WARM_GRAY_800 = '#292524';
 
+// ─── Progress persistence helpers ─────────────────────────
+// Bump this when step structure changes to invalidate stale localStorage
+const QS_PROGRESS_VERSION = 2;
+
+interface QsProgressSnapshot {
+  version: number;
+  currentStepIdx: number;
+  answers: Record<string, string>;
+  selectedPages: string[];
+  selectedStyle: string;
+  selectedTone: string;
+  primaryColor: string;
+  secondaryColor: string;
+}
+
+function saveProgress(tenantId: string, data: Omit<QsProgressSnapshot, 'version'>): void {
+  try {
+    localStorage.setItem(`qs_progress_${tenantId}`, JSON.stringify({ ...data, version: QS_PROGRESS_VERSION }));
+  } catch { /* quota exceeded — silently ignore */ }
+}
+
+function loadProgress(tenantId: string): QsProgressSnapshot | null {
+  try {
+    const raw = localStorage.getItem(`qs_progress_${tenantId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Invalidate stale data from old versions
+    if (parsed.version !== QS_PROGRESS_VERSION) return null;
+    if (typeof parsed.currentStepIdx !== 'number' || typeof parsed.answers !== 'object') return null;
+    return parsed as QsProgressSnapshot;
+  } catch { return null; }
+}
+
+function clearProgress(tenantId: string): void {
+  try { localStorage.removeItem(`qs_progress_${tenantId}`); } catch { /* ignore */ }
+}
+
 // ─── Conversational steps ─────────────────────────────────
 interface StyleOption { key: string; label: string; description: string; icon: string; color: string }
 interface PaletteOption { primary: string; secondary: string; label: string }
 interface ToneOption { key: string; label: string; emoji: string }
+
 
 interface ConversationStep {
   id: string;
@@ -61,6 +100,47 @@ interface ConversationStep {
   minLength?: number;
   rows?: number;
   options?: StyleOption[] | PaletteOption[] | ToneOption[];
+}
+
+// ─── Typewriter effect ────────────────────────────────────
+interface TypewriterSegment { text: string; bold?: boolean }
+
+function Typewriter({ text, segments, speed = 18, onDone }: { text?: string; segments?: TypewriterSegment[]; speed?: number; onDone?: () => void }) {
+  const resolvedSegments = useMemo(() => segments ?? [{ text: text ?? '' }], [text, segments]);
+  const fullLength = useMemo(() => resolvedSegments.reduce((sum, s) => sum + s.text.length, 0), [resolvedSegments]);
+  const [charCount, setCharCount] = useState(0);
+  const [done, setDone] = useState(false);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
+  useEffect(() => {
+    setDone(false);
+    setCharCount(0);
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setCharCount(i);
+      if (i >= fullLength) {
+        clearInterval(interval);
+        setDone(true);
+        onDoneRef.current?.();
+      }
+    }, speed);
+    return () => clearInterval(interval);
+  }, [fullLength, speed]);
+
+  // Render segments up to charCount
+  let remaining = charCount;
+  const rendered = resolvedSegments.map((seg, idx) => {
+    if (remaining <= 0) return null;
+    const slice = seg.text.slice(0, remaining);
+    remaining -= slice.length;
+    return seg.bold
+      ? <strong key={idx} style={{ color: NAVY }}>{slice}</strong>
+      : <span key={idx}>{slice}</span>;
+  });
+
+  return <>{rendered}{!done && <span className="animate-pulse">|</span>}</>;
 }
 
 // ─── Agent identity ───────────────────────────────────────
@@ -86,12 +166,87 @@ const FALLBACK_MODULES: PlatformModule[] = [
   { key: 'has_bookings', label: 'Reservas', description: 'Agenda de citas online', icon: 'Calendar', accent_color: '#F59E0B', sort_order: 3, dependencies: ['has_services'] },
 ];
 
-const FALLBACK_PAGES: WebsitePage[] = [
-  { key: 'home', label: 'Inicio', description: 'Página principal', icon: 'home', is_mandatory: true, is_default: true, sort_order: 0, auto_include_modules: [] },
-  { key: 'contact', label: 'Contacto', description: 'Formulario de contacto', icon: 'mail', is_mandatory: true, is_default: true, sort_order: 1, auto_include_modules: [] },
-  { key: 'about', label: 'Sobre nosotros', description: 'Tu historia', icon: 'users', is_mandatory: false, is_default: true, sort_order: 2, auto_include_modules: [] },
-  { key: 'blog', label: 'Blog', description: 'Artículos y noticias', icon: 'file-text', is_mandatory: false, is_default: false, sort_order: 6, auto_include_modules: [] },
-];
+/** Recommend pages based on selected modules + business description */
+function getSmartPageRecommendations(
+  modules: Set<string>,
+  description: string,
+): { recommended: string[]; available: string[] } {
+  const desc = description.toLowerCase();
+  const recommended = new Set<string>(['Contacto', 'Sobre nosotros']);
+  const allPages = ['Contacto', 'Sobre nosotros', 'Tienda', 'FAQ', 'Testimonios', 'Blog', 'Galería', 'Equipo', 'Precios', 'Ubicación', 'Casos de éxito'];
+
+  // Module-based recommendations
+  if (modules.has('has_website')) {
+    recommended.add('FAQ');
+    recommended.add('Testimonios');
+  }
+  if (modules.has('has_services') || modules.has('has_bookings')) {
+    recommended.add('Precios');
+    recommended.add('Testimonios');
+    recommended.add('Equipo');
+  }
+  if (modules.has('has_shop')) {
+    recommended.add('Tienda');
+    recommended.add('FAQ');
+    recommended.add('Galería');
+    recommended.add('Precios');
+  }
+  if (modules.has('has_bookings')) {
+    recommended.add('Ubicación');
+  }
+  if (modules.has('has_management')) {
+    recommended.add('Equipo');
+  }
+
+  // Description-based hints
+  if (desc.match(/belleza|spa|salon|salón|estética|estetica|peluquer|nail|uñas|masaje|wellness|maquilla/)) {
+    recommended.add('Galería');
+    recommended.add('Equipo');
+    recommended.add('Precios');
+  }
+  if (desc.match(/restauran|café|cafe|comida|cocina|chef|menu|menú|gastronom|bar|pizz|sushi|panaderi|pastel/)) {
+    recommended.add('Galería');
+    recommended.add('Ubicación');
+  }
+  if (desc.match(/consult|coach|abogad|contador|asesor|freelanc|agencia|diseñ|market|publicid|creativ/)) {
+    recommended.add('Casos de éxito');
+    recommended.add('Testimonios');
+    recommended.add('Blog');
+  }
+  if (desc.match(/clínica|clinica|doctor|médic|medic|salud|dental|dentist|veterinar|fisio|psicólog|psicologo|terapi|nutri/)) {
+    recommended.add('Equipo');
+    recommended.add('FAQ');
+    recommended.add('Ubicación');
+  }
+  if (desc.match(/gym|fitness|entrena|deport|yoga|crossfit|pilates|boxeo/)) {
+    recommended.add('Galería');
+    recommended.add('Precios');
+    recommended.add('Equipo');
+  }
+  if (desc.match(/educa|curso|academ|escuela|taller|capacitac|clase|profesor|tutor|formaci/)) {
+    recommended.add('Blog');
+    recommended.add('FAQ');
+    recommended.add('Testimonios');
+  }
+  if (desc.match(/foto|fotograf|video|produc.*audiovisual|estudio.*grab/)) {
+    recommended.add('Galería');
+    recommended.add('Casos de éxito');
+    recommended.add('Precios');
+  }
+  if (desc.match(/tienda|ropa|moda|zapato|accesorio|joyeri|artesani|producto/)) {
+    recommended.add('Galería');
+    recommended.add('FAQ');
+  }
+  if (desc.match(/inmobiliari|bienes.*raices|propiedade|arquitect|construccion|remodelaci/)) {
+    recommended.add('Galería');
+    recommended.add('Casos de éxito');
+    recommended.add('Ubicación');
+  }
+
+  const recommendedArr = allPages.filter(p => recommended.has(p));
+  const availableArr = allPages.filter(p => !recommended.has(p));
+  return { recommended: recommendedArr, available: availableArr };
+}
 
 const FALLBACK_STYLE_OPTIONS: StyleOption[] = [
   { key: 'moderno', label: 'Moderno', description: 'Limpio y contemporáneo', icon: 'Sparkles', color: '#6366F1' },
@@ -145,16 +300,17 @@ export default function QuickStartPage() {
   const { user, tenant, logout, setTenant } = useAuth();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // ─── Phase guard: si ya pasó onboarding, redirigir ────────
+  // ─── Phase guard: solo redirigir si ya pasó el quick-start completo ────────
   useEffect(() => {
     if (!tenant) return;
-    if (tenant.modules_configured) {
-      // Ya configuró módulos — no debería estar en Quick Start
-      if (tenant.website_status === 'published') {
-        router.replace('/dashboard');
-      } else {
-        router.replace('/dashboard/website-builder');
-      }
+    const phase = tenant.onboarding_phase;
+    // Phases where quick-start is still valid
+    if (phase === 'onboarding' || phase === 'modules_configured') return;
+    // Already building or beyond — redirect out
+    if (phase === 'operational' || phase === 'suspended') {
+      router.replace('/dashboard');
+    } else {
+      router.replace('/dashboard/website-builder');
     }
   }, [tenant, router]);
 
@@ -162,21 +318,14 @@ export default function QuickStartPage() {
   const { data: apiModules } = useQuery({
     queryKey: ['platform-modules'],
     queryFn: getPlatformModules,
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000, // 5 min — modules don't change mid-session
   });
   const { data: apiQuestions } = useQuery({
     queryKey: ['onboarding-questions'],
     queryFn: getOnboardingQuestions,
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000,
   });
-  const { data: apiPages } = useQuery({
-    queryKey: ['onboarding-pages'],
-    queryFn: getOnboardingPages,
-    staleTime: 0,
-  });
-
   const modules = apiModules ?? FALLBACK_MODULES;
-  const pages = apiPages ?? FALLBACK_PAGES;
 
   // ─── Dependency helpers ─────────────────────────────────────
   const toggleModule = useCallback((modKey: keyof ModuleSelection) => {
@@ -219,15 +368,21 @@ export default function QuickStartPage() {
   // ─── Conversation state ───────────────────────────────────
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [typewriterDone, setTypewriterDone] = useState(false);
   const [currentInput, setCurrentInput] = useState('');
   const [isTyping, setIsTyping] = useState(true);
-  const [selectedModules, setSelectedModules] = useState<Set<keyof ModuleSelection>>(
-    () => new Set()
-  );
-  const [selectedPages, setSelectedPages] = useState<Set<string>>(() => {
-    const defaults = (apiPages ?? FALLBACK_PAGES).filter((p) => p.is_default).map((p) => p.key);
-    return new Set(defaults);
+  const [selectedModules, setSelectedModules] = useState<Set<keyof ModuleSelection>>(() => {
+    if (!tenant) return new Set();
+    const initial = new Set<keyof ModuleSelection>();
+    if (tenant.has_website) initial.add('has_website');
+    if (tenant.has_shop) initial.add('has_shop');
+    if (tenant.has_services) initial.add('has_services');
+    if (tenant.has_bookings) initial.add('has_bookings');
+    if (tenant.has_management) initial.add('has_management');
+    if (tenant.has_marketing) initial.add('has_marketing');
+    return initial;
   });
+  const [selectedPages, setSelectedPages] = useState<Set<string>>(() => new Set());
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedTone, setSelectedTone] = useState('');
   const [primaryColor, setPrimaryColor] = useState('');
@@ -245,17 +400,6 @@ export default function QuickStartPage() {
     }
     return deps;
   }, [modules, selectedModules]);
-
-  // Sync selectedPages when apiPages loads
-  useEffect(() => {
-    if (!apiPages) return;
-    const defaults = apiPages.filter((p) => p.is_default).map((p) => p.key);
-    setSelectedPages((prev) => {
-      const key = defaults.sort().join(',');
-      const prevKey = Array.from(prev).sort().join(',');
-      return key !== prevKey ? new Set(defaults) : prev;
-    });
-  }, [apiPages]);
 
   // ─── Build dynamic steps based on selected modules ──────
   const steps = useMemo<ConversationStep[]>(() => {
@@ -289,7 +433,10 @@ export default function QuickStartPage() {
             rows: q.input_type === 'textarea' ? 3 : undefined,
           };
           // Pass options for special types
-          if (q.input_type === 'style_select' && q.options?.length) {
+          if (q.input_type === 'multiselect') {
+            // Message is generated dynamically in render based on smartPages
+            step.message = '';
+          } else if (q.input_type === 'style_select' && q.options?.length) {
             step.options = q.options as unknown as StyleOption[];
           } else if (q.input_type === 'color_picker' && q.options?.length) {
             step.options = q.options as unknown as PaletteOption[];
@@ -300,7 +447,7 @@ export default function QuickStartPage() {
         }
       }
     } else {
-      // Fallback hardcoded questions while API loads
+      // Fallback hardcoded questions while API loads (mirrors DB sort_order)
       result.push(
         { id: 'description', message: 'Cuéntame, ¿para qué necesitas tu sitio y qué haces?', type: 'textarea', placeholder: 'Ej: Soy diseñadora gráfica freelance...', hint: 'Entre más detalles, mejor queda tu sitio.', minLength: 20, rows: 3 },
       );
@@ -313,10 +460,34 @@ export default function QuickStartPage() {
       if (selectedModules.has('has_bookings')) {
         result.push({ id: 'bookings', message: '¿Qué se puede reservar? Cuéntame duración, horarios y si es presencial o virtual.', type: 'textarea', placeholder: 'Ej:\nConsulta inicial — 30 min — virtual\nSesión de coaching — 1 hora — presencial', hint: 'Detalla cada tipo de cita.', minLength: 5, rows: 4 });
       }
-      result.push({ id: 'pages', message: '¿Qué páginas quieres en tu sitio?', type: 'pages', hint: 'Puedes agregar más después.' });
+      // Branding & contact (sort 40-70)
+      result.push({ id: 'style', message: '¿Qué estilo visual te representa mejor?', type: 'style_select' as ConversationStep['type'] });
+      result.push({ id: 'colors', message: '¿Tienes colores de marca?', type: 'color_picker' as ConversationStep['type'] });
+      result.push({ id: 'tone', message: '¿Cómo le hablas a tus clientes?', type: 'tone_select' as ConversationStep['type'] });
+      result.push({ id: 'whatsapp', message: '¿Cuál es tu WhatsApp de contacto?', type: 'input', placeholder: 'Ej: +57 300 123 4567' });
+      // Pages always last (sort 80)
+      result.push({ id: 'pages', message: '', type: 'pages' });
     }
     return result;
   }, [apiQuestions, selectedModules]);
+
+  // Sync selectedPages with smart recommendations when reaching pages step
+  const smartPages = useMemo(() => {
+    const desc = answers['description'] || answers['business_description'] || '';
+    return getSmartPageRecommendations(selectedModules, desc);
+  }, [selectedModules, answers]);
+
+  useEffect(() => {
+    const pagesStep = steps.find((s) => s.type === 'pages');
+    if (!pagesStep) return;
+    // Pipe decides: Inicio + smart recommendations
+    const defaults = ['Inicio', ...smartPages.recommended];
+    setSelectedPages((prev) => {
+      if (prev.size > 0) return prev;
+      return new Set(defaults);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [steps.length, smartPages.recommended.length]);
 
   // ─── Generation state ─────────────────────────────────────
   const [pageState, setPageState] = useState<PageState>('chat');
@@ -325,18 +496,66 @@ export default function QuickStartPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<QuickStartResponse | null>(null);
 
-
-  // ─── Simulate typing delay for each new message ──────────
+  // ─── Simulate typing delay for each new message (skip first step) ──
   useEffect(() => {
     if (pageState !== 'chat') return;
+    // First step shows immediately — no typing indicator on page load
+    if (currentStepIdx === 0) {
+      setIsTyping(false);
+      setTypewriterDone(true);
+      return;
+    }
     setIsTyping(true);
-    const delay = currentStepIdx === 0 ? 800 : 500;
+    setTypewriterDone(false);
     const timer = setTimeout(() => {
       setIsTyping(false);
-    }, delay);
+    }, 1000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStepIdx, pageState]);
+
+  // ─── Rehydrate progress on mount ──────────────────────────
+  const rehydratedRef = useRef(false);
+  useEffect(() => {
+    if (!tenant?.id || rehydratedRef.current) return;
+    rehydratedRef.current = true;
+
+    const saved = loadProgress(tenant.id);
+
+    // Restore UI state from localStorage
+    if (saved) {
+      if (saved.answers && Object.keys(saved.answers).length > 0) {
+        setAnswers(saved.answers);
+      }
+      if (saved.selectedPages?.length > 0) {
+        setSelectedPages(new Set(saved.selectedPages));
+      }
+      if (saved.selectedStyle) setSelectedStyle(saved.selectedStyle);
+      if (saved.selectedTone) setSelectedTone(saved.selectedTone);
+      if (saved.primaryColor) setPrimaryColor(saved.primaryColor);
+      if (saved.secondaryColor) setSecondaryColor(saved.secondaryColor);
+    }
+
+    // Restore text answers from backend (fire-and-forget)
+    getOnboardingStatus().then((status) => {
+      if (status.status === 'generating') return; // polling-resume handles this
+      if (status.responses && Object.keys(status.responses).length > 0) {
+        // Convert array values to strings
+        const restoredAnswers: Record<string, string> = {};
+        for (const [key, val] of Object.entries(status.responses)) {
+          restoredAnswers[key] = Array.isArray(val) ? val.join(', ') : String(val);
+        }
+        setAnswers(prev => ({ ...restoredAnswers, ...prev }));
+      }
+    }).catch(() => { /* API unavailable — use localStorage only */ });
+
+    // Restore step index AFTER answers are set
+    if (saved?.currentStepIdx && saved.currentStepIdx > 0) {
+      setTimeout(() => {
+        setCurrentStepIdx(saved.currentStepIdx);
+      }, 50);
+    }
+  }, [tenant?.id]);
 
   // ─── Active mood reacts to user typing ───────────────────
   useEffect(() => {
@@ -423,20 +642,23 @@ export default function QuickStartPage() {
   }, [setTenant]);
 
   // ─── Resume on refresh: si ya hay generacion activa, retomar polling ──
-  const hasResumed = useRef(false);
-  useEffect(() => {
-    if (hasResumed.current) return;
-    hasResumed.current = true;
+  const startPollingRef = useRef(startPolling);
+  startPollingRef.current = startPolling;
 
+  useEffect(() => {
+    let cancelled = false;
     getGenerationStatus()
       .then((status) => {
-        if (status.status === 'generating') {
+        if (!cancelled && status.status === 'generating') {
           setPageState('generating');
-          startPolling();
+          startPollingRef.current();
         }
       })
       .catch(() => {});
-  }, [startPolling]);
+    return () => { cancelled = true; };
+    // Run once on mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Disparar generacion asincrona y empezar polling
   const triggerQuickStartGeneration = useCallback(async (
@@ -476,6 +698,20 @@ export default function QuickStartPage() {
     return () => clearInterval(interval);
   }, [pageState]);
 
+  // ─── Auto-save progress to localStorage ──────────────────
+  useEffect(() => {
+    if (!tenant?.id || currentStepIdx === 0) return;
+    saveProgress(tenant.id, {
+      currentStepIdx,
+      answers,
+      selectedPages: Array.from(selectedPages),
+      selectedStyle,
+      selectedTone,
+      primaryColor,
+      secondaryColor,
+    });
+  }, [tenant?.id, currentStepIdx, answers, selectedStyle, selectedTone, primaryColor, secondaryColor, selectedPages]);
+
   // ─── Progress bar ─────────────────────────────────────────
   useEffect(() => {
     if (pageState !== 'generating') return;
@@ -488,6 +724,17 @@ export default function QuickStartPage() {
     }, 300);
     return () => clearInterval(interval);
   }, [pageState]);
+
+  // ─── Clear persisted progress on successful generation ───
+  useEffect(() => {
+    if (pageState === 'success' && tenant?.id) {
+      clearProgress(tenant.id);
+    }
+  }, [pageState, tenant?.id]);
+
+  // ─── Auto-advance pages step (Pipe decides, no user click needed) ──
+  const pagesAutoAdvancedRef = useRef(false);
+  const autoAdvancePagesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── Send answer ──────────────────────────────────────────
   const handleSend = useCallback(async () => {
@@ -534,10 +781,7 @@ export default function QuickStartPage() {
       setActiveMood('surprised');
       setTimeout(() => setActiveMood('listening'), 600);
 
-      const labels = pages
-        .filter((p) => selectedPages.has(p.key))
-        .map((p) => p.label);
-      const newAnswers = { ...answers, [step.id]: labels.join(', ') };
+      const newAnswers = { ...answers, [step.id]: Array.from(selectedPages).join(', ') };
       setAnswers(newAnswers);
 
       // Last step — start generating
@@ -598,7 +842,8 @@ export default function QuickStartPage() {
     const newAnswers = { ...answers, [step.id]: value };
     setAnswers(newAnswers);
     setCurrentInput('');
-
+    // Persist text answer to backend (fire-and-forget)
+    saveOnboardingResponses({ [step.id]: value }).catch(() => {});
     // Next step
     if (currentStepIdx < steps.length - 1) {
       setCurrentStepIdx((prev) => prev + 1);
@@ -609,7 +854,7 @@ export default function QuickStartPage() {
       setProgress(0);
       setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedPages), 100);
     }
-  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, steps, modules, pages, triggerQuickStartGeneration, setTenant]);
+  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, steps, modules, triggerQuickStartGeneration, setTenant]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -647,21 +892,7 @@ export default function QuickStartPage() {
       }}
     >
       <div className="max-w-2xl mx-auto px-6 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <Image
-            src="/Isotipo_color_NERBIS.png"
-            alt="NERBIS"
-            width={32}
-            height={32}
-            style={{ width: 32, height: 'auto' }}
-          />
-          <span
-            className="text-[0.82rem] font-semibold tracking-wider"
-            style={{ color: NAVY }}
-          >
-            NERBIS
-          </span>
-        </div>
+        <NerbisWordmark variant="full" size={15} pipeSize={36} className="text-[#1C3B57]" />
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/profile"
@@ -693,11 +924,12 @@ export default function QuickStartPage() {
   // ─── CHAT STATE — Claude-style AI Chat ──────────────────
   if (pageState === 'chat') {
     const step = steps[currentStepIdx];
+    if (!step) return null;
     const minLen = step?.minLength || 0;
     const canSend = step?.type === 'modules'
       ? selectedModules.size > 0
       : step?.type === 'pages'
-        ? selectedPages.size > 0
+        ? true
         : step?.type === 'style_select'
           ? selectedStyle !== ''
           : step?.type === 'tone_select'
@@ -709,9 +941,23 @@ export default function QuickStartPage() {
     const hasHistory = currentStepIdx > 0;
 
     // Build chat history from completed steps
-    const chatHistory: { role: 'pipe' | 'user'; content: string }[] = [];
+    const chatHistory: { role: 'pipe' | 'user'; content: React.ReactNode }[] = [];
     for (let i = 0; i < currentStepIdx; i++) {
       const s = steps[i];
+      // Pages step: Pipe decided — show info message with bold names, skip user bubble
+      if (s.type === 'pages') {
+        const pageNames = answers[s.id] || 'Inicio, Contacto, Sobre nosotros';
+        chatHistory.push({ role: 'pipe', content: (
+          <span>
+            Voy a incluir estas páginas:{' '}
+            {pageNames.split(', ').map((p, pi, arr) => (
+              <span key={p}><strong style={{ color: NAVY }}>{p}</strong>{pi < arr.length - 1 ? ', ' : ''}</span>
+            ))}
+            . Puedes cambiarlas después en el editor.
+          </span>
+        ) });
+        continue;
+      }
       chatHistory.push({ role: 'pipe', content: i === 0
         ? `Hola${firstName ? ` ${firstName}` : ''}, soy ${AGENT_NAME}, tu asistente creativo. ${s.message}`
         : s.message });
@@ -732,39 +978,26 @@ export default function QuickStartPage() {
           <div className="flex-1 flex flex-col items-center justify-center px-4">
             {/* Everything in one container with consistent width */}
             <div className="w-full max-w-sm flex flex-col items-center">
-              {/* Avatar */}
-              <div className="mb-5">
-                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={48} />
-              </div>
+                  {/* Pipe avatar */}
+                  <div className="mb-6 animate-in fade-in zoom-in-95 duration-500">
+                    <PipeAvatar mood={canSend ? 'happy' : 'listening'} size={120} />
+                  </div>
 
-              {/* Greeting */}
-              {isTyping ? (
-                <div className="flex gap-1.5 justify-center py-2">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="w-2 h-2 rounded-full animate-bounce"
-                      style={{
-                        backgroundColor: WARM_GRAY_400,
-                        animationDelay: `${i * 150}ms`,
-                        animationDuration: '0.8s',
-                      }}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <>
                   <h1
-                    className="text-xl sm:text-2xl font-semibold text-center mb-14 animate-in fade-in duration-500"
+                    className="text-xl sm:text-2xl font-semibold text-center mb-3 animate-in fade-in duration-500"
                     style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
                   >
                     Hola{firstName ? ' ' : ''}
                     {firstName && <span style={{ color: TEAL }}>{firstName}</span>}
                     {firstName ? ', s' : 'S'}oy{' '}
                     <span style={{ color: TEAL }}>{AGENT_NAME}</span>
-                    , tu asistente creativo.{' '}
-                    {step.message}
                   </h1>
+                  <p
+                    className="text-[0.92rem] text-center mb-10 animate-in fade-in duration-500 delay-100"
+                    style={{ color: WARM_GRAY_500 }}
+                  >
+                    ¿Qué quieres crear?
+                  </p>
 
                   {/* Module grid + continue — same width as title */}
                   {step.type === 'modules' && (
@@ -788,7 +1021,7 @@ export default function QuickStartPage() {
                                   setTimeout(() => setActiveMood('listening'), 900);
                                 }
                               }}
-                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden cursor-pointer"
                               style={{
                                 backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                                 borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
@@ -840,20 +1073,22 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center gap-2 h-11 rounded-xl text-[0.84rem] font-semibold transition-all duration-300 disabled:cursor-not-allowed"
                         style={{
                           backgroundColor: canSend ? TEAL : WARM_GRAY_100,
                           color: canSend ? '#fff' : WARM_GRAY_400,
                           border: canSend ? 'none' : `1px solid ${WARM_GRAY_200}`,
+                          transform: canSend ? 'scale(1)' : 'scale(0.98)',
+                          boxShadow: canSend ? `0 2px 8px ${TEAL}30` : 'none',
                         }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
                       </button>
-                      <p className="text-[0.68rem] text-center -mt-6" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                      <p className="text-[0.68rem] text-center -mt-6" style={{ color: WARM_GRAY_400 }}>
+                        {canSend ? step.hint : 'Selecciona al menos uno para continuar'}
+                      </p>
                     </div>
                   )}
-                </>
-              )}
             </div>
           </div>
         </div>
@@ -869,156 +1104,104 @@ export default function QuickStartPage() {
         {header}
 
         {/* Scrollable message area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          {/* Spacer — pushes messages to bottom when few, collapses when many */}
+          <div className="flex-1 min-h-6" />
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-8 pt-4 space-y-8 w-full">
             {/* Chat history */}
             {chatHistory.map((msg, i) => (
-              <div key={`msg-${i}`}>
+              <div key={`msg-${i}`} className={`animate-in fade-in duration-300 ${
+                msg.role === 'user' ? 'slide-in-from-right-3' : 'slide-in-from-left-3'
+              }`}>
                 {msg.role === 'user' ? (
-                  /* User bubble — right aligned */
+                  /* User bubble — right aligned, dark */
                   <div className="flex justify-end">
                     <div
-                      className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
-                      style={{ backgroundColor: WARM_GRAY_100, color: WARM_GRAY_800 }}
+                      className="px-4 py-3 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[80%]"
+                      style={{ backgroundColor: WARM_GRAY_800, color: '#fff' }}
                     >
                       {msg.content}
                     </div>
                   </div>
                 ) : (
-                  /* Pipe text — left aligned, no bubble, with small avatar */
-                  <div className="flex gap-3 items-start">
-                    <div className="flex-shrink-0 mt-0.5">
-                      <PipeAvatar mood="idle" size={28} />
-                    </div>
-                    <p
-                      className="text-[0.88rem] leading-relaxed pt-0.5"
-                      style={{ color: WARM_GRAY_800 }}
-                    >
-                      {msg.content}
-                    </p>
+                  /* Pipe bubble — left aligned, bordered */
+                  <div
+                    className="px-4 py-3 rounded-2xl rounded-tl-sm text-[0.88rem] leading-relaxed max-w-[80%] border"
+                    style={{ backgroundColor: '#fff', color: WARM_GRAY_800, borderColor: WARM_GRAY_200 }}
+                  >
+                    {msg.content}
                   </div>
                 )}
               </div>
             ))}
 
-            {/* Current Pipe message */}
-            <div className="flex gap-3 items-start">
-              <div className="flex-shrink-0 mt-0.5">
-                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={28} />
-              </div>
-              <div className="flex-1">
-                {isTyping ? (
-                  <div className="flex gap-1.5 py-2">
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className="w-1.5 h-1.5 rounded-full animate-bounce"
-                        style={{
-                          backgroundColor: WARM_GRAY_400,
-                          animationDelay: `${i * 150}ms`,
-                          animationDuration: '0.8s',
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <p
-                    className="text-[0.88rem] leading-relaxed pt-0.5 animate-in fade-in duration-300"
-                    style={{ color: WARM_GRAY_800 }}
-                  >
-                    {step.message}
-                  </p>
-                )}
-              </div>
-            </div>
 
             <div ref={chatEndRef} />
           </div>
         </div>
 
-        {/* Input area — fixed at bottom */}
-        {!isTyping && (
-          <div
-            className="border-t animate-in fade-in slide-in-from-bottom-2 duration-300"
-            style={{ borderColor: WARM_GRAY_100 }}
-          >
-            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
-              {/* Textarea input */}
-              {step.type === 'textarea' && (
-                <>
+        {/* Pipe message + input area — always visible at bottom */}
+        <div>
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-4 pb-12">
+              {/* Pipe message above input */}
+              <div className="flex items-center gap-2.5 mb-6">
+                <div className="flex-shrink-0">
+                  <PipeAvatar mood={activeMood} size={28} lookTarget="right" />
+                </div>
+                {isTyping ? (
+                  <span className="inline-flex items-center gap-1.5 text-[0.82rem]" style={{ color: WARM_GRAY_400 }}>
+                    <span className="flex gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <span key={i} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: WARM_GRAY_400, animationDelay: `${i * 150}ms`, animationDuration: '0.8s' }} />
+                      ))}
+                    </span>
+                  </span>
+                ) : (
                   <div
-                    className="flex items-end gap-3 rounded-xl border px-4 py-3 transition-all focus-within:ring-2"
-                    style={{
-                      borderColor: WARM_GRAY_200,
-                      backgroundColor: WARM_GRAY_50,
-                      // @ts-expect-error -- CSS custom property
-                      '--tw-ring-color': `${TEAL}30`,
-                    }}
+                    className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-[0.88rem] leading-relaxed border animate-in fade-in duration-300"
+                    style={{ backgroundColor: '#fff', color: WARM_GRAY_800, borderColor: WARM_GRAY_200 }}
                   >
-                    <textarea
-                      value={currentInput}
-                      onChange={(e) => setCurrentInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={step.placeholder}
-                      rows={step.rows || 2}
-                      autoFocus
-                      className="flex-1 bg-transparent text-[0.88rem] leading-relaxed resize-none focus:outline-none"
-                      style={{ color: WARM_GRAY_800 }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSend}
-                      disabled={!canSend}
-                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
+                    {step.type === 'pages' ? (
+                      <Typewriter
+                        segments={[
+                          { text: 'Basándome en tu negocio, voy a incluir estas páginas: ' },
+                          { text: ['Inicio', ...smartPages.recommended].join(', '), bold: true },
+                          { text: '. Si después quieres agregar o quitar alguna, puedes hacerlo en el editor.' },
+                        ]}
+                        speed={18}
+                        onDone={() => {
+                          setTypewriterDone(true);
+                          if (pagesAutoAdvancedRef.current) return;
+                          pagesAutoAdvancedRef.current = true;
+                          const isLastStep = currentStepIdx === steps.length - 1;
+                          autoAdvancePagesRef.current = setTimeout(() => {
+                            const newAnswers = { ...answers, [step.id]: Array.from(selectedPages).join(', ') };
+                            setAnswers(newAnswers);
+                            setActiveMood('surprised');
+                            setTimeout(() => setActiveMood('listening'), 600);
+                            if (isLastStep) {
+                              setPageState('generating');
+                              setGenStep(0);
+                              setProgress(0);
+                              triggerQuickStartGeneration(newAnswers, selectedPages);
+                            } else {
+                              setCurrentStepIdx((prev) => prev + 1);
+                            }
+                          }, 500);
+                        }}
+                      />
+                    ) : (
+                      <Typewriter text={step.message} speed={20} onDone={() => setTypewriterDone(true)} />
+                    )}
                   </div>
-                  {step.hint && (
-                    <p className="text-[0.7rem] mt-2 ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
-                  )}
-                </>
-              )}
-
-              {/* Text input (single line) */}
-              {step.type === 'input' && (
-                <>
-                  <div
-                    className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-all focus-within:ring-2 focus-within:ring-teal-500/20"
-                    style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50 }}
-                  >
-                    <input
-                      type={step.inputType || 'text'}
-                      value={currentInput}
-                      onChange={(e) => setCurrentInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={step.placeholder}
-                      autoFocus
-                      className="flex-1 bg-transparent text-[0.88rem] focus:outline-none"
-                      style={{ color: WARM_GRAY_800 }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSend}
-                      disabled={!canSend}
-                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {step.hint && (
-                    <p className="text-[0.7rem] mt-2 ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
-                  )}
-                </>
-              )}
-
-              {/* Style selector */}
+                )}
+              </div>
+              {/* Options — only show after Pipe finishes typing */}
+              {!isTyping && typewriterDone && (<>
               {step.type === 'style_select' && (() => {
                 const styleOpts = (step.options || FALLBACK_STYLE_OPTIONS) as StyleOption[];
                 return (
-                  <div className="space-y-3">
+                  <div className="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="grid grid-cols-2 gap-2.5">
                       {styleOpts.map((opt) => {
                         const isActive = selectedStyle === opt.key;
@@ -1028,7 +1211,7 @@ export default function QuickStartPage() {
                             key={opt.key}
                             type="button"
                             onClick={() => setSelectedStyle(opt.key)}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 cursor-pointer"
                             style={{
                               backgroundColor: isActive ? `${opt.color}0A` : '#fff',
                               borderColor: isActive ? opt.color : WARM_GRAY_200,
@@ -1048,26 +1231,14 @@ export default function QuickStartPage() {
                         );
                       })}
                     </div>
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleSend}
-                        disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                      >
-                        Continuar <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
                   </div>
                 );
               })()}
 
-              {/* Color picker */}
               {step.type === 'color_picker' && (() => {
                 const palettes = (step.options || FALLBACK_PALETTES) as PaletteOption[];
                 return (
-                  <div className="space-y-3">
+                  <div className="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="grid grid-cols-3 gap-2.5">
                       {palettes.map((pal) => {
                         const isActive = primaryColor === pal.primary && secondaryColor === pal.secondary;
@@ -1076,7 +1247,7 @@ export default function QuickStartPage() {
                             key={pal.label}
                             type="button"
                             onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
-                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200"
+                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 cursor-pointer"
                             style={{
                               borderColor: isActive ? TEAL : WARM_GRAY_200,
                               backgroundColor: isActive ? `${TEAL}08` : '#fff',
@@ -1092,27 +1263,16 @@ export default function QuickStartPage() {
                       })}
                     </div>
                     {step.hint && (
-                      <p className="text-[0.7rem] ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                      <p className="text-[0.7rem] mt-2 ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
                     )}
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all"
-                        style={{ backgroundColor: TEAL, color: '#fff' }}
-                      >
-                        Continuar <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
                   </div>
                 );
               })()}
 
-              {/* Tone selector */}
               {step.type === 'tone_select' && (() => {
                 const toneOpts = (step.options || FALLBACK_TONE_OPTIONS) as ToneOption[];
                 return (
-                  <div className="space-y-3">
+                  <div className="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex flex-wrap gap-2">
                       {toneOpts.map((opt) => {
                         const isActive = selectedTone === opt.key;
@@ -1121,7 +1281,7 @@ export default function QuickStartPage() {
                             key={opt.key}
                             type="button"
                             onClick={() => setSelectedTone(opt.key)}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium cursor-pointer"
                             style={{
                               borderColor: isActive ? TEAL : WARM_GRAY_200,
                               backgroundColor: isActive ? `${TEAL}0A` : '#fff',
@@ -1134,72 +1294,102 @@ export default function QuickStartPage() {
                         );
                       })}
                     </div>
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleSend}
-                        disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                      >
-                        Continuar <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
                   </div>
                 );
               })()}
 
-              {/* Pages selection */}
-              {step.type === 'pages' && (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {pages.map((page) => {
-                      const isSelected = selectedPages.has(page.key);
-                      const PageIcon = getLucideIcon(page.icon);
-                      return (
-                        <button
-                          key={page.key}
-                          type="button"
-                          onClick={() => {
-                            if (page.is_mandatory) return;
-                            const next = new Set(selectedPages);
-                            if (isSelected) next.delete(page.key);
-                            else next.add(page.key);
-                            setSelectedPages(next);
-                          }}
-                          disabled={page.is_mandatory}
-                          className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.82rem] font-medium border transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default"
-                          style={{
-                            backgroundColor: isSelected ? `${TEAL}0A` : '#fff',
-                            borderColor: isSelected ? TEAL : WARM_GRAY_200,
-                            color: isSelected ? TEAL : WARM_GRAY_600,
-                          }}
+              {step.type === 'pages' && (() => {
+                return (
+                  <div className="mb-2" />
+                );
+              })()}
+
+              </>)}
+
+              {/* Unified input area — always visible */}
+              {(() => {
+                const isTextStep = step.type === 'textarea' || step.type === 'input';
+                const isTextarea = step.type === 'textarea';
+                const charCount = currentInput.trim().length;
+                const meetsMin = charCount >= minLen;
+                const showIndicator = isTextarea && minLen > 0 && currentInput.length > 0;
+                return (
+                  <>
+                    {showIndicator && (
+                      <div className="flex items-center gap-1.5 mb-2 ml-1">
+                        <div
+                          className="w-1.5 h-1.5 rounded-full transition-colors"
+                          style={{ backgroundColor: meetsMin ? TEAL : NAVY }}
+                        />
+                        <span
+                          className="text-[0.7rem] font-medium transition-colors"
+                          style={{ color: meetsMin ? TEAL : NAVY }}
                         >
-                          <PageIcon className="w-3.5 h-3.5" />
-                          {isSelected && <Check className="w-3.5 h-3.5" />}
-                          {page.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[0.72rem]" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
-                    <button
-                      type="button"
-                      onClick={handleSend}
-                      disabled={!canSend}
-                      className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                          {meetsMin ? 'Listo para enviar' : `Mínimo ${minLen} caracteres (${charCount}/${minLen})`}
+                        </span>
+                      </div>
+                    )}
+                    <div
+                      className="flex items-end gap-3 rounded-xl border px-4 py-3 transition-all focus-within:ring-2"
+                      style={{
+                        borderColor: isTextStep ? WARM_GRAY_200 : WARM_GRAY_100,
+                        backgroundColor: isTextStep ? WARM_GRAY_50 : `${WARM_GRAY_100}60`,
+                        // @ts-expect-error -- CSS custom property
+                        '--tw-ring-color': `${TEAL}30`,
+                      }}
                     >
-                      Generar mi sitio <Sparkles className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
+                      {isTextarea ? (
+                        <textarea
+                          value={currentInput}
+                          onChange={(e) => setCurrentInput(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder={step.placeholder}
+                          rows={step.rows || 2}
+                          autoFocus
+                          className="flex-1 bg-transparent text-[0.88rem] leading-relaxed resize-none focus:outline-none"
+                          style={{ color: WARM_GRAY_800 }}
+                        />
+                      ) : step.type === 'input' ? (
+                        <input
+                          type={step.inputType || 'text'}
+                          value={currentInput}
+                          onChange={(e) => setCurrentInput(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder={step.placeholder}
+                          autoFocus
+                          className="flex-1 bg-transparent text-[0.88rem] focus:outline-none"
+                          style={{ color: WARM_GRAY_800 }}
+                        />
+                      ) : (
+                        <span className="flex-1 text-[0.88rem] py-1" style={{ color: WARM_GRAY_400 }}>
+                          Selecciona y confirma
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleSend}
+                        disabled={!canSend}
+                        className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 transition-all duration-200 disabled:cursor-not-allowed"
+                        style={{
+                          backgroundColor: canSend ? TEAL : WARM_GRAY_200,
+                          color: '#fff',
+                          transform: canSend ? 'scale(1)' : 'scale(0.9)',
+                          opacity: canSend ? 1 : 0.4,
+                        }}
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {isTextStep && step.hint && (
+                      <p className="text-[0.7rem] mt-2 ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Modules selection (in conversation mode) */}
               {step.type === 'modules' && (
-                <div className="space-y-4">
+                <div className="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className="grid grid-cols-3 gap-2.5">
                     {modules.map((mod) => {
                       const modKey = mod.key as keyof ModuleSelection;
@@ -1219,7 +1409,7 @@ export default function QuickStartPage() {
                               setTimeout(() => setActiveMood('listening'), 900);
                             }
                           }}
-                          className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                          className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden cursor-pointer"
                           style={{
                             backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                             borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
@@ -1258,20 +1448,10 @@ export default function QuickStartPage() {
                       );
                     })}
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleSend}
-                    disabled={!canSend}
-                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                  >
-                    Continuar <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               )}
             </div>
           </div>
-        )}
       </div>
     );
   }

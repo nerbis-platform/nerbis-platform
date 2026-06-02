@@ -7,7 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { Skeleton } from '@/components/ui/skeleton';
+
 
 // Rutas que no requieren módulos configurados ni website publicado
 const BYPASS_ROUTES = ['/dashboard/setup', '/dashboard/website-builder/quick-start', '/dashboard/profile', '/dashboard/team', '/dashboard/settings'];
@@ -119,7 +119,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <>
         {!mounted || isLoading ? (
           <div className="min-h-screen flex items-center justify-center">
-            <Skeleton className="h-10 w-64" />
+            <div className="flex gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="w-2 h-2 rounded-full animate-bounce"
+                  style={{
+                    backgroundColor: '#9CA3AF',
+                    animationDelay: `${i * 150}ms`,
+                    animationDuration: '0.8s',
+                  }}
+                />
+              ))}
+            </div>
           </div>
         ) : isAuthenticated ? (
           children

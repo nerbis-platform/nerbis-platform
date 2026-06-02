@@ -129,7 +129,7 @@ export function PipeAvatar({
 
   const eyes = MOOD_EYES[mood];
 
-  const uid = 'pipe-g';
+  const uid = useMemo(() => `pipe-${Math.random().toString(36).slice(2, 8)}`, []);
   const containerRef = useRef<HTMLDivElement>(null);
   const [tapped, setTapped] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -179,8 +179,8 @@ export function PipeAvatar({
         cy={eyeFinalY}
         rx={eyeRx}
         ry={eyeRy}
-        fill="#fff"
         style={{
+          fill: '#fff',
           animation: blinkAnim,
           transformOrigin: `${ex}px ${eyeFinalY}px`,
           transform: rot ? `rotate(${rot}deg)` : undefined,
@@ -227,6 +227,8 @@ export function PipeAvatar({
         role="img"
         aria-label="Pipe"
         style={{
+          position: 'relative',
+          zIndex: 1,
           animation: bodyAnim,
           transform: tapped ? 'scaleX(1.15) scaleY(0.85) translateY(2px)' : undefined,
           transition: tapped ? 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' : 'transform 0.3s ease-out',
@@ -361,11 +363,11 @@ export function PipeStatic({ size = 24, blink = false }: { size?: number; blink?
         fill="#fff" opacity={0.4}
       />
 
-      <ellipse cx={cx - eyeSpread} cy={eyeY + eyeOffY} rx={eyeRx} ry={eyeRy} fill="#fff"
-        style={blink ? { animation: 'pipe-blink 4s ease-in-out infinite', transformOrigin: `${cx - eyeSpread}px ${eyeY + eyeOffY}px` } : undefined}
+      <ellipse cx={cx - eyeSpread} cy={eyeY + eyeOffY} rx={eyeRx} ry={eyeRy}
+        style={{ fill: '#fff', ...(blink ? { animation: 'pipe-blink 4s ease-in-out infinite', transformOrigin: `${cx - eyeSpread}px ${eyeY + eyeOffY}px` } : {}) }}
       />
-      <ellipse cx={cx + eyeSpread} cy={eyeY + eyeOffY} rx={eyeRx} ry={eyeRy} fill="#fff"
-        style={blink ? { animation: 'pipe-blink 4s ease-in-out infinite', transformOrigin: `${cx + eyeSpread}px ${eyeY + eyeOffY}px` } : undefined}
+      <ellipse cx={cx + eyeSpread} cy={eyeY + eyeOffY} rx={eyeRx} ry={eyeRy}
+        style={{ fill: '#fff', ...(blink ? { animation: 'pipe-blink 4s ease-in-out infinite', transformOrigin: `${cx + eyeSpread}px ${eyeY + eyeOffY}px` } : {}) }}
       />
     </svg>
   );
@@ -438,12 +440,12 @@ export function PipeAdmin({ size = 36 }: { size?: number }) {
         <circle cx={s * 0.37} cy={s * 0.33} r={s * 0.035} fill="#fff" opacity={0.3} />
 
         <ellipse
-          cx={eyeLeftX} cy={eyeFinalY} rx={eyeRx} ry={eyeRy} fill="#fff"
-          style={{ transition: 'cx 0.15s ease-out, cy 0.15s ease-out' }}
+          cx={eyeLeftX} cy={eyeFinalY} rx={eyeRx} ry={eyeRy}
+          style={{ fill: '#fff', transition: 'cx 0.15s ease-out, cy 0.15s ease-out' }}
         />
         <ellipse
-          cx={eyeRightX} cy={eyeFinalY} rx={eyeRx} ry={eyeRy} fill="#fff"
-          style={{ transition: 'cx 0.15s ease-out, cy 0.15s ease-out' }}
+          cx={eyeRightX} cy={eyeFinalY} rx={eyeRx} ry={eyeRy}
+          style={{ fill: '#fff', transition: 'cx 0.15s ease-out, cy 0.15s ease-out' }}
         />
       </svg>
     </div>

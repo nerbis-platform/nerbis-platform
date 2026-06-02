@@ -35,6 +35,7 @@ export interface Tenant {
   has_management: boolean;
   has_website: boolean;
   modules_configured: boolean;
+  onboarding_phase: 'onboarding' | 'modules_configured' | 'website_building' | 'website_generated' | 'operational' | 'suspended';
   // Website
   website_status: 'not_started' | 'draft' | 'onboarding' | 'generating' | 'review' | 'published' | null;
   // Suscripción
