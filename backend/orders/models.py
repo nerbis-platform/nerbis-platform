@@ -8,6 +8,7 @@ from django.db import models
 from django.utils import timezone
 
 from bookings.models import Appointment
+from core.fields import EncryptedCharField
 from core.models import TenantAwareModel, User
 from ecommerce.models import Product
 from services.models import Service
@@ -45,7 +46,7 @@ class PaymentGateway(TenantAwareModel):
         help_text="Si el tenant tiene múltiples pasarelas, esta es la principal",
     )
 
-    # Credenciales del merchant (encriptadas en producción via django-fernet-fields o similar)
+    # Credenciales del merchant
     public_key = models.CharField(
         max_length=500,
         blank=True,
@@ -53,17 +54,18 @@ class PaymentGateway(TenantAwareModel):
         help_text="Publishable key / Public key del merchant",
     )
 
-    secret_key = models.CharField(
+    secret_key = EncryptedCharField(
         max_length=500,
         blank=True,
         verbose_name="Clave secreta",
-        help_text="Secret key del merchant (se debe encriptar en producción)",
+        help_text="Secret key del merchant (encriptada automáticamente)",
     )
 
-    webhook_secret = models.CharField(
+    webhook_secret = EncryptedCharField(
         max_length=500,
         blank=True,
         verbose_name="Webhook secret",
+        help_text="Webhook secret del merchant (encriptado automáticamente)",
     )
 
     # Configuración adicional (access tokens, merchant IDs, etc.)

@@ -1,8 +1,12 @@
 # backend/core/managers.py
 
+import logging
+
 from django.contrib.auth.models import UserManager
 from django.db import models
 from django.db.models import QuerySet
+
+logger = logging.getLogger(__name__)
 
 
 class TenantQuerySet(QuerySet):
@@ -68,7 +72,15 @@ class TenantAwareManager(TenantManager):
         if tenant:
             return qs.filter(**{self.tenant_field: tenant})
 
+        logger.warning(
+            "TenantAwareManager: query sin tenant en %s. Usar filtro explícito o .unscoped() en admin/commands.",
+            self.model.__name__,
+        )
         return qs
+
+    def unscoped(self):
+        """Retorna queryset sin filtro de tenant. Usar solo en admin/management commands."""
+        return super().get_queryset()
 
 
 class TenantAwareUserManager(UserManager):
@@ -95,7 +107,15 @@ class TenantAwareUserManager(UserManager):
         if tenant:
             return qs.filter(**{self.tenant_field: tenant})
 
+        logger.warning(
+            "TenantAwareUserManager: query sin tenant en %s. Usar filtro explícito o .unscoped() en admin/commands.",
+            self.model.__name__,
+        )
         return qs
+
+    def unscoped(self):
+        """Retorna queryset sin filtro de tenant. Usar solo en admin/management commands."""
+        return super().get_queryset()
 
     def for_tenant(self, tenant):
         """
