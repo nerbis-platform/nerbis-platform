@@ -934,7 +934,7 @@ export default function QuickStartPage() {
                                   setTimeout(() => setActiveMood('listening'), 900);
                                 }
                               }}
-                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden cursor-pointer"
                               style={{
                                 backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                                 borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
@@ -986,7 +986,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
                         style={{
                           backgroundColor: canSend ? TEAL : WARM_GRAY_100,
                           color: canSend ? '#fff' : WARM_GRAY_400,
@@ -1045,9 +1045,9 @@ export default function QuickStartPage() {
             ))}
 
             {/* Current Pipe message */}
-            <div className="flex gap-3 items-start">
-              <div className="flex-shrink-0 mt-0.5">
-                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={28} />
+            <div className="flex gap-3 items-center">
+              <div className="flex-shrink-0">
+                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={44} />
               </div>
               <div className="flex-1">
                 {isTyping ? (
@@ -1091,7 +1091,7 @@ export default function QuickStartPage() {
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="flex items-center gap-1 text-[0.75rem] font-medium mb-2 transition-colors"
+                  className="flex items-center gap-1 text-[0.75rem] font-medium mb-2 transition-colors cursor-pointer"
                   style={{ color: WARM_GRAY_400 }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = TEAL)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
@@ -1132,7 +1132,7 @@ export default function QuickStartPage() {
                       type="button"
                       onClick={handleSend}
                       disabled={!canSend}
-                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed"
                       style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                     >
                       <Send className="w-4 h-4" />
@@ -1144,8 +1144,8 @@ export default function QuickStartPage() {
                     ) : <span />}
                     {step.maxLength && (
                       <p
-                        className="text-[0.7rem] tabular-nums"
-                        style={{ color: currentInput.length > step.maxLength * 0.9 ? '#B91C1C' : WARM_GRAY_600 }}
+                        className="text-[0.7rem] tabular-nums font-medium"
+                        style={{ color: currentInput.length >= (step.minLength || 0) ? '#059669' : '#B91C1C' }}
                       >
                         {currentInput.length}/{step.maxLength}
                       </p>
@@ -1180,7 +1180,7 @@ export default function QuickStartPage() {
                       type="button"
                       onClick={handleSend}
                       disabled={!canSend}
-                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed"
                       style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                     >
                       <Send className="w-4 h-4" />
@@ -1206,7 +1206,7 @@ export default function QuickStartPage() {
                             key={opt.key}
                             type="button"
                             onClick={() => setSelectedStyle(opt.key)}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 cursor-pointer"
                             style={{
                               backgroundColor: isActive ? `${opt.color}0A` : '#fff',
                               borderColor: isActive ? opt.color : WARM_GRAY_200,
@@ -1231,7 +1231,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                         style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1254,7 +1254,7 @@ export default function QuickStartPage() {
                             key={pal.label}
                             type="button"
                             onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
-                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200"
+                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 cursor-pointer"
                             style={{
                               borderColor: isActive ? TEAL : WARM_GRAY_200,
                               backgroundColor: isActive ? `${TEAL}08` : '#fff',
@@ -1276,7 +1276,7 @@ export default function QuickStartPage() {
                       <button
                         type="button"
                         onClick={handleSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all cursor-pointer"
                         style={{ backgroundColor: TEAL, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1299,7 +1299,7 @@ export default function QuickStartPage() {
                             key={opt.key}
                             type="button"
                             onClick={() => setSelectedTone(opt.key)}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium cursor-pointer"
                             style={{
                               borderColor: isActive ? TEAL : WARM_GRAY_200,
                               backgroundColor: isActive ? `${TEAL}0A` : '#fff',
@@ -1317,7 +1317,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                         style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1366,7 +1366,7 @@ export default function QuickStartPage() {
                       type="button"
                       onClick={handleSend}
                       disabled={!canSend}
-                      className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                       style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                     >
                       Generar mi sitio <Sparkles className="w-3.5 h-3.5" />
@@ -1397,7 +1397,7 @@ export default function QuickStartPage() {
                               setTimeout(() => setActiveMood('listening'), 900);
                             }
                           }}
-                          className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                          className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden cursor-pointer"
                           style={{
                             backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                             borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
@@ -1440,7 +1440,7 @@ export default function QuickStartPage() {
                     type="button"
                     onClick={handleSend}
                     disabled={!canSend}
-                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                     style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                   >
                     Continuar <ArrowRight className="w-3.5 h-3.5" />
