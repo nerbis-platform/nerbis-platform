@@ -17,6 +17,7 @@ from .onboarding import (
     SaveOnboardingResponsesView,
     StartOnboardingView,
     WebsitePageListView,
+    WebsiteSectionListView,
 )
 from .preview import PreviewRenderView, PreviewWebsiteView
 from .public import PublicSiteView
@@ -54,5 +55,6 @@ __all__ = [
     "OnboardingQuestionListView",
     "WebsiteConfigViewSet",
     "WebsitePageListView",
+    "WebsiteSectionListView",
     "WebsiteTemplateViewSet",
 ]

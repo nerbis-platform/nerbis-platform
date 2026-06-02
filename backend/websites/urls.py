@@ -29,6 +29,7 @@ from .views import (
     UploadWebsiteMediaView,
     WebsiteConfigViewSet,
     WebsitePageListView,
+    WebsiteSectionListView,
     WebsiteTemplateViewSet,
 )
 
@@ -46,6 +47,7 @@ urlpatterns = [
     path("onboarding/quick-start/", QuickStartView.as_view(), name="onboarding-quick-start"),
     path("onboarding/questions/", OnboardingQuestionListView.as_view(), name="onboarding-questions"),
     path("onboarding/pages/", WebsitePageListView.as_view(), name="onboarding-pages"),
+    path("onboarding/sections/", WebsiteSectionListView.as_view(), name="onboarding-sections"),
     # AI Generation
     path("generate/", GenerateContentView.as_view(), name="generate-content"),
     path("generation-status/", GenerationStatusView.as_view(), name="generation-status"),

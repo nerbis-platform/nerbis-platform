@@ -12,6 +12,10 @@ import type {
   AdminOnboardingQuestionPayload,
   AdminPlatformModule,
   AdminPlatformModulePayload,
+  AdminWebsitePage,
+  AdminWebsitePagePayload,
+  AdminWebsiteSection,
+  AdminWebsiteSectionPayload,
 } from '@/types/admin';
 
 // ──────────────────────────────────────────────────────────────────────
@@ -86,4 +90,76 @@ export async function adminUpdateQuestion(
 
 export async function adminDeleteQuestion(id: number): Promise<void> {
   await adminClient.delete<void>(`/admin/settings/questions/${id}/`);
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Pages
+// ──────────────────────────────────────────────────────────────────────
+
+export async function adminListPages(): Promise<AdminWebsitePage[]> {
+  const { data } = await adminClient.get<AdminWebsitePage[]>(
+    '/admin/settings/pages/',
+  );
+  return data;
+}
+
+export async function adminCreatePage(
+  payload: AdminWebsitePagePayload,
+): Promise<AdminWebsitePage> {
+  const { data } = await adminClient.post<AdminWebsitePage>(
+    '/admin/settings/pages/',
+    payload,
+  );
+  return data;
+}
+
+export async function adminUpdatePage(
+  id: number,
+  payload: Partial<AdminWebsitePagePayload>,
+): Promise<AdminWebsitePage> {
+  const { data } = await adminClient.patch<AdminWebsitePage>(
+    `/admin/settings/pages/${id}/`,
+    payload,
+  );
+  return data;
+}
+
+export async function adminDeletePage(id: number): Promise<void> {
+  await adminClient.delete<void>(`/admin/settings/pages/${id}/`);
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Sections
+// ──────────────────────────────────────────────────────────────────────
+
+export async function adminListSections(): Promise<AdminWebsiteSection[]> {
+  const { data } = await adminClient.get<AdminWebsiteSection[]>(
+    '/admin/settings/sections/',
+  );
+  return data;
+}
+
+export async function adminCreateSection(
+  payload: AdminWebsiteSectionPayload,
+): Promise<AdminWebsiteSection> {
+  const { data } = await adminClient.post<AdminWebsiteSection>(
+    '/admin/settings/sections/',
+    payload,
+  );
+  return data;
+}
+
+export async function adminUpdateSection(
+  id: number,
+  payload: Partial<AdminWebsiteSectionPayload>,
+): Promise<AdminWebsiteSection> {
+  const { data } = await adminClient.patch<AdminWebsiteSection>(
+    `/admin/settings/sections/${id}/`,
+    payload,
+  );
+  return data;
+}
+
+export async function adminDeleteSection(id: number): Promise<void> {
+  await adminClient.delete<void>(`/admin/settings/sections/${id}/`);
 }

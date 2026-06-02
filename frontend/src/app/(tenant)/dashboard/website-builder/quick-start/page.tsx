@@ -178,44 +178,6 @@ export default function QuickStartPage() {
   const modules = apiModules ?? FALLBACK_MODULES;
   const pages = apiPages ?? FALLBACK_PAGES;
 
-  // ─── Dependency helpers ─────────────────────────────────────
-  const toggleModule = useCallback((modKey: keyof ModuleSelection) => {
-    setSelectedModules((prev) => {
-      const next = new Set(prev);
-      if (next.has(modKey)) {
-        // Deselect: also remove modules that depend on this one
-        next.delete(modKey);
-        for (const m of modules) {
-          if (m.dependencies.includes(modKey) && next.has(m.key as keyof ModuleSelection)) {
-            next.delete(m.key as keyof ModuleSelection);
-          }
-        }
-        // Also remove dependencies that are no longer needed by any other selected module
-        const deselected = modules.find((m) => m.key === modKey);
-        if (deselected) {
-          for (const dep of deselected.dependencies) {
-            const stillNeeded = modules.some(
-              (m) => m.key !== modKey && next.has(m.key as keyof ModuleSelection) && m.dependencies.includes(dep)
-            );
-            if (!stillNeeded) {
-              next.delete(dep as keyof ModuleSelection);
-            }
-          }
-        }
-      } else {
-        // Select: also add its dependencies
-        next.add(modKey);
-        const mod = modules.find((m) => m.key === modKey);
-        if (mod) {
-          for (const dep of mod.dependencies) {
-            next.add(dep as keyof ModuleSelection);
-          }
-        }
-      }
-      return next;
-    });
-  }, [modules]);
-
   // ─── Conversation state ───────────────────────────────────
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -224,6 +186,9 @@ export default function QuickStartPage() {
   const [selectedModules, setSelectedModules] = useState<Set<keyof ModuleSelection>>(
     () => new Set()
   );
+  // Track modules explicitly clicked by the user (vs auto-included as dependency).
+  // Using a ref so toggleModule always reads the latest value without stale closures.
+  const explicitModulesRef = useRef<Set<keyof ModuleSelection>>(new Set());
   const [selectedPages, setSelectedPages] = useState<Set<string>>(() => {
     const defaults = (apiPages ?? FALLBACK_PAGES).filter((p) => p.is_default).map((p) => p.key);
     return new Set(defaults);
@@ -232,6 +197,41 @@ export default function QuickStartPage() {
   const [selectedTone, setSelectedTone] = useState('');
   const [primaryColor, setPrimaryColor] = useState('');
   const [secondaryColor, setSecondaryColor] = useState('');
+
+  // ─── Dependency helpers ─────────────────────────────────────
+
+  // Rebuild the full selected set from explicit selections + their transitive deps
+  const resolveSelected = useCallback((explicit: Set<keyof ModuleSelection>): Set<keyof ModuleSelection> => {
+    const result = new Set<keyof ModuleSelection>();
+    for (const key of explicit) {
+      result.add(key);
+      const mod = modules.find((m) => m.key === key);
+      if (mod) {
+        for (const dep of mod.dependencies) {
+          result.add(dep as keyof ModuleSelection);
+        }
+      }
+    }
+    return result;
+  }, [modules]);
+
+  const toggleModule = useCallback((modKey: keyof ModuleSelection) => {
+    const explicit = explicitModulesRef.current;
+
+    if (explicit.has(modKey)) {
+      explicit.delete(modKey);
+      // Also remove dependents (modules that require this one)
+      for (const m of modules) {
+        if (m.dependencies.includes(modKey)) {
+          explicit.delete(m.key as keyof ModuleSelection);
+        }
+      }
+    } else {
+      explicit.add(modKey);
+    }
+
+    setSelectedModules(resolveSelected(explicit));
+  }, [modules, resolveSelected]);
 
   // ─── Detect modules included as dependencies ─────────────
   const includedAsDep = useMemo(() => {

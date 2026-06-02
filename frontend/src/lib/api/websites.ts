@@ -12,6 +12,7 @@ import {
   PaginatedResponse,
   PlatformModule,
   WebsitePage,
+  WebsiteSection,
 } from '@/types';
 
 // ===================================
@@ -434,5 +435,10 @@ export async function getOnboardingQuestions(): Promise<OnboardingQuestion[]> {
 
 export async function getOnboardingPages(): Promise<WebsitePage[]> {
   const { data } = await apiClient.get<WebsitePage[]>('/websites/onboarding/pages/');
+  return data;
+}
+
+export async function getWebsiteSections(): Promise<WebsiteSection[]> {
+  const { data } = await apiClient.get<WebsiteSection[]>('/websites/onboarding/sections/');
   return data;
 }

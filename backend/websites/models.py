@@ -611,3 +611,38 @@ class WebsitePage(models.Model):
 
     def __str__(self):
         return self.label
+
+
+class WebsiteSection(models.Model):
+    """
+    Seccion configurable para paginas de sitio web.
+
+    Modelo GLOBAL, no pertenece a ningun tenant.
+    page=NULL significa seccion de Home.
+    """
+
+    key = models.CharField(max_length=50, unique=True, help_text="Identificador ej: testimonials")
+    label = models.CharField(max_length=100, help_text="Nombre visible ej: Testimonios")
+    description = models.CharField(max_length=200, blank=True, help_text="Descripcion corta")
+    page = models.ForeignKey(
+        WebsitePage,
+        on_delete=models.SET_NULL,
+        related_name="sections",
+        null=True,
+        blank=True,
+        help_text="Pagina a la que pertenece. NULL = seccion de Home",
+    )
+    is_default = models.BooleanField(default=False, help_text="La IA la incluye por defecto")
+    sort_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "label"]
+        verbose_name = "Seccion de sitio web"
+        verbose_name_plural = "Secciones de sitio web"
+
+    def __str__(self):
+        page_label = self.page.label if self.page else "Home"
+        return f"{self.label} ({page_label})"

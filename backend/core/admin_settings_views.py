@@ -28,12 +28,13 @@ from core.admin_settings_serializers import (
     AdminOnboardingQuestionSerializer,
     AdminPlatformModuleSerializer,
     AdminWebsitePageSerializer,
+    AdminWebsiteSectionSerializer,
     IndustryGalleryReorderSerializer,
 )
 from core.marketing_defaults import MARKETING_SECTION_DEFAULTS
 from core.models import IndustryGalleryCard, MarketingSection, PlatformModule
 from core.permissions import IsSuperAdmin
-from websites.models import OnboardingQuestion, WebsitePage
+from websites.models import OnboardingQuestion, WebsitePage, WebsiteSection
 
 # ---------------------------------------------------------------------------
 # PlatformModule views
@@ -138,6 +139,28 @@ class AdminOnboardingQuestionDetailView(generics.RetrieveUpdateDestroyAPIView):
         .select_related("template")
         .order_by("sort_order")
     )
+
+
+# ---------------------------------------------------------------------------
+# WebsiteSection views
+# ---------------------------------------------------------------------------
+
+
+class AdminWebsiteSectionListCreateView(generics.ListCreateAPIView):
+    """GET/POST ``/api/admin/settings/sections/``."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminWebsiteSectionSerializer
+    pagination_class = None
+    queryset = WebsiteSection.objects.select_related("page").order_by("sort_order")
+
+
+class AdminWebsiteSectionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PUT/PATCH/DELETE ``/api/admin/settings/sections/<int:pk>/``."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminWebsiteSectionSerializer
+    queryset = WebsiteSection.objects.select_related("page").order_by("sort_order")
 
 
 # ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ from .models import (
     OnboardingResponse,
     WebsiteConfig,
     WebsitePage,
+    WebsiteSection,
     WebsiteTemplate,
 )
 
@@ -139,6 +140,12 @@ class WebsitePageSerializer(serializers.ModelSerializer):
             "sort_order",
             "auto_include_modules",
         ]
+
+
+class WebsiteSectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WebsiteSection
+        fields = ["id", "key", "label", "description", "page", "is_default", "sort_order"]
 
 
 class OnboardingResponseSerializer(serializers.ModelSerializer):
