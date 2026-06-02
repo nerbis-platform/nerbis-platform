@@ -334,9 +334,7 @@ class CheckoutViewSet(viewsets.ViewSet):
                         appointment.is_paid = True
                         appointment.save()
                         appointments_confirmed += 1
-                        logger.info(
-                            "Cita %s confirmada (%s -> confirmed)", appointment.id, old_status
-                        )
+                        logger.info("Cita %s confirmada (%s -> confirmed)", appointment.id, old_status)
 
                 logger.info(
                     "Total: %s citas confirmadas para orden %s",
