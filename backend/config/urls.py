@@ -50,6 +50,11 @@ from core.admin_settings_views import (
     AdminOnboardingQuestionListCreateView,
     AdminPlatformModuleDetailView,
     AdminPlatformModuleListCreateView,
+    AdminPromptBlockDetailView,
+    AdminPromptBlockListCreateView,
+    AdminPromptPreviewView,
+    AdminSectionVariantDetailView,
+    AdminSectionVariantListCreateView,
     AdminWebsitePageDetailView,
     AdminWebsitePageListCreateView,
     AdminWebsiteSectionDetailView,
@@ -295,6 +300,34 @@ urlpatterns = [
         "api/admin/settings/marketing/<str:section_key>/reset/",
         AdminMarketingSectionResetView.as_view(),
         name="admin-settings-marketing-reset",
+    ),
+    # Admin settings — section variants
+    path(
+        "api/admin/settings/variants/",
+        AdminSectionVariantListCreateView.as_view(),
+        name="admin-settings-variants-list",
+    ),
+    path(
+        "api/admin/settings/variants/<int:pk>/",
+        AdminSectionVariantDetailView.as_view(),
+        name="admin-settings-variants-detail",
+    ),
+    # Admin settings — prompt blocks
+    path(
+        "api/admin/settings/prompt-blocks/",
+        AdminPromptBlockListCreateView.as_view(),
+        name="admin-settings-prompt-blocks-list",
+    ),
+    path(
+        "api/admin/settings/prompt-blocks/<int:pk>/",
+        AdminPromptBlockDetailView.as_view(),
+        name="admin-settings-prompt-blocks-detail",
+    ),
+    # Admin settings — prompt preview
+    path(
+        "api/admin/settings/prompt-preview/",
+        AdminPromptPreviewView.as_view(),
+        name="admin-settings-prompt-preview",
     ),
     # Admin settings — industry gallery (ViewSet via router)
     path("api/admin/settings/", include(admin_settings_router.urls)),

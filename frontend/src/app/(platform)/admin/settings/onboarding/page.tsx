@@ -1,7 +1,7 @@
 // src/app/(platform)/admin/settings/onboarding/page.tsx
 //
 // Platform superadmin: onboarding configuration page.
-// Tabs: Preguntas | Páginas | Secciones
+// Tabs: Preguntas | Páginas | Secciones | Variantes | Prompt Blocks
 // All requests go through `adminClient` (via `admin-settings` helpers) —
 // never the tenant-scoped `apiClient`.
 'use client';
@@ -43,6 +43,8 @@ import type {
   AdminWebsiteSection,
   AdminWebsiteSectionPayload,
 } from '@/types/admin';
+import { VariantsTab } from './_components/VariantsTab';
+import { PromptBlocksTab } from './_components/PromptBlocksTab';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
@@ -523,7 +525,7 @@ export default function AdminOnboardingSettingsPage() {
           Configuracion de onboarding
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Configura preguntas, paginas y secciones del flujo de onboarding.
+          Configura preguntas, paginas, secciones, variantes de diseno y bloques de prompt.
         </p>
       </div>
 
@@ -532,6 +534,8 @@ export default function AdminOnboardingSettingsPage() {
           <TabsTrigger value="questions">Preguntas</TabsTrigger>
           <TabsTrigger value="pages">Paginas</TabsTrigger>
           <TabsTrigger value="sections">Secciones</TabsTrigger>
+          <TabsTrigger value="variants">Variantes</TabsTrigger>
+          <TabsTrigger value="prompt-blocks">Prompt Blocks</TabsTrigger>
         </TabsList>
 
         {/* ────────────────────────────────────────────────────────────── */}
@@ -1102,6 +1106,20 @@ export default function AdminOnboardingSettingsPage() {
               </table>
             </div>
           )}
+        </TabsContent>
+
+        {/* ────────────────────────────────────────────────────────────── */}
+        {/* Tab: Variantes                                                */}
+        {/* ────────────────────────────────────────────────────────────── */}
+        <TabsContent value="variants">
+          <VariantsTab />
+        </TabsContent>
+
+        {/* ────────────────────────────────────────────────────────────── */}
+        {/* Tab: Prompt Blocks                                            */}
+        {/* ────────────────────────────────────────────────────────────── */}
+        <TabsContent value="prompt-blocks">
+          <PromptBlocksTab />
         </TabsContent>
       </Tabs>
 

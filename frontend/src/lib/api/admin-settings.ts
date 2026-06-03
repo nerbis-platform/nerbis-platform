@@ -16,6 +16,12 @@ import type {
   AdminWebsitePagePayload,
   AdminWebsiteSection,
   AdminWebsiteSectionPayload,
+  AdminSectionVariant,
+  AdminSectionVariantPayload,
+  AdminPromptBlock,
+  AdminPromptBlockPayload,
+  AdminPromptPreviewPayload,
+  AdminPromptPreviewResponse,
 } from '@/types/admin';
 
 // ──────────────────────────────────────────────────────────────────────
@@ -162,4 +168,90 @@ export async function adminUpdateSection(
 
 export async function adminDeleteSection(id: number): Promise<void> {
   await adminClient.delete<void>(`/admin/settings/sections/${id}/`);
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Section Variants
+// ──────────────────────────────────────────────────────────────────────
+
+export async function adminListVariants(): Promise<AdminSectionVariant[]> {
+  const { data } = await adminClient.get<AdminSectionVariant[]>(
+    '/admin/settings/variants/',
+  );
+  return data;
+}
+
+export async function adminCreateVariant(
+  payload: AdminSectionVariantPayload,
+): Promise<AdminSectionVariant> {
+  const { data } = await adminClient.post<AdminSectionVariant>(
+    '/admin/settings/variants/',
+    payload,
+  );
+  return data;
+}
+
+export async function adminUpdateVariant(
+  id: number,
+  payload: Partial<AdminSectionVariantPayload>,
+): Promise<AdminSectionVariant> {
+  const { data } = await adminClient.patch<AdminSectionVariant>(
+    `/admin/settings/variants/${id}/`,
+    payload,
+  );
+  return data;
+}
+
+export async function adminDeleteVariant(id: number): Promise<void> {
+  await adminClient.delete<void>(`/admin/settings/variants/${id}/`);
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Prompt Blocks
+// ──────────────────────────────────────────────────────────────────────
+
+export async function adminListPromptBlocks(): Promise<AdminPromptBlock[]> {
+  const { data } = await adminClient.get<AdminPromptBlock[]>(
+    '/admin/settings/prompt-blocks/',
+  );
+  return data;
+}
+
+export async function adminCreatePromptBlock(
+  payload: AdminPromptBlockPayload,
+): Promise<AdminPromptBlock> {
+  const { data } = await adminClient.post<AdminPromptBlock>(
+    '/admin/settings/prompt-blocks/',
+    payload,
+  );
+  return data;
+}
+
+export async function adminUpdatePromptBlock(
+  id: number,
+  payload: Partial<AdminPromptBlockPayload>,
+): Promise<AdminPromptBlock> {
+  const { data } = await adminClient.patch<AdminPromptBlock>(
+    `/admin/settings/prompt-blocks/${id}/`,
+    payload,
+  );
+  return data;
+}
+
+export async function adminDeletePromptBlock(id: number): Promise<void> {
+  await adminClient.delete<void>(`/admin/settings/prompt-blocks/${id}/`);
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Prompt Preview
+// ──────────────────────────────────────────────────────────────────────
+
+export async function adminPreviewPrompt(
+  payload: AdminPromptPreviewPayload,
+): Promise<AdminPromptPreviewResponse> {
+  const { data } = await adminClient.post<AdminPromptPreviewResponse>(
+    '/admin/settings/prompt-preview/',
+    payload,
+  );
+  return data;
 }
