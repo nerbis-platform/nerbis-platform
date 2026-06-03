@@ -36,14 +36,14 @@ interface SectionContent {
 interface ContentPanelProps {
   sectionKey: string;
   content: SectionContent;
-  onSaveEdit: (content: SectionContent, mediaUpdates?: Record<string, unknown>, seoUpdates?: Record<string, unknown>) => void;
+  onSaveEdit: (content: SectionContent, mediaUpdates?: Record<string, unknown>, seoUpdates?: Record<string, unknown>) => Promise<void> | void;
   onVariantChange?: (variant: string) => void;
   isVariantLoading?: boolean;
   onUploadMedia?: (file: File) => Promise<{ url: string }>;
   onFieldChange?: (sectionKey: string, field: string, value: unknown) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onContentChange?: (content: SectionContent) => void;
-  saveRef?: React.RefObject<(() => void) | null>;
+  saveRef?: React.RefObject<(() => Promise<void>) | null>;
   contentSetRef?: React.RefObject<((content: SectionContent) => void) | null>;
   // Header/Footer specific
   mediaData?: Record<string, unknown>;
@@ -97,8 +97,8 @@ export default function ContentPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editedContent]);
 
-  const handleSave = () => {
-    onSaveEdit(editedContent, pendingMediaUpdates, pendingSeoUpdates);
+  const handleSave = async () => {
+    await onSaveEdit(editedContent, pendingMediaUpdates, pendingSeoUpdates);
     setPendingMediaUpdates({});
     setPendingSeoUpdates({});
   };
@@ -106,7 +106,7 @@ export default function ContentPanel({
   // Expose save and setEditedContent to parent via refs
   useEffect(() => {
     if (saveRef) {
-      (saveRef as React.MutableRefObject<(() => void) | null>).current = handleSave;
+      (saveRef as React.MutableRefObject<(() => Promise<void>) | null>).current = handleSave;
     }
     if (contentSetRef) {
       (contentSetRef as React.MutableRefObject<((c: SectionContent) => void) | null>).current = setEditedContent;

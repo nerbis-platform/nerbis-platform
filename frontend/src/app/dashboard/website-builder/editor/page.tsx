@@ -129,6 +129,7 @@ export default function EditorPage() {
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
+  const [isSavingBeforePublish, setIsSavingBeforePublish] = useState(false);
   const [localTheme, setLocalTheme] = useState<ThemeData | null>(null);
   const [localSettings, setLocalSettings] = useState<SiteSettings | null>(null);
   const [savedSettings, setSavedSettings] = useState<SiteSettings | null>(null);
@@ -139,7 +140,7 @@ export default function EditorPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [contentOverrides, setContentOverrides] = useState<Record<string, Record<string, unknown>>>({});
   const [hasUnsavedContent, setHasUnsavedContent] = useState(false);
-  const contentSaveRef = useRef<(() => void) | null>(null);
+  const contentSaveRef = useRef<(() => Promise<void>) | null>(null);
   const contentSetRef = useRef<((c: SectionContent) => void) | null>(null);
 
   // ─── Global Undo / Redo ─────────────────────────────────
@@ -604,7 +605,7 @@ export default function EditorPage() {
   // ─── Auto-save ──────────────────────────────────────────
   const handleContentAutoSave = useCallback(async () => {
     isAutoSaveRef.current = true;
-    contentSaveRef.current?.();
+    await contentSaveRef.current?.();
   }, []);
 
   const handleThemeAutoSave = useCallback(async () => {
@@ -631,10 +632,12 @@ export default function EditorPage() {
     return 'idle';
   })();
 
-  const handleSaveAllNow = useCallback(() => {
-    if (hasUnsavedContent) contentSaveRef.current?.();
-    if (hasUnsavedTheme) handleThemeSave();
-    if (hasUnsavedSettings) handleSettingsSave();
+  const handleSaveAllNow = useCallback(async () => {
+    const saves: Promise<void>[] = [];
+    if (hasUnsavedContent && contentSaveRef.current) saves.push(contentSaveRef.current());
+    if (hasUnsavedTheme) saves.push(handleThemeSave());
+    if (hasUnsavedSettings) saves.push(handleSettingsSave());
+    await Promise.all(saves);
   }, [hasUnsavedContent, hasUnsavedTheme, hasUnsavedSettings, handleThemeSave, handleSettingsSave]);
 
   // Show a one-time toast the first time auto-save triggers
@@ -1193,8 +1196,8 @@ export default function EditorPage() {
                       <ContentPanel
                         sectionKey={activeSection}
                         content={currentContent}
-                        onSaveEdit={(content, mediaUpdates, seoUpdates) => {
-                          saveMutation.mutate({ sectionKey: activeSection, content, mediaUpdates, seoUpdates });
+                        onSaveEdit={async (content, mediaUpdates, seoUpdates) => {
+                          await saveMutation.mutateAsync({ sectionKey: activeSection, content, mediaUpdates, seoUpdates });
                         }}
                         onVariantChange={(variant) => {
                           variantMutation.mutate({ sectionId: activeSection, variant });
@@ -1629,21 +1632,27 @@ export default function EditorPage() {
               <button
                 type="button"
                 onClick={async () => {
-                  // Save any unsaved changes first, then publish
-                  handleSaveAllNow();
-                  setShowPublishDialog(false);
-                  publishMutation.mutate();
+                  try {
+                    setIsSavingBeforePublish(true);
+                    await handleSaveAllNow();
+                    setIsSavingBeforePublish(false);
+                    setShowPublishDialog(false);
+                    publishMutation.mutate();
+                  } catch {
+                    setIsSavingBeforePublish(false);
+                    toast.error('Error al guardar los cambios. Publicación cancelada.');
+                  }
                 }}
-                disabled={publishMutation.isPending}
+                disabled={publishMutation.isPending || isSavingBeforePublish}
                 className="flex items-center gap-2 h-10 px-5 rounded-lg text-white text-[0.82rem] font-medium hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
                 style={{ background: '#1C3B57' }}
               >
-                {publishMutation.isPending ? (
+                {(publishMutation.isPending || isSavingBeforePublish) ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Globe className="h-4 w-4" />
                 )}
-                Publicar ahora
+                {isSavingBeforePublish ? 'Guardando cambios...' : 'Publicar ahora'}
               </button>
             </div>
           </div>
