@@ -42,9 +42,9 @@ const TEAL = '#0D9488';
 const WARM_GRAY_50 = '#FAFAF8';
 const WARM_GRAY_100 = '#F5F5F0';
 const WARM_GRAY_200 = '#E8E6E1';
-const WARM_GRAY_400 = '#A8A29E';
+const WARM_GRAY_400 = '#78716C';
 const WARM_GRAY_500 = '#78716C';
-const WARM_GRAY_600 = '#57534E';
+const WARM_GRAY_600 = '#44403C';
 const WARM_GRAY_800 = '#292524';
 
 // ─── Conversational steps ─────────────────────────────────
