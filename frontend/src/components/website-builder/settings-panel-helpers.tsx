@@ -172,6 +172,18 @@ export function ImageUploadField({
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlDraft, setUrlDraft] = useState('');
+
+  const commitUrlDraft = () => {
+    const trimmed = urlDraft.trim();
+    if (!trimmed) {
+      setShowUrlInput(false);
+      return;
+    }
+    onChange(trimmed);
+    setShowUrlInput(false);
+    setUrlDraft('');
+  };
 
   const handleFile = async (file: File) => {
     if (!onUpload) {
@@ -287,11 +299,16 @@ export function ImageUploadField({
               <input
                 type="url"
                 placeholder="https://..."
-                onChange={(e) => {
-                  if (e.target.value) onChange(e.target.value);
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitUrlDraft();
+                  }
                 }}
                 onBlur={(e) => {
-                  if (!e.target.value) setShowUrlInput(false);
+                  if (!e.target.value.trim()) setShowUrlInput(false);
                 }}
                 className="flex-1 h-7 px-2 rounded border border-gray-200 text-[0.7rem] text-gray-600 placeholder:text-gray-300 focus:outline-none focus:border-primary"
                 autoFocus

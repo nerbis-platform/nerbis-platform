@@ -30,6 +30,7 @@ export function extractErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function maskEmail(email: string): string {
+  if (!email.includes('@')) return email;
   const [local, domain] = email.split('@');
   const masked =
     local.length <= 2
