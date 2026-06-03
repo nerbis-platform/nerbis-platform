@@ -191,13 +191,13 @@ export default function ContentPanel({
                       value={String(editedContent.map_address || '')}
                       onChange={(e) => setEditedContent({ ...editedContent, map_address: e.target.value })}
                       placeholder="Calle 123, Ciudad, País"
-                      className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors"
+                      className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-[#0D9488]/30 transition-colors"
                     />
                     {editedContent.address && !editedContent.map_address && (
                       <button
                         type="button"
                         onClick={() => setEditedContent({ ...editedContent, map_address: String(editedContent.address) })}
-                        className="mt-1.5 text-[0.72rem] text-[#1C3B57] font-medium hover:underline cursor-pointer"
+                        className="mt-1.5 text-[0.72rem] text-foreground font-medium hover:underline cursor-pointer"
                       >
                         Usar dirección de contacto: {String(editedContent.address)}
                       </button>
@@ -301,7 +301,7 @@ function SectionFields({
               type="text"
               value={String(value || '')}
               onChange={(e) => updateField(key, e.target.value)}
-              className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors"
+              className="w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-[#0D9488]/30 transition-colors"
             />
           )}
         </div>
@@ -316,14 +316,14 @@ function SectionFields({
           <div className="mt-2 space-y-2">
             {content.highlights.map((h, i) => (
               <div key={i} className="flex items-start gap-2.5">
-                <div className="w-5 h-5 rounded-full bg-[#E2F3F1] flex items-center justify-center shrink-0 mt-0.5">
-                  <Check className="h-3 w-3 text-[#1C3B57]" />
+                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Check className="h-3 w-3 text-foreground" />
                 </div>
                 <input
                   type="text"
                   value={h}
                   onChange={(e) => updateHighlight(i, e.target.value)}
-                  className="flex-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                  className="flex-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 focus:outline-none focus:border-primary transition-colors"
                 />
                 <button
                   type="button"
@@ -337,7 +337,7 @@ function SectionFields({
             <button
               type="button"
               onClick={addHighlight}
-              className="flex items-center gap-1.5 text-[0.78rem] text-[#1C3B57] font-medium hover:underline cursor-pointer mt-1"
+              className="flex items-center gap-1.5 text-[0.78rem] text-foreground font-medium hover:underline cursor-pointer mt-1"
             >
               <Plus className="h-3.5 w-3.5" />
               Agregar punto
@@ -368,7 +368,7 @@ function SectionFields({
           <button
             type="button"
             onClick={addItem}
-            className="flex items-center gap-1.5 mt-3 text-[0.78rem] text-[#1C3B57] font-medium hover:underline cursor-pointer"
+            className="flex items-center gap-1.5 mt-3 text-[0.78rem] text-foreground font-medium hover:underline cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
             Agregar {getItemSingular(sectionKey)}
@@ -464,7 +464,7 @@ function ItemCard({
                   type="text"
                   value={String(item[key] || '')}
                   onChange={(e) => onUpdate(key, e.target.value)}
-                  className="w-full mt-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.82rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                  className="w-full mt-1 h-8 px-2.5 rounded-lg border border-gray-200 text-[0.82rem] text-gray-700 focus:outline-none focus:border-primary transition-colors"
                 />
               )}
             </div>

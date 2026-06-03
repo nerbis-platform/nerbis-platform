@@ -36,7 +36,7 @@ export function ReviewCard({ review }: ReviewCardProps) {
             <div className="flex items-center gap-2 mb-1">
               <span className="font-semibold">{review.user_name}</span>
               {review.is_verified_purchase && (
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                <Badge variant="outline" className="bg-[var(--color-status-success-bg)] text-[var(--color-status-success)] border-[var(--color-status-success)]/20">
                   <ShieldCheck className="h-3 w-3 mr-1" />
                   Compra verificada
                 </Badge>

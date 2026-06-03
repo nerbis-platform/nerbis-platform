@@ -75,6 +75,9 @@ class TenantMiddleware(MiddlewareMixin):
         # Guardar tenant en el contexto global (para managers)
         set_current_tenant(tenant)
 
+        # Setear variable de sesión en PostgreSQL para Row-Level Security
+        self._set_pg_tenant(tenant.id)
+
         # Continuar con el request
         return None
 
@@ -84,7 +87,26 @@ class TenantMiddleware(MiddlewareMixin):
         Limpiar el tenant del contexto.
         """
         clear_current_tenant()
+        self._clear_pg_tenant()
         return response
+
+    @staticmethod
+    def _set_pg_tenant(tenant_id):
+        """Setear current_tenant_id en PostgreSQL para RLS."""
+        from django.db import connection
+
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute("SET app.current_tenant_id = %s", [str(tenant_id)])
+
+    @staticmethod
+    def _clear_pg_tenant():
+        """Limpiar current_tenant_id de la sesión PostgreSQL."""
+        from django.db import connection
+
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute("RESET app.current_tenant_id")
 
     def _get_tenant_from_subdomain(self, request):
         """
@@ -165,6 +187,7 @@ class TenantExclusionMiddleware(MiddlewareMixin):
 
     EXCLUDED_PATHS = [
         "/admin/",
+        "/api/admin/",
         "/api/public/",
         "/api/docs/",
         "/api/schema/",
@@ -174,6 +197,7 @@ class TenantExclusionMiddleware(MiddlewareMixin):
         "/favicon.ico",
         "/api/webhooks/",
         "/subscription-expired/",
+        "/api/auth/2fa/challenge/",  # 2FA challenge es cross-tenant (usa challenge_token)
     ]
 
     EXCLUDED_EXACT = [

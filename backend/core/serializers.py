@@ -1,9 +1,69 @@
 # backend/core/serializers.py
 
-from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.password_validation import (
+    validate_password,
+)
+from django.contrib.auth.password_validation import (
+    validate_password as django_validate_password,
+)
 from rest_framework import serializers
 
-from .models import Banner, Tenant, User
+from .models import (
+    AdminAuditLog,
+    Banner,
+    IndustryGalleryCard,
+    MarketingSection,
+    PlatformModule,
+    SocialAccount,
+    TeamInvitation,
+    Tenant,
+    User,
+)
+from .utils import get_client_ip
+
+
+class PublicMarketingSectionSerializer(serializers.ModelSerializer):
+    """Serializer público read-only para secciones de marketing."""
+
+    class Meta:
+        model = MarketingSection
+        fields = ["content", "is_visible"]
+
+
+class PublicIndustryGalleryCardSerializer(serializers.ModelSerializer):
+    """Serializer público read-only para cards de la galeria de industrias."""
+
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = IndustryGalleryCard
+        fields = ["id", "name", "image", "gradient", "row", "sort_order", "is_visible"]
+
+    def get_image(self, obj: IndustryGalleryCard) -> str | None:
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
+
+
+class PlatformModuleSerializer(serializers.ModelSerializer):
+    """Serializer para módulos de la plataforma (catálogo global)."""
+
+    dependencies = serializers.SlugRelatedField(many=True, read_only=True, slug_field="key")
+
+    class Meta:
+        model = PlatformModule
+        fields = [
+            "key",
+            "label",
+            "description",
+            "icon",
+            "accent_color",
+            "sort_order",
+            "dependencies",
+        ]
 
 
 class TenantSerializer(serializers.ModelSerializer):
@@ -51,6 +111,7 @@ class TenantSerializer(serializers.ModelSerializer):
             "has_bookings",
             "has_services",
             "has_marketing",
+            "has_management",
             "has_website",
             "modules_configured",
             # Suscripción
@@ -61,8 +122,40 @@ class TenantSerializer(serializers.ModelSerializer):
             "is_trial",
             # Website
             "website_status",
+            # Legal
+            "legal_name",
+            "tax_id",
+            "legal_address",
+            "tax_rate",
         ]
         read_only_fields = ["id", "slug"]
+
+
+class SocialAccountSerializer(serializers.ModelSerializer):
+    """Serializer para cuentas sociales vinculadas."""
+
+    class Meta:
+        model = SocialAccount
+        fields = ["id", "provider", "email", "created_at"]
+        read_only_fields = fields
+
+
+class SocialAccountDetailSerializer(serializers.ModelSerializer):
+    """Serializer extendido para social accounts — incluye nombre y avatar del proveedor."""
+
+    provider_name = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SocialAccount
+        fields = ["id", "provider", "email", "provider_name", "avatar_url", "created_at"]
+        read_only_fields = fields
+
+    def get_provider_name(self, obj) -> str:
+        return obj.extra_data.get("name", "")
+
+    def get_avatar_url(self, obj) -> str:
+        return obj.extra_data.get("picture", "")
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -71,6 +164,8 @@ class UserSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source="tenant.name", read_only=True)
     role_display = serializers.CharField(source="get_role_display", read_only=True)
     full_name = serializers.SerializerMethodField()
+    has_password = serializers.SerializerMethodField()
+    social_accounts = SocialAccountSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -89,11 +184,84 @@ class UserSerializer(serializers.ModelSerializer):
             "role_display",
             "is_active",
             "date_joined",
+            "has_password",
+            "social_accounts",
+            "data_consent",
+            "marketing_consent",
         ]
         read_only_fields = ["id", "tenant", "date_joined"]
 
     def get_full_name(self, obj) -> str:
         return obj.get_full_name() or obj.username
+
+    def get_has_password(self, obj) -> bool:
+        return obj.has_usable_password()
+
+
+class TeamMemberSerializer(serializers.ModelSerializer):
+    """Serializer para miembros del equipo — vista de admin con social accounts detalladas."""
+
+    full_name = serializers.SerializerMethodField()
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
+    has_password = serializers.SerializerMethodField()
+    social_accounts = SocialAccountDetailSerializer(many=True, read_only=True)
+    auth_method = serializers.SerializerMethodField()
+    has_2fa = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "full_name",
+            "phone",
+            "avatar",
+            "role",
+            "role_display",
+            "is_active",
+            "date_joined",
+            "has_password",
+            "social_accounts",
+            "auth_method",
+            "has_2fa",
+        ]
+        read_only_fields = fields
+
+    def get_full_name(self, obj) -> str:
+        return obj.get_full_name() or obj.username
+
+    def get_has_password(self, obj) -> bool:
+        return obj.has_usable_password()
+
+    def get_auth_method(self, obj) -> str:
+        has_password = obj.has_usable_password()
+        has_social = obj.social_accounts.exists()
+        if has_password and has_social:
+            return "both"
+        if has_social:
+            return "social_only"
+        return "email_only"
+
+    def get_has_2fa(self, obj) -> bool:
+        device = getattr(obj, "totp_device", None)
+        if device and device.confirmed:
+            return True
+        return obj.webauthn_credentials.exists()
+
+
+class TeamUpdateMemberSerializer(serializers.ModelSerializer):
+    """Serializer para actualizar datos de un miembro del equipo (solo admin)."""
+
+    class Meta:
+        model = User
+        fields = ["role", "first_name", "last_name", "phone"]
+
+    def validate_role(self, value):
+        if value not in ("admin", "staff"):
+            raise serializers.ValidationError("Solo se puede asignar rol admin o staff")
+        return value
 
 
 class UserPublicSerializer(serializers.ModelSerializer):
@@ -153,14 +321,32 @@ class RegisterSerializer(serializers.ModelSerializer):
         write_only=True, required=True, validators=[validate_password], style={"input_type": "password"}
     )
     password2 = serializers.CharField(write_only=True, required=True, style={"input_type": "password"})
+    data_consent = serializers.BooleanField(required=True)
+    marketing_consent = serializers.BooleanField(required=False, default=False)
 
     class Meta:
         model = User
-        fields = ["email", "password", "password2", "first_name", "last_name", "phone"]
+        fields = [
+            "email",
+            "password",
+            "password2",
+            "first_name",
+            "last_name",
+            "phone",
+            "data_consent",
+            "marketing_consent",
+        ]
 
     def validate_email(self, value):
         """Normalizar email a minúsculas"""
         return value.lower()
+
+    def validate_data_consent(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "Debes aceptar la política de tratamiento de datos personales (Ley 1581/2012)"
+            )
+        return value
 
     def validate(self, attrs):
         """Validaciones que requieren múltiples campos"""
@@ -175,11 +361,12 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         tenant = request.tenant
 
-        # Validar email único por tenant (case-insensitive)
+        # Validar email único por tenant (incluye activos e inactivos para
+        # no revelar si existe una cuenta inactiva — previene account takeover #135)
         email = attrs.get("email", "").lower()
         if User.objects.filter(tenant=tenant, email__iexact=email).exists():
             raise serializers.ValidationError(
-                {"email": "Ya existe un usuario con este email en este centro. Por favor inicia sesión."}
+                {"email": "Ya existe un usuario con este email. Por favor inicia sesión."}
             )
 
         return attrs
@@ -197,16 +384,22 @@ class RegisterSerializer(serializers.ModelSerializer):
         return username
 
     def create(self, validated_data):
-        validated_data.pop("password2")
+        from django.utils import timezone as tz
 
-        # Obtener tenant del request
+        validated_data.pop("password2")
+        data_consent = validated_data.pop("data_consent", False)
+        marketing_consent = validated_data.pop("marketing_consent", False)
+
+        # Obtener tenant y IP del request
         request = self.context.get("request")
         tenant = request.tenant
+        client_ip = get_client_ip(request)
 
         # Generar username automáticamente desde el email
         email = validated_data["email"].lower()
         username = self._generate_username(email, tenant)
 
+        now = tz.now()
         user = User.objects.create_user(
             tenant=tenant,
             username=username,
@@ -216,6 +409,11 @@ class RegisterSerializer(serializers.ModelSerializer):
             last_name=validated_data.get("last_name", ""),
             phone=validated_data.get("phone", ""),
             role="customer",
+            data_consent=data_consent,
+            data_consent_date=now if data_consent else None,
+            data_consent_ip=client_ip if data_consent else None,
+            marketing_consent=marketing_consent,
+            marketing_consent_date=now if marketing_consent else None,
         )
         return user
 
@@ -311,8 +509,19 @@ class TenantRegisterSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=150, required=False, default="")
     phone = serializers.CharField(max_length=20, required=False, default="", allow_blank=True)
 
+    # Consentimiento legal
+    data_consent = serializers.BooleanField(required=True)
+    marketing_consent = serializers.BooleanField(required=False, default=False)
+
     def validate_email(self, value):
         return value.lower()
+
+    def validate_data_consent(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "Debes aceptar la política de tratamiento de datos personales (Ley 1581/2012)"
+            )
+        return value
 
     def validate_business_name(self, value):
         slug = value.lower().replace(" ", "-")
@@ -334,6 +543,7 @@ class TenantRegisterSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         from django.db import transaction
+        from django.utils import timezone as tz
         from django.utils.text import slugify
 
         validated_data.pop("password2")
@@ -347,6 +557,12 @@ class TenantRegisterSerializer(serializers.Serializer):
         first_name = validated_data.pop("first_name", "")
         last_name = validated_data.pop("last_name", "")
         phone = validated_data.pop("phone", "")
+        data_consent = validated_data.pop("data_consent", False)
+        marketing_consent = validated_data.pop("marketing_consent", False)
+
+        # Capturar IP para evidencia legal
+        request = self.context.get("request")
+        client_ip = get_client_ip(request) if request else None
 
         with transaction.atomic():
             # Generar slug único
@@ -369,6 +585,7 @@ class TenantRegisterSerializer(serializers.Serializer):
             )
 
             # Crear usuario administrador
+            now = tz.now()
             username = email.split("@")[0].lower()
             user = User.objects.create_user(
                 tenant=tenant,
@@ -379,16 +596,293 @@ class TenantRegisterSerializer(serializers.Serializer):
                 last_name=last_name,
                 phone=phone,
                 role="admin",
+                data_consent=data_consent,
+                data_consent_date=now if data_consent else None,
+                data_consent_ip=client_ip if data_consent else None,
+                marketing_consent=marketing_consent,
+                marketing_consent_date=now if marketing_consent else None,
             )
 
         return user
 
 
+class TeamInvitationSerializer(serializers.ModelSerializer):
+    """Serializer para leer invitaciones de equipo"""
+
+    invited_by_name = serializers.SerializerMethodField()
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    is_valid = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = TeamInvitation
+        fields = [
+            "id",
+            "email",
+            "role",
+            "role_display",
+            "status",
+            "status_display",
+            "invited_by_name",
+            "is_valid",
+            "expires_at",
+            "accepted_at",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_invited_by_name(self, obj) -> str:
+        if obj.invited_by:
+            return obj.invited_by.get_full_name() or obj.invited_by.email
+        return ""
+
+
+class CreateTeamInvitationSerializer(serializers.Serializer):
+    """Serializer para crear una invitación de equipo"""
+
+    email = serializers.EmailField(required=True)
+    role = serializers.ChoiceField(
+        choices=TeamInvitation.ROLE_CHOICES,
+        default="staff",
+    )
+
+    def validate_email(self, value):
+        return value.lower()
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        tenant = request.tenant
+        email = attrs["email"]
+
+        # No invitar a alguien que ya es miembro del tenant
+        if User.objects.filter(tenant=tenant, email__iexact=email, is_active=True).exists():
+            raise serializers.ValidationError({"email": "Este email ya pertenece a un miembro del equipo"})
+
+        return attrs
+
+
+class AcceptInvitationSerializer(serializers.Serializer):
+    """Serializer para aceptar una invitación (registro simplificado)"""
+
+    first_name = serializers.CharField(max_length=150, required=True)
+    last_name = serializers.CharField(max_length=150, required=True)
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        validators=[validate_password],
+        style={"input_type": "password"},
+    )
+    password2 = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={"input_type": "password"},
+    )
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password2"]:
+            raise serializers.ValidationError({"password": "Las contraseñas no coinciden"})
+        return attrs
+
+
+class InvitationDetailSerializer(serializers.ModelSerializer):
+    """Serializer público para mostrar info de una invitación (sin datos sensibles)"""
+
+    tenant_name = serializers.CharField(source="tenant.name", read_only=True)
+    tenant_logo = serializers.ImageField(source="tenant.logo", read_only=True)
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
+    invited_by_name = serializers.SerializerMethodField()
+    is_valid = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = TeamInvitation
+        fields = [
+            "email",
+            "role",
+            "role_display",
+            "tenant_name",
+            "tenant_logo",
+            "invited_by_name",
+            "is_valid",
+            "status",
+            "expires_at",
+        ]
+        read_only_fields = fields
+
+    def get_invited_by_name(self, obj) -> str:
+        if obj.invited_by:
+            return obj.invited_by.get_full_name() or obj.invited_by.email
+        return ""
+
+
+class SocialLoginSerializer(serializers.Serializer):
+    """Serializer para social login (Google, Apple, Facebook)."""
+
+    token = serializers.CharField(required=True, help_text="Token del proveedor (id_token o access_token)")
+    first_name = serializers.CharField(required=False, default="", help_text="Nombre (opcional, para Apple)")
+    last_name = serializers.CharField(required=False, default="", help_text="Apellido (opcional, para Apple)")
+
+
+class SocialLinkSerializer(serializers.Serializer):
+    """Serializer para vincular cuenta social a usuario existente con contraseña."""
+
+    provider = serializers.ChoiceField(choices=["google", "apple", "facebook"], required=True)
+    token = serializers.CharField(required=True, help_text="Token del proveedor")
+    password = serializers.CharField(required=True, write_only=True, help_text="Contraseña de la cuenta existente")
+    first_name = serializers.CharField(required=False, default="")
+    last_name = serializers.CharField(required=False, default="")
+
+
+class AdminLoginSerializer(serializers.Serializer):
+    """Serializer para login de superadmin de plataforma."""
+
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate_email(self, value: str) -> str:
+        return value.strip().lower()
+
+
+class AdminRegisterSerializer(serializers.Serializer):
+    """Serializer para registro de superadmin de plataforma."""
+
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, min_length=8, trim_whitespace=False)
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    internal_role = serializers.ChoiceField(choices=["admin", "support", "viewer"], default="admin", required=False)
+
+    def validate_email(self, value: str) -> str:
+        normalized = value.strip().lower()
+        if User.objects.filter(tenant__isnull=True, email__iexact=normalized).exists():
+            raise serializers.ValidationError("A superadmin with this email already exists.")
+        return normalized
+
+    def validate_password(self, value: str) -> str:
+        django_validate_password(value)
+        return value
+
+    def create(self, validated_data: dict) -> User:
+        email = validated_data["email"]
+        user = User(
+            email=email,
+            username=email.split("@")[0],
+            first_name=validated_data.get("first_name", ""),
+            last_name=validated_data.get("last_name", ""),
+            tenant=None,
+            is_superuser=True,
+            is_staff=True,
+            is_active=True,
+            role="admin",
+            uid=f"admin:{email}",
+            internal_role=validated_data.get("internal_role", "admin"),
+        )
+        user.set_password(validated_data["password"])
+        user.save()
+        return user
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Serializer de salida para superadmins. Allowlist explícito."""
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "is_superuser",
+            "is_staff",
+            "is_active",
+            "date_joined",
+            "last_login",
+            "superadmin_status",
+            "block_reason",
+            "blocked_until",
+            "is_owner",
+            "internal_role",
+        ]
+        read_only_fields = fields
+
+
+class AdminUserUpdateSerializer(serializers.Serializer):
+    """Serializer para PATCH parcial de un superadmin (solo is_active)."""
+
+    is_active = serializers.BooleanField()
+
+
+class AdminBlockSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=500)
+    blocked_until = serializers.DateTimeField(required=False, allow_null=True)
+
+
+class AdminDeleteSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+
+class AdminChangeRoleSerializer(serializers.Serializer):
+    internal_role = serializers.ChoiceField(choices=["admin", "support", "viewer"])
+
+
+class AdminAuditLogSerializer(serializers.ModelSerializer):
+    actor_email = serializers.CharField(source="actor.email", default=None, read_only=True)
+
+    class Meta:
+        model = AdminAuditLog
+        fields = [
+            "id",
+            "actor",
+            "actor_email",
+            "action",
+            "target_type",
+            "target_id",
+            "target_repr",
+            "details",
+            "ip_address",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class OnboardingCompleteSerializer(serializers.Serializer):
+    """Serializer para el endpoint unificado de onboarding."""
+
+    VALID_MODULES = {"has_website", "has_shop", "has_bookings", "has_management", "has_services"}
+
+    modules = serializers.ListField(
+        child=serializers.CharField(max_length=20),
+        min_length=1,
+        help_text="Módulos seleccionados por el usuario",
+    )
+    answers = serializers.DictField(
+        help_text="Respuestas del onboarding (flexible, validado en la vista)",
+    )
+
+    def validate_modules(self, value: list[str]) -> list[str]:
+        invalid = set(value) - self.VALID_MODULES
+        if invalid:
+            raise serializers.ValidationError(
+                f"Módulos inválidos: {', '.join(sorted(invalid))}. Válidos: {', '.join(sorted(self.VALID_MODULES))}"
+            )
+        return value
+
+
 class BannerSerializer(serializers.ModelSerializer):
-    """Serializer para Banner (información pública)"""
+    """Serializer para Banner (información pública)
+
+    Security: message se sanea con strip_tags para prevenir XSS stored (#137).
+    """
 
     banner_type_display = serializers.CharField(source="get_banner_type_display", read_only=True)
     position_display = serializers.CharField(source="get_position_display", read_only=True)
+
+    def to_representation(self, instance):
+        from django.utils.html import strip_tags
+
+        data = super().to_representation(instance)
+        if data.get("message"):
+            data["message"] = strip_tags(data["message"])
+        return data
 
     class Meta:
         model = Banner

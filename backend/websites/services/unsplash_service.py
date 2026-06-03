@@ -288,7 +288,7 @@ class UnsplashService:
                 timeout=5,
             )
         except Exception:
-            pass
+            logger.warning("Error al registrar descarga en Unsplash", exc_info=True)
 
     def _format_photo(self, photo: dict) -> dict:
         """Formatea respuesta de Unsplash API a nuestro formato interno."""

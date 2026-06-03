@@ -166,8 +166,8 @@ export default function RichTextField({
         style={{ minHeight }}
         className={`${
           compact
-            ? 'w-full mt-1 px-2.5 py-2 rounded-lg border border-gray-200 text-[0.82rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] transition-colors'
-            : 'w-full mt-1.5 px-3 py-2.5 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors'
+            ? 'w-full mt-1 px-2.5 py-2 rounded-lg border border-gray-200 text-[0.82rem] text-gray-700 focus:outline-none focus:border-[#0D9488] transition-colors'
+            : 'w-full mt-1.5 px-3 py-2.5 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/30 transition-colors'
         } overflow-auto [&_b]:font-bold [&_i]:italic [&_a]:text-[#1C3B57] [&_a]:underline`}
       />
 

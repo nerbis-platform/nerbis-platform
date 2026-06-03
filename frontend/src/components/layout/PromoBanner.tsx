@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { getActiveBanners } from '@/lib/api/banners';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 interface PromoBannerProps {
   position?: 'top' | 'bottom';
@@ -121,7 +122,7 @@ export function PromoBanner({ position = 'top' }: PromoBannerProps) {
 
         {/* Contenido del banner */}
         <div className="flex items-center gap-2 text-center px-8">
-          <span dangerouslySetInnerHTML={{ __html: banner.message }} />
+          <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(banner.message) }} />
           {banner.link_url && (
             <Link
               href={banner.link_url}

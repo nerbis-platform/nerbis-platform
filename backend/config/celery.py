@@ -28,6 +28,11 @@ app.conf.beat_schedule = {
         "task": "bookings.tasks.expire_pending_appointments",
         "schedule": crontab(minute="*/5"),  # Cada 5 minutos
     },
+    # Recuperar generaciones de sitios web atascadas
+    "recover-stuck-generations": {
+        "task": "websites.tasks.recover_stuck_generations",
+        "schedule": crontab(minute="*/5"),  # Cada 5 minutos
+    },
 }
 
 

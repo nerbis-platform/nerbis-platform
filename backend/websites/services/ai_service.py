@@ -7,14 +7,24 @@ Integra con Claude (Anthropic) para:
 - Chat interactivo para ediciones
 - Regenerar secciones específicas
 - Optimización SEO
+
+Los helpers, constantes, prompts y validaciones viven en submódulos:
+- ai_constants.py  — constantes compartidas
+- ai_prompts.py    — system prompts, format_business_context, templates de prompt
+- ai_validation.py — frases prohibidas, validaciones de contenido
+- ai_pricing.py    — MODEL_PRICING, calculate_cost
 """
 
 import json
 import logging
-from decimal import Decimal
 
 from django.conf import settings
 from django.utils import timezone
+
+from websites.services.ai_constants import SECTION_OPTION_MAP
+from websites.services.ai_pricing import calculate_cost
+from websites.services.ai_prompts import build_system_prompt
+from websites.services.ai_validation import validate_generated_content
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +35,9 @@ class AIService:
 
     Maneja la generación de contenido, chat y tracking de uso.
     """
+
+    # Expuesto como atributo de clase para backward compatibility
+    SECTION_OPTION_MAP = SECTION_OPTION_MAP
 
     def __init__(self, tenant=None, website_config=None):
         """
@@ -37,6 +50,10 @@ class AIService:
         self.tenant = tenant
         self.website_config = website_config
         self.client = self._get_client()
+        # Modelo realmente usado en la última llamada a la API (puede diferir de
+        # settings.ANTHROPIC_MODEL cuando se usa ANTHROPIC_MODEL_INITIAL). Lo
+        # consume log_generation para calcular el costo y registrar el modelo.
+        self._last_model_used: str | None = None
 
     def _get_client(self):
         """Obtiene el cliente de Anthropic."""
@@ -52,75 +69,67 @@ class AIService:
             logger.error("anthropic package no instalado. Ejecutar: pip install anthropic")
             return None
 
-    def _build_system_prompt(self, template, onboarding_responses: dict) -> str:
-        """
-        Construye el prompt del sistema basado en el template y respuestas.
+    # ───────────────────────────────────────────────────────────────────
+    # Delegaciones a submódulos
+    # ───────────────────────────────────────────────────────────────────
 
-        Args:
-            template: WebsiteTemplate seleccionado
-            onboarding_responses: dict de respuestas del onboarding
+    def _build_system_prompt(self, template, onboarding_responses: dict) -> str:
+        return build_system_prompt(template, onboarding_responses)
+
+    def _validate_generated_content(self, content_data: dict, template) -> list[str]:
+        return validate_generated_content(content_data, template)
+
+    def calculate_cost(self, tokens_input: int, tokens_output: int, model: str | None = None):
+        return calculate_cost(tokens_input, tokens_output, model=model)
+
+    # ───────────────────────────────────────────────────────────────────
+    # Industry defaults
+    # ───────────────────────────────────────────────────────────────────
+
+    def _apply_industry_defaults(self, onboarding_responses: dict) -> dict:
+        """Rellena campos faltantes del onboarding con defaults del vertical.
+
+        Esto permite que el onboarding corto (3 campos) genere copy de la misma
+        calidad que el onboarding completo (17 campos), porque la IA recibe
+        brand_tone, business_hours y website_sections derivados de la industria.
+
+        **No sobrescribe** datos que el usuario ya proporcionó.
 
         Returns:
-            String con el prompt del sistema
+            Copia del dict con defaults inyectados.
         """
-        # Prompt base del template (si existe)
-        template_prompt = template.ai_system_prompt if template else ""
+        from core.industry_defaults import (
+            get_default_brand_tone,
+            get_default_business_hours,
+            get_default_sections,
+        )
 
-        # Construir contexto del negocio desde las respuestas
-        business_context = self._format_business_context(onboarding_responses)
+        industry = getattr(self.tenant, "industry", None)
+        if not industry:
+            return dict(onboarding_responses)
 
-        system_prompt = f"""Eres un experto en crear contenido para sitios web de negocios.
-Tu objetivo es generar contenido profesional, atractivo y personalizado.
+        merged = dict(onboarding_responses)
 
-## Información del Negocio
-{business_context}
+        if not merged.get("brand_tone"):
+            tone = get_default_brand_tone(industry)
+            if tone:
+                merged["brand_tone"] = tone
 
-## Instrucciones del Template
-{template_prompt}
+        if not merged.get("business_hours"):
+            hours = get_default_business_hours(industry)
+            if hours:
+                merged["business_hours"] = hours
 
-## Reglas Generales
-1. Escribe en español (España/Latinoamérica según el contexto)
-2. Usa un tono {onboarding_responses.get("brand_tone", "profesional y cercano")}
-3. Sé conciso pero impactante
-4. Incluye llamadas a la acción claras
-5. Personaliza el contenido según la industria y audiencia
-6. No inventes información que no se haya proporcionado
-7. Si falta información, usa placeholders descriptivos como "[Tu teléfono]"
+        if not merged.get("website_sections"):
+            sections = get_default_sections(industry)
+            if sections:
+                merged["website_sections"] = sections
 
-## Formato de Respuesta
-Responde SIEMPRE en formato JSON válido con la estructura solicitada.
-No incluyas explicaciones fuera del JSON.
-"""
-        return system_prompt
+        return merged
 
-    def _format_business_context(self, responses: dict) -> str:
-        """Formatea las respuestas del onboarding como contexto."""
-        context_lines = []
-
-        # Mapeo de claves a descripciones legibles
-        key_labels = {
-            "business_name": "Nombre del negocio",
-            "business_tagline": "Slogan",
-            "business_description": "Descripción",
-            "target_audience": "Audiencia objetivo",
-            "unique_selling_point": "Propuesta de valor única",
-            "brand_tone": "Tono de comunicación",
-            "website_sections": "Secciones seleccionadas para el sitio",
-            "business_address": "Dirección",
-            "business_phone": "Teléfono",
-            "business_email": "Email",
-            "business_whatsapp": "WhatsApp",
-            "business_hours": "Horario de atención",
-        }
-
-        for key, value in responses.items():
-            if value:  # Solo incluir si tiene valor
-                label = key_labels.get(key, key.replace("_", " ").title())
-                if isinstance(value, list):
-                    value = ", ".join(str(v) for v in value)
-                context_lines.append(f"- {label}: {value}")
-
-        return "\n".join(context_lines) if context_lines else "No se proporcionó información adicional."
+    # ───────────────────────────────────────────────────────────────────
+    # Generación inicial
+    # ───────────────────────────────────────────────────────────────────
 
     def generate_initial_content(
         self, template, onboarding_responses: dict, additional_instructions: str = ""
@@ -136,6 +145,10 @@ No incluyas explicaciones fuera del JSON.
         Returns:
             tuple de (content_data, seo_data, tokens_input, tokens_output, full_prompt, raw_response)
         """
+        # Inyectar defaults del vertical para campos faltantes (Fase 2:
+        # onboarding corto). Esto es un merge -- no sobrescribe datos del usuario.
+        onboarding_responses = self._apply_industry_defaults(onboarding_responses)
+
         if not self.client:
             return (*self._mock_generate_content(template, onboarding_responses), "", "")
 
@@ -228,39 +241,52 @@ Responde con un JSON con esta estructura (incluye SOLO las secciones indicadas a
 
 Genera contenido profesional y atractivo basado en la información del negocio."""
 
+        # Para la generación inicial usamos un modelo más capaz (Sonnet) por
+        # defecto. El chat de ediciones posteriores sigue usando el modelo
+        # barato (Haiku) via settings.ANTHROPIC_MODEL. Si el env var no está
+        # definido, cae a ANTHROPIC_MODEL para no romper entornos existentes.
+        model = getattr(settings, "ANTHROPIC_MODEL_INITIAL", None) or settings.ANTHROPIC_MODEL
+        self._last_model_used = model
+
         try:
-            response = self.client.messages.create(
-                model=settings.ANTHROPIC_MODEL,
-                max_tokens=4096,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
+            content_data, seo_data, tokens_input, tokens_output, response_text = self._call_generation(
+                model=model, system_prompt=system_prompt, user_prompt=user_prompt
             )
 
-            # Parsear respuesta
-            response_text = response.content[0].text
-            tokens_input = response.usage.input_tokens
-            tokens_output = response.usage.output_tokens
-
-            # Intentar parsear JSON
-            try:
-                # Limpiar posibles caracteres extra
-                json_text = response_text.strip()
-                if json_text.startswith("```json"):
-                    json_text = json_text[7:]
-                if json_text.startswith("```"):
-                    json_text = json_text[3:]
-                if json_text.endswith("```"):
-                    json_text = json_text[:-3]
-
-                result = json.loads(json_text.strip())
-                content_data = result.get("content", {})
-                seo_data = result.get("seo", {})
-
-            except json.JSONDecodeError as e:
-                logger.error(f"Error parseando JSON de IA: {e}")
-                logger.debug(f"Respuesta: {response_text}")
-                content_data = {"error": "Error parseando respuesta", "raw": response_text}
-                seo_data = {}
+            # Validación post-generación. Si hay problemas, reintentamos una
+            # vez con instrucción explícita de corregirlos. Si el retry sigue
+            # fallando, usamos el mejor de los dos resultados y loggeamos.
+            problems = self._validate_generated_content(content_data, template)
+            if problems:
+                logger.warning(
+                    "Generación IA con problemas de calidad (intento 1): %s",
+                    problems,
+                )
+                retry_prompt = (
+                    user_prompt
+                    + "\n\n## Problemas a corregir de la generación anterior\n"
+                    + "\n".join(f"- {p}" for p in problems)
+                    + "\n\nReescribe el contenido evitando estos problemas, "
+                    "manteniendo la estructura JSON especificada."
+                )
+                try:
+                    content_data2, seo_data2, tokens_in2, tokens_out2, response_text2 = self._call_generation(
+                        model=model, system_prompt=system_prompt, user_prompt=retry_prompt
+                    )
+                    tokens_input += tokens_in2
+                    tokens_output += tokens_out2
+                    problems_after = self._validate_generated_content(content_data2, template)
+                    if len(problems_after) < len(problems):
+                        content_data, seo_data, response_text = content_data2, seo_data2, response_text2
+                        if problems_after:
+                            logger.warning(
+                                "Retry mejoró pero aún quedan problemas: %s",
+                                problems_after,
+                            )
+                    else:
+                        logger.warning("Retry no mejoró calidad; se mantiene el primer resultado.")
+                except Exception as retry_error:
+                    logger.warning(f"Retry de generación falló: {retry_error}")
 
             full_prompt = f"=== SYSTEM PROMPT ===\n{system_prompt}\n\n=== USER PROMPT ===\n{user_prompt}"
             return content_data, seo_data, tokens_input, tokens_output, full_prompt, response_text
@@ -268,6 +294,48 @@ Genera contenido profesional y atractivo basado en la información del negocio."
         except Exception as e:
             logger.error(f"Error llamando a Claude API: {e}")
             return (*self._mock_generate_content(template, onboarding_responses), "", "")
+
+    def _call_generation(self, model: str, system_prompt: str, user_prompt: str) -> tuple[dict, dict, int, int, str]:
+        """
+        Hace una llamada a Claude y parsea la respuesta JSON.
+
+        Returns:
+            tuple (content_data, seo_data, tokens_input, tokens_output, response_text).
+            Si el parse falla, content_data contiene {"error": ..., "raw": ...}.
+        """
+        response = self.client.messages.create(
+            model=model,
+            max_tokens=4096,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        response_text = response.content[0].text
+        tokens_input = response.usage.input_tokens
+        tokens_output = response.usage.output_tokens
+
+        try:
+            json_text = response_text.strip()
+            if json_text.startswith("```json"):
+                json_text = json_text[7:]
+            if json_text.startswith("```"):
+                json_text = json_text[3:]
+            if json_text.endswith("```"):
+                json_text = json_text[:-3]
+
+            result = json.loads(json_text.strip())
+            content_data = result.get("content", {})
+            seo_data = result.get("seo", {})
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parseando JSON de IA: {e}")
+            logger.debug(f"Respuesta: {response_text}")
+            content_data = {"error": "Error parseando respuesta", "raw": response_text}
+            seo_data = {}
+
+        return content_data, seo_data, tokens_input, tokens_output, response_text
+
+    # ───────────────────────────────────────────────────────────────────
+    # Chat de edición
+    # ───────────────────────────────────────────────────────────────────
 
     def chat_edit(
         self, message: str, current_content: dict, chat_history: list[dict], section_id: str | None = None
@@ -326,6 +394,7 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
         messages.append({"role": "user", "content": f"{context_prefix}{message}"})
 
         try:
+            self._last_model_used = settings.ANTHROPIC_MODEL
             response = self.client.messages.create(
                 model=settings.ANTHROPIC_MODEL, max_tokens=2048, system=system_prompt, messages=messages
             )
@@ -357,29 +426,9 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             logger.error(f"Error en chat con Claude: {e}")
             return self._mock_chat_response(message, section_id)
 
-    def calculate_cost(self, tokens_input: int, tokens_output: int) -> Decimal:
-        """
-        Calcula el costo estimado en COP.
-
-        Args:
-            tokens_input: Tokens de entrada
-            tokens_output: Tokens de salida
-
-        Returns:
-            Costo estimado en COP
-        """
-        # Calcular costo en USD (precios configurados en settings)
-        price_input = Decimal(settings.ANTHROPIC_PRICE_INPUT)
-        price_output = Decimal(settings.ANTHROPIC_PRICE_OUTPUT)
-        cost_input = (Decimal(tokens_input) / 1_000_000) * price_input
-        cost_output = (Decimal(tokens_output) / 1_000_000) * price_output
-        cost_usd = cost_input + cost_output
-
-        # Convertir a COP (tasa aproximada)
-        usd_to_cop = Decimal("4200")  # TODO: Obtener tasa actual
-        cost_cop = cost_usd * usd_to_cop
-
-        return cost_cop.quantize(Decimal("0.01"))
+    # ───────────────────────────────────────────────────────────────────
+    # Usage limits & logging
+    # ───────────────────────────────────────────────────────────────────
 
     def check_usage_limit(self, tenant) -> tuple[bool, int, int]:
         """
@@ -451,7 +500,10 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             logger.warning("No se puede registrar generación sin tenant")
             return None
 
-        cost = self.calculate_cost(tokens_input, tokens_output)
+        # Modelo efectivamente usado en la última llamada (lo setea
+        # generate_initial_content cuando usa ANTHROPIC_MODEL_INITIAL).
+        model_used = self._last_model_used or settings.ANTHROPIC_MODEL
+        cost = self.calculate_cost(tokens_input, tokens_output, model=model_used)
 
         # Verificar si es billable (excede límite)
         can_generate, used, limit = self.check_usage_limit(self.tenant)
@@ -462,7 +514,7 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             website_config=self.website_config,
             generation_type=generation_type,
             section_id=section_id,
-            model_used=settings.ANTHROPIC_MODEL,
+            model_used=model_used,
             tokens_input=tokens_input,
             tokens_output=tokens_output,
             cost_estimated=cost,
@@ -482,9 +534,9 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
 
         return log
 
-    # ===================================
+    # ───────────────────────────────────────────────────────────────────
     # SEO AI Suggestions
-    # ===================================
+    # ───────────────────────────────────────────────────────────────────
 
     def suggest_seo(
         self,
@@ -545,6 +597,7 @@ Tu trabajo es generar un título y descripción optimizados para Google.
 Responde SOLO con el JSON, sin explicaciones."""
 
         try:
+            self._last_model_used = settings.ANTHROPIC_MODEL
             response = self.client.messages.create(
                 model=settings.ANTHROPIC_MODEL,
                 max_tokens=512,
@@ -572,6 +625,59 @@ Responde SOLO con el JSON, sin explicaciones."""
             logger.error(f"Error generando sugerencias SEO: {e}")
             return self._mock_seo_suggestions(keywords, business_name), 0, 0
 
+    # ───────────────────────────────────────────────────────────────────
+    # Filtrado de secciones
+    # ───────────────────────────────────────────────────────────────────
+
+    def _filter_sections_by_selection(self, sections: list[dict], responses: dict) -> list[dict]:
+        """
+        Filtra secciones del template según lo que el usuario seleccionó
+        y los módulos activos del tenant.
+
+        Las secciones 'required' (hero, contact) siempre se incluyen.
+        Las demás solo se incluyen si el usuario las seleccionó.
+        'services' solo si el tenant tiene has_services.
+        'products' solo si el tenant tiene has_shop.
+        """
+        selected = responses.get("website_sections", [])
+        if not selected or not isinstance(selected, list):
+            return sections  # Sin filtro si no hay selección
+
+        # IDs de sección permitidos
+        allowed_ids = set()
+        for option in selected:
+            for section_id in self.SECTION_OPTION_MAP.get(option, []):
+                allowed_ids.add(section_id)
+
+        # Filtrar services/products según módulos del tenant
+        if self.tenant:
+            if not getattr(self.tenant, "has_services", False) and "services" in allowed_ids:
+                allowed_ids.discard("services")
+            if not getattr(self.tenant, "has_shop", False) and "products" in allowed_ids:
+                allowed_ids.discard("products")
+            # Asegurar que al menos uno quede si seleccionó servicios/productos
+            services_or_products = {"Servicios", "Productos", "Servicios / Productos"}
+            if services_or_products & set(selected) and not allowed_ids & {"services", "products"}:
+                # Si ninguno quedó por los flags, incluir genérico
+                allowed_ids.add("services")
+
+        return [s for s in sections if s.get("required", False) or s.get("id") in allowed_ids]
+
+    def _default_sections(self) -> list[dict]:
+        """Secciones por defecto si el template no las define."""
+        return [
+            {"id": "hero", "name": "Encabezado Principal", "required": True},
+            {"id": "about", "name": "Sobre Nosotros", "required": False},
+            {"id": "services", "name": "Servicios", "required": False},
+            {"id": "products", "name": "Productos", "required": False},
+            {"id": "testimonials", "name": "Testimonios", "required": False},
+            {"id": "contact", "name": "Contacto", "required": True},
+        ]
+
+    # ───────────────────────────────────────────────────────────────────
+    # Mock methods (desarrollo sin API key)
+    # ───────────────────────────────────────────────────────────────────
+
     def _mock_seo_suggestions(self, keywords: list[str], business_name: str) -> dict:
         """Sugerencias SEO mock cuando no hay API key."""
         kw_str = ", ".join(keywords[:3]) if keywords else ""
@@ -579,13 +685,12 @@ Responde SOLO con el JSON, sin explicaciones."""
         subtitle = f" - Especialistas en {kw_str}" if kw_str else ""
         return {
             "title": f"{name}{subtitle}"[:60],
-            "description": f"Conoce {name}: ofrecemos {kw_str or 'soluciones'} con calidad y atención personalizada. Visítanos y descubre todo lo que tenemos para ti.",
+            "description": (
+                f"Conoce {name}: ofrecemos {kw_str or 'soluciones'} con calidad y "
+                "atención personalizada. Visítanos y descubre todo lo que tenemos para ti."
+            ),
             "extra_keywords": ["calidad", "confianza", "profesional"],
         }
-
-    # ===================================
-    # MÉTODOS MOCK (para desarrollo sin API)
-    # ===================================
 
     def _mock_generate_content(self, template, responses: dict) -> tuple[dict, dict, int, int]:
         """Genera contenido mock para desarrollo."""
@@ -689,7 +794,10 @@ Responde SOLO con el JSON, sin explicaciones."""
                     },
                     {
                         "question": "¿Cómo puedo contactarlos?",
-                        "answer": f"Puedes llamarnos al {responses.get('business_phone', '[teléfono]')} o escribirnos a {responses.get('business_email', '[email]')}.",
+                        "answer": (
+                            f"Puedes llamarnos al {responses.get('business_phone', '[teléfono]')} "
+                            f"o escribirnos a {responses.get('business_email', '[email]')}."
+                        ),
                     },
                 ],
             }
@@ -720,60 +828,3 @@ Responde SOLO con el JSON, sin explicaciones."""
             100,
             150,
         )
-
-    # Mapeo: opción del multi_choice → IDs de sección del template
-    SECTION_OPTION_MAP = {
-        "Sobre nosotros": ["about"],
-        "Servicios": ["services"],
-        "Productos": ["products"],
-        "Servicios / Productos": ["services", "products"],  # backwards compat
-        "Galería de fotos": ["gallery"],
-        "Testimonios / Reseñas": ["testimonials"],
-        "Precios / Tarifas": ["pricing"],
-        "Preguntas frecuentes": ["faq"],
-    }
-
-    def _filter_sections_by_selection(self, sections: list[dict], responses: dict) -> list[dict]:
-        """
-        Filtra secciones del template según lo que el usuario seleccionó
-        y los módulos activos del tenant.
-
-        Las secciones 'required' (hero, contact) siempre se incluyen.
-        Las demás solo se incluyen si el usuario las seleccionó.
-        'services' solo si el tenant tiene has_services.
-        'products' solo si el tenant tiene has_shop.
-        """
-        selected = responses.get("website_sections", [])
-        if not selected or not isinstance(selected, list):
-            return sections  # Sin filtro si no hay selección
-
-        # IDs de sección permitidos
-        allowed_ids = set()
-        for option in selected:
-            for section_id in self.SECTION_OPTION_MAP.get(option, []):
-                allowed_ids.add(section_id)
-
-        # Filtrar services/products según módulos del tenant
-        if self.tenant:
-            if not getattr(self.tenant, "has_services", False) and "services" in allowed_ids:
-                allowed_ids.discard("services")
-            if not getattr(self.tenant, "has_shop", False) and "products" in allowed_ids:
-                allowed_ids.discard("products")
-            # Asegurar que al menos uno quede si seleccionó servicios/productos
-            services_or_products = {"Servicios", "Productos", "Servicios / Productos"}
-            if services_or_products & set(selected) and not allowed_ids & {"services", "products"}:
-                # Si ninguno quedó por los flags, incluir genérico
-                allowed_ids.add("services")
-
-        return [s for s in sections if s.get("required", False) or s.get("id") in allowed_ids]
-
-    def _default_sections(self) -> list[dict]:
-        """Secciones por defecto si el template no las define."""
-        return [
-            {"id": "hero", "name": "Encabezado Principal", "required": True},
-            {"id": "about", "name": "Sobre Nosotros", "required": False},
-            {"id": "services", "name": "Servicios", "required": False},
-            {"id": "products", "name": "Productos", "required": False},
-            {"id": "testimonials", "name": "Testimonios", "required": False},
-            {"id": "contact", "name": "Contacto", "required": True},
-        ]

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 48 48">
+  <defs>
+    <radialGradient id="b" cx="0.4" cy="0.35" r="0.65">
+      <stop offset="0%" stop-color="#5EEAD4"/>
+      <stop offset="35%" stop-color="#2DD4BF"/>
+      <stop offset="70%" stop-color="#14B8A6"/>
+      <stop offset="100%" stop-color="#0D9488"/>
+    </radialGradient>
+    <radialGradient id="d" cx="0.5" cy="1.0" r="0.6">
+      <stop offset="0%" stop-color="#0F766E" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#0F766E" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="s" cx="0.32" cy="0.25" r="0.35">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#fff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Body -->
+  <circle cx="24" cy="24" r="20" fill="url(#b)"/>
+  <circle cx="24" cy="24" r="20" fill="url(#d)"/>
+  <circle cx="24" cy="24" r="20" fill="url(#s)"/>
+  <!-- Specular highlight -->
+  <circle cx="17.8" cy="15.8" r="1.7" fill="#fff" opacity="0.4"/>
+  <!-- Eyes -->
+  <ellipse cx="18.7" cy="23" rx="3.6" ry="4.1" fill="#fff"/>
+  <ellipse cx="29.3" cy="23" rx="3.6" ry="4.1" fill="#fff"/>
+</svg>

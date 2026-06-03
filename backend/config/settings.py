@@ -1,5 +1,7 @@
+import ipaddress
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 import dj_database_url
 from dotenv import load_dotenv
@@ -105,6 +107,8 @@ MIDDLEWARE = [
     "core.middleware.TimezoneMiddleware",
     "middleware.tenant.TenantExclusionMiddleware",
     "middleware.tenant.TenantMiddleware",
+    # RLS: propaga tenant_id a PostgreSQL para Row-Level Security policies
+    "middleware.rls.RLSTenantMiddleware",
     # Verificacion de suscripcion del tenant (debe ir despues de auth)
     "core.middleware.SubscriptionMiddleware",
 ]
@@ -230,58 +234,85 @@ CORS_ALLOW_HEADERS = [
 ]
 
 
-# backend/config/settings.py (al final)
+# ===================================
+# SECURITY HARDENING (producción)
+# ===================================
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # HSTS preload: asegúrate de que ningún subdominio dependa de HTTP antes de activar
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "True") == "True"
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_REFERRER_POLICY = "same-origin"
+
 
 # ===================================
 # LOGGING
 # ===================================
+_log_formatters = {
+    "verbose": {
+        "format": "[{levelname}] {asctime} {name} {message}",
+        "style": "{",
+    },
+}
+_log_handler_class = "logging.StreamHandler"
+_log_handler_formatter = "verbose"
+
+# En producción: JSON estructurado (ideal para CloudWatch/Datadog/ELK)
+if not DEBUG:
+    _log_formatters["json"] = {
+        "()": "pythonjsonlogger.json.JsonFormatter",
+        "format": "%(asctime)s %(name)s %(levelname)s %(message)s",
+        "rename_fields": {"asctime": "timestamp", "levelname": "level"},
+    }
+    _log_handler_formatter = "json"
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "[{levelname}] {asctime} {name} {message}",
-            "style": "{",
-        },
-    },
+    "formatters": _log_formatters,
     "handlers": {
         "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "class": _log_handler_class,
+            "formatter": _log_handler_formatter,
         },
     },
     "root": {
         "handlers": ["console"],
-        # Desarrollo: INFO, Producción: WARNING
         "level": os.getenv("LOG_LEVEL", "WARNING" if not DEBUG else "INFO"),
     },
     "loggers": {
         "core.middleware": {
             "handlers": ["console"],
-            "level": "WARNING",  # Solo errores/warnings
+            "level": "WARNING",
             "propagate": False,
         },
         "core.admin_site": {
             "handlers": ["console"],
-            "level": "WARNING",  # Solo errores/warnings
+            "level": "WARNING",
             "propagate": False,
         },
         "middleware.tenant": {
             "handlers": ["console"],
-            "level": "WARNING",  # Solo errores/warnings
+            "level": "WARNING",
             "propagate": False,
         },
         "django.contrib.auth": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": "DEBUG" if DEBUG else "WARNING",
         },
         "cart": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": "DEBUG" if DEBUG else "WARNING",
         },
         "cart.views": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": "DEBUG" if DEBUG else "WARNING",
         },
     },
 }
@@ -293,7 +324,7 @@ LOGGING = {
 REST_FRAMEWORK = {
     # Autenticación
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "core.authentication.CookieJWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     # Permisos por defecto
@@ -317,15 +348,34 @@ REST_FRAMEWORK = {
     # Documentación
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # Rate Limiting (throttling)
+    "DEFAULT_THROTTLE_CLASSES": [
+        "core.throttles.TenantRateThrottle",
+        "core.throttles.UserRateThrottle",
+    ],
     "DEFAULT_THROTTLE_HANDLERS": {
         "THROTTLED_CACHE": "throttle",
     },
+    # Proxies — para que los throttles usen la IP real del cliente
+    "NUM_PROXIES": int(os.getenv("NUM_PROXIES", "1")),
     "DEFAULT_THROTTLE_RATES": {
-        "login": "5/min",  # Login: 5 intentos por minuto por IP
-        "register": "3/min",  # Registro: 3 por minuto por IP
-        "otp_request": "3/min",  # Solicitar OTP: 3 por minuto por IP
-        "otp_verify": "5/min",  # Verificar OTP: 5 por minuto por IP
-        "password_reset": "3/min",  # Reset password: 3 por minuto por IP
+        # Auth endpoints (por IP)
+        "login": "5/min",
+        "login_email": "10/hour",
+        "register": "3/min",
+        "otp_request": "3/min",
+        "otp_verify": "5/min",
+        "password_reset": "3/min",
+        "social_login": "5/min",
+        "two_factor_challenge": "10/min",
+        "two_factor_verify": "10/min",
+        "admin_login": "5/min",
+        "token_refresh": "30/min",
+        "public_check": "20/min",
+        "public_site": "60/min",
+        # API general (por usuario autenticado)
+        "user": "120/min",
+        # Por tenant: se configura dinámicamente según el plan
+        # (ver core/throttles.py PLAN_RATE_LIMITS)
     },
 }
 
@@ -335,8 +385,8 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    # Tiempo de vida de los tokens
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
+    # Tiempo de vida de los tokens (tenant)
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     # Rotación de tokens
     "ROTATE_REFRESH_TOKENS": True,
@@ -344,11 +394,36 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": True,
     # Configuración
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
+    "SIGNING_KEY": os.getenv("JWT_SIGNING_KEY", SECRET_KEY),
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
+    # Claims: ISSUER omitted intentionally — adding it would invalidate
+    # all existing tokens, forcing a mass logout.  Roll out in two steps
+    # (issue new tokens with iss → then enforce) if desired in the future.
 }
+
+# Superadmin token lifetimes — shorter than tenant for security.
+# Configurable via env vars: ADMIN_ACCESS_TOKEN_MINUTES, ADMIN_REFRESH_TOKEN_HOURS.
+ADMIN_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(os.getenv("ADMIN_ACCESS_TOKEN_MINUTES", "15")),
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        hours=int(os.getenv("ADMIN_REFRESH_TOKEN_HOURS", "4")),
+    ),
+}
+
+# ===================================
+# JWT COOKIE CONFIGURATION (httpOnly tokens)
+# ===================================
+# Cookie names: nerbis_access, nerbis_refresh (tenant)
+#               nerbis_admin_access, nerbis_admin_refresh (superadmin)
+JWT_COOKIE_SECURE = not DEBUG  # True in production (HTTPS only)
+JWT_COOKIE_SAMESITE = "Lax"  # Prevents cross-site POST CSRF attacks
+JWT_COOKIE_HTTPONLY = True  # Not accessible via document.cookie (XSS protection)
+JWT_COOKIE_PATH = "/"  # Sent on all paths
+JWT_COOKIE_DOMAIN = os.getenv("JWT_COOKIE_DOMAIN", None)  # .nerbis.com in prod, None in dev
 
 # ===================================
 # DRF SPECTACULAR (Documentación)
@@ -359,6 +434,18 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
+
+# ===================================
+# WEBAUTHN / PASSKEYS
+# ===================================
+# RP_ID debe ser el dominio efectivo del frontend (sin protocolo, sin puerto).
+# Para desarrollo local usamos "localhost".
+# En producción usar el dominio sin subdominio específico (ej: "nerbis.app").
+WEBAUTHN_RP_ID = os.getenv("WEBAUTHN_RP_ID", "localhost")
+WEBAUTHN_RP_NAME = os.getenv("WEBAUTHN_RP_NAME", "NERBIS")
+# ORIGIN debe coincidir EXACTAMENTE con window.location.origin del frontend.
+# Acepta múltiples separados por coma para desarrollo (ej: "http://localhost:3000,http://localhost:3002").
+WEBAUTHN_ORIGIN = os.getenv("WEBAUTHN_ORIGIN", "http://localhost:3000")
 
 # ===================================
 # EMAIL CONFIGURATION
@@ -372,9 +459,35 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@nerbis.com")
+DEFAULT_FROM_NAME = os.getenv("DEFAULT_FROM_NAME", "Nerbis")
 
 # URL base del frontend (para links en emails)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+if not DEBUG:
+    _parsed_frontend_url = urlparse(FRONTEND_URL)
+    _frontend_host = (_parsed_frontend_url.hostname or "").lower()
+
+    _is_loopback = _frontend_host == "localhost"
+    if not _is_loopback and _frontend_host:
+        try:
+            _is_loopback = ipaddress.ip_address(_frontend_host).is_loopback
+        except ValueError:
+            # No es una IP literal — es un hostname DNS, se permite
+            _is_loopback = False
+
+    # 0.0.0.0 / :: no son loopback pero tampoco son URLs públicas válidas
+    _is_unspecified = False
+    if _frontend_host:
+        try:
+            _is_unspecified = ipaddress.ip_address(_frontend_host).is_unspecified
+        except ValueError:
+            _is_unspecified = False
+
+    if not _parsed_frontend_url.scheme or not _parsed_frontend_url.netloc or _is_loopback or _is_unspecified:
+        raise RuntimeError(
+            "FRONTEND_URL no es válido para producción. Define una URL pública del frontend (no localhost/loopback)."
+        )
 
 # Dominio base de la plataforma (para subdominios de tenants/websites)
 PLATFORM_BASE_DOMAIN = os.getenv("PLATFORM_BASE_DOMAIN", "nerbis.com")
@@ -392,12 +505,12 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 if not STRIPE_SECRET_KEY:
     print("⚠️  WARNING: STRIPE_SECRET_KEY no está configurada")
 
-# Configuración de moneda y país
-STRIPE_CURRENCY = "eur"  # Euro (España)
-STRIPE_COUNTRY = "ES"
-
-# IVA España
-TAX_RATE = 0.21  # 21% IVA
+# DEPRECADO: Ahora cada tenant tiene su propia moneda (Tenant.currency),
+# tasa de impuesto (Tenant.tax_rate), y pasarela (PaymentGateway).
+# Estos valores se mantienen como fallback temporal.
+STRIPE_CURRENCY = "cop"
+STRIPE_COUNTRY = "CO"
+TAX_RATE = 0.19
 
 # ===================================
 # BOOKINGS
@@ -408,23 +521,31 @@ BOOKING_HOLD_MINUTES = int(os.getenv("BOOKING_HOLD_MINUTES", "15"))
 # ===================================
 # CACHE CONFIGURATION (Redis — compartido con Celery)
 # ===================================
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-    },
-    "throttle": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "throttle-cache",
-    },
-}
+_REDIS_URL = os.getenv("REDIS_URL", "")
 
-# En producción usar Redis (descomentar si redis-cache está disponible):
-# CACHES = {
-#     "default": {
-#         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-#         "LOCATION": os.getenv("REDIS_URL", "redis://redis:6379/1"),
-#     },
-# }
+if _REDIS_URL:
+    # Produccion/Docker: Redis real (usa DB 1 para no colisionar con Celery en DB 0)
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _REDIS_URL.replace("/0", "/1") if _REDIS_URL.endswith("/0") else _REDIS_URL,
+        },
+        "throttle": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _REDIS_URL.replace("/0", "/2") if _REDIS_URL.endswith("/0") else _REDIS_URL,
+        },
+    }
+else:
+    # Desarrollo local sin Redis
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        },
+        "throttle": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "throttle-cache",
+        },
+    }
 
 # ===================================
 # CELERY CONFIGURATION
@@ -434,9 +555,11 @@ CELERY_RESULT_BACKEND = os.getenv("REDIS_URL", "redis://redis:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = "Europe/Madrid"
+CELERY_TIMEZONE = TIME_ZONE  # Usar el mismo timezone que Django
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutos
+CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "").lower() in ("true", "1")
+CELERY_TASK_EAGER_PROPAGATES = CELERY_TASK_ALWAYS_EAGER
 
 
 # ===================================
@@ -455,6 +578,9 @@ TWILIO_ENABLED = os.getenv("TWILIO_ENABLED", "False") == "True"
 # ===================================
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
+# Modelo para la generacion inicial del sitio (calidad sobre costo). Los precios
+# por modelo se resuelven en websites.services.ai_service.MODEL_PRICING.
+ANTHROPIC_MODEL_INITIAL = os.getenv("ANTHROPIC_MODEL_INITIAL", "claude-sonnet-4-6")
 ANTHROPIC_PRICE_INPUT = os.getenv("ANTHROPIC_PRICE_INPUT", "0.25")  # USD por 1M tokens
 ANTHROPIC_PRICE_OUTPUT = os.getenv("ANTHROPIC_PRICE_OUTPUT", "1.25")  # USD por 1M tokens
 
@@ -464,10 +590,39 @@ ANTHROPIC_PRICE_OUTPUT = os.getenv("ANTHROPIC_PRICE_OUTPUT", "1.25")  # USD por 
 UNSPLASH_ACCESS_KEY = os.getenv("UNSPLASH_ACCESS_KEY", "")
 
 # ===================================
-# FRONTEND URL
+# OAUTH / SOCIAL AUTH
 # ===================================
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID", "")
+APPLE_TEAM_ID = os.getenv("APPLE_TEAM_ID", "")
+FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", "")
+FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", "")
 
+# ===================================
+# STORAGE (S3 para produccion, local para desarrollo)
+# ===================================
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
+
+if AWS_STORAGE_BUCKET_NAME:
+    # Produccion: S3 + CloudFront
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3boto3.S3StaticStorage",
+        },
+    }
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "us-east-1")
+    AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_CLOUDFRONT_DOMAIN", "")
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = False  # URLs publicas (CloudFront se encarga del acceso)
+    AWS_LOCATION = "media"
+
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
+        STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
 
 # ===================================
 # UNFOLD ADMIN CONFIGURATION
@@ -476,53 +631,9 @@ from django.templatetags.static import static
 from django.urls import reverse_lazy
 
 
-def can_view_tenants(request):
-    """Mostrar el item de Tenants solo a superusuarios."""
-    return request.user.is_superuser
-
-
-def can_view_shop(request):
-    """Mostrar Shop solo si el tenant tiene has_shop=True."""
-    user = request.user
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    tenant = getattr(user, "tenant", None)
-    return tenant and tenant.has_shop
-
-
-def can_view_bookings(request):
-    """Mostrar Bookings solo si el tenant tiene has_bookings=True."""
-    user = request.user
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    tenant = getattr(user, "tenant", None)
-    return tenant and tenant.has_bookings
-
-
-def can_view_services(request):
-    """Mostrar Services solo si el tenant tiene has_services=True."""
-    user = request.user
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    tenant = getattr(user, "tenant", None)
-    return tenant and tenant.has_services
-
-
-def can_view_marketing(request):
-    """Mostrar Marketing solo si el tenant tiene has_marketing=True."""
-    user = request.user
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    tenant = getattr(user, "tenant", None)
-    return tenant and tenant.has_marketing
+def is_superadmin(request):
+    """Solo superusuarios activos tienen acceso al Django admin."""
+    return request.user.is_authenticated and request.user.is_active and request.user.is_superuser
 
 
 UNFOLD = {
@@ -590,37 +701,37 @@ UNFOLD = {
                 "icon": "admin_panel_settings",
                 "separator": True,
                 "collapsible": True,
-                "permission": can_view_tenants,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Clientes",
                         "icon": "business",
                         "link": reverse_lazy("admin:core_tenant_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Usuarios",
                         "icon": "people",
                         "link": reverse_lazy("admin:core_user_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Suscripciones",
                         "icon": "card_membership",
                         "link": reverse_lazy("admin:billing_subscription_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Facturas",
                         "icon": "receipt_long",
                         "link": reverse_lazy("admin:billing_invoice_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Servicios",
                         "icon": "widgets",
                         "link": reverse_lazy("admin:billing_module_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                 ],
             },
@@ -631,73 +742,64 @@ UNFOLD = {
                 "title": "Website Builder",
                 "icon": "web",
                 "collapsible": True,
-                "permission": can_view_tenants,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Templates",
                         "icon": "dashboard_customize",
                         "link": reverse_lazy("admin:websites_websitetemplate_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Preguntas Onboarding",
                         "icon": "quiz",
                         "link": reverse_lazy("admin:websites_onboardingquestion_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Sitios de Clientes",
                         "icon": "language",
                         "link": reverse_lazy("admin:websites_websiteconfig_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Logs de IA",
                         "icon": "smart_toy",
                         "link": reverse_lazy("admin:websites_aigenerationlog_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Respuestas Onboarding",
                         "icon": "fact_check",
                         "link": reverse_lazy("admin:websites_onboardingresponse_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Chat IA",
                         "icon": "chat",
                         "link": reverse_lazy("admin:websites_chatmessage_changelist"),
-                        "permission": can_view_tenants,
+                        "permission": is_superadmin,
                     },
                 ],
             },
             # ═══════════════════════════════════════
-            # MI NEGOCIO
+            # DATOS DE TENANTS (configuración, websites)
             # ═══════════════════════════════════════
             {
-                "title": "Mi Negocio",
+                "title": "Datos de Tenants",
                 "icon": "settings",
                 "separator": True,
                 "collapsible": True,
+                "permission": is_superadmin,
                 "items": [
                     {
-                        "title": "Configuración",
+                        "title": "Configuraciones",
                         "icon": "tune",
                         "link": reverse_lazy("admin:core_tenantconfig_changelist"),
                     },
-                ],
-            },
-            # ═══════════════════════════════════════
-            # MI WEB
-            # ═══════════════════════════════════════
-            {
-                "title": "Mi Web",
-                "icon": "language",
-                "collapsible": True,
-                "items": [
                     {
-                        "title": "Contenido",
-                        "icon": "article",
+                        "title": "Websites",
+                        "icon": "language",
                         "link": reverse_lazy("admin:core_tenantwebsite_changelist"),
                     },
                 ],
@@ -709,25 +811,25 @@ UNFOLD = {
                 "title": "Shop",
                 "icon": "storefront",
                 "collapsible": True,
-                "permission": can_view_shop,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Productos",
                         "icon": "inventory_2",
                         "link": reverse_lazy("admin:ecommerce_product_changelist"),
-                        "permission": can_view_shop,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Categorías",
                         "icon": "category",
                         "link": reverse_lazy("admin:ecommerce_productcategory_changelist"),
-                        "permission": can_view_shop,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Inventario",
                         "icon": "warehouse",
                         "link": reverse_lazy("admin:ecommerce_inventory_changelist"),
-                        "permission": can_view_shop,
+                        "permission": is_superadmin,
                     },
                 ],
             },
@@ -738,19 +840,19 @@ UNFOLD = {
                 "title": "Facturación",
                 "icon": "receipt",
                 "collapsible": True,
-                "permission": can_view_shop,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Órdenes",
                         "icon": "shopping_cart",
                         "link": reverse_lazy("admin:orders_order_changelist"),
-                        "permission": can_view_shop,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Carritos",
                         "icon": "shopping_basket",
                         "link": reverse_lazy("admin:cart_cart_changelist"),
-                        "permission": can_view_shop,
+                        "permission": is_superadmin,
                     },
                 ],
             },
@@ -761,43 +863,43 @@ UNFOLD = {
                 "title": "Reservas",
                 "icon": "calendar_month",
                 "collapsible": True,
-                "permission": can_view_bookings,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Citas",
                         "icon": "event",
                         "link": reverse_lazy("admin:bookings_appointment_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Servicios",
                         "icon": "spa",
                         "link": reverse_lazy("admin:services_service_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Categorías",
                         "icon": "folder",
                         "link": reverse_lazy("admin:services_servicecategory_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Personal",
                         "icon": "badge",
                         "link": reverse_lazy("admin:services_staffmember_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Horarios",
                         "icon": "schedule",
                         "link": reverse_lazy("admin:bookings_businesshours_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Días Libres",
                         "icon": "event_busy",
                         "link": reverse_lazy("admin:bookings_timeoff_changelist"),
-                        "permission": can_view_bookings,
+                        "permission": is_superadmin,
                     },
                 ],
             },
@@ -808,25 +910,25 @@ UNFOLD = {
                 "title": "Planes",
                 "icon": "layers",
                 "collapsible": True,
-                "permission": can_view_services,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Mis Planes",
                         "icon": "layers",
                         "link": reverse_lazy("admin:subscriptions_marketplaceplan_changelist"),
-                        "permission": can_view_services,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Categorías",
                         "icon": "folder_special",
                         "link": reverse_lazy("admin:subscriptions_marketplacecategory_changelist"),
-                        "permission": can_view_services,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Contratos",
                         "icon": "description",
                         "link": reverse_lazy("admin:subscriptions_marketplacecontract_changelist"),
-                        "permission": can_view_services,
+                        "permission": is_superadmin,
                     },
                 ],
             },
@@ -838,31 +940,31 @@ UNFOLD = {
                 "icon": "campaign",
                 "separator": True,
                 "collapsible": True,
-                "permission": can_view_marketing,
+                "permission": is_superadmin,
                 "items": [
                     {
                         "title": "Banners",
                         "icon": "image",
                         "link": reverse_lazy("admin:core_banner_changelist"),
-                        "permission": can_view_marketing,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Promociones",
                         "icon": "local_offer",
                         "link": reverse_lazy("admin:promotions_promotion_changelist"),
-                        "permission": can_view_marketing,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Cupones",
                         "icon": "confirmation_number",
                         "link": reverse_lazy("admin:coupons_coupon_changelist"),
-                        "permission": can_view_marketing,
+                        "permission": is_superadmin,
                     },
                     {
                         "title": "Reseñas",
                         "icon": "star",
                         "link": reverse_lazy("admin:reviews_review_changelist"),
-                        "permission": can_view_marketing,
+                        "permission": is_superadmin,
                     },
                 ],
             },

@@ -749,18 +749,22 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
         # Serializar respuesta
         appointment_serializer = AppointmentDetailSerializer(appointment)
+        from core.cookies import set_auth_cookies
         from core.serializers import UserSerializer
 
         user_serializer = UserSerializer(user)
 
-        return Response(
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response(
             {
                 "message": "¡Cita creada exitosamente! Se ha creado una cuenta para ti.",
                 "appointment": appointment_serializer.data,
                 "user": user_serializer.data,
                 "tokens": {
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
+                    "access": access_token,
+                    "refresh": refresh_token,
                 },
                 "next_steps": [
                     "Revisa tu email para confirmar tu cuenta",
@@ -770,3 +774,5 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+        set_auth_cookies(response, access_token, refresh_token)
+        return response

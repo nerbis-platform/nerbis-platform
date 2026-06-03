@@ -1,58 +1,61 @@
-// src/app/not-found.tsx
-
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Home, Search } from 'lucide-react';
+import { PipeStatic } from '@/components/pipe-avatar';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="container max-w-md text-center px-4">
-        {/* Ilustración 404 */}
-        <div className="mb-8">
-          <span className="text-9xl font-bold text-primary/20">404</span>
-        </div>
-
-        {/* Mensaje */}
-        <h1 className="text-2xl font-bold mb-2">Página no encontrada</h1>
-        <p className="text-muted-foreground mb-8">
-          Lo sentimos, la página que buscas no existe o ha sido movida.
-        </p>
-
-        {/* Opciones */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button asChild>
-            <Link href="/">
-              <Home className="h-4 w-4 mr-2" />
-              Ir al inicio
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href="/products">
-              <Search className="h-4 w-4 mr-2" />
-              Ver productos
-            </Link>
-          </Button>
-        </div>
-
-        {/* Links adicionales */}
-        <div className="mt-8 pt-8 border-t">
-          <p className="text-sm text-muted-foreground mb-4">
-            También puedes visitar:
-          </p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm">
-            <Link href="/services" className="text-primary hover:underline">
-              Servicios
-            </Link>
-            <Link href="/about" className="text-primary hover:underline">
-              Nosotros
-            </Link>
-            <Link href="/contact" className="text-primary hover:underline">
-              Contacto
-            </Link>
-          </div>
-        </div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      {/* Subtle glow behind Pipe */}
+      <div className="relative">
+        <div
+          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            width: '240px',
+            height: '240px',
+            background:
+              'radial-gradient(circle, var(--primitive-brand-500) 0%, transparent 70%)',
+            opacity: 0.06,
+            filter: 'blur(40px)',
+          }}
+          aria-hidden="true"
+        />
+        <PipeStatic size={120} />
       </div>
+
+      <p className="mt-6 text-sm font-medium uppercase tracking-widest text-muted-foreground/60">
+        Error 404
+      </p>
+      <h1 className="nerbis-display mt-2 text-3xl text-foreground sm:text-4xl">
+        Ups, aqui no hay nada
+      </h1>
+      <p className="mt-3 max-w-sm text-center text-base leading-relaxed text-muted-foreground">
+        Parece que esta pagina no existe o fue movida.
+        <br />
+        <span className="pipe-name">Pipe</span> tampoco sabe donde quedo.
+      </p>
+
+      <Link
+        href="/"
+        className="group mt-10 inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-medium text-white transition-all hover:opacity-90"
+        style={{
+          background:
+            'linear-gradient(135deg, var(--primitive-navy-700) 0%, var(--primitive-brand-600) 100%)',
+        }}
+      >
+        Volver al inicio
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="transition-transform group-hover:translate-x-0.5"
+        >
+          <path d="M5 12h14M12 5l7 7-7 7" />
+        </svg>
+      </Link>
     </div>
   );
 }

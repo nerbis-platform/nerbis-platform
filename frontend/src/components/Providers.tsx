@@ -8,8 +8,9 @@ import { TenantProvider, useTenantReady } from '@/contexts/TenantContext';
 import { WebsiteContentProvider } from '@/contexts/WebsiteContentContext';
 import { ThemeSync } from '@/components/ThemeSync';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { CartProvider } from '@/contexts/CartContext';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 import { useState } from 'react';
 
 /** Cart only loads when tenant is available (needs tenant for API calls) */
@@ -36,7 +37,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
-  return (
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID || '';
+
+  const content = (
     <QueryClientProvider client={queryClient}>
       <TenantProvider>
         <WebsiteContentProvider>
@@ -44,7 +47,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <AuthProvider>
             <CartProviderGuard>
               {children}
-              <Toaster position="top-right" richColors />
+              <Toaster position="top-right" />
             </CartProviderGuard>
           </AuthProvider>
         </WebsiteContentProvider>
@@ -52,4 +55,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
     </QueryClientProvider>
   );
+
+  // Only wrap in GoogleOAuthProvider if client ID is configured
+  if (googleClientId) {
+    return (
+      <GoogleOAuthProvider clientId={googleClientId}>
+        {content}
+      </GoogleOAuthProvider>
+    );
+  }
+
+  return content;
 }

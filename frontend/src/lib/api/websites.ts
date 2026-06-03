@@ -8,9 +8,11 @@ import {
   OnboardingQuestion,
   OnboardingResponse,
   ChatMessage,
-  GenerateContentResponse,
   ChatResponse,
   PaginatedResponse,
+  PlatformModule,
+  WebsitePage,
+  WebsiteSection,
 } from '@/types';
 
 // ===================================
@@ -41,12 +43,8 @@ export async function getWebsiteTemplate(id: number): Promise<WebsiteTemplate> {
  * Obtener la configuración del sitio web del tenant actual
  */
 export async function getWebsiteConfig(): Promise<WebsiteConfig | null> {
-  try {
-    const { data } = await apiClient.get<PaginatedResponse<WebsiteConfig>>('/websites/configs/');
-    return data.results.length > 0 ? data.results[0] : null;
-  } catch {
-    return null;
-  }
+  const { data } = await apiClient.get<PaginatedResponse<WebsiteConfig>>('/websites/configs/');
+  return data.results.length > 0 ? data.results[0] : null;
 }
 
 /**
@@ -130,18 +128,86 @@ export async function getOnboardingStatus(): Promise<{
 }
 
 // ===================================
+// QUICK-START (Fase 2 — flujo <60s)
+// ===================================
+
+export interface QuickStartRequest {
+  business_description: string;
+  main_services: string;
+  business_whatsapp?: string;
+  website_sections?: string[];
+  brand_tone?: string;
+  primary_color?: string;
+  secondary_color?: string;
+}
+
+export interface QuickStartResponse {
+  content_data: Record<string, unknown>;
+  seo_data: Record<string, unknown>;
+  theme_data: Record<string, unknown>;
+  tokens_used?: number;
+  remaining_generations?: number;
+  status: string;
+  template: {
+    slug: string;
+    name: string;
+  };
+}
+
+/** Respuesta 202 cuando la generacion se encola via Celery */
+export interface AsyncGenerationAccepted {
+  task_id: string;
+  status: 'generating';
+}
+
+/** Estado de generacion devuelto por el endpoint de polling */
+export interface GenerationStatusResponse {
+  status: 'generating' | 'review' | 'onboarding' | 'draft' | 'published';
+  task_id: string | null;
+  content_data?: Record<string, unknown>;
+  seo_data?: Record<string, unknown>;
+  theme_data?: Record<string, unknown>;
+}
+
+/**
+ * Genera un sitio completo con 3 campos (onboarding rapido).
+ * Auto-resuelve template por industria del tenant.
+ * Devuelve 202 Accepted con task_id (generacion asincrona via Celery).
+ */
+export async function quickStartGenerate(
+  payload: QuickStartRequest
+): Promise<AsyncGenerationAccepted> {
+  const { data } = await apiClient.post<AsyncGenerationAccepted>(
+    '/websites/onboarding/quick-start/',
+    payload
+  );
+  return data;
+}
+
+// ===================================
 // AI GENERATION
 // ===================================
 
 /**
- * Generar contenido con IA
+ * Generar contenido con IA.
+ * Devuelve 202 Accepted con task_id (generacion asincrona via Celery).
+ * Devuelve 409 Conflict si ya hay una generacion en progreso.
  */
 export async function generateContent(
   additionalInstructions?: string
-): Promise<GenerateContentResponse> {
-  const { data } = await apiClient.post<GenerateContentResponse>('/websites/generate/', {
+): Promise<AsyncGenerationAccepted> {
+  const { data } = await apiClient.post<AsyncGenerationAccepted>('/websites/generate/', {
     additional_instructions: additionalInstructions,
   });
+  return data;
+}
+
+/**
+ * Consultar el estado de la generacion asincrona (polling).
+ * Cuando status='review', incluye content_data, seo_data, theme_data.
+ */
+export async function getGenerationStatus(): Promise<GenerationStatusResponse> {
+  const { data } = await apiClient.get<GenerationStatusResponse>('/websites/generation-status/');
   return data;
 }
 
@@ -342,5 +408,33 @@ export async function updateThemeData(
   const { data } = await apiClient.patch<WebsiteConfig>(`/websites/configs/${configId}/`, {
     theme_data: themeData,
   });
+  return data;
+}
+
+// ===================================
+// PLATFORM MODULES
+// ===================================
+
+export async function getPlatformModules(): Promise<PlatformModule[]> {
+  const { data } = await apiClient.get<PlatformModule[]>('/modules/');
+  return data;
+}
+
+// ===================================
+// ONBOARDING CONFIG
+// ===================================
+
+export async function getOnboardingQuestions(): Promise<OnboardingQuestion[]> {
+  const { data } = await apiClient.get<OnboardingQuestion[]>('/websites/onboarding/questions/');
+  return data;
+}
+
+export async function getOnboardingPages(): Promise<WebsitePage[]> {
+  const { data } = await apiClient.get<WebsitePage[]>('/websites/onboarding/pages/');
+  return data;
+}
+
+export async function getWebsiteSections(): Promise<WebsiteSection[]> {
+  const { data } = await apiClient.get<WebsiteSection[]>('/websites/onboarding/sections/');
   return data;
 }

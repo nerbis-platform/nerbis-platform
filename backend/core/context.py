@@ -1,18 +1,20 @@
 # backend/core/context.py
 
-import threading
+from contextvars import ContextVar
 
-# Thread-local storage para guardar el tenant actual
-_thread_locals = threading.local()
+# ContextVar es async-safe (funciona con asyncio, Gunicorn threads, y ASGI).
+# threading.local() NO es seguro en contextos async porque múltiples
+# coroutines comparten el mismo thread.
+_current_tenant: ContextVar = ContextVar("current_tenant", default=None)
 
 
 def set_current_tenant(tenant):
     """
-    Guardar el tenant actual en el contexto del thread.
+    Guardar el tenant actual en el contexto.
 
     Llamado por el middleware en cada request.
     """
-    _thread_locals.tenant = tenant
+    _current_tenant.set(tenant)
 
 
 def get_current_tenant():
@@ -22,12 +24,11 @@ def get_current_tenant():
     Returns:
         Tenant instance o None si no hay tenant en el contexto.
     """
-    return getattr(_thread_locals, "tenant", None)
+    return _current_tenant.get()
 
 
 def clear_current_tenant():
     """
     Limpiar el tenant del contexto.
     """
-    if hasattr(_thread_locals, "tenant"):
-        del _thread_locals.tenant
+    _current_tenant.set(None)

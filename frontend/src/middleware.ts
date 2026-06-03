@@ -3,16 +3,33 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getTenantFromHost } from '@/lib/tenant';
+import { validateAdminToken } from '@/lib/auth/admin-token';
+
+// Cookie name must match the backend (core/cookies.py + core/authentication.py).
+const ADMIN_ACCESS_COOKIE = 'nerbis_admin_access';
 
 /**
- * Middleware de Next.js para detectar el tenant por subdominio.
+ * Middleware de Next.js.
  *
- * Este middleware:
- * 1. Extrae el subdominio del host
- * 2. Lo almacena en un header personalizado para que el cliente lo use
- * 3. Permite que la app funcione con múltiples tenants
+ * 1. Admin auth guard: verifica cookie JWT para rutas /admin (excepto /admin/login).
+ * 2. Tenant detection: extrae subdominio y lo propaga via header + cookie.
  */
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ── Admin auth guard (early-return) ──
+  // Protects /admin routes server-side before serving any HTML.
+  // /admin/login is always accessible.
+  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && pathname !== '/admin/login') {
+    const token = request.cookies.get(ADMIN_ACCESS_COOKIE)?.value;
+    if (!validateAdminToken(token)) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = '/admin/login';
+      return NextResponse.redirect(loginUrl, 302);
+    }
+  }
+
+  // ── Tenant detection ──
   const host = request.headers.get('host');
   const tenantSlug = getTenantFromHost(host);
 

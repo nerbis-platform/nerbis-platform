@@ -1,0 +1,105 @@
+// src/components/auth/schemas.ts
+// Shared Zod validation schemas for auth forms.
+
+import * as z from 'zod';
+import { OTP_LENGTH } from './constants';
+
+// ─── Shared Rules ───────────────────────────────────────────────
+
+export const passwordRules = z
+  .string()
+  .min(8, 'Mínimo 8 caracteres')
+  .regex(/[a-z]/, 'Debe incluir una minúscula')
+  .regex(/[A-Z]/, 'Debe incluir una mayúscula')
+  .regex(/[0-9]/, 'Debe incluir un número');
+
+// ─── Login ──────────────────────────────────────────────────────
+
+export const loginSchema = z.object({
+  email: z.string().email('Email inválido'),
+  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres'),
+});
+
+export type LoginFormValues = z.infer<typeof loginSchema>;
+
+// ─── Register Business (legacy — kept for backwards compatibility) ───
+
+export const registerBusinessSchema = z.object({
+  business_name: z
+    .string()
+    .min(2, 'El nombre del negocio debe tener al menos 2 caracteres')
+    .max(100, 'El nombre no puede superar los 100 caracteres'),
+  industry: z.string().optional(),
+  country: z.string().min(1, 'Selecciona tu país'),
+  first_name: z
+    .string()
+    .min(2, 'El nombre debe tener al menos 2 caracteres'),
+  last_name: z
+    .string()
+    .min(2, 'El apellido debe tener al menos 2 caracteres'),
+  email: z.string().email('Email inválido'),
+  phone: z
+    .string()
+    .regex(/^[\d\s]*$/, 'Solo números')
+    .optional(),
+  password: passwordRules,
+  data_consent: z.boolean().refine((v) => v === true, { message: 'Debes autorizar el tratamiento de datos personales' }),
+  marketing_consent: z.boolean().optional(),
+});
+
+export type RegisterBusinessFormValues = z.infer<
+  typeof registerBusinessSchema
+>;
+
+// ─── Register Simple (1-step: email + password + name) ──────────
+
+export const registerSimpleSchema = z.object({
+  first_name: z
+    .string()
+    .min(2, 'El nombre debe tener al menos 2 caracteres'),
+  last_name: z
+    .string()
+    .min(2, 'El apellido debe tener al menos 2 caracteres'),
+  email: z.string().email('Email inválido'),
+  password: passwordRules,
+  data_consent: z.boolean().refine((v) => v === true, { message: 'Debes autorizar el tratamiento de datos personales' }),
+  marketing_consent: z.boolean().optional(),
+});
+
+export type RegisterSimpleFormValues = z.infer<typeof registerSimpleSchema>;
+
+// ─── Forgot Password — Email Step ───────────────────────────────
+
+export const forgotEmailSchema = z.object({
+  email: z.string().email('Email inválido'),
+});
+
+export type ForgotEmailFormValues = z.infer<typeof forgotEmailSchema>;
+
+// ─── Forgot Password — Reset Step ───────────────────────────────
+
+export const forgotResetSchema = z
+  .object({
+    code: z.string().length(OTP_LENGTH, `El código debe tener ${OTP_LENGTH} dígitos`).regex(/^\d+$/, 'El código solo debe contener números'),
+    newPassword: z
+      .string()
+      .min(8, 'La contraseña debe tener al menos 8 caracteres')
+      .regex(/[A-Z]/, 'Debe incluir al menos una mayúscula')
+      .regex(/[a-z]/, 'Debe incluir al menos una minúscula')
+      .regex(/[0-9]/, 'Debe incluir al menos un número'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword'],
+  });
+
+export type ForgotResetFormValues = z.infer<typeof forgotResetSchema>;
+
+// ─── Reactivate Account ──────────────────────────────────────
+
+export const reactivateSchema = z.object({
+  code: z.string().length(OTP_LENGTH, `El código debe tener ${OTP_LENGTH} dígitos`).regex(/^\d+$/, 'El código solo debe contener números'),
+});
+
+export type ReactivateFormValues = z.infer<typeof reactivateSchema>;

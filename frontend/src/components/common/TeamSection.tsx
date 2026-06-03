@@ -50,20 +50,20 @@ export function TeamSection() {
             {featuredStaff?.map((member) => (
               <Card
                 key={member.id}
-                className="group overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 bg-card rounded-2xl"
+                className="group overflow-hidden border-0 shadow-md hover-lift transition-all duration-300 bg-card rounded-2xl"
               >
                 <CardContent className="p-0">
                   {/* Foto */}
                   <div className="relative h-56 bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5 flex items-center justify-center overflow-hidden">
                     {member.photo ? (
-                      <Avatar className="w-32 h-32 border-4 border-white shadow-lg group-hover:scale-105 transition-transform duration-300">
+                      <Avatar className="size-32 border-4 border-white shadow-lg group-hover:scale-105 transition-transform duration-300">
                         <AvatarImage src={member.photo} alt={member.full_name} className="object-cover" />
                         <AvatarFallback className="text-3xl font-bold bg-primary text-primary-foreground">
                           {member.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </AvatarFallback>
                       </Avatar>
                     ) : (
-                      <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
+                      <Avatar className="size-32 border-4 border-white shadow-lg">
                         <AvatarFallback className="text-3xl font-bold bg-primary text-primary-foreground">
                           {member.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </AvatarFallback>
@@ -73,7 +73,7 @@ export function TeamSection() {
                     {/* Badge destacado */}
                     {member.is_featured && (
                       <div className="absolute top-3 right-3">
-                        <Badge className="bg-amber-500 text-white shadow-lg flex items-center gap-1">
+                        <Badge className="bg-[var(--color-status-warning)] text-white shadow-lg flex items-center gap-1">
                           <Star className="h-3 w-3 fill-current" />
                           Destacado
                         </Badge>

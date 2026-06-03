@@ -10,6 +10,7 @@ import * as couponsApi from '@/lib/api/coupons';
 import * as localCartStorage from '@/lib/storage/localCart';
 import { createAppointment } from '@/lib/api/bookings';
 import { useAuth } from './AuthContext';
+import { useTenantLegal } from './TenantContext';
 
 // Tipo para items del carrito local (compatible con CartItem)
 interface LocalCartItemDisplay {
@@ -71,8 +72,8 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 // Convertir carrito local al formato unificado
-function localCartToUnified(localCart: localCartStorage.LocalCart): UnifiedCart {
-  const totals = localCartStorage.calculateLocalCartTotals(localCart);
+function localCartToUnified(localCart: localCartStorage.LocalCart, taxRate = 0.19): UnifiedCart {
+  const totals = localCartStorage.calculateLocalCartTotals(localCart, taxRate);
 
   const items: LocalCartItemDisplay[] = localCart.items.map((item) => ({
     id: item.id,
@@ -110,7 +111,7 @@ function localCartToUnified(localCart: localCartStorage.LocalCart): UnifiedCart 
   }
 
   const totalAfterDiscount = totals.subtotal - discountAmount;
-  const taxAmount = totalAfterDiscount * 0.21; // 21% IVA
+  const taxAmount = totalAfterDiscount * taxRate;
 
   return {
     id: 'local',
@@ -141,6 +142,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponWarnings, setCouponWarnings] = useState<string[]>([]);
   const { isAuthenticated } = useAuth();
+  const legal = useTenantLegal();
+  const taxRate = legal?.tax_rate ?? 0.19;
   const syncingRef = useRef(false);
 
   const refreshCart = useCallback(async () => {
@@ -154,7 +157,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       } else {
         // Usuario anónimo: obtener carrito local
         const localCart = localCartStorage.getLocalCart();
-        setCart(localCartToUnified(localCart));
+        setCart(localCartToUnified(localCart, taxRate));
       }
     } catch (error) {
       console.error('Error loading cart:', error);
@@ -162,7 +165,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (isAuthenticated) {
         const localCart = localCartStorage.getLocalCart();
         if (localCart.items.length > 0) {
-          setCart(localCartToUnified(localCart));
+          setCart(localCartToUnified(localCart, taxRate));
         } else {
           // Carrito vacío
           setCart({
@@ -181,7 +184,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, taxRate]);
 
   // Cargar carrito al iniciar y cuando cambie el estado de autenticación
   useEffect(() => {
@@ -299,7 +302,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Product data is required for anonymous cart');
       }
       const localCart = localCartStorage.addProductToLocalCart(productId, quantity, productData);
-      setCart(localCartToUnified(localCart));
+      setCart(localCartToUnified(localCart, taxRate));
     }
   };
 
@@ -319,7 +322,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         serviceData,
         appointmentIdOrData
       );
-      setCart(localCartToUnified(localCart));
+      setCart(localCartToUnified(localCart, taxRate));
     } else {
       throw new Error('Invalid parameters for addService');
     }
@@ -329,7 +332,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (typeof itemId === 'string' && itemId.startsWith('local_')) {
       // Item local
       const localCart = localCartStorage.updateLocalCartItem(itemId, quantity);
-      setCart(localCartToUnified(localCart));
+      setCart(localCartToUnified(localCart, taxRate));
     } else if (isAuthenticated && typeof itemId === 'number') {
       // Item del servidor
       const updatedCart = await cartApi.updateCartItem(itemId, quantity);
@@ -341,7 +344,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (typeof itemId === 'string' && itemId.startsWith('local_')) {
       // Item local
       const localCart = localCartStorage.removeLocalCartItem(itemId);
-      setCart(localCartToUnified(localCart));
+      setCart(localCartToUnified(localCart, taxRate));
     } else if (isAuthenticated && typeof itemId === 'number') {
       // Item del servidor
       const updatedCart = await cartApi.removeCartItem(itemId);

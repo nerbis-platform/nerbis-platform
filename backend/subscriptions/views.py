@@ -2,9 +2,18 @@
 
 
 from rest_framework import status, viewsets
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import (
+    action,
+    api_view,
+    permission_classes,
+)
+from rest_framework.decorators import (
+    throttle_classes as throttle_classes_decorator,
+)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+
+from websites.throttles import PublicSiteThrottle
 
 from .models import MarketplaceCategory, MarketplaceContract, MarketplacePlan
 from .serializers import (
@@ -24,18 +33,21 @@ class MarketplaceCategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
     serializer_class = MarketplaceCategorySerializer
     permission_classes = [AllowAny]
+    throttle_classes = [PublicSiteThrottle]
     lookup_field = "slug"
     pagination_class = None  # Deshabilitar paginación
 
     def get_queryset(self):
-        """Solo categorías activas con planes activos"""
-        return MarketplaceCategory.objects.filter(is_active=True).prefetch_related("plans")
+        """Solo categorías activas con planes activos del tenant actual"""
+        return MarketplaceCategory.objects.filter(is_active=True, tenant=self.request.tenant).prefetch_related("plans")
 
     @action(detail=True, methods=["get"])
     def plans(self, request, slug=None):
         """Obtener todos los planes de una categoría"""
         category = self.get_object()
-        plans = MarketplacePlan.objects.filter(category=category, is_active=True).order_by("order", "name")
+        plans = MarketplacePlan.objects.filter(category=category, is_active=True, tenant=request.tenant).order_by(
+            "order", "name"
+        )
 
         serializer = MarketplacePlanListSerializer(plans, many=True)
         return Response(serializer.data)
@@ -48,12 +60,13 @@ class MarketplacePlanViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [PublicSiteThrottle]
     lookup_field = "slug"
     pagination_class = None  # Deshabilitar paginación
 
     def get_queryset(self):
-        """Solo planes activos"""
-        queryset = MarketplacePlan.objects.filter(is_active=True).select_related("category")
+        """Solo planes activos del tenant actual"""
+        queryset = MarketplacePlan.objects.filter(is_active=True, tenant=self.request.tenant).select_related("category")
 
         # Filtrar por categoría si se especifica
         category_slug = self.request.query_params.get("category", None)
@@ -123,7 +136,10 @@ def purchase_plan(request):
     serializer = CreateContractSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
-    plan = MarketplacePlan.objects.get(id=serializer.validated_data["service_plan_id"])
+    plan = MarketplacePlan.objects.get(
+        id=serializer.validated_data["service_plan_id"],
+        tenant=request.tenant,
+    )
 
     # Verificar si el usuario ya tiene un contrato activo de este plan
     existing_contract = MarketplaceContract.objects.filter(
@@ -145,10 +161,11 @@ def purchase_plan(request):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+@throttle_classes_decorator([PublicSiteThrottle])
 def featured_plans(request):
     """Obtener planes destacados para la página principal"""
     plans = (
-        MarketplacePlan.objects.filter(is_active=True, is_featured=True)
+        MarketplacePlan.objects.filter(is_active=True, is_featured=True, tenant=request.tenant)
         .select_related("category")
         .order_by("order", "name")[:6]
     )

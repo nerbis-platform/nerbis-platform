@@ -2,6 +2,8 @@
 
 import logging
 
+from django.conf import settings
+from django.db import IntegrityError, transaction
 from django.shortcuts import render
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
@@ -13,22 +15,59 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Banner, OTPToken, PasswordSetToken, Tenant, User
+from .cookies import clear_auth_cookies, set_auth_cookies
+from .models import (
+    Banner,
+    IndustryGalleryCard,
+    MarketingSection,
+    OTPToken,
+    PasswordSetToken,
+    PlatformModule,
+    SocialAccount,
+    TeamInvitation,
+    Tenant,
+    User,
+)
+from .permissions import IsTenantAdmin
 from .serializers import (
+    AcceptInvitationSerializer,
     BannerSerializer,
     ChangePasswordSerializer,
+    CreateTeamInvitationSerializer,
+    InvitationDetailSerializer,
     LoginSerializer,
+    PlatformModuleSerializer,
+    PublicIndustryGalleryCardSerializer,
+    PublicMarketingSectionSerializer,
     RegisterSerializer,
     SetPasswordSerializer,
+    SocialLinkSerializer,
+    SocialLoginSerializer,
+    TeamInvitationSerializer,
+    TeamMemberSerializer,
+    TeamUpdateMemberSerializer,
     TenantRegisterSerializer,
     TenantSerializer,
     UpdateProfileSerializer,
     UserSerializer,
     UserSessionSerializer,
 )
-from .throttles import LoginThrottle, OTPRequestThrottle, OTPVerifyThrottle, PasswordResetThrottle, RegisterThrottle
+from .social_auth import LinkingRequired, SocialAuthError, social_login_or_create, verify_social_token
+from .throttles import (
+    LoginEmailThrottle,
+    LoginThrottle,
+    OTPRequestThrottle,
+    OTPVerifyThrottle,
+    PasswordResetThrottle,
+    PublicCheckThrottle,
+    RegisterThrottle,
+    SocialLoginThrottle,
+    TokenRefreshThrottle,
+)
+from .utils import safe_delay
 
 logger = logging.getLogger(__name__)
+from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
 from django.db.models import Q
 
 # ===================================
@@ -53,6 +92,7 @@ def subscription_expired_view(request):
         "subscription_expired.html",
         {
             "tenant": tenant,
+            "frontend_url": getattr(settings, "FRONTEND_URL", "http://localhost:3000"),
         },
     )
 
@@ -60,7 +100,9 @@ def subscription_expired_view(request):
 class RegisterView(generics.CreateAPIView):
     """POST /api/core/auth/register/ - Registro de usuarios
 
-    Si existe un usuario inactivo con el mismo email, lo reactiva automáticamente.
+    Security: no auto-reactivation of inactive accounts — prevents account
+    takeover via register endpoint (#135). Inactive users are checked in the
+    serializer and receive a generic "email already exists" error.
     """
 
     queryset = User.objects.all()
@@ -70,69 +112,37 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
     def create(self, request, *args, **kwargs):
-        email = request.data.get("email", "").lower()
-        tenant = request.tenant
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
 
-        # Verificar si existe un usuario inactivo con este email
-        try:
-            inactive_user = User.objects.get(email__iexact=email, tenant=tenant, is_active=False)
+        # Enviar email de bienvenida
+        self._send_welcome_email(user)
 
-            # Reactivar usuario existente
-            serializer = self.get_serializer(inactive_user, data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            user = serializer.save(is_active=True)
+        # Generar tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
 
-            # Enviar email de bienvenida
-            self._send_welcome_email(user)
-
-            # Generar tokens
-            refresh = RefreshToken.for_user(user)
-
-            return Response(
-                {
-                    "user": UserSessionSerializer(user).data,
-                    "tokens": {
-                        "refresh": str(refresh),
-                        "access": str(refresh.access_token),
-                    },
-                    "message": "Cuenta reactivada exitosamente",
+        response = Response(
+            {
+                "user": UserSessionSerializer(user).data,
+                "tokens": {
+                    "refresh": refresh_token,
+                    "access": access_token,
                 },
-                status=status.HTTP_200_OK,
-            )
-        except User.DoesNotExist:
-            # No existe usuario inactivo, crear uno nuevo
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            user = serializer.save()
-
-            # Enviar email de bienvenida
-            self._send_welcome_email(user)
-
-            # Generar tokens
-            refresh = RefreshToken.for_user(user)
-
-            return Response(
-                {
-                    "user": UserSessionSerializer(user).data,
-                    "tokens": {
-                        "refresh": str(refresh),
-                        "access": str(refresh.access_token),
-                    },
-                    "message": "Usuario creado exitosamente",
-                },
-                status=status.HTTP_201_CREATED,
-            )
+                "message": "Usuario creado exitosamente",
+            },
+            status=status.HTTP_201_CREATED,
+        )
+        return set_auth_cookies(response, access_token, refresh_token)
 
     def _send_welcome_email(self, user):
         """Enviar email de bienvenida (sin bloquear el registro si falla)."""
         try:
             from notifications.tasks import send_welcome_email
 
-            try:
-                send_welcome_email.delay(user.id)
-            except Exception:
-                # Si Celery no está disponible, enviar sincrónicamente
-                send_welcome_email(user.id)
+            safe_delay(send_welcome_email, user.id)
         except Exception as e:
             logger.warning(f"No se pudo enviar email de bienvenida a {user.email}: {e}")
 
@@ -147,6 +157,7 @@ class CheckBusinessNameView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [PublicCheckThrottle]
 
     @extend_schema(
         parameters=[
@@ -190,6 +201,7 @@ class CheckTenantEmailView(APIView):
 
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [PublicCheckThrottle]
 
     @extend_schema(
         parameters=[
@@ -244,29 +256,29 @@ class TenantRegisterView(generics.CreateAPIView):
 
         # Generar tokens
         refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
 
-        return Response(
+        response = Response(
             {
                 "user": UserSessionSerializer(user).data,
                 "tenant": TenantSerializer(user.tenant).data,
                 "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
+                    "refresh": refresh_token,
+                    "access": access_token,
                 },
                 "message": "Negocio creado exitosamente. Bienvenido a NERBIS!",
             },
             status=status.HTTP_201_CREATED,
         )
+        return set_auth_cookies(response, access_token, refresh_token)
 
     def _send_welcome_email(self, user):
         """Enviar email de bienvenida (sin bloquear el registro si falla)."""
         try:
             from notifications.tasks import send_welcome_email
 
-            try:
-                send_welcome_email.delay(user.id)
-            except Exception:
-                send_welcome_email(user.id)
+            safe_delay(send_welcome_email, user.id)
         except Exception as e:
             logger.warning(f"No se pudo enviar email de bienvenida a {user.email}: {e}")
 
@@ -286,7 +298,7 @@ class LoginView(APIView):
 
     authentication_classes = []  # No requiere autenticación (evita CSRF)
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
+    throttle_classes = [LoginThrottle, LoginEmailThrottle]
 
     @extend_schema(
         request=LoginSerializer,
@@ -329,33 +341,49 @@ class LoginView(APIView):
             return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
         # 4. Si el usuario está inactivo, notificar que necesita reactivación
+        # Security: no incluir email en respuesta — previene enumeración (#138)
         if not user.is_active:
             return Response(
                 {
                     "error": "Tu cuenta fue desactivada",
                     "code": "ACCOUNT_INACTIVE",
-                    "email": user.email,
                     "message": "Tu cuenta fue desactivada previamente. ¿Deseas reactivarla?",
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # 5. Generar tokens JWT con claims del tenant
+        # 5. Si el usuario tiene 2FA activo, emitir challenge y NO tokens
+        from .views_2fa import get_2fa_methods, issue_2fa_challenge_token, user_has_confirmed_2fa
+
+        if user_has_confirmed_2fa(user):
+            return Response(
+                {
+                    "status": "2fa_required",
+                    "challenge_token": issue_2fa_challenge_token(user),
+                    "methods": get_2fa_methods(user),
+                }
+            )
+
+        # 6. Generar tokens JWT con claims del tenant
         refresh = RefreshToken.for_user(user)
         refresh["tenant_id"] = str(user.tenant.id)
         refresh["tenant_slug"] = user.tenant.slug
         refresh["role"] = user.role
 
-        return Response(
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response(
             {
                 "user": UserSessionSerializer(user).data,
                 "tenant": TenantSerializer(tenant).data,
                 "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
+                    "refresh": refresh_token,
+                    "access": access_token,
                 },
             }
         )
+        return set_auth_cookies(response, access_token, refresh_token)
 
 
 class PlatformLoginView(APIView):
@@ -364,13 +392,14 @@ class PlatformLoginView(APIView):
 
     A diferencia del LoginView normal (que requiere tenant context del middleware),
     este endpoint busca al usuario por email en TODOS los tenants.
-    Está diseñado para el formulario de login de la plataforma (nerbis.com),
-    donde el usuario no tiene un subdominio de tenant.
+
+    Security: cuando el email existe en múltiples tenants, verifica la contraseña
+    contra TODOS los candidatos y requiere `tenant_slug` para desambiguar (#136).
     """
 
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
+    throttle_classes = [LoginThrottle, LoginEmailThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -378,19 +407,46 @@ class PlatformLoginView(APIView):
 
         email = serializer.validated_data["email"]
         password = serializer.validated_data["password"]
+        tenant_slug = request.data.get("tenant_slug")
 
-        # Buscar usuario por email en TODOS los tenants
-        try:
-            user = User.objects.select_related("tenant").get(email__iexact=email)
-        except User.DoesNotExist:
-            return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
-        except User.MultipleObjectsReturned:
-            # Email existe en múltiples tenants — usar el más reciente
-            user = User.objects.select_related("tenant").filter(email__iexact=email).order_by("-date_joined").first()
+        # Si se proporciona tenant_slug, buscar directamente en ese tenant
+        if tenant_slug:
+            try:
+                user = User.objects.select_related("tenant").get(email__iexact=email, tenant__slug=tenant_slug)
+            except User.DoesNotExist:
+                return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
+            if not user.check_password(password):
+                return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            # Buscar en todos los tenants (cap to avoid unbounded bcrypt cost)
+            _MAX_CANDIDATES = 10
+            candidates = list(User.objects.select_related("tenant").filter(email__iexact=email)[:_MAX_CANDIDATES])
+            if not candidates:
+                # Timing-safe: run a dummy bcrypt so response time is indistinguishable
+                User().set_password(password)
+                return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Verificar contraseña
-        if not user.check_password(password):
-            return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
+            # Verificar password contra candidatos (short-circuit: stop after 2 matches)
+            matching = []
+            for c in candidates:
+                if c.check_password(password):
+                    matching.append(c)
+                    if len(matching) > 1:
+                        break  # Already ambiguous — no need to check more
+            if not matching:
+                return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            if len(matching) > 1:
+                # Mismo email+password en múltiples tenants — exigir selección
+                return Response(
+                    {
+                        "code": "MULTIPLE_TENANTS",
+                        "message": "Tu email está registrado en varios negocios. Selecciona uno.",
+                        "tenants": [{"slug": u.tenant.slug, "name": u.tenant.name} for u in matching],
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            user = matching[0]
 
         # Si el usuario está inactivo
         if not user.is_active:
@@ -398,7 +454,6 @@ class PlatformLoginView(APIView):
                 {
                     "error": "Tu cuenta fue desactivada",
                     "code": "ACCOUNT_INACTIVE",
-                    "email": user.email,
                     "message": "Tu cuenta fue desactivada previamente. ¿Deseas reactivarla?",
                 },
                 status=status.HTTP_403_FORBIDDEN,
@@ -410,22 +465,38 @@ class PlatformLoginView(APIView):
                 {"error": "El negocio asociado a esta cuenta no está activo."}, status=status.HTTP_403_FORBIDDEN
             )
 
+        # Si el usuario tiene 2FA activo, emitir challenge
+        from .views_2fa import get_2fa_methods, issue_2fa_challenge_token, user_has_confirmed_2fa
+
+        if user_has_confirmed_2fa(user):
+            return Response(
+                {
+                    "status": "2fa_required",
+                    "challenge_token": issue_2fa_challenge_token(user),
+                    "methods": get_2fa_methods(user),
+                }
+            )
+
         # Generar tokens JWT
         refresh = RefreshToken.for_user(user)
         refresh["tenant_id"] = str(user.tenant.id)
         refresh["tenant_slug"] = user.tenant.slug
         refresh["role"] = user.role
 
-        return Response(
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response(
             {
                 "user": UserSessionSerializer(user).data,
                 "tenant": TenantSerializer(user.tenant).data,
                 "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
+                    "refresh": refresh_token,
+                    "access": access_token,
                 },
             }
         )
+        return set_auth_cookies(response, access_token, refresh_token)
 
 
 class PlatformForgotPasswordView(APIView):
@@ -446,43 +517,41 @@ class PlatformForgotPasswordView(APIView):
         if not email:
             return Response({"error": "El email es requerido"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Buscar usuario en todos los tenants
-        try:
-            user = User.objects.select_related("tenant").get(email__iexact=email)
-        except User.DoesNotExist:
-            # Por seguridad, no revelar si el email existe
-            return Response(
-                {
-                    "message": "Si el email existe, recibirás un código de verificación",
-                    "email": email,
-                }
-            )
-        except User.MultipleObjectsReturned:
-            user = User.objects.select_related("tenant").filter(email__iexact=email).order_by("-date_joined").first()
-
-        # Crear OTP
-        otp = OTPToken.create_for_user(user, purpose="password_reset")
-
-        # Enviar email con OTP (async con Celery)
-        from notifications.tasks import send_otp_email
-
-        send_otp_email.delay(user.id, otp.code, "password_reset")
-
-        return Response(
+        generic_response = Response(
             {
                 "message": "Si el email existe, recibirás un código de verificación",
                 "email": email,
             }
         )
 
+        # Buscar TODOS los usuarios con este email (puede haber en múltiples tenants)
+        users = User.objects.select_related("tenant").filter(email__iexact=email)
+
+        if users.exists():
+            from notifications.tasks import send_otp_email
+
+            for user in users:
+                try:
+                    otp = OTPToken.create_for_user(user, purpose="password_reset")
+                    safe_delay(send_otp_email, user.id, otp.code, "password_reset")
+                except Exception as e:
+                    logger.warning(f"Fallo enviando OTP password_reset a user={user.id}: {e}")
+        else:
+            # Timing-safe: simulate OTP creation work so response time
+            # doesn't reveal whether the email exists in any tenant
+            User().set_password("dummy")
+
+        # Siempre devolver la misma respuesta genérica
+        return generic_response
+
 
 class PlatformVerifyResetOTPView(APIView):
     """
     POST /api/public/platform-verify-reset-otp/ - Verificar OTP desde la plataforma
 
-    Versión cross-tenant de VerifyPasswordResetOTPView.
-    Busca al usuario por email en TODOS los tenants.
-    Retorna user + tenant + tokens para auto-login.
+    Security: resuelve el usuario via ownership del OTP (no por email lookup),
+    lo que evita cross-tenant mismatch (#136). Usa validate_password de Django
+    en vez de validación ad-hoc (#141).
     """
 
     authentication_classes = []
@@ -499,39 +568,55 @@ class PlatformVerifyResetOTPView(APIView):
                 {"error": "Email, código y nueva contraseña son requeridos"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Buscar usuario en todos los tenants
+        # Buscar OTPs activos para usuarios con este email
+        active_otps = OTPToken.objects.filter(
+            user__email__iexact=email,
+            purpose="password_reset",
+            used_at__isnull=True,
+        ).select_related("user", "user__tenant")
+
+        # Encontrar el OTP correcto sin incrementar intentos en los demás
+        import secrets as secrets_mod
+
+        matched_otp = None
+        code_str = str(code) if code is not None else ""
+        for otp in active_otps:
+            if otp.is_valid and secrets_mod.compare_digest(otp.code, code_str):
+                matched_otp = otp
+                break
+
+        if not matched_otp:
+            # Si hay OTPs, verificar contra el primero para incrementar intentos
+            first_otp = active_otps.first()
+            if first_otp and first_otp.is_valid:
+                success, error, error_code = first_otp.verify(str(code) if code else "")
+                if success:
+                    # Race condition: el OTP coincidió durante verify — usarlo
+                    matched_otp = first_otp
+                else:
+                    return Response(
+                        {"error": error or "Código incorrecto", "error_code": error_code},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
+                return Response(
+                    {"error": "Solicitud inválida. Solicita un nuevo código."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Marcar OTP como usado
+        matched_otp.mark_as_used()
+        user = matched_otp.user
+
+        # Validar contraseña con los validadores de Django
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+
         try:
-            user = User.objects.select_related("tenant").get(email__iexact=email)
-        except User.DoesNotExist:
-            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
-        except User.MultipleObjectsReturned:
-            user = User.objects.select_related("tenant").filter(email__iexact=email).order_by("-date_joined").first()
-
-        # Buscar OTP válido
-        try:
-            otp = OTPToken.objects.get(user=user, purpose="password_reset", used_at__isnull=True)
-        except OTPToken.DoesNotExist:
+            validate_password(new_password, user=user)
+        except ValidationError as e:
             return Response(
-                {"error": "No hay un código de verificación activo. Solicita uno nuevo."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Verificar OTP
-        success, error = otp.verify(code)
-        if not success:
-            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Validar fortaleza de la nueva contraseña
-        if len(new_password) < 8:
-            return Response(
-                {"error": "La contraseña debe tener al menos 8 caracteres"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        has_upper = any(c.isupper() for c in new_password)
-        has_lower = any(c.islower() for c in new_password)
-        has_digit = any(c.isdigit() for c in new_password)
-        if not (has_upper and has_lower and has_digit):
-            return Response(
-                {"error": "La contraseña debe incluir mayúsculas, minúsculas y números"},
+                {"error": "; ".join(e.messages)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -547,25 +632,125 @@ class PlatformVerifyResetOTPView(APIView):
 
 
 class LogoutView(APIView):
-    """POST /api/core/auth/logout/ - Logout"""
+    """POST /api/core/auth/logout/ - Logout
+
+    Reads the refresh token from the httpOnly cookie (``nerbis_refresh``)
+    with fallback to the request body for backward compatibility during
+    the migration period.
+    """
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        request=inline_serializer(name="LogoutRequest", fields={"refresh": drf_serializers.CharField()}),
+        request=inline_serializer(
+            name="LogoutRequest",
+            fields={"refresh": drf_serializers.CharField(required=False)},
+        ),
         responses={
             200: inline_serializer(name="LogoutResponse", fields={"message": drf_serializers.CharField()}),
             400: OpenApiResponse(description="Token inválido"),
         },
     )
     def post(self, request):
+        # Read refresh token from cookie first, fall back to body
+        refresh_token = request.COOKIES.get("nerbis_refresh") or request.data.get("refresh")
+
+        if refresh_token:
+            try:
+                token = RefreshToken(refresh_token)
+                # Security: verify token ownership before blacklisting (#143)
+                # str() normalization: payload may store int or str depending on serializer
+                if str(token.payload.get("user_id")) == str(request.user.id):
+                    token.blacklist()
+            except Exception:
+                pass  # Token may already be expired/blacklisted — still clear cookies
+
+        response = Response({"message": "Logout exitoso"})
+        return clear_auth_cookies(response)
+
+
+class CookieTokenRefreshView(APIView):
+    """POST /api/core/auth/refresh/ - Refresh JWT tokens via httpOnly cookie.
+
+    Reads the refresh token from the ``nerbis_refresh`` cookie. Falls back
+    to the request body (``{"refresh": "..."}`` ) during the transition
+    period so that existing clients keep working.
+
+    On success, new access (and optionally rotated refresh) tokens are set
+    as httpOnly cookies on the response.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [TokenRefreshThrottle]
+
+    @extend_schema(
+        request=inline_serializer(
+            name="CookieTokenRefreshRequest",
+            fields={"refresh": drf_serializers.CharField(required=False)},
+        ),
+        responses={
+            200: inline_serializer(
+                name="CookieTokenRefreshResponse",
+                fields={
+                    "access": drf_serializers.CharField(),
+                    "refresh": drf_serializers.CharField(required=False),
+                },
+            ),
+            401: OpenApiResponse(description="Token inválido o expirado"),
+        },
+    )
+    def post(self, request):
+        from rest_framework_simplejwt.exceptions import TokenError
+
+        # Determine namespace from request path
+        is_admin = "/admin/" in request.path
+        cookie_name = "nerbis_admin_refresh" if is_admin else "nerbis_refresh"
+        prefix = "nerbis_admin" if is_admin else "nerbis"
+
+        # Read refresh token: cookie first, body fallback
+        raw_refresh = request.COOKIES.get(cookie_name) or request.data.get("refresh")
+
+        if not raw_refresh:
+            return Response(
+                {"detail": "No refresh token provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         try:
-            refresh_token = request.data.get("refresh")
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response({"message": "Logout exitoso"})
-        except Exception:
-            return Response({"error": "Token inválido"}, status=status.HTTP_400_BAD_REQUEST)
+            refresh = RefreshToken(raw_refresh)
+            access_token = str(refresh.access_token)
+
+            # Handle rotation if configured
+            rotate = settings.SIMPLE_JWT.get("ROTATE_REFRESH_TOKENS", False)
+            if rotate:
+                blacklist_after = settings.SIMPLE_JWT.get("BLACKLIST_AFTER_ROTATION", False)
+                if blacklist_after:
+                    try:
+                        refresh.blacklist()
+                    except AttributeError:
+                        pass  # blacklist app not installed
+
+                refresh.set_jti()
+                refresh.set_exp()
+                refresh.set_iat()
+
+            new_refresh_token = str(refresh)
+
+            # Build response with tokens in body (transition period)
+            data = {"access": access_token}
+            if rotate:
+                data["refresh"] = new_refresh_token
+
+            response = Response(data)
+            return set_auth_cookies(response, access_token, new_refresh_token, cookie_prefix=prefix)
+
+        except TokenError:
+            response = Response(
+                {"detail": "Token is invalid or expired."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            return clear_auth_cookies(response, cookie_prefix=prefix)
 
 
 class CurrentUserView(APIView):
@@ -777,16 +962,20 @@ class SetPasswordView(APIView):
         refresh["tenant_slug"] = user.tenant.slug
         refresh["role"] = user.role
 
-        return Response(
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response(
             {
                 "message": "Contraseña establecida exitosamente",
                 "user": UserSessionSerializer(user).data,
                 "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
+                    "refresh": refresh_token,
+                    "access": access_token,
                 },
             }
         )
+        return set_auth_cookies(response, access_token, refresh_token)
 
 
 # Vistas de testing (mantener)
@@ -826,6 +1015,7 @@ def tenant_info(request):
             "has_bookings": drf_serializers.BooleanField(required=False),
             "has_services": drf_serializers.BooleanField(required=False),
             "has_marketing": drf_serializers.BooleanField(required=False),
+            "has_management": drf_serializers.BooleanField(required=False),
         },
     ),
     responses={200: TenantSerializer},
@@ -841,7 +1031,7 @@ def configure_modules(request):
         return Response({"error": "Solo el administrador puede configurar módulos"}, status=403)
 
     tenant = request.tenant
-    module_fields = {"has_website", "has_shop", "has_bookings", "has_services", "has_marketing"}
+    module_fields = {"has_website", "has_shop", "has_bookings", "has_services", "has_marketing", "has_management"}
     updated_fields = ["modules_configured"]
 
     # Guardar campos del tenant si se envían
@@ -872,6 +1062,108 @@ def configure_modules(request):
         user.save(update_fields=["first_name", "last_name"])
 
     return Response(TenantSerializer(tenant).data)
+
+
+@extend_schema(
+    request=inline_serializer(
+        name="OnboardingCompleteRequest",
+        fields={
+            "modules": drf_serializers.ListField(child=drf_serializers.CharField()),
+            "answers": drf_serializers.DictField(),
+        },
+    ),
+    responses={
+        200: inline_serializer(
+            name="OnboardingCompleteResponse",
+            fields={
+                "success": drf_serializers.BooleanField(),
+                "next_route": drf_serializers.CharField(),
+                "generated": drf_serializers.DictField(),
+            },
+        ),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def onboarding_complete(request):
+    """POST /api/core/onboarding/complete/ - Endpoint unificado de onboarding.
+
+    Recibe los módulos seleccionados y las respuestas del onboarding,
+    configura el tenant y opcionalmente genera el website con IA.
+    """
+    from websites.services.generation import GenerationError, generate_website
+
+    if not hasattr(request, "tenant"):
+        return Response({"error": "Tenant no detectado"}, status=500)
+
+    if request.user.role != "admin":
+        return Response(
+            {"error": "Solo el administrador puede completar el onboarding"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    from .serializers import OnboardingCompleteSerializer
+
+    serializer = OnboardingCompleteSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    modules = serializer.validated_data["modules"]
+    answers = serializer.validated_data["answers"]
+    tenant = request.tenant
+
+    # 1. Save module flags to tenant
+    module_flag_map = {
+        "website": "has_website",
+        "shop": "has_shop",
+        "bookings": "has_bookings",
+        "management": "has_management",
+        "services": "has_services",
+    }
+
+    updated_fields = ["modules_configured"]
+    for module_key, field_name in module_flag_map.items():
+        value = module_key in modules
+        setattr(tenant, field_name, value)
+        updated_fields.append(field_name)
+
+    # 2. Mark modules as configured
+    tenant.modules_configured = True
+    tenant.save(update_fields=updated_fields)
+
+    # 3. If website or shop selected, generate website
+    generated = {"website": False}
+    if "website" in modules or "shop" in modules:
+        business_description = answers.get("business_description", "")
+        main_services = answers.get("services", "")
+        website_sections = answers.get("sections")
+
+        if business_description:
+            try:
+                generate_website(
+                    tenant=tenant,
+                    business_description=business_description,
+                    main_services=main_services,
+                    website_sections=website_sections,
+                )
+                generated["website"] = True
+            except GenerationError as e:
+                logger.warning(f"Website generation failed during onboarding: {e}")
+                # Non-fatal: tenant is configured, website can be generated later
+
+    # 4. Determine next route based on modules
+    if tenant.has_website or tenant.has_shop:
+        next_route = "/dashboard/website-builder"
+    else:
+        next_route = "/dashboard"
+
+    return Response(
+        {
+            "success": True,
+            "next_route": next_route,
+            "generated": generated,
+        }
+    )
 
 
 class DeleteAccountView(APIView):
@@ -910,11 +1202,15 @@ class DeleteAccountView(APIView):
 
 
 class ReactivateAccountView(APIView):
-    """POST /api/auth/reactivate-account/ - Reactivar cuenta inactiva"""
+    """POST /api/auth/reactivate-account/ - Reactivar cuenta inactiva
+
+    Security: generic error messages prevent account enumeration (#138).
+    Timing-safe dummy password check when user not found.
+    """
 
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
+    throttle_classes = [LoginThrottle, LoginEmailThrottle]
 
     @extend_schema(
         request=inline_serializer(
@@ -951,13 +1247,13 @@ class ReactivateAccountView(APIView):
         try:
             user = User.objects.get(email__iexact=email, tenant=tenant, is_active=False)
         except User.DoesNotExist:
-            return Response(
-                {"error": "No se encontró una cuenta inactiva con este email"}, status=status.HTTP_404_NOT_FOUND
-            )
+            # Timing-safe: run a dummy password check to prevent timing oracle
+            User().set_password(password)
+            return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Verificar contraseña
         if not user.check_password(password):
-            return Response({"error": "Contraseña incorrecta"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Reactivar cuenta
         user.is_active = True
@@ -969,17 +1265,21 @@ class ReactivateAccountView(APIView):
         refresh["tenant_slug"] = user.tenant.slug
         refresh["role"] = user.role
 
-        return Response(
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response(
             {
                 "user": UserSessionSerializer(user).data,
                 "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
+                    "refresh": refresh_token,
+                    "access": access_token,
                 },
                 "message": "Cuenta reactivada exitosamente",
             },
             status=status.HTTP_200_OK,
         )
+        return set_auth_cookies(response, access_token, refresh_token)
 
 
 class ActiveBannersView(generics.ListAPIView):
@@ -1045,6 +1345,20 @@ class ActiveBannersView(generics.ListAPIView):
 
 
 # ===================================
+# MÓDULOS DE PLATAFORMA
+# ===================================
+
+
+class PlatformModuleListView(generics.ListAPIView):
+    """Lista de módulos activos de la plataforma."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = PlatformModuleSerializer
+    pagination_class = None
+    queryset = PlatformModule.objects.filter(is_active=True)
+
+
+# ===================================
 # VISTAS OTP - Verificación por email
 # ===================================
 
@@ -1093,12 +1407,21 @@ class RequestPasswordResetOTPView(APIView):
             )
 
         # Crear OTP
-        otp = OTPToken.create_for_user(user, purpose="password_reset")
+        try:
+            otp = OTPToken.create_for_user(user, purpose="password_reset")
+        except ValueError:
+            # Return generic response to avoid revealing that the email exists
+            return Response(
+                {
+                    "message": "Si el email existe, recibirás un código de verificación",
+                    "email": email,
+                }
+            )
 
         # Enviar email con OTP (async con Celery)
         from notifications.tasks import send_otp_email
 
-        send_otp_email.delay(user.id, otp.code, "password_reset")
+        safe_delay(send_otp_email, user.id, otp.code, "password_reset")
 
         return Response(
             {
@@ -1143,7 +1466,13 @@ class VerifyPasswordResetOTPView(APIView):
                     ),
                 },
             ),
-            400: OpenApiResponse(description="Código inválido o expirado"),
+            400: inline_serializer(
+                name="PasswordResetOtpError",
+                fields={
+                    "error": drf_serializers.CharField(),
+                    "error_code": drf_serializers.CharField(required=False),
+                },
+            ),
         },
     )
     def post(self, request):
@@ -1157,39 +1486,39 @@ class VerifyPasswordResetOTPView(APIView):
                 {"error": "Email, código y nueva contraseña son requeridos"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Buscar usuario
-        try:
-            user = User.objects.get(email__iexact=email, tenant=tenant)
-        except User.DoesNotExist:
-            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        # Resolve user via OTP ownership — avoids leaking email existence (#138)
+        otp = (
+            OTPToken.objects.filter(
+                user__email__iexact=email,
+                user__tenant=tenant,
+                purpose="password_reset",
+                used_at__isnull=True,
+            )
+            .select_related("user")
+            .first()
+        )
 
-        # Buscar OTP válido
-        try:
-            otp = OTPToken.objects.get(user=user, purpose="password_reset", used_at__isnull=True)
-        except OTPToken.DoesNotExist:
+        if not otp or not otp.is_valid:
             return Response(
-                {"error": "No hay un código de verificación activo. Solicita uno nuevo."},
+                {"error": "Solicitud inválida. Solicita un nuevo código."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Verificar OTP
-        success, error = otp.verify(code)
+        success, error, error_code = otp.verify(code)
         if not success:
-            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": error, "error_code": error_code}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validar fortaleza de la nueva contraseña
-        if len(new_password) < 8:
-            return Response(
-                {"error": "La contraseña debe tener al menos 8 caracteres"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        has_upper = any(c.isupper() for c in new_password)
-        has_lower = any(c.islower() for c in new_password)
-        has_digit = any(c.isdigit() for c in new_password)
-        if not (has_upper and has_lower and has_digit):
-            return Response(
-                {"error": "La contraseña debe incluir mayúsculas, minúsculas y números"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        user = otp.user
+
+        # Validar contraseña con los validadores de Django (#141)
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as e:
+            return Response({"error": "; ".join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Cambiar contraseña (sin generar tokens — el usuario debe iniciar sesión manualmente)
         user.set_password(new_password)
@@ -1206,8 +1535,8 @@ class RequestReactivationOTPView(APIView):
     """
     POST /api/auth/request-reactivation/ - Solicitar OTP para reactivar cuenta
 
-    Envía un código OTP de 6 dígitos al email del usuario inactivo.
-    El código expira en 10 minutos.
+    Security: generic error messages prevent account enumeration (#138).
+    Handles OTP resend rate limit via ValueError from create_for_user.
     """
 
     authentication_classes = []
@@ -1230,8 +1559,6 @@ class RequestReactivationOTPView(APIView):
                     "email": drf_serializers.EmailField(),
                 },
             ),
-            401: OpenApiResponse(description="Contraseña incorrecta"),
-            404: OpenApiResponse(description="Cuenta no encontrada"),
         },
     )
     def post(self, request):
@@ -1242,32 +1569,37 @@ class RequestReactivationOTPView(APIView):
         if not email or not password:
             return Response({"error": "Email y contraseña son requeridos"}, status=status.HTTP_400_BAD_REQUEST)
 
+        generic_ok = Response(
+            {
+                "message": "Si las credenciales son válidas, recibirás un código de verificación",
+                "email": email,
+            }
+        )
+
         # Buscar usuario inactivo
         try:
             user = User.objects.get(email__iexact=email, tenant=tenant, is_active=False)
         except User.DoesNotExist:
-            return Response(
-                {"error": "No se encontró una cuenta inactiva con este email"}, status=status.HTTP_404_NOT_FOUND
-            )
+            User().set_password(password)  # Timing-safe dummy
+            return generic_ok
 
         # Verificar contraseña
         if not user.check_password(password):
-            return Response({"error": "Contraseña incorrecta"}, status=status.HTTP_401_UNAUTHORIZED)
+            return generic_ok
 
         # Crear OTP
-        otp = OTPToken.create_for_user(user, purpose="account_reactivation")
+        try:
+            otp = OTPToken.create_for_user(user, purpose="account_reactivation")
+        except ValueError:
+            # Return generic response to avoid revealing that credentials were valid
+            return generic_ok
 
         # Enviar email con OTP (async con Celery)
         from notifications.tasks import send_otp_email
 
-        send_otp_email.delay(user.id, otp.code, "account_reactivation")
+        safe_delay(send_otp_email, user.id, otp.code, "account_reactivation")
 
-        return Response(
-            {
-                "message": "Te hemos enviado un código de verificación a tu email",
-                "email": email,
-            }
-        )
+        return generic_ok
 
 
 class VerifyReactivationOTPView(APIView):
@@ -1304,7 +1636,13 @@ class VerifyReactivationOTPView(APIView):
                     ),
                 },
             ),
-            400: OpenApiResponse(description="Código inválido o expirado"),
+            400: inline_serializer(
+                name="ReactivationOtpError",
+                fields={
+                    "error": drf_serializers.CharField(),
+                    "error_code": drf_serializers.CharField(required=False),
+                },
+            ),
         },
     )
     def post(self, request):
@@ -1315,25 +1653,25 @@ class VerifyReactivationOTPView(APIView):
         if not email or not code:
             return Response({"error": "Email y código son requeridos"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Security: generic error messages prevent enumeration (#138)
+        generic_error = Response({"error": "Solicitud inválida"}, status=status.HTTP_400_BAD_REQUEST)
+
         # Buscar usuario inactivo
         try:
             user = User.objects.get(email__iexact=email, tenant=tenant, is_active=False)
         except User.DoesNotExist:
-            return Response({"error": "Usuario no encontrado o ya está activo"}, status=status.HTTP_404_NOT_FOUND)
+            return generic_error
 
-        # Buscar OTP válido
-        try:
-            otp = OTPToken.objects.get(user=user, purpose="account_reactivation", used_at__isnull=True)
-        except OTPToken.DoesNotExist:
-            return Response(
-                {"error": "No hay un código de verificación activo. Solicita uno nuevo."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Buscar OTP válido (filter+first to avoid MultipleObjectsReturned race condition;
+        # create_for_user soft-invalidates previous OTPs but a race is still possible)
+        otp = OTPToken.objects.filter(user=user, purpose="account_reactivation", used_at__isnull=True).first()
+        if not otp:
+            return generic_error
 
         # Verificar OTP
-        success, error = otp.verify(code)
+        success, error, error_code = otp.verify(code)
         if not success:
-            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": error, "error_code": error_code}, status=status.HTTP_400_BAD_REQUEST)
 
         # Reactivar cuenta
         user.is_active = True
@@ -1345,16 +1683,20 @@ class VerifyReactivationOTPView(APIView):
         refresh["tenant_slug"] = user.tenant.slug
         refresh["role"] = user.role
 
-        return Response(
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = Response(
             {
                 "message": "Cuenta reactivada exitosamente",
                 "user": UserSessionSerializer(user).data,
                 "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
+                    "refresh": refresh_token,
+                    "access": access_token,
                 },
             }
         )
+        return set_auth_cookies(response, access_token, refresh_token)
 
 
 # ===================================
@@ -1431,6 +1773,7 @@ def get_tenant_config(request):
                 "bookings": tenant.has_bookings,
                 "services": tenant.has_services,
                 "marketing": tenant.has_marketing,
+                "management": tenant.has_management,
             },
             "config": {
                 "primary_color": tenant.primary_color,
@@ -1438,6 +1781,12 @@ def get_tenant_config(request):
                 "currency": tenant.currency,
                 "timezone": tenant.timezone,
                 "language": tenant.language,
+            },
+            "legal": {
+                "legal_name": tenant.legal_name,
+                "tax_id": tenant.tax_id,
+                "legal_address": tenant.legal_address,
+                "tax_rate": float(tenant.tax_rate),
             },
             "contact": {
                 "email": tenant.email,
@@ -1496,7 +1845,7 @@ def _get_tenant_theme(tenant):
             full_theme = {**(config.template.default_theme or {}), **config.theme_data}
             theme.update(full_theme)
     except Exception:
-        pass
+        logger.warning("Error al obtener tema del tenant %s", tenant.pk, exc_info=True)
     return theme
 
 
@@ -1508,6 +1857,7 @@ def _get_enabled_pages(tenant):
         config = WebsiteConfig.objects.filter(tenant=tenant).first()
         return {"enabled": config.enabled_pages if config else []}
     except Exception:
+        logger.warning("Error al obtener paginas habilitadas del tenant %s", tenant.pk, exc_info=True)
         return {"enabled": []}
 
 
@@ -1569,3 +1919,1121 @@ def get_tenant_website_content(request):
         response_data["template_slug"] = config.template.slug
 
     return Response(response_data)
+
+
+# ===================================
+# SOCIAL AUTH VIEWS
+# ===================================
+
+
+def _build_social_auth_response(user, tenant_obj):
+    """Helper: genera la respuesta JWT estándar para social auth.
+
+    Returns a DRF ``Response`` with httpOnly auth cookies already set.
+    """
+    refresh = RefreshToken.for_user(user)
+    refresh["tenant_id"] = str(user.tenant.id)
+    refresh["tenant_slug"] = user.tenant.slug
+    refresh["role"] = user.role
+
+    access_token = str(refresh.access_token)
+    refresh_token = str(refresh)
+
+    response = Response(
+        {
+            "user": UserSessionSerializer(user).data,
+            "tenant": TenantSerializer(tenant_obj).data,
+            "tokens": {
+                "refresh": refresh_token,
+                "access": access_token,
+            },
+        }
+    )
+    return set_auth_cookies(response, access_token, refresh_token)
+
+
+class SocialLoginView(APIView):
+    """
+    POST /api/auth/social/<provider>/ — Social login dentro de un tenant.
+
+    Verifica el token del proveedor, crea o vincula usuario, retorna JWT.
+    Requiere tenant context (header X-Tenant-Slug).
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [SocialLoginThrottle]
+
+    @extend_schema(
+        request=SocialLoginSerializer,
+        responses={
+            200: OpenApiResponse(description="Login exitoso con JWT"),
+            401: OpenApiResponse(description="Token inválido"),
+            409: OpenApiResponse(description="Email ya registrado con contraseña — requiere vinculación"),
+        },
+        parameters=[
+            OpenApiParameter(name="provider", location="path", type=str, enum=["google", "apple", "facebook"]),
+        ],
+    )
+    def post(self, request, provider):
+        serializer = SocialLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        token = serializer.validated_data["token"]
+        first_name = serializer.validated_data.get("first_name", "")
+        last_name = serializer.validated_data.get("last_name", "")
+
+        tenant = request.tenant
+
+        # Verificar token con el proveedor
+        try:
+            social_info = verify_social_token(provider, token, first_name=first_name, last_name=last_name)
+        except SocialAuthError as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Login o crear usuario
+        try:
+            user = social_login_or_create(social_info, tenant)
+        except LinkingRequired as e:
+            return Response(
+                {
+                    "error": "Ya existe una cuenta con este email",
+                    "code": "LINKING_REQUIRED",
+                    "email": e.email,
+                    "provider": e.provider,
+                    "message": "Ya tienes una cuenta con contraseña. Ingresa tu contraseña para vincular tu cuenta social.",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if not user.is_active:
+            return Response(
+                {"error": "Tu cuenta está desactivada", "code": "ACCOUNT_INACTIVE"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Social login ya pasó por la autenticación del proveedor (Google/Apple/FB),
+        # que maneja su propia seguridad/2FA. No requerimos 2FA adicional.
+        return _build_social_auth_response(user, tenant)
+
+
+class SocialLinkView(APIView):
+    """
+    POST /api/auth/social/link/ — Vincular cuenta social a usuario existente.
+
+    Cuando el social login retorna LINKING_REQUIRED (409), el frontend
+    envía la contraseña del usuario para confirmar la vinculación.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [SocialLoginThrottle]
+
+    @extend_schema(
+        request=SocialLinkSerializer,
+        responses={
+            200: OpenApiResponse(description="Vinculación exitosa con JWT"),
+            401: OpenApiResponse(description="Credenciales inválidas"),
+        },
+    )
+    def post(self, request):
+        serializer = SocialLinkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        provider = serializer.validated_data["provider"]
+        token = serializer.validated_data["token"]
+        password = serializer.validated_data["password"]
+        first_name = serializer.validated_data.get("first_name", "")
+        last_name = serializer.validated_data.get("last_name", "")
+
+        tenant = request.tenant
+
+        # Verificar token
+        try:
+            social_info = verify_social_token(provider, token, first_name=first_name, last_name=last_name)
+        except SocialAuthError as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Buscar usuario por email
+        try:
+            user = User.objects.get(email__iexact=social_info.email, tenant=tenant)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Verificar contraseña
+        if not user.check_password(password):
+            return Response({"error": "Contraseña incorrecta"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not user.is_active:
+            return Response(
+                {"error": "Tu cuenta está desactivada", "code": "ACCOUNT_INACTIVE"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Crear SocialAccount (o actualizar si ya existe para este user+provider)
+        try:
+            SocialAccount.objects.update_or_create(
+                user=user,
+                provider=social_info.provider,
+                defaults={
+                    "tenant": tenant,
+                    "provider_uid": social_info.provider_uid,
+                    "email": social_info.email,
+                    "extra_data": social_info.extra_data,
+                },
+            )
+        except IntegrityError:
+            return Response(
+                {"error": "Esta cuenta social ya está vinculada"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return _build_social_auth_response(user, tenant)
+
+
+class SocialAccountDisconnectView(APIView):
+    """
+    DELETE /api/auth/social/<provider>/ — Desvincular cuenta social.
+
+    Solo permite desvincular si el usuario tiene contraseña u otra cuenta social,
+    para evitar que quede sin forma de acceder.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(description="Cuenta social desvinculada"),
+            400: OpenApiResponse(description="No se puede desvincular (único método de acceso)"),
+            404: OpenApiResponse(description="No hay cuenta vinculada para este proveedor"),
+        },
+        parameters=[
+            OpenApiParameter(name="provider", location="path", type=str, enum=["google", "apple", "facebook"]),
+        ],
+    )
+    def delete(self, request, provider):
+        if provider not in ("google", "apple", "facebook"):
+            return Response({"error": "Proveedor no válido"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        social_account = SocialAccount.objects.filter(user=user, tenant=user.tenant, provider=provider).first()
+
+        if not social_account:
+            return Response(
+                {"error": f"No tienes una cuenta de {provider} vinculada"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Verificar que el usuario no quede sin forma de acceder
+        has_password = user.has_usable_password()
+        other_social_count = (
+            SocialAccount.objects.filter(user=user, tenant=user.tenant).exclude(id=social_account.id).count()
+        )
+
+        if not has_password and other_social_count == 0:
+            return Response(
+                {"error": "No puedes desvincular tu único método de acceso. Establece una contraseña primero."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Registrar desvinculación en audit log
+        from django.contrib.admin.models import DELETION, LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        ct = ContentType.objects.get_for_model(SocialAccount)
+        LogEntry.objects.log_action(
+            user_id=user.pk,
+            content_type_id=ct.pk,
+            object_id=str(social_account.pk),
+            object_repr=f"{social_account.get_provider_display()} - {social_account.email}",
+            action_flag=DELETION,
+            change_message=f"Desvinculación vía API de cuenta {social_account.get_provider_display()}",
+        )
+        logger.info(
+            f"Social account desvinculada vía API: {provider} (usuario_id: {user.pk}, tenant: {user.tenant.slug})"
+        )
+
+        social_account.delete()
+        return Response({"message": f"Cuenta de {provider} desvinculada correctamente"})
+
+
+class PlatformSocialLoginView(APIView):
+    """
+    POST /api/public/platform-social-login/ — Social login cross-tenant.
+
+    Mismo flujo que SocialLoginView pero busca en TODOS los tenants.
+    Si el usuario existe en múltiples tenants, usa el más reciente.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [SocialLoginThrottle]
+
+    @extend_schema(
+        request=inline_serializer(
+            name="PlatformSocialLoginRequest",
+            fields={
+                "provider": drf_serializers.ChoiceField(choices=["google", "apple", "facebook"]),
+                "token": drf_serializers.CharField(),
+                "first_name": drf_serializers.CharField(required=False),
+                "last_name": drf_serializers.CharField(required=False),
+            },
+        ),
+        responses={
+            200: OpenApiResponse(description="Login exitoso"),
+            401: OpenApiResponse(description="Token inválido"),
+        },
+    )
+    def post(self, request):
+        provider = request.data.get("provider")
+        token = request.data.get("token")
+        first_name = request.data.get("first_name", "")
+        last_name = request.data.get("last_name", "")
+
+        if not provider or not token:
+            return Response({"error": "provider y token son requeridos"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if provider not in ("google", "apple", "facebook"):
+            return Response({"error": "Proveedor no soportado"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar token
+        try:
+            social_info = verify_social_token(provider, token, first_name=first_name, last_name=last_name)
+        except SocialAuthError as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Buscar SocialAccount existente en cualquier tenant
+        social_account = (
+            SocialAccount.objects.select_related("user", "user__tenant")
+            .filter(provider=social_info.provider, provider_uid=social_info.provider_uid)
+            .first()
+        )
+
+        if social_account:
+            user = social_account.user
+            if not user.is_active:
+                return Response(
+                    {"error": "Tu cuenta está desactivada", "code": "ACCOUNT_INACTIVE"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if not user.tenant.is_active:
+                return Response(
+                    {"error": "El negocio asociado a esta cuenta no está activo."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            # Social login no requiere 2FA adicional — el proveedor ya autenticó
+            return _build_social_auth_response(user, user.tenant)
+
+        # Buscar por email en cualquier tenant
+        try:
+            user = User.objects.select_related("tenant").get(email__iexact=social_info.email)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "error": "No se encontró una cuenta con este email. Regístrate primero.",
+                    "code": "USER_NOT_FOUND",
+                    "suggested_user": {
+                        "email": social_info.email,
+                        "first_name": social_info.first_name,
+                        "last_name": social_info.last_name,
+                        "avatar_url": social_info.avatar_url,
+                    },
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except User.MultipleObjectsReturned:
+            user = (
+                User.objects.select_related("tenant")
+                .filter(email__iexact=social_info.email)
+                .order_by("-date_joined")
+                .first()
+            )
+
+        if not user.is_active:
+            return Response(
+                {"error": "Tu cuenta está desactivada", "code": "ACCOUNT_INACTIVE"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not user.tenant.is_active:
+            return Response(
+                {"error": "El negocio asociado a esta cuenta no está activo."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Vincular automáticamente (update_or_create para manejar concurrencia)
+        try:
+            with transaction.atomic():
+                SocialAccount.objects.update_or_create(
+                    user=user,
+                    provider=social_info.provider,
+                    defaults={
+                        "tenant": user.tenant,
+                        "provider_uid": social_info.provider_uid,
+                        "email": social_info.email,
+                        "extra_data": social_info.extra_data,
+                    },
+                )
+        except IntegrityError:
+            return Response(
+                {"error": "Esta cuenta social ya está vinculada"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Social login no requiere 2FA adicional
+        return _build_social_auth_response(user, user.tenant)
+
+
+# ===================================
+# GESTIÓN DE EQUIPO (TEAM)
+# ===================================
+
+
+class TeamListView(generics.ListAPIView):
+    """
+    GET /api/team/ — Listar miembros del equipo del tenant.
+
+    Solo accesible para admins del tenant. Retorna todos los usuarios
+    del tenant con sus cuentas sociales y método de autenticación.
+
+    Query params:
+    - role: filtrar por rol (admin, staff, customer)
+    - auth_method: filtrar por método (email_only, social_only, both)
+    - search: buscar por nombre o email
+    - ordering: ordenar por campo (default: -date_joined)
+    """
+
+    serializer_class = TeamMemberSerializer
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="role", type=str, enum=["admin", "staff", "customer"]),
+            OpenApiParameter(name="auth_method", type=str, enum=["email_only", "social_only", "both"]),
+            OpenApiParameter(name="search", type=str),
+            OpenApiParameter(name="ordering", type=str),
+        ],
+        responses={200: TeamMemberSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = User.objects.filter(tenant=user.tenant).prefetch_related("social_accounts").order_by("-date_joined")
+
+        # Filtro por rol
+        role = self.request.query_params.get("role")
+        if role in ("admin", "staff", "customer"):
+            qs = qs.filter(role=role)
+
+        # Filtro por método de auth (a nivel BD usando UNUSABLE_PASSWORD_PREFIX)
+        auth_method = self.request.query_params.get("auth_method")
+        if auth_method == "email_only":
+            qs = (
+                qs.filter(social_accounts__isnull=True)
+                .exclude(password__startswith=UNUSABLE_PASSWORD_PREFIX)
+                .exclude(password="")
+            )
+        elif auth_method == "social_only":
+            qs = (
+                qs.filter(social_accounts__isnull=False)
+                .filter(Q(password__startswith=UNUSABLE_PASSWORD_PREFIX) | Q(password=""))
+                .distinct()
+            )
+        elif auth_method == "both":
+            qs = (
+                qs.filter(social_accounts__isnull=False)
+                .exclude(password__startswith=UNUSABLE_PASSWORD_PREFIX)
+                .exclude(password="")
+                .distinct()
+            )
+
+        # Búsqueda
+        search = self.request.query_params.get("search")
+        if search:
+            qs = qs.filter(
+                Q(email__icontains=search) | Q(first_name__icontains=search) | Q(last_name__icontains=search)
+            )
+
+        # Ordenamiento
+        ordering = self.request.query_params.get("ordering", "-date_joined")
+        allowed = ["date_joined", "-date_joined", "email", "-email", "role", "-role", "first_name", "-first_name"]
+        if ordering in allowed:
+            qs = qs.order_by(ordering)
+
+        return qs
+
+
+class TeamDisconnectSocialView(APIView):
+    """
+    DELETE /api/team/{user_id}/social/{provider}/ — Desvincular social account de un miembro.
+
+    Solo accesible para admins del tenant. Verifica que el usuario no pierda acceso.
+    Registra la acción en el audit log.
+    """
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(description="Cuenta social desvinculada"),
+            400: OpenApiResponse(description="No se puede desvincular (único método de acceso)"),
+            403: OpenApiResponse(description="No tienes permisos"),
+            404: OpenApiResponse(description="Usuario o social account no encontrada"),
+        },
+    )
+    def delete(self, request, user_id, provider):
+        if provider not in ("google", "apple", "facebook"):
+            return Response({"error": "Proveedor no válido"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Buscar usuario en el mismo tenant
+        try:
+            target_user = User.objects.get(id=user_id, tenant=request.user.tenant)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Buscar social account
+        social_account = SocialAccount.objects.filter(
+            user=target_user, tenant=target_user.tenant, provider=provider
+        ).first()
+        if not social_account:
+            return Response(
+                {"error": f"El usuario no tiene una cuenta de {provider} vinculada"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Verificar que no quede sin acceso
+        has_password = target_user.has_usable_password()
+        other_social_count = (
+            SocialAccount.objects.filter(user=target_user, tenant=target_user.tenant)
+            .exclude(id=social_account.id)
+            .count()
+        )
+
+        if not has_password and other_social_count == 0:
+            return Response(
+                {"error": "No se puede desvincular porque es el único método de acceso del usuario."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Audit log
+        from django.contrib.admin.models import DELETION, LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        ct = ContentType.objects.get_for_model(SocialAccount)
+        LogEntry.objects.log_action(
+            user_id=request.user.pk,
+            content_type_id=ct.pk,
+            object_id=str(social_account.pk),
+            object_repr=f"{social_account.get_provider_display()} (id={social_account.pk})",
+            action_flag=DELETION,
+            change_message=f"Admin id={request.user.pk} desvinculó cuenta {social_account.get_provider_display()} del usuario id={target_user.pk}",
+        )
+        logger.info(
+            f"Team disconnect: {provider} desvinculado de usuario_id={target_user.pk} "
+            f"por admin_id={request.user.pk} (tenant: {request.user.tenant.slug})"
+        )
+
+        social_account.delete()
+        return Response(
+            {"message": f"Cuenta de {provider} desvinculada de {target_user.get_full_name() or target_user.email}"}
+        )
+
+
+class TeamReset2FAView(APIView):
+    """
+    POST /api/team/{user_id}/2fa/reset/ — Resetear 2FA de un miembro del equipo.
+
+    Solo accesible para admins del tenant. Elimina TOTPDevice y todas las
+    credenciales WebAuthn del usuario. Registra la acción en el audit log.
+    """
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    def post(self, request, user_id):
+        # Buscar usuario en el mismo tenant
+        try:
+            target_user = User.objects.get(id=user_id, tenant=request.user.tenant)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        # No permitir resetearse a sí mismo (debe usar la UI normal)
+        if target_user.id == request.user.id:
+            return Response(
+                {"error": "No puedes resetear tu propio 2FA desde aquí. Usa la configuración de tu cuenta."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .views_2fa import user_has_confirmed_2fa
+
+        if not user_has_confirmed_2fa(target_user):
+            return Response(
+                {"error": "Este usuario no tiene 2FA activo"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from django.db import transaction
+
+        with transaction.atomic():
+            # Eliminar TOTPDevice
+            totp_device = getattr(target_user, "totp_device", None)
+            totp_deleted = False
+            if totp_device:
+                totp_device.delete()
+                totp_deleted = True
+
+            # Eliminar credenciales WebAuthn
+            passkeys_deleted = target_user.webauthn_credentials.count()
+            if passkeys_deleted:
+                target_user.webauthn_credentials.all().delete()
+
+            # Audit log
+            from django.contrib.admin.models import CHANGE, LogEntry
+            from django.contrib.contenttypes.models import ContentType
+
+            ct = ContentType.objects.get_for_model(User)
+            details = []
+            if totp_deleted:
+                details.append("TOTP")
+            if passkeys_deleted:
+                details.append(f"{passkeys_deleted} passkey(s)")
+            LogEntry.objects.log_action(
+                user_id=request.user.pk,
+                content_type_id=ct.pk,
+                object_id=str(target_user.pk),
+                object_repr=f"{target_user.get_full_name() or target_user.email}",
+                action_flag=CHANGE,
+                change_message=f"Admin id={request.user.pk} reseteó 2FA ({', '.join(details)}) del usuario id={target_user.pk}",
+            )
+
+        logger.info(
+            f"Team 2FA reset: {', '.join(details)} eliminado(s) de usuario_id={target_user.pk} "
+            f"por admin_id={request.user.pk} (tenant: {request.user.tenant.slug})"
+        )
+
+        target_name = target_user.get_full_name() or target_user.email
+        return Response({"message": f"2FA reseteado para {target_name}"})
+
+
+# ===================================
+# EQUIPO — CRUD de miembros
+# ===================================
+
+
+def _team_audit_log(request, target_user, message):
+    from django.contrib.admin.models import CHANGE, LogEntry
+    from django.contrib.contenttypes.models import ContentType
+
+    ct = ContentType.objects.get_for_model(User)
+    LogEntry.objects.log_action(
+        user_id=request.user.pk,
+        content_type_id=ct.pk,
+        object_id=str(target_user.pk),
+        object_repr=target_user.get_full_name() or target_user.email,
+        action_flag=CHANGE,
+        change_message=message,
+    )
+
+
+class TeamMemberDetailView(APIView):
+    """
+    PATCH  /api/team/{user_id}/ — Modificar rol y datos de un miembro.
+    DELETE /api/team/{user_id}/ — Eliminar miembro (soft delete).
+
+    Solo accesible para admins del tenant.
+    """
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    def _get_target_user(self, request, user_id):
+        try:
+            return User.objects.get(id=user_id, tenant=request.user.tenant)
+        except User.DoesNotExist:
+            return None
+
+    def _audit_log(self, request, target_user, message):
+        _team_audit_log(request, target_user, message)
+
+    def patch(self, request, user_id):
+        from django.db import transaction
+
+        target_user = self._get_target_user(request, user_id)
+        if not target_user:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = TeamUpdateMemberSerializer(target_user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        new_role = serializer.validated_data.get("role")
+
+        # No permitir cambiar su propio rol
+        if new_role and target_user.id == request.user.id:
+            return Response(
+                {"error": "No puedes cambiar tu propio rol"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            # Validar que no quede sin admins (con lock para evitar race condition)
+            if new_role and new_role != "admin" and target_user.role == "admin":
+                other_admins = (
+                    User.objects.select_for_update()
+                    .filter(tenant=request.user.tenant, role="admin", is_active=True)
+                    .exclude(id=target_user.id)
+                )
+                if not other_admins.exists():
+                    return Response(
+                        {"error": "Debe haber al menos un administrador activo en el equipo"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            serializer.save()
+
+        changed_fields = ", ".join(serializer.validated_data.keys())
+        self._audit_log(request, target_user, f"Admin id={request.user.pk} actualizó miembro: {changed_fields}")
+        logger.info(
+            f"Team update: usuario_id={target_user.pk} actualizado ({changed_fields}) "
+            f"por admin_id={request.user.pk} (tenant: {request.user.tenant.slug})"
+        )
+
+        return Response(TeamMemberSerializer(target_user).data)
+
+    def delete(self, request, user_id):
+        from django.db import transaction
+
+        target_user = self._get_target_user(request, user_id)
+        if not target_user:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.id == request.user.id:
+            return Response(
+                {"error": "No puedes eliminarte a ti mismo del equipo"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            # Validar que no quede sin admins (con lock para evitar race condition)
+            if target_user.role == "admin":
+                other_admins = (
+                    User.objects.select_for_update()
+                    .filter(tenant=request.user.tenant, role="admin", is_active=True)
+                    .exclude(id=target_user.id)
+                )
+                if not other_admins.exists():
+                    return Response(
+                        {"error": "Debe haber al menos un administrador activo en el equipo"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            target_user.is_active = False
+            target_user.role = "customer"
+            target_user.save(update_fields=["is_active", "role"])
+
+        self._audit_log(
+            request, target_user, f"Admin id={request.user.pk} eliminó (soft) al miembro id={target_user.pk}"
+        )
+        logger.info(
+            f"Team delete: usuario_id={target_user.pk} eliminado (soft) "
+            f"por admin_id={request.user.pk} (tenant: {request.user.tenant.slug})"
+        )
+
+        return Response({"message": "Miembro eliminado del equipo"})
+
+
+class TeamBlockMemberView(APIView):
+    """
+    POST /api/team/{user_id}/block/ — Bloquear un miembro del equipo.
+
+    Desactiva al usuario (is_active=False), pierde acceso al sistema.
+    Solo accesible para admins del tenant.
+    """
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    def post(self, request, user_id):
+        from django.db import transaction
+
+        try:
+            target_user = User.objects.get(id=user_id, tenant=request.user.tenant)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.id == request.user.id:
+            return Response(
+                {"error": "No puedes bloquearte a ti mismo"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not target_user.is_active:
+            return Response(
+                {"error": "El usuario ya está bloqueado"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            # Validar que no quede sin admins (con lock para evitar race condition)
+            if target_user.role == "admin":
+                other_admins = (
+                    User.objects.select_for_update()
+                    .filter(tenant=request.user.tenant, role="admin", is_active=True)
+                    .exclude(id=target_user.id)
+                )
+                if not other_admins.exists():
+                    return Response(
+                        {"error": "Debe haber al menos un administrador activo en el equipo"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            target_user.is_active = False
+            target_user.save(update_fields=["is_active"])
+
+        _team_audit_log(request, target_user, f"Admin id={request.user.pk} bloqueó al usuario id={target_user.pk}")
+        logger.info(
+            f"Team block: usuario_id={target_user.pk} bloqueado "
+            f"por admin_id={request.user.pk} (tenant: {request.user.tenant.slug})"
+        )
+
+        return Response({"message": "Usuario bloqueado"})
+
+
+class TeamUnblockMemberView(APIView):
+    """
+    POST /api/team/{user_id}/unblock/ — Desbloquear un miembro del equipo.
+
+    Reactiva al usuario (is_active=True).
+    Solo accesible para admins del tenant.
+    """
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    def post(self, request, user_id):
+        try:
+            target_user = User.objects.get(id=user_id, tenant=request.user.tenant)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        if target_user.is_active:
+            return Response(
+                {"error": "El usuario ya está activo"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_user.is_active = True
+        target_user.save(update_fields=["is_active"])
+
+        _team_audit_log(request, target_user, f"Admin id={request.user.pk} desbloqueó al usuario id={target_user.pk}")
+        logger.info(
+            f"Team unblock: usuario_id={target_user.pk} desbloqueado "
+            f"por admin_id={request.user.pk} (tenant: {request.user.tenant.slug})"
+        )
+
+        return Response({"message": "Usuario desbloqueado"})
+
+
+# ===================================
+# EQUIPO — Invitaciones
+# ===================================
+
+
+def _tenant_can_invite(tenant) -> bool:
+    """Verifica si el estado del sitio web del tenant permite invitaciones al equipo."""
+    try:
+        website_config = tenant.website_config
+        return website_config.status in ("published", "review")
+    except Exception:
+        return False
+
+
+class TeamInvitationsView(APIView):
+    """
+    GET  /api/core/team/invitations/ — listar invitaciones
+    POST /api/core/team/invitations/ — crear invitación
+    """
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    @extend_schema(responses=TeamInvitationSerializer(many=True))
+    def get(self, request):
+        from rest_framework.pagination import PageNumberPagination
+
+        invitations = (
+            TeamInvitation.objects.filter(
+                tenant=request.tenant,
+            )
+            .select_related("invited_by")
+            .order_by("-created_at")
+        )
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+        page = paginator.paginate_queryset(invitations, request)
+        if page is not None:
+            serializer = TeamInvitationSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = TeamInvitationSerializer(invitations, many=True)
+        return Response(serializer.data)
+
+    @extend_schema(
+        request=CreateTeamInvitationSerializer,
+        responses=TeamInvitationSerializer,
+    )
+    def post(self, request):
+        if not _tenant_can_invite(request.tenant):
+            return Response(
+                {
+                    "detail": "Las invitaciones al equipo están disponibles una vez que tu sitio web esté publicado o en revisión."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = CreateTeamInvitationSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+        role = serializer.validated_data["role"]
+
+        invitation = TeamInvitation.create_invitation(
+            tenant=request.tenant,
+            email=email,
+            role=role,
+            invited_by=request.user,
+        )
+
+        # Enviar email de invitación
+        try:
+            from notifications.tasks import send_team_invitation_email
+
+            if settings.DEBUG:
+                # En desarrollo: ejecutar sincrónicamente (evita desync entre DBs local/Docker)
+                send_team_invitation_email(invitation.id)
+            else:
+                send_team_invitation_email.delay(invitation.id)
+        except Exception:
+            logger.warning("No se pudo enviar email de invitación %s", invitation.id, exc_info=True)
+
+        return Response(
+            TeamInvitationSerializer(invitation).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class CancelInvitationView(APIView):
+    """DELETE /api/core/team/invitations/{id}/ — cancelar invitación"""
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    def delete(self, request, pk):
+        try:
+            invitation = TeamInvitation.objects.get(pk=pk, tenant=request.tenant, status="pending")
+        except TeamInvitation.DoesNotExist:
+            return Response(
+                {"error": "Invitación no encontrada"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        invitation.cancel()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ResendInvitationView(APIView):
+    """POST /api/core/team/invitations/{id}/resend/ — reenviar invitación"""
+
+    permission_classes = [IsAuthenticated, IsTenantAdmin]
+
+    def post(self, request, pk):
+        if not _tenant_can_invite(request.tenant):
+            return Response(
+                {
+                    "detail": "Las invitaciones al equipo están disponibles una vez que tu sitio web esté publicado o en revisión."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            invitation = TeamInvitation.objects.get(pk=pk, tenant=request.tenant, status="pending")
+        except TeamInvitation.DoesNotExist:
+            return Response(
+                {"error": "Invitación no encontrada"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not invitation.is_valid:
+            return Response(
+                {"error": "La invitación ha expirado"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            from notifications.tasks import send_team_invitation_email
+
+            if settings.DEBUG:
+                send_team_invitation_email(invitation.id)
+            else:
+                send_team_invitation_email.delay(invitation.id)
+        except Exception:
+            logger.warning("No se pudo enviar reenvío de invitación %s", invitation.id, exc_info=True)
+
+        return Response({"message": "Invitación reenviada"})
+
+
+class InvitationDetailView(APIView):
+    """GET /api/public/invitation/{token}/ — ver detalle de invitación (público)"""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
+
+    def get(self, request, token):
+        try:
+            invitation = TeamInvitation.objects.select_related("tenant", "invited_by").get(token=token)
+        except TeamInvitation.DoesNotExist:
+            return Response(
+                {"error": "Invitación no encontrada"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(InvitationDetailSerializer(invitation).data)
+
+
+class AcceptInvitationView(APIView):
+    """POST /api/public/accept-invitation/{token}/ — aceptar invitación (público)"""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [RegisterThrottle]
+
+    @extend_schema(request=AcceptInvitationSerializer)
+    def post(self, request, token):
+        from django.db import transaction
+
+        try:
+            invitation = TeamInvitation.objects.select_related("tenant").get(token=token)
+        except TeamInvitation.DoesNotExist:
+            return Response(
+                {"error": "Invitación no encontrada"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not invitation.is_valid:
+            if invitation.status == "pending":
+                error_msg = "La invitación ha expirado"
+            else:
+                error_msg = "Esta invitación ya no es válida"
+            return Response(
+                {"error": error_msg},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = AcceptInvitationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        data = serializer.validated_data
+        tenant = invitation.tenant
+
+        # Verificar que el email no esté en uso en este tenant
+        if User.objects.filter(tenant=tenant, email__iexact=invitation.email, is_active=True).exists():
+            return Response(
+                {"error": "Ya existe un usuario con este email en este equipo"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            # Re-fetch with lock to prevent race conditions
+            invitation = TeamInvitation.objects.select_for_update().get(pk=invitation.pk)
+            if invitation.status != "pending":
+                return Response(
+                    {"error": "Esta invitación ya no es válida"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Generar username
+            base_username = invitation.email.split("@")[0].lower()
+            username = base_username
+            counter = 1
+            while User.objects.filter(tenant=tenant, username=username).exists():
+                username = f"{base_username}{counter}"
+                counter += 1
+
+            user = User.objects.create_user(
+                tenant=tenant,
+                username=username,
+                email=invitation.email,
+                password=data["password"],
+                first_name=data["first_name"],
+                last_name=data["last_name"],
+                role=invitation.role,
+            )
+
+            invitation.accept(user)
+
+        # Generar tokens JWT con claims de tenant
+        refresh = RefreshToken.for_user(user)
+        refresh["tenant_id"] = tenant.id
+        refresh["tenant_slug"] = tenant.slug
+        refresh["role"] = user.role
+
+        return Response(
+            {
+                "message": "Invitación aceptada. Bienvenido al equipo.",
+                "user": UserSerializer(user).data,
+                "tenant": TenantSerializer(tenant).data,
+                "tokens": {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Endpoints públicos de marketing
+# ---------------------------------------------------------------------------
+
+
+class PublicMarketingSectionsView(APIView):
+    """
+    GET /api/public/marketing-sections/
+
+    Retorna las secciones visibles del sitio de marketing (nerbis.com).
+    Endpoint público, sin autenticación ni tenant context.
+    Respuesta: dict keyed por section_key con content e is_visible.
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="Secciones públicas de marketing",
+        description="Retorna las secciones visibles del landing de NERBIS.",
+        responses={
+            200: OpenApiResponse(description="Dict de secciones keyed por section_key"),
+        },
+    )
+    def get(self, request) -> Response:
+        sections = MarketingSection.objects.filter(is_visible=True).order_by("sort_order")
+        serializer = PublicMarketingSectionSerializer(sections, many=True)
+
+        result: dict[str, dict] = {}
+        for section, data in zip(sections, serializer.data):
+            result[section.section_key] = data
+
+        return Response(result)
+
+
+class PublicIndustryGalleryView(generics.ListAPIView):
+    """
+    GET /api/public/industry-gallery/
+
+    Retorna las cards visibles de la galeria de industrias.
+    Endpoint publico, sin autenticacion ni tenant context.
+    """
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+    serializer_class = PublicIndustryGalleryCardSerializer
+    pagination_class = None
+    queryset = IndustryGalleryCard.objects.filter(is_visible=True).order_by("row", "sort_order")

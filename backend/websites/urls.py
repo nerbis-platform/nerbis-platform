@@ -13,10 +13,13 @@ from .views import (
     ChatView,
     DuplicateSectionView,
     GenerateContentView,
+    GenerationStatusView,
+    OnboardingQuestionListView,
     OnboardingStatusView,
     PreviewRenderView,
     PreviewWebsiteView,
     PublishWebsiteView,
+    QuickStartView,
     RemoveSectionView,
     ReorderSectionsView,
     SaveOnboardingResponsesView,
@@ -25,6 +28,8 @@ from .views import (
     UpdateSectionVariantView,
     UploadWebsiteMediaView,
     WebsiteConfigViewSet,
+    WebsitePageListView,
+    WebsiteSectionListView,
     WebsiteTemplateViewSet,
 )
 
@@ -39,8 +44,13 @@ urlpatterns = [
     path("onboarding/start/", StartOnboardingView.as_view(), name="onboarding-start"),
     path("onboarding/responses/", SaveOnboardingResponsesView.as_view(), name="onboarding-responses"),
     path("onboarding/status/", OnboardingStatusView.as_view(), name="onboarding-status"),
+    path("onboarding/quick-start/", QuickStartView.as_view(), name="onboarding-quick-start"),
+    path("onboarding/questions/", OnboardingQuestionListView.as_view(), name="onboarding-questions"),
+    path("onboarding/pages/", WebsitePageListView.as_view(), name="onboarding-pages"),
+    path("onboarding/sections/", WebsiteSectionListView.as_view(), name="onboarding-sections"),
     # AI Generation
     path("generate/", GenerateContentView.as_view(), name="generate-content"),
+    path("generation-status/", GenerationStatusView.as_view(), name="generation-status"),
     # Chat
     path("chat/", ChatView.as_view(), name="chat"),
     # SEO AI Suggestions

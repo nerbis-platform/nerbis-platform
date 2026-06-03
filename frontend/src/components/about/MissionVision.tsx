@@ -19,9 +19,9 @@ export function MissionVision() {
 
         <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
           {/* Misión */}
-          <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
+          <Card className="border-0 shadow-lg overflow-hidden group hover-lift transition-all duration-300">
             <CardContent className="p-8">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+              <div className="size-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                 <Target className="h-8 w-8 text-primary" />
               </div>
 
@@ -44,10 +44,10 @@ export function MissionVision() {
           </Card>
 
           {/* Visión */}
-          <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
+          <Card className="border-0 shadow-lg overflow-hidden group hover-lift transition-all duration-300">
             <CardContent className="p-8">
-              <div className="w-16 h-16 rounded-2xl bg-gold/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                <Eye className="h-8 w-8 text-gold" />
+              <div className="size-16 rounded-2xl bg-accent/50 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                <Eye className="h-8 w-8 text-accent-foreground" />
               </div>
 
               <h3 className="text-2xl font-bold text-foreground mb-4">
@@ -61,7 +61,7 @@ export function MissionVision() {
               </p>
 
               <div className="mt-6 pt-6 border-t border-border">
-                <p className="text-sm font-medium text-gold">
+                <p className="text-sm font-medium text-accent-foreground">
                   Redefinir los estándares de elegancia y cuidado personal
                 </p>
               </div>

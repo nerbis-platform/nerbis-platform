@@ -7,7 +7,15 @@ Maneja la serialización de templates, onboarding, y chat con IA.
 
 from rest_framework import serializers
 
-from .models import AIGenerationLog, OnboardingQuestion, OnboardingResponse, WebsiteConfig, WebsiteTemplate
+from .models import (
+    AIGenerationLog,
+    OnboardingQuestion,
+    OnboardingResponse,
+    WebsiteConfig,
+    WebsitePage,
+    WebsiteSection,
+    WebsiteTemplate,
+)
 
 # ===================================
 # TEMPLATES
@@ -87,9 +95,10 @@ class WebsiteTemplateDetailSerializer(serializers.ModelSerializer):
 
 
 class OnboardingQuestionSerializer(serializers.ModelSerializer):
-    """Serializer para preguntas de onboarding."""
+    """Serializer para preguntas de onboarding (incluye campos conversacionales de Pipe)."""
 
     type_display = serializers.CharField(source="get_question_type_display", read_only=True)
+    required_modules = serializers.SlugRelatedField(many=True, read_only=True, slug_field="key")
 
     class Meta:
         model = OnboardingQuestion
@@ -97,17 +106,46 @@ class OnboardingQuestionSerializer(serializers.ModelSerializer):
             "id",
             "question_key",
             "question_text",
+            "message",
+            "input_type",
             "question_type",
             "type_display",
             "options",
             "placeholder",
+            "hint",
             "help_text",
             "is_required",
             "min_length",
             "max_length",
             "section",
             "sort_order",
+            "required_modules",
         ]
+
+
+class WebsitePageSerializer(serializers.ModelSerializer):
+    """Serializer para páginas disponibles en el onboarding."""
+
+    auto_include_modules = serializers.SlugRelatedField(many=True, read_only=True, slug_field="key")
+
+    class Meta:
+        model = WebsitePage
+        fields = [
+            "key",
+            "label",
+            "description",
+            "icon",
+            "is_mandatory",
+            "is_default",
+            "sort_order",
+            "auto_include_modules",
+        ]
+
+
+class WebsiteSectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WebsiteSection
+        fields = ["id", "key", "label", "description", "page", "is_default", "sort_order"]
 
 
 class OnboardingResponseSerializer(serializers.ModelSerializer):
@@ -252,6 +290,82 @@ class WebsiteConfigCreateSerializer(serializers.Serializer):
         # TODO: Implementar verificación de acceso a templates premium
 
         return value
+
+
+# ===================================
+# QUICK-START ONBOARDING (Fase 2)
+# ===================================
+
+
+class QuickStartSerializer(serializers.Serializer):
+    """Serializer para el onboarding rapido (3 campos).
+
+    Acepta los datos minimos para generar un sitio de calidad en un solo
+    request, sin pasar por el flujo de seleccion de template + onboarding
+    de 4 secciones.
+    """
+
+    business_description = serializers.CharField(
+        max_length=1000,
+        help_text="Descripcion del negocio + que lo diferencia (2-3 lineas)",
+    )
+    main_services = serializers.CharField(
+        max_length=2000,
+        help_text="Servicios principales, separados por coma o salto de linea",
+    )
+    business_whatsapp = serializers.CharField(
+        max_length=20,
+        required=False,
+        allow_blank=True,
+        help_text="Numero de WhatsApp (opcional, se pre-llena con phone del tenant)",
+    )
+    ALLOWED_SECTIONS = [
+        "Sobre nosotros",
+        "Servicios",
+        "Productos",
+        "Servicios / Productos",
+        "Galería de fotos",
+        "Testimonios / Reseñas",
+        "Precios / Tarifas",
+        "Preguntas frecuentes",
+    ]
+
+    website_sections = serializers.ListField(
+        child=serializers.ChoiceField(choices=[]),  # choices set in __init__
+        required=False,
+        max_length=8,
+        help_text="Secciones seleccionadas por el usuario (ej: ['Sobre nosotros', 'Testimonios / Reseñas']). "
+        "Si no se envia, se usan los defaults del vertical.",
+    )
+
+    ALLOWED_TONES = [
+        "profesional",
+        "calido",
+        "moderno",
+        "minimalista",
+        "juvenil",
+    ]
+
+    brand_tone = serializers.ChoiceField(
+        choices=[],  # choices set in __init__
+        required=False,
+        help_text="Personalidad de marca: profesional, calido, moderno, minimalista, juvenil",
+    )
+    primary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        required=False,
+        help_text="Color primario en hex (ej: #1C3B57)",
+    )
+    secondary_color = serializers.RegexField(
+        regex=r"^#[0-9A-Fa-f]{6}$",
+        required=False,
+        help_text="Color secundario en hex (ej: #0D9488)",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["website_sections"].child.choices = [(s, s) for s in self.ALLOWED_SECTIONS]
+        self.fields["brand_tone"].choices = [(t, t) for t in self.ALLOWED_TONES]
 
 
 # ===================================

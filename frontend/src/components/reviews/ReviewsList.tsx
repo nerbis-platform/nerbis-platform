@@ -45,7 +45,7 @@ export function ReviewsList({ itemId, itemType, averageRating = 0, totalReviews 
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {[...Array(3)].map((_, i) => (
           <Skeleton key={i} className="h-48" />
         ))}
@@ -73,7 +73,7 @@ export function ReviewsList({ itemId, itemType, averageRating = 0, totalReviews 
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Summary */}
       <div className="bg-muted rounded-lg p-6">
         <div className="grid md:grid-cols-2 gap-8">
@@ -87,7 +87,7 @@ export function ReviewsList({ itemId, itemType, averageRating = 0, totalReviews 
           </div>
 
           {/* Rating Distribution */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {ratingDistribution.map(({ rating, count, percentage }) => (
               <button
                 key={rating}
@@ -97,7 +97,7 @@ export function ReviewsList({ itemId, itemType, averageRating = 0, totalReviews 
                 <span className="text-sm w-12">{rating} ★</span>
                 <div className="flex-1 bg-background rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-yellow-400 h-full transition-all"
+                    className="bg-[var(--color-status-warning)] h-full transition-all"
                     style={{ width: `${percentage}%` }}
                   />
                 </div>
@@ -127,7 +127,7 @@ export function ReviewsList({ itemId, itemType, averageRating = 0, totalReviews 
       </Tabs>
 
       {/* Reviews List */}
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {reviews.map((review) => (
           <ReviewCard
             key={review.id}

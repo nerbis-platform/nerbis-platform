@@ -238,7 +238,7 @@ export default function LogoOptimizer({
       {modelStatus !== 'idle' && (
         <div className="flex items-center gap-2 text-[0.72rem] text-gray-400">
           <span
-            className="inline-block w-1.5 h-1.5 rounded-full bg-[#95D0C9]"
+            className="inline-block w-1.5 h-1.5 rounded-full bg-[#0D9488]"
             style={{ animation: 'logo-opt-pulse 1.2s ease-in-out infinite' }}
           />
           {modelStatus === 'downloading'
@@ -304,7 +304,7 @@ export default function LogoOptimizer({
             disabled={isProcessing || justApplied}
             className="flex-1 h-9 rounded-xl text-[0.75rem] font-medium text-white transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98]"
             style={{
-              background: justApplied ? '#95D0C9' : '#1C3B57',
+              background: justApplied ? '#0D9488' : '#1C3B57',
               animation: justApplied ? 'logo-opt-success 400ms ease-out' : undefined,
             }}
           >
@@ -370,8 +370,8 @@ function ToolButton({
       disabled={disabled}
       className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border text-[0.75rem] font-medium transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
         isActive
-          ? 'border-[#95D0C9] bg-[#E2F3F1]/50 text-[#1C3B57]'
-          : 'border-gray-100 text-gray-500 hover:border-[#95D0C9] hover:text-[#1C3B57] hover:bg-[#E2F3F1]/20'
+          ? 'border-[#0D9488] bg-[#E2F3F1]/50 text-[#1C3B57]'
+          : 'border-gray-100 text-gray-500 hover:border-[#0D9488] hover:text-[#1C3B57] hover:bg-[#E2F3F1]/20'
       }`}
       style={{ height: compact ? '32px' : '36px' }}
     >

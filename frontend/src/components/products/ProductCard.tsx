@@ -43,7 +43,7 @@ export function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Card className="overflow-hidden group hover:shadow-lg transition-shadow">
+    <Card className="overflow-hidden group hover-lift transition-shadow">
       <Link href={`/products/${product.id}`}>
         <div className="relative aspect-square overflow-hidden bg-muted">
           {mainImage && !imageError ? (
@@ -64,7 +64,7 @@ export function ProductCard({ product }: ProductCardProps) {
             <Badge className="absolute top-2 right-2">Destacado</Badge>
           )}
           {hasDiscount && (
-            <Badge variant="destructive" className="absolute top-2 left-2">
+            <Badge className="absolute top-2 left-2">
               Oferta
             </Badge>
           )}

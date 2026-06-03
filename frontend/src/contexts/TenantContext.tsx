@@ -6,9 +6,11 @@ import { usePathname } from 'next/navigation';
 import { apiClient, ApiError } from '@/lib/api/client';
 import { getClientTenantSlug } from '@/lib/tenant';
 import { applyThemeToDOM, type ThemeConfig } from '@/lib/utils/theme-colors';
+import { ErrorState } from '@/components/feedback/ErrorState';
+import { Skeleton } from '@/components/ui/skeleton';
 
-/** Rutas que no requieren tenant (auth, registro, etc.) */
-const AUTH_PATHS = ['/login', '/forgot-password', '/reset-password', '/reactivate', '/register-business'];
+/** Rutas que no requieren tenant (landing, auth, registro, etc.) */
+const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/reactivate', '/register-business', '/ayuda'];
 
 // Tipos
 export interface TenantModules {
@@ -69,6 +71,13 @@ export interface TenantSubscription {
   is_subscribed: boolean;
 }
 
+export interface TenantLegal {
+  legal_name: string;
+  tax_id: string;
+  legal_address: string;
+  tax_rate: number;
+}
+
 export interface TenantData {
   tenant: TenantInfo;
   modules: TenantModules;
@@ -79,6 +88,7 @@ export interface TenantData {
   pages?: TenantPages;
   theme?: TenantTheme;
   subscription?: TenantSubscription;
+  legal?: TenantLegal;
 }
 
 // Context
@@ -96,11 +106,13 @@ export function TenantProvider({ children }: TenantProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const pathname = usePathname();
 
-  // Auth pages don't require tenant — skip loading
-  const isAuthPage = AUTH_PATHS.some(p => pathname?.startsWith(p));
+  // Public/auth pages don't require tenant — skip loading
+  const isPublicPage = PUBLIC_PATHS.some(p =>
+    p === '/' ? pathname === '/' : pathname?.startsWith(p)
+  );
 
   useEffect(() => {
-    if (isAuthPage) {
+    if (isPublicPage) {
       setLoading(false);
       return;
     }
@@ -118,25 +130,35 @@ export function TenantProvider({ children }: TenantProviderProps) {
         setTenantData(response.data);
         setError(null);
       } catch (err) {
-        if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
-          // Tenant no encontrado — redirigir al login
-          window.location.href = '/login';
-          return;
+        if (err instanceof ApiError) {
+          if (err.status === 401) {
+            // Sesión expirada — clearSessionAndRedirect ya redirige al login
+            return;
+          }
+          if (err.status === 400 || err.status === 404) {
+            // Tenant no encontrado — redirigir al login
+            window.location.href = '/login';
+            return;
+          }
         }
         console.error('Error loading tenant config:', err);
-        setError('Error al cargar la configuración del tenant');
+        if (err instanceof ApiError && err.code === 'NETWORK_ERROR') {
+          setError('NETWORK_ERROR');
+        } else {
+          setError('Error al cargar la configuración del tenant');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadTenantConfig();
-  }, [isAuthPage]);
+  }, [isPublicPage]);
 
   const tenantReady = !!tenantData;
 
   // Auth pages render without tenant context
-  if (isAuthPage) {
+  if (isPublicPage) {
     return (
       <TenantContext.Provider value={tenantData}>
         <TenantReadyContext.Provider value={false}>
@@ -148,62 +170,43 @@ export function TenantProvider({ children }: TenantProviderProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando...</p>
+      <div className="min-h-screen bg-background">
+        {/* Header skeleton */}
+        <div className="h-16 border-b border-border px-6 flex items-center justify-between">
+          <Skeleton className="h-8 w-28" />
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-8 w-8 rounded-full" />
+          </div>
+        </div>
+
+        {/* Content skeleton */}
+        <div className="mx-auto max-w-6xl px-6 py-10">
+          {/* Hero section */}
+          <Skeleton className="h-64 w-full rounded-lg mb-8" />
+
+          {/* Content rows */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="h-40 w-full rounded-lg" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   if (error || !tenantData) {
-    const isNetworkError = error?.includes('conectar') || error?.includes('internet');
     return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-gray-50 to-white p-6">
-        <div className="text-center max-w-sm">
-          {/* Icon */}
-          <div className="mx-auto mb-6 w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
-            {isNetworkError ? (
-              <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-              </svg>
-            ) : (
-              <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-          </div>
-
-          {/* Title */}
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            {isNetworkError ? 'Sin conexión al servidor' : 'Algo salió mal'}
-          </h2>
-
-          {/* Message */}
-          <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-            {isNetworkError
-              ? 'No pudimos conectar con el servidor. Esto puede pasar si hay un mantenimiento o si tu conexión a internet se perdió.'
-              : 'Hubo un problema al cargar tu sitio. Por favor intenta de nuevo.'}
-          </p>
-
-          {/* Retry button */}
-          <button
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1C3B57] text-white text-sm font-medium rounded-lg hover:bg-[#15304a] transition-colors shadow-sm"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
-            </svg>
-            Reintentar
-          </button>
-
-          {/* Subtle help text */}
-          <p className="text-xs text-gray-400 mt-4">
-            Si el problema persiste, espera unos minutos e intenta de nuevo.
-          </p>
-        </div>
-      </div>
+      <ErrorState
+        variant={error === 'NETWORK_ERROR' ? 'network' : 'generic'}
+        onRetry={() => window.location.reload()}
+        genericMessage="Hubo un problema al cargar tu sitio. Por favor intenta de nuevo."
+      />
     );
   }
 
@@ -339,4 +342,12 @@ export function usePageEnabled(pageSlug: string): boolean {
 export function useTenantTheme(): TenantTheme | null {
   const data = useTenant();
   return data.theme || null;
+}
+
+/**
+ * Hook para obtener la información legal del tenant (razón social, NIT, dirección fiscal, tasa IVA).
+ */
+export function useTenantLegal(): TenantLegal | null {
+  const data = useTenant();
+  return data.legal || null;
 }

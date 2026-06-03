@@ -3,8 +3,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { User, RegisterData, RegisterTenantData, Tenant } from '@/types';
+import { User, RegisterData, RegisterTenantData, Tenant, SocialProvider } from '@/types';
 import * as authApi from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/client';
 import { useRouter } from 'next/navigation';
 
 // Helper para obtener tenant del localStorage
@@ -14,12 +15,23 @@ function getStoredTenant(): Tenant | null {
   return tenantStr ? JSON.parse(tenantStr) : null;
 }
 
+/**
+ * Resultado de un intento de login manejado por el AuthContext.
+ * - `authenticated` → sesión creada; ya se hizo redirect.
+ * - `2fa_required` → falta verificar segundo factor con el challenge token.
+ */
+export type LoginOutcome =
+  | { kind: 'authenticated' }
+  | { kind: '2fa_required'; challengeToken: string; methods: string[] };
+
 interface AuthContextType {
   user: User | null;
   tenant: Tenant | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  platformLogin: (credentials: { email: string; password: string }, redirectTo?: string) => Promise<void>;
+  platformLogin: (credentials: { email: string; password: string }, redirectTo?: string) => Promise<LoginOutcome>;
+  socialLogin: (provider: SocialProvider, token: string, extra?: { first_name?: string; last_name?: string }) => Promise<LoginOutcome>;
+  completeTwoFactorChallenge: (challengeToken: string, code: string, redirectTo?: string) => Promise<void>;
   register: (data: RegisterData, redirectTo?: string) => Promise<{ message: string }>;
   registerTenant: (data: RegisterTenantData) => Promise<{ message: string }>;
   logout: (redirectTo?: string) => Promise<void>;
@@ -32,56 +44,119 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => authApi.getStoredUser());
   const [tenant, setTenant] = useState<Tenant | null>(() => getStoredTenant());
-  const [isLoading, setIsLoading] = useState(false);
+  // Siempre iniciar en true — con httpOnly cookies, el cliente no puede
+  // saber si hay sesión válida; getCurrentUser() lo valida con el servidor
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const refreshedRef = useRef(false);
 
-  // Auto-refresh: obtener datos frescos del servidor al cargar la app
+  // Auto-refresh: validar sesión con el servidor al cargar la app.
+  // Con httpOnly cookies, siempre debemos consultar al servidor.
   useEffect(() => {
     if (refreshedRef.current) return;
-    if (typeof window === 'undefined') return;
-
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
-
     refreshedRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoading(true);
 
     authApi.getCurrentUser()
       .then((freshUser) => {
         setUser(freshUser);
-        // Actualizar tenant desde localStorage (se actualiza en getCurrentUser)
         setTenant(getStoredTenant());
       })
-      .catch(() => {
-        // Si falla (token expirado, etc), no hacer nada.
-        // El interceptor de 401 se encarga de limpiar la sesión.
+      .catch((error: unknown) => {
+        // Solo limpiar estado en errores de autorización (sesión inválida).
+        // Errores de red/servidor no deben cerrar la sesión del usuario.
+        const isAuthError = error instanceof ApiError
+          && (error.status === 401 || error.status === 403);
+        if (isAuthError) {
+          setUser(null);
+          setTenant(null);
+        }
       })
       .finally(() => {
         setIsLoading(false);
       });
   }, []);
 
-  const platformLogin = async (credentials: { email: string; password: string }, redirectTo?: string) => {
-    const response = await authApi.platformLogin(credentials);
+  // Redirigir según estado del tenant después de autenticarse.
+  // Solo llega al dashboard genérico si el sitio ya está publicado.
+  const redirectAfterLogin = (tenant: Tenant | null, customRedirect?: string) => {
+    if (customRedirect) {
+      router.push(customRedirect);
+    } else if (tenant && !tenant.modules_configured) {
+      // Fase: registered / onboarding → Quick Start con Pipe
+      router.push('/dashboard/website-builder/quick-start');
+    } else if (tenant && tenant.website_status === 'published') {
+      // Fase: operational → Dashboard
+      router.push('/dashboard');
+    } else if (tenant && tenant.has_management && !tenant.has_website) {
+      // Management-only tenant → Dashboard directly (no website needed)
+      router.push('/dashboard');
+    } else if (tenant && tenant.has_website) {
+      // Fase: website_building / website_generated → Website Builder
+      router.push('/dashboard/website-builder');
+    } else {
+      // Fase: modules_configured (sin website creado aún) → Website Builder
+      router.push('/dashboard/website-builder');
+    }
+  };
+
+  const platformLogin = async (
+    credentials: { email: string; password: string },
+    redirectTo?: string,
+  ): Promise<LoginOutcome> => {
+    const result = await authApi.platformLogin(credentials);
+    if (result.kind === '2fa_required') {
+      return { kind: '2fa_required', challengeToken: result.challengeToken, methods: result.methods };
+    }
+    const { response } = result;
     setUser(response.user);
     if (response.tenant) {
       setTenant(response.tenant);
     }
-    // Redirigir según estado del tenant
-    if (redirectTo) {
-      router.push(redirectTo);
-    } else if (response.tenant && !response.tenant.modules_configured) {
-      router.push('/dashboard/setup');
-    } else if (
-      response.tenant?.has_website &&
-      response.tenant.website_status !== 'published'
-    ) {
-      router.push('/dashboard/website-builder');
-    } else {
-      router.push('/dashboard');
+    redirectAfterLogin(response.tenant ?? null, redirectTo);
+    return { kind: 'authenticated' };
+  };
+
+  const socialLogin = async (
+    provider: SocialProvider,
+    token: string,
+    extra?: { first_name?: string; last_name?: string },
+  ): Promise<LoginOutcome> => {
+    // Detección de contexto:
+    // - localhost:3000, 127.0.0.1 → platform (login de dueño de negocio, cross-tenant)
+    // - nerbis.com (dominio raíz) → platform
+    // - pixel-sabana.nerbis.com (subdominio) → tenant-scoped (login de cliente, puede auto-crear)
+    const host = window.location.host;
+    const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const baseDomain = process.env.NEXT_PUBLIC_PLATFORM_BASE_DOMAIN || 'nerbis.com';
+    const isSubdomain = !isLocalhost && host !== baseDomain && host.endsWith(`.${baseDomain}`);
+
+    const result = isSubdomain
+      ? await authApi.socialLogin(provider, token, extra)
+      : await authApi.platformSocialLogin(provider, token, extra);
+
+    if (result.kind === '2fa_required') {
+      return { kind: '2fa_required', challengeToken: result.challengeToken, methods: result.methods };
     }
+    const { response } = result;
+    setUser(response.user);
+    if (response.tenant) {
+      setTenant(response.tenant);
+    }
+    redirectAfterLogin(response.tenant ?? null);
+    return { kind: 'authenticated' };
+  };
+
+  const completeTwoFactorChallenge = async (
+    challengeToken: string,
+    code: string,
+    redirectTo?: string,
+  ): Promise<void> => {
+    const response = await authApi.completeTwoFactorChallenge(challengeToken, code);
+    setUser(response.user);
+    if (response.tenant) {
+      setTenant(response.tenant);
+    }
+    redirectAfterLogin(response.tenant ?? null, redirectTo);
   };
 
   const register = async (data: RegisterData, redirectTo?: string) => {
@@ -100,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (response.tenant) {
       setTenant(response.tenant);
     }
-    router.push('/dashboard/setup');
+    router.push('/dashboard/website-builder/quick-start');
     return { message: response.message || 'Negocio creado exitosamente' };
   };
 
@@ -117,6 +192,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user,
     isLoading,
     platformLogin,
+    socialLogin,
+    completeTwoFactorChallenge,
     register,
     registerTenant,
     logout,

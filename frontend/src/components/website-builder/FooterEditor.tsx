@@ -37,7 +37,7 @@ export default function FooterEditor({
     onChange({ ...content, [key]: value });
   };
 
-  const inputClass = 'w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors';
+  const inputClass = 'w-full mt-1.5 h-10 px-3 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors';
   const labelClass = 'text-[0.72rem] font-medium text-gray-400 uppercase tracking-wide';
 
   return (
@@ -56,7 +56,7 @@ export default function FooterEditor({
               onChange={(e) => updateField('description', e.target.value)}
               placeholder="Visítanos y descubre todo lo que tenemos para ofrecerte."
               rows={2}
-              className="w-full mt-1.5 px-3 py-2.5 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 resize-none transition-colors"
+              className="w-full mt-1.5 px-3 py-2.5 rounded-lg border border-gray-200 text-[0.88rem] text-gray-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 resize-none transition-colors"
             />
           </div>
 
@@ -152,7 +152,7 @@ export default function FooterEditor({
             <button
               type="button"
               onClick={() => onNavigateToSection('contact')}
-              className="flex items-center gap-1 text-[0.72rem] text-[#1C3B57] font-medium hover:underline cursor-pointer"
+              className="flex items-center gap-1 text-[0.72rem] text-foreground font-medium hover:underline cursor-pointer"
             >
               Editar
               <ArrowRight className="h-3 w-3" />

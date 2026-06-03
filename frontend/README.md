@@ -6,31 +6,42 @@ First, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## HTTPS Local (para Facebook Login)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Facebook Login requiere HTTPS obligatoriamente. Para probar social login con Facebook en desarrollo local:
 
-## Learn More
+### 1. Instalar mkcert (solo la primera vez)
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# macOS
+brew install mkcert
+mkcert -install
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 2. Ejecutar el dev server con HTTPS
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev:https
+```
 
-## Deploy on Vercel
+Esto levanta el servidor en `https://localhost:3000` con un certificado autofirmado generado por Next.js + mkcert.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 3. Configurar Facebook App (solo la primera vez)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+En la [consola de Facebook Developers](https://developers.facebook.com/apps/):
+
+1. Ir a tu app > Settings > Basic
+2. En "App Domains" agregar `localhost`
+3. Ir a Facebook Login > Settings
+4. En "Valid OAuth Redirect URIs" agregar `https://localhost:3000`
+
+### Notas
+
+- Google Login funciona tanto en HTTP como HTTPS, no necesita este setup
+- El backend Django puede seguir en HTTP (`http://localhost:8000`) — el flujo OAuth envía el token del SDK al backend por API. El navegador mostrará avisos de "mixed content" en la consola porque el frontend es HTTPS y el backend HTTP; esto es normal en desarrollo y no afecta el funcionamiento del OAuth (el SDK de Facebook corre en el cliente y el token se envía al backend vía API)
+- Asegúrate de tener `NEXT_PUBLIC_API_URL=http://localhost:8000/api` en tu `.env.local`
+- En producción (Vercel/dominio real) HTTPS es automático, no se necesita configuración adicional

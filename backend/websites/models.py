@@ -145,6 +145,16 @@ class OnboardingQuestion(models.Model):
         ("url", "URL"),
     ]
 
+    INPUT_TYPES = [
+        ("textarea", "Área de texto"),
+        ("input", "Campo de texto"),
+        ("multiselect", "Selección múltiple"),
+        ("modules", "Selector de módulos"),
+        ("style_select", "Selector de estilo visual"),
+        ("color_picker", "Selector de colores"),
+        ("tone_select", "Selector de tono"),
+    ]
+
     template = models.ForeignKey(
         WebsiteTemplate,
         on_delete=models.CASCADE,
@@ -194,6 +204,34 @@ class OnboardingQuestion(models.Model):
     sort_order = models.PositiveIntegerField("Orden", default=0)
 
     is_active = models.BooleanField("Activa", default=True)
+
+    # --- Campos para onboarding conversacional (Pipe) ---
+    message = models.CharField(
+        "Mensaje de Pipe",
+        max_length=300,
+        blank=True,
+        help_text="Lo que Pipe pregunta al usuario en el chat conversacional",
+    )
+    input_type = models.CharField(
+        "Tipo de input UI",
+        max_length=20,
+        choices=INPUT_TYPES,
+        default="input",
+        help_text="Tipo de componente en la interfaz de onboarding",
+    )
+    hint = models.CharField(
+        "Hint",
+        max_length=200,
+        blank=True,
+        help_text="Texto de ayuda debajo del campo",
+    )
+    required_modules = models.ManyToManyField(
+        "core.PlatformModule",
+        blank=True,
+        related_name="onboarding_questions",
+        verbose_name="Módulos requeridos",
+        help_text="Si vacío, la pregunta siempre se muestra. Si tiene módulos, solo si el usuario los seleccionó.",
+    )
 
     class Meta:
         verbose_name = "Pregunta de Onboarding"
@@ -292,6 +330,15 @@ class WebsiteConfig(models.Model):
     )
     subdomain = models.SlugField(
         "Subdominio", max_length=50, blank=True, help_text="Subdominio en nerbis (ej: minegocio.nerbis.com)"
+    )
+
+    # Celery task tracking
+    generation_task_id = models.CharField(
+        "ID de tarea Celery",
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="ID de la tarea Celery activa de generación",
     )
 
     # Tracking
@@ -502,3 +549,100 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f"[{self.role}] {self.content[:50]}..."
+
+
+class WebsitePage(models.Model):
+    """
+    Pagina configurable para sitios web.
+
+    Define las paginas disponibles en el onboarding.
+    Es un modelo GLOBAL, no pertenece a ningun tenant.
+    """
+
+    key = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text="Identificador ej: about",
+    )
+    label = models.CharField(
+        max_length=100,
+        help_text="Nombre visible ej: Sobre nosotros",
+    )
+    description = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Descripcion corta de la pagina",
+    )
+    icon = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Nombre del icono Lucide",
+    )
+    is_mandatory = models.BooleanField(
+        default=False,
+        help_text="No se puede quitar (Home, Contacto)",
+    )
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Preseleccionada en onboarding",
+    )
+    sort_order = models.IntegerField(
+        default=0,
+        help_text="Orden de la pagina en el listado",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Si esta disponible para seleccion",
+    )
+    auto_include_modules = models.ManyToManyField(
+        "core.PlatformModule",
+        blank=True,
+        related_name="auto_pages",
+        help_text="Se incluye automaticamente si el usuario selecciona estos modulos",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "label"]
+        verbose_name = "Pagina de sitio web"
+        verbose_name_plural = "Paginas de sitio web"
+
+    def __str__(self):
+        return self.label
+
+
+class WebsiteSection(models.Model):
+    """
+    Seccion configurable para paginas de sitio web.
+
+    Modelo GLOBAL, no pertenece a ningun tenant.
+    page=NULL significa seccion de Home.
+    """
+
+    key = models.CharField(max_length=50, unique=True, help_text="Identificador ej: testimonials")
+    label = models.CharField(max_length=100, help_text="Nombre visible ej: Testimonios")
+    description = models.CharField(max_length=200, blank=True, help_text="Descripcion corta")
+    page = models.ForeignKey(
+        WebsitePage,
+        on_delete=models.SET_NULL,
+        related_name="sections",
+        null=True,
+        blank=True,
+        help_text="Pagina a la que pertenece. NULL = seccion de Home",
+    )
+    is_default = models.BooleanField(default=False, help_text="La IA la incluye por defecto")
+    sort_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "label"]
+        verbose_name = "Seccion de sitio web"
+        verbose_name_plural = "Secciones de sitio web"
+
+    def __str__(self):
+        page_label = self.page.label if self.page else "Home"
+        return f"{self.label} ({page_label})"

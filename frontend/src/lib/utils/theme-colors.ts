@@ -1,10 +1,13 @@
 /**
- * Derivación de paleta CSS completa desde 2 colores (primary + secondary).
+ * Derivación de paleta CSS — primitive-layer injection.
  *
- * Genera ~25 CSS custom properties que mapean 1:1 con las variables
- * definidas en globals.css (:root). Esto permite que TODO el storefront
- * (productos, carrito, checkout, etc.) adopte el tema del tenant
- * automáticamente sin tocar cada componente.
+ * Genera ~10 primitive-layer tokens (--primitive-brand-50..900) desde
+ * un color primario. Las capas semantic y component de globals.css
+ * referencian estos primitivos via var(), así que el cascadeo es
+ * automático: cambiar los primitivos actualiza todo el tema.
+ *
+ * Para tenants con colores custom, solo se inyectan los primitivos.
+ * La fuente (heading/body) se inyecta aparte si el tenant la define.
  */
 
 // ─── Conversiones de color ──────────────────────────────────
@@ -77,75 +80,56 @@ export function isLightColor(hex: string): boolean {
   return luminance > 0.55;
 }
 
-// ─── Derivación de paleta ───────────────────────────────────
+// ─── Derivación de paleta (primitive-layer) ─────────────────
 
 /**
- * Genera todas las CSS variables de tema desde primary + secondary.
- * Las variables coinciden 1:1 con las de globals.css :root.
+ * Genera una escala de 10 tonos (50..900) desde un color base.
+ * Los tonos se distribuyen en lightness de claro a oscuro,
+ * manteniendo el hue y ajustando saturación para naturalidad.
+ */
+function generateBrandScale(baseHex: string): Record<string, string> {
+  const base = hexToHSL(baseHex);
+
+  // Lightness targets para cada stop (inspirados en Tailwind)
+  const stops: [string, number, number][] = [
+    ['50', 97, -40],   // muy claro, baja saturación
+    ['100', 93, -30],
+    ['200', 85, -15],
+    ['300', 74, -5],
+    ['400', 62, 0],
+    ['500', 50, 5],
+    ['600', 42, 0],    // ~base (el color del tenant)
+    ['700', 35, -5],
+    ['800', 28, -10],
+    ['900', 22, -15],
+  ];
+
+  const scale: Record<string, string> = {};
+
+  for (const [stop, lightness, satOffset] of stops) {
+    const sat = Math.max(0, Math.min(100, base.s + satOffset));
+    scale[`--primitive-brand-${stop}`] = hslToHex(base.h, sat, lightness);
+  }
+
+  return scale;
+}
+
+/**
+ * Genera primitive-layer CSS variables desde un color primario.
+ *
+ * Solo inyecta --primitive-brand-50..900. Las capas semantic y
+ * component de globals.css hacen var(--primitive-brand-*), así
+ * que el cascadeo actualiza todo automáticamente.
+ *
+ * @param primaryColor — El color de marca del tenant (hex)
+ * @param _secondaryColor — Mantenido por compatibilidad, ignorado.
+ *   El sistema de 3 capas usa una sola escala de brand.
  */
 export function deriveThemeVariables(
   primaryColor: string,
-  secondaryColor: string,
+  _secondaryColor: string,
 ): Record<string, string> {
-  const primary = hexToHSL(primaryColor);
-  const secondary = hexToHSL(secondaryColor);
-
-  const primaryFg = isLightColor(primaryColor) ? '#1a1a2e' : '#FFFFFF';
-  const secondaryFg = isLightColor(secondaryColor)
-    ? hslToHex(secondary.h, Math.min(secondary.s + 20, 100), Math.max(secondary.l - 40, 15))
-    : '#FFFFFF';
-
-  return {
-    // Core colors
-    '--primary': primaryColor,
-    '--primary-foreground': primaryFg,
-    '--secondary': secondaryColor,
-    '--secondary-foreground': secondaryFg,
-
-    // Background: muy leve tinte del primario
-    '--background': hslToHex(primary.h, Math.max(primary.s - 30, 3), 98),
-    '--foreground': '#3D3D3D',
-
-    // Footer / Header
-    '--footer-background': hslToHex(primary.h, Math.max(primary.s - 25, 5), 94),
-    '--header': '#FFFFFF',
-
-    // Cards y popovers siempre blancos (limpio)
-    '--card': '#FFFFFF',
-    '--card-foreground': '#3D3D3D',
-    '--popover': '#FFFFFF',
-    '--popover-foreground': '#3D3D3D',
-
-    // Muted: desaturado del primario
-    '--muted': hslToHex(primary.h, Math.max(primary.s - 25, 5), 95),
-    '--muted-foreground': '#7A7A7A',
-
-    // Accent: tinte claro del secundario
-    '--accent': hslToHex(secondary.h, Math.max(secondary.s - 20, 10), 94),
-    '--accent-foreground': hslToHex(primary.h, Math.min(primary.s + 10, 80), 25),
-
-    // Borders / inputs
-    '--border': hslToHex(primary.h, Math.max(primary.s - 30, 5), 90),
-    '--input': hslToHex(primary.h, Math.max(primary.s - 30, 5), 90),
-    '--ring': secondaryColor,
-
-    // Sidebar
-    '--sidebar': '#FFFFFF',
-    '--sidebar-foreground': '#3D3D3D',
-    '--sidebar-primary': primaryColor,
-    '--sidebar-primary-foreground': primaryFg,
-    '--sidebar-accent': hslToHex(secondary.h, Math.max(secondary.s - 20, 10), 94),
-    '--sidebar-accent-foreground': secondaryFg,
-    '--sidebar-border': hslToHex(primary.h, Math.max(primary.s - 30, 5), 90),
-    '--sidebar-ring': primaryColor,
-
-    // Charts
-    '--chart-1': primaryColor,
-    '--chart-2': hslToHex(primary.h, primary.s, Math.max(primary.l - 10, 20)),
-    '--chart-3': secondaryColor,
-    '--chart-4': hslToHex(secondary.h, secondary.s, Math.min(secondary.l + 10, 85)),
-    '--chart-5': hslToHex((primary.h + 180) % 360, 30, 65),
-  };
+  return generateBrandScale(primaryColor);
 }
 
 // ─── Carga dinámica de Google Fonts ─────────────────────────

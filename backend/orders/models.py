@@ -8,9 +8,91 @@ from django.db import models
 from django.utils import timezone
 
 from bookings.models import Appointment
+from core.fields import EncryptedCharField
 from core.models import TenantAwareModel, User
 from ecommerce.models import Product
 from services.models import Service
+
+
+class PaymentGateway(TenantAwareModel):
+    """
+    Pasarela de pago configurada por el tenant.
+
+    Cada tenant conecta SU propia cuenta de Stripe/MercadoPago/WOMPI.
+    NERBIS no toca el dinero — solo provee la plataforma.
+    """
+
+    PROVIDER_CHOICES = [
+        ("stripe", "Stripe"),
+        ("mercadopago", "MercadoPago"),
+        ("wompi", "WOMPI"),
+        ("paypal", "PayPal"),
+    ]
+
+    provider = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        verbose_name="Proveedor",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activa",
+    )
+
+    is_default = models.BooleanField(
+        default=False,
+        verbose_name="Pasarela por defecto",
+        help_text="Si el tenant tiene múltiples pasarelas, esta es la principal",
+    )
+
+    # Credenciales del merchant
+    public_key = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Clave pública",
+        help_text="Publishable key / Public key del merchant",
+    )
+
+    secret_key = EncryptedCharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Clave secreta",
+        help_text="Secret key del merchant (encriptada automáticamente)",
+    )
+
+    webhook_secret = EncryptedCharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Webhook secret",
+        help_text="Webhook secret del merchant (encriptado automáticamente)",
+    )
+
+    # Configuración adicional (access tokens, merchant IDs, etc.)
+    extra_config = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Configuración adicional",
+        help_text="Datos específicos del proveedor (merchant_id, access_token, etc.)",
+    )
+
+    class Meta:
+        verbose_name = "Pasarela de Pago"
+        verbose_name_plural = "Pasarelas de Pago"
+        ordering = ["-is_default", "-created_at"]
+        indexes = [
+            models.Index(fields=["tenant", "provider"]),
+            models.Index(fields=["tenant", "is_active"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "provider"],
+                name="unique_gateway_per_tenant_provider",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.get_provider_display()} - {self.tenant.name}"
 
 
 class Order(TenantAwareModel):
@@ -70,9 +152,9 @@ class Order(TenantAwareModel):
     tax_rate = models.DecimalField(
         max_digits=5,
         decimal_places=4,
-        default=Decimal("0.21"),
+        default=Decimal("0.19"),
         verbose_name="Tasa de IVA",
-        help_text="Ej: 0.21 para 21%",
+        help_text="Ej: 0.19 para 19%",
     )
 
     tax_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Monto del IVA")
@@ -96,7 +178,7 @@ class Order(TenantAwareModel):
 
     billing_postal_code = models.CharField(max_length=20, blank=True, verbose_name="Código postal")
 
-    billing_country = models.CharField(max_length=2, default="ES", verbose_name="País")
+    billing_country = models.CharField(max_length=2, default="CO", verbose_name="País")
 
     # Información de envío (para productos)
     shipping_name = models.CharField(max_length=200, blank=True, verbose_name="Nombre de envío")
@@ -272,6 +354,8 @@ class Payment(TenantAwareModel):
 
     PAYMENT_METHODS = [
         ("stripe", "Stripe"),
+        ("mercadopago", "MercadoPago"),
+        ("wompi", "WOMPI"),
         ("paypal", "PayPal"),
         ("transfer", "Transferencia"),
         ("cash", "Efectivo"),
@@ -279,7 +363,24 @@ class Payment(TenantAwareModel):
 
     order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="payments", verbose_name="Orden")
 
-    # Stripe
+    gateway = models.ForeignKey(
+        PaymentGateway,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        verbose_name="Pasarela",
+    )
+
+    # ID externo del proveedor (genérico: Stripe PI, MercadoPago preference, WOMPI reference)
+    external_id = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="ID externo",
+        help_text="Payment Intent ID (Stripe), Preference ID (MercadoPago), etc.",
+    )
+
+    # Mantener por retrocompatibilidad con datos existentes
     stripe_payment_intent_id = models.CharField(max_length=255, blank=True, verbose_name="Stripe Payment Intent ID")
 
     stripe_charge_id = models.CharField(max_length=255, blank=True, verbose_name="Stripe Charge ID")
@@ -291,7 +392,7 @@ class Payment(TenantAwareModel):
 
     amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Monto")
 
-    currency = models.CharField(max_length=3, default="EUR", verbose_name="Moneda")
+    currency = models.CharField(max_length=3, verbose_name="Moneda")
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending", verbose_name="Estado")
 

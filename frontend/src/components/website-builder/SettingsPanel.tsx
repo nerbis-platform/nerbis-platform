@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import {
   Search,
@@ -21,14 +21,23 @@ import {
   Lock,
   MessageCircle,
   Braces,
-  Upload,
-  Loader2,
-  Link2,
   Info,
   Layers,
 } from 'lucide-react';
 import { SOCIAL_NETWORKS } from './SocialIcons';
 import SocialLinksEditor from './SocialLinksEditor';
+import {
+  calculateSeoScore,
+  SeoScoreRing,
+  SeoChecklist,
+  ImageUploadField,
+  SharePreview,
+  Section,
+  PHONE_COUNTRIES,
+  ANALYTICS_PROVIDERS,
+  ACCESS_MODES,
+  SCHEMA_BUSINESS_TYPES,
+} from './settings-panel-helpers';
 
 // ─── Types ──────────────────────────────────────────────────
 export interface SiteSettings {
@@ -108,419 +117,6 @@ interface SettingsPanelProps {
   onSuggestSeo?: (keywords: string[], businessName: string, currentTitle: string, currentDesc: string) => Promise<SeoSuggestion>;
   onUploadMedia?: (file: File, purpose: 'og_image' | 'favicon' | 'general') => Promise<{ url: string }>;
 }
-
-// ─── SEO Score ──────────────────────────────────────────────
-interface SeoCheck {
-  label: string;
-  status: 'good' | 'warning' | 'bad' | 'locked';
-  hint: string;
-  points: number;
-}
-
-function calculateSeoScore(s: SiteSettings, isPublished: boolean): { score: number; maxScore: number; checks: SeoCheck[]; noindexActive: boolean } {
-  const checks: SeoCheck[] = [];
-
-  // 1. Título SEO (20 pts) — Factor directo de ranking en Google
-  const tLen = s.meta_title.length;
-  checks.push({
-    label: 'Título SEO',
-    status: tLen >= 30 && tLen <= 60 ? 'good' : tLen > 0 ? 'warning' : 'bad',
-    hint: tLen === 0 ? 'Requerido para aparecer en Google' : tLen < 30 ? `${tLen}/30 chars — muy corto` : tLen > 60 ? `${tLen}/60 chars — Google lo cortará` : `${tLen} chars — óptimo`,
-    points: tLen >= 30 && tLen <= 60 ? 20 : tLen > 0 ? 10 : 0,
-  });
-
-  // 2. Meta Descripción (20 pts) — Afecta CTR en resultados de búsqueda
-  const dLen = s.meta_description.length;
-  checks.push({
-    label: 'Meta descripción',
-    status: dLen >= 120 && dLen <= 155 ? 'good' : dLen > 0 ? 'warning' : 'bad',
-    hint: dLen === 0 ? 'Google mostrará texto aleatorio' : dLen < 120 ? `${dLen}/120 chars — muy corta` : dLen > 155 ? `${dLen}/155 chars — se cortará` : `${dLen} chars — óptima`,
-    points: dLen >= 120 && dLen <= 155 ? 20 : dLen > 0 ? 10 : 0,
-  });
-
-  // 3. Datos Estructurados (15 pts) — Habilita rich results (estrellas, horarios)
-  checks.push({
-    label: 'Datos estructurados',
-    status: s.schema_enabled ? 'good' : 'bad',
-    hint: s.schema_enabled ? `Schema ${s.schema_business_type || 'LocalBusiness'}` : 'Actívalos en Datos Estructurados',
-    points: s.schema_enabled ? 15 : 0,
-  });
-
-  // 4. Google Search Console (10 pts) — Bloqueado hasta publicar
-  checks.push({
-    label: 'Google Search Console',
-    status: !isPublished ? 'locked' : s.google_site_verification ? 'good' : 'bad',
-    hint: !isPublished ? 'Disponible al publicar tu sitio' : s.google_site_verification ? 'Verificado' : 'Sin verificar — Google no te notificará errores',
-    points: !isPublished ? 0 : s.google_site_verification ? 10 : 0,
-  });
-
-  // 5. Imagen para compartir (10 pts) — Más clics desde redes sociales
-  checks.push({
-    label: 'Imagen para compartir',
-    status: s.og_image_url ? 'good' : 'bad',
-    hint: s.og_image_url ? 'Configurada' : 'Sin imagen — links sin vista previa',
-    points: s.og_image_url ? 10 : 0,
-  });
-
-  // 6. Favicon (10 pts) — Google lo muestra en resultados móviles
-  checks.push({
-    label: 'Favicon',
-    status: s.favicon_url ? 'good' : 'bad',
-    hint: s.favicon_url ? 'Configurado' : 'Sin favicon — se ve genérico en Google',
-    points: s.favicon_url ? 10 : 0,
-  });
-
-  // 7. Redes Sociales (10 pts) — Señal de marca legítima (E-E-A-T)
-  const socialCount = Object.values(s.social_links || {}).filter(v => v?.trim()).length;
-  checks.push({
-    label: 'Redes sociales',
-    status: socialCount >= 2 ? 'good' : socialCount > 0 ? 'warning' : 'bad',
-    hint: socialCount === 0 ? 'Agrega tus redes — valida tu marca' : socialCount < 2 ? `${socialCount} red — agrega al menos 2` : `${socialCount} redes conectadas`,
-    points: socialCount >= 2 ? 10 : socialCount > 0 ? 5 : 0,
-  });
-
-  // 8. Palabras Clave (5 pts) — Guía de estrategia (Google no usa meta keywords)
-  const kwC = s.keywords.length;
-  checks.push({
-    label: 'Palabras clave',
-    status: kwC >= 3 ? 'good' : kwC > 0 ? 'warning' : 'bad',
-    hint: kwC === 0 ? 'Guía tu estrategia de contenido' : kwC < 3 ? `${kwC} keywords — agrega más` : `${kwC} keywords definidas`,
-    points: kwC >= 3 ? 5 : kwC > 0 ? 2 : 0,
-  });
-
-  // maxScore: 90 antes de publicar (GSC bloqueado), 100 después
-  const maxScore = isPublished ? 100 : 90;
-
-  return {
-    score: checks.reduce((sum, c) => sum + c.points, 0),
-    maxScore,
-    checks,
-    noindexActive: !!s.hide_from_search,
-  };
-}
-
-function SeoScoreRing({ score, maxScore }: { score: number; maxScore: number }) {
-  const r = 18;
-  const circ = 2 * Math.PI * r;
-  const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-  const offset = circ - (pct / 100) * circ;
-  const color = pct >= 71 ? '#10b981' : pct >= 41 ? '#f59e0b' : '#ef4444';
-  return (
-    <div className="flex flex-col items-center gap-0.5 shrink-0">
-      <div className="relative w-11 h-11">
-        <svg className="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
-          <circle cx="22" cy="22" r={r} fill="none" stroke="#f3f4f6" strokeWidth="3" />
-          <circle cx="22" cy="22" r={r} fill="none" stroke={color} strokeWidth="3"
-            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
-            className="transition-all duration-500" />
-        </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-[0.65rem] font-bold" style={{ color }}>
-          {pct}
-        </span>
-      </div>
-      <span className="text-[0.55rem] text-gray-400 font-medium">{score}/{maxScore}</span>
-    </div>
-  );
-}
-
-function SeoChecklist({ checks }: { checks: SeoCheck[] }) {
-  return (
-    <div className="space-y-1.5 mt-3">
-      {checks.map((c) => (
-        <div key={c.label} className={`flex items-center gap-2 ${c.status === 'locked' ? 'opacity-50' : ''}`}>
-          {c.status === 'locked' ? (
-            <Lock className="w-2.5 h-2.5 text-gray-400 shrink-0" />
-          ) : (
-            <div className={`w-2 h-2 rounded-full shrink-0 ${
-              c.status === 'good' ? 'bg-emerald-400' : c.status === 'warning' ? 'bg-amber-400' : 'bg-red-400'
-            }`} />
-          )}
-          <span className={`text-[0.7rem] flex-1 ${c.status === 'locked' ? 'text-gray-400' : 'text-gray-600'}`}>{c.label}</span>
-          <span className={`text-[0.6rem] ${
-            c.status === 'good' ? 'text-emerald-500' : c.status === 'warning' ? 'text-amber-500' : 'text-gray-400'
-          }`}>{c.hint}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Image Upload Field ────────────────────────────────────
-function ImageUploadField({
-  value,
-  onChange,
-  onUpload,
-  accept,
-  purpose,
-  previewAspect = 'aspect-[1.91/1]',
-  helpText,
-}: {
-  value: string;
-  onChange: (url: string) => void;
-  onUpload?: (file: File, purpose: 'og_image' | 'favicon' | 'general') => Promise<{ url: string }>;
-  accept?: string;
-  purpose: 'og_image' | 'favicon' | 'general';
-  previewAspect?: string;
-  helpText?: string;
-}) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [showUrlInput, setShowUrlInput] = useState(false);
-
-  const handleFile = async (file: File) => {
-    if (!onUpload) {
-      toast.error('Upload no disponible');
-      return;
-    }
-    try {
-      setUploading(true);
-      const result = await onUpload(file, purpose);
-      onChange(result.url);
-      toast.success('Imagen subida');
-    } catch {
-      toast.error('Error al subir la imagen. Intenta de nuevo.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith('image/')) handleFile(file);
-  };
-
-  return (
-    <div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={accept || 'image/*'}
-        onChange={handleFileChange}
-        className="hidden"
-      />
-
-      {value ? (
-        /* ── Con imagen ── */
-        <div className="flex items-center gap-3 p-2 rounded-lg border border-gray-200 bg-gray-50">
-          <div className="w-16 h-16 rounded-md overflow-hidden bg-gray-100 shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={value}
-              alt=""
-              className="w-full h-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[0.6rem] text-gray-500 truncate mb-1.5">{value.split('/').pop()}</p>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="px-2 py-1 bg-white border border-gray-200 rounded text-[0.6rem] font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                Cambiar
-              </button>
-              <button
-                type="button"
-                onClick={() => onChange('')}
-                className="px-2 py-1 bg-white border border-gray-200 rounded text-[0.6rem] font-medium text-red-500 hover:bg-red-50 transition-colors"
-              >
-                Quitar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* ── Sin imagen ── */
-        <button
-          type="button"
-          onClick={() => !uploading && fileInputRef.current?.click()}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          disabled={uploading}
-          className={`w-full ${previewAspect} rounded-lg border-2 border-dashed transition-colors flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
-            dragOver
-              ? 'border-[#95D0C9] bg-[#E2F3F1]/30'
-              : 'border-gray-200 hover:border-[#95D0C9] hover:bg-gray-50/50'
-          } ${uploading ? 'opacity-60 cursor-wait' : ''}`}
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="w-6 h-6 text-[#95D0C9] animate-spin" />
-              <span className="text-[0.68rem] text-gray-400">Subiendo...</span>
-            </>
-          ) : (
-            <>
-              <Upload className="w-6 h-6 text-gray-300" />
-              <span className="text-[0.68rem] text-gray-500 font-medium">
-                Haz click o arrastra una imagen
-              </span>
-              {helpText && (
-                <span className="text-[0.55rem] text-gray-400">{helpText}</span>
-              )}
-            </>
-          )}
-        </button>
-      )}
-
-      {/* Link para pegar URL manualmente */}
-      {!value && (
-        <div className="mt-1.5">
-          {showUrlInput ? (
-            <div className="flex gap-1.5">
-              <input
-                type="url"
-                placeholder="https://..."
-                onChange={(e) => {
-                  if (e.target.value) onChange(e.target.value);
-                }}
-                onBlur={(e) => {
-                  if (!e.target.value) setShowUrlInput(false);
-                }}
-                className="flex-1 h-7 px-2 rounded border border-gray-200 text-[0.7rem] text-gray-600 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9]"
-                autoFocus
-              />
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowUrlInput(true)}
-              className="flex items-center gap-1 text-[0.6rem] text-gray-400 hover:text-[#1C3B57] transition-colors"
-            >
-              <Link2 className="w-3 h-3" />
-              ¿Tienes una URL? Pégala aquí
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Social Share Preview ────────────────────────────────────
-function SharePreview({ title, description, imageUrl, siteUrl }: { title: string; description: string; imageUrl: string; siteUrl: string }) {
-  return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden bg-white flex">
-      {imageUrl && (
-        <div className="w-20 shrink-0 bg-gray-100">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl} alt="" className="w-full h-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-        </div>
-      )}
-      <div className="px-2.5 py-2 bg-gray-50 flex-1 min-w-0">
-        <p className="text-[0.5rem] text-gray-400 truncate">{siteUrl}</p>
-        <p className="text-[0.65rem] font-semibold text-gray-900 truncate">{title || 'Título del sitio'}</p>
-        <p className="text-[0.55rem] text-gray-500 line-clamp-2">{description || 'Descripción del sitio'}</p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Accordion Section (same pattern as DesignPanel) ────────
-function Section({
-  icon: Icon,
-  title,
-  isOpen,
-  onToggle,
-  badge,
-  children,
-}: {
-  icon: typeof Search;
-  title: string;
-  isOpen: boolean;
-  onToggle: () => void;
-  badge?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={`rounded-xl transition-colors duration-200 ${isOpen ? 'bg-white shadow-sm ring-1 ring-gray-100' : ''}`}>
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`flex items-center justify-between w-full px-3 py-2.5 cursor-pointer group rounded-xl transition-colors duration-150 ${
-          isOpen ? '' : 'hover:bg-white/60'
-        }`}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className={`flex items-center justify-center w-6 h-6 rounded-lg transition-colors duration-200 ${
-            isOpen ? 'bg-[#E2F3F1]' : 'bg-gray-100 group-hover:bg-gray-200/60'
-          }`}>
-            <Icon className={`h-3.5 w-3.5 transition-colors duration-200 ${isOpen ? 'text-[#1C3B57]' : 'text-gray-400'}`} />
-          </div>
-          <span className={`text-[0.78rem] font-semibold transition-colors duration-200 ${isOpen ? 'text-[#1C3B57]' : 'text-gray-500'}`}>
-            {title}
-          </span>
-          {badge}
-        </div>
-        <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`} />
-      </button>
-      {isOpen && <div className="px-3 pt-1 pb-3">{children}</div>}
-    </div>
-  );
-}
-
-// ─── Country → Dial code mapping ────────────────────────────
-const PHONE_COUNTRIES = [
-  { country: 'Colombia', code: '+57', flag: '🇨🇴' },
-  { country: 'México', code: '+52', flag: '🇲🇽' },
-  { country: 'España', code: '+34', flag: '🇪🇸' },
-  { country: 'Perú', code: '+51', flag: '🇵🇪' },
-  { country: 'Chile', code: '+56', flag: '🇨🇱' },
-  { country: 'Argentina', code: '+54', flag: '🇦🇷' },
-  { country: 'Ecuador', code: '+593', flag: '🇪🇨' },
-  { country: 'Venezuela', code: '+58', flag: '🇻🇪' },
-  { country: 'Panamá', code: '+507', flag: '🇵🇦' },
-  { country: 'Costa Rica', code: '+506', flag: '🇨🇷' },
-  { country: 'Guatemala', code: '+502', flag: '🇬🇹' },
-  { country: 'Estados Unidos', code: '+1', flag: '🇺🇸' },
-  { country: 'Brasil', code: '+55', flag: '🇧🇷' },
-  { country: 'Francia', code: '+33', flag: '🇫🇷' },
-  { country: 'Reino Unido', code: '+44', flag: '🇬🇧' },
-  { country: 'Alemania', code: '+49', flag: '🇩🇪' },
-  { country: 'Italia', code: '+39', flag: '🇮🇹' },
-  { country: 'Portugal', code: '+351', flag: '🇵🇹' },
-];
-
-// ─── Analytics providers config ─────────────────────────────
-const ANALYTICS_PROVIDERS = [
-  { key: 'google_analytics_id', label: 'Google Analytics', placeholder: 'G-XXXXXXXXXX', help: 'Analytics → Administrar → Flujos de datos', color: '#F59E0B' },
-  { key: 'gtm_id', label: 'Google Tag Manager', placeholder: 'GTM-XXXXXXX', help: 'Tag Manager → Admin → Info del contenedor', color: '#4285F4' },
-  { key: 'facebook_pixel_id', label: 'Facebook Pixel', placeholder: '1234567890', help: 'Meta Events Manager → Orígenes de datos', color: '#1877F2' },
-  { key: 'hotjar_id', label: 'Hotjar', placeholder: '1234567', help: 'Hotjar → Ajustes del sitio → ID', color: '#FF3C00' },
-] as const;
-
-
-
-
-const ACCESS_MODES = [
-  { value: 'public' as const, label: 'Público', dot: 'bg-emerald-400', description: 'Visible para todos' },
-  { value: 'coming_soon' as const, label: 'Próximamente', dot: 'bg-amber-400', description: 'Muestra página en construcción' },
-  { value: 'password' as const, label: 'Con contraseña', dot: 'bg-red-400', description: 'Requiere contraseña para ver' },
-];
-
-const SCHEMA_BUSINESS_TYPES = [
-  { value: 'LocalBusiness', label: 'Negocio local' },
-  { value: 'Restaurant', label: 'Restaurante' },
-  { value: 'BeautySalon', label: 'Salón de belleza' },
-  { value: 'Store', label: 'Tienda' },
-  { value: 'HealthAndBeautyBusiness', label: 'Salud y belleza' },
-  { value: 'FoodEstablishment', label: 'Establecimiento de comida' },
-  { value: 'SportsActivityLocation', label: 'Deporte / Actividad' },
-  { value: 'ProfessionalService', label: 'Servicio profesional' },
-];
-
 // ─── Component ──────────────────────────────────────────────
 export default function SettingsPanel({ settings, siteName, siteUrl, isPublished = false, tenantPhone, tenantCountry, hasWhiteLabel = false, onChange, onSuggestSeo, onUploadMedia }: SettingsPanelProps) {
   const [newKeyword, setNewKeyword] = useState('');
@@ -643,8 +239,8 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
           }}
           className={`flex items-center gap-1.5 mb-3 text-[0.72rem] font-medium px-3 py-2 rounded-lg transition-all cursor-pointer ${
             aiLoading
-              ? 'bg-[#E2F3F1] text-[#1C3B57] cursor-wait'
-              : 'bg-gradient-to-r from-[#1C3B57] to-[#2a5578] text-white hover:shadow-md hover:shadow-[#95D0C9]/20'
+              ? 'bg-primary/10 text-foreground cursor-wait'
+              : 'bg-gradient-to-r from-[#1C3B57] to-[#2a5578] text-white hover:shadow-md hover:shadow-[#0D9488]/20'
           } disabled:opacity-40 disabled:cursor-not-allowed`}
         >
           <Sparkles className={`h-3.5 w-3.5 ${aiLoading ? 'animate-spin' : ''}`} />
@@ -653,24 +249,24 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
 
         {/* AI Suggestion results */}
         {aiSuggestion && (
-          <div className="mb-4 p-3 rounded-lg bg-gradient-to-br from-[#E2F3F1] to-[#d4ede9] border border-[#95D0C9]/30 space-y-3">
+          <div className="mb-4 p-3 rounded-lg bg-gradient-to-br from-[#E2F3F1] to-[#d4ede9] border border-primary/30 space-y-3">
             <div className="flex items-center gap-1.5 mb-1">
-              <Sparkles className="h-3 w-3 text-[#1C3B57]" />
-              <p className="text-[0.68rem] font-semibold text-[#1C3B57]">Sugerencias de IA</p>
+              <Sparkles className="h-3 w-3 text-foreground" />
+              <p className="text-[0.68rem] font-semibold text-foreground">Sugerencias de IA</p>
             </div>
 
             {/* Suggested title */}
             <div>
-              <p className="text-[0.6rem] text-[#1C3B57]/60 font-medium uppercase tracking-wide mb-1">Título sugerido</p>
+              <p className="text-[0.6rem] text-foreground/60 font-medium uppercase tracking-wide mb-1">Título sugerido</p>
               <div className="flex items-start gap-1.5">
-                <p className="text-[0.75rem] text-[#1C3B57] leading-relaxed flex-1">{aiSuggestion.title}</p>
+                <p className="text-[0.75rem] text-foreground leading-relaxed flex-1">{aiSuggestion.title}</p>
                 <button
                   type="button"
                   onClick={() => {
                     update('meta_title', aiSuggestion.title);
                     setAiSuggestion(prev => prev ? { ...prev, title: '' } : null);
                   }}
-                  className="shrink-0 text-[0.6rem] px-2 py-1 rounded-md bg-white text-[#1C3B57] font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
+                  className="shrink-0 text-[0.6rem] px-2 py-1 rounded-md bg-white text-foreground font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
                 >
                   Aplicar
                 </button>
@@ -679,16 +275,16 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
 
             {/* Suggested description */}
             <div>
-              <p className="text-[0.6rem] text-[#1C3B57]/60 font-medium uppercase tracking-wide mb-1">Descripción sugerida</p>
+              <p className="text-[0.6rem] text-foreground/60 font-medium uppercase tracking-wide mb-1">Descripción sugerida</p>
               <div className="flex items-start gap-1.5">
-                <p className="text-[0.75rem] text-[#1C3B57] leading-relaxed flex-1">{aiSuggestion.description}</p>
+                <p className="text-[0.75rem] text-foreground leading-relaxed flex-1">{aiSuggestion.description}</p>
                 <button
                   type="button"
                   onClick={() => {
                     update('meta_description', aiSuggestion.description);
                     setAiSuggestion(prev => prev ? { ...prev, description: '' } : null);
                   }}
-                  className="shrink-0 text-[0.6rem] px-2 py-1 rounded-md bg-white text-[#1C3B57] font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
+                  className="shrink-0 text-[0.6rem] px-2 py-1 rounded-md bg-white text-foreground font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
                 >
                   Aplicar
                 </button>
@@ -698,7 +294,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             {/* Extra keywords */}
             {aiSuggestion.extra_keywords?.length > 0 && (
               <div>
-                <p className="text-[0.6rem] text-[#1C3B57]/60 font-medium uppercase tracking-wide mb-1">Keywords sugeridas</p>
+                <p className="text-[0.6rem] text-foreground/60 font-medium uppercase tracking-wide mb-1">Keywords sugeridas</p>
                 <div className="flex flex-wrap gap-1">
                   {aiSuggestion.extra_keywords
                     .filter(kw => !settings.keywords.includes(kw.toLowerCase()))
@@ -713,7 +309,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                           extra_keywords: prev.extra_keywords.filter(k => k !== kw),
                         } : null);
                       }}
-                      className="inline-flex items-center gap-1 text-[0.65rem] px-2 py-0.5 rounded-full bg-white text-[#1C3B57] font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 text-[0.65rem] px-2 py-0.5 rounded-full bg-white text-foreground font-medium hover:bg-[#1C3B57] hover:text-white transition-colors cursor-pointer"
                     >
                       <Plus className="h-2.5 w-2.5" />
                       {kw}
@@ -727,7 +323,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             <button
               type="button"
               onClick={() => setAiSuggestion(null)}
-              className="text-[0.6rem] text-[#1C3B57]/50 hover:text-[#1C3B57] transition-colors cursor-pointer"
+              className="text-[0.6rem] text-foreground/50 hover:text-foreground transition-colors cursor-pointer"
             >
               Cerrar sugerencias
             </button>
@@ -773,7 +369,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             onChange={(e) => update('meta_title', e.target.value)}
             placeholder={siteName || 'Ej: Mi Negocio - Lo mejor de tu ciudad'}
             maxLength={70}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors"
+            className="w-full h-10 px-3 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors"
           />
           <p className="text-[0.6rem] text-gray-400 mt-1">
             Es el nombre que aparece en Google cuando alguien busca tu negocio. Ej: &quot;Pastelería Doña Rosa - Tortas artesanales&quot;
@@ -798,7 +394,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             placeholder="Ej: Hacemos las mejores tortas artesanales de la ciudad con ingredientes frescos. Pedidos a domicilio y para eventos especiales."
             rows={3}
             maxLength={160}
-            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[0.85rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors resize-none"
           />
           <p className="text-[0.6rem] text-gray-400 mt-1">
             Cuéntale a Google de qué se trata tu negocio en 1-2 frases. Esto es lo que la gente lee antes de decidir si entra a tu sitio.
@@ -820,10 +416,10 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
           {settings.keywords.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-2">
               {settings.keywords.map((kw) => (
-                <span key={kw} className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-[#E2F3F1] text-[0.72rem] text-[#1C3B57] font-medium">
+                <span key={kw} className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-primary/10 text-[0.72rem] text-foreground font-medium">
                   <Tag className="h-2.5 w-2.5" />
                   {kw}
-                  <button type="button" onClick={() => removeKeyword(kw)} className="ml-0.5 text-[#1C3B57]/40 hover:text-red-400 cursor-pointer">
+                  <button type="button" onClick={() => removeKeyword(kw)} className="ml-0.5 text-foreground/40 hover:text-red-400 cursor-pointer">
                     <X className="h-2.5 w-2.5" />
                   </button>
                 </span>
@@ -837,13 +433,13 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
               onChange={(e) => setNewKeyword(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKeyword(); } }}
               placeholder="Ej: tortas, pasteles, domicilio..."
-              className="flex-1 h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors"
+              className="flex-1 h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
             />
             <button
               type="button"
               onClick={addKeyword}
               disabled={!newKeyword.trim()}
-              className="h-8 w-8 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 hover:border-[#95D0C9] hover:text-[#1C3B57] disabled:opacity-30 transition-colors cursor-pointer"
+              className="h-8 w-8 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 hover:border-primary hover:text-foreground disabled:opacity-30 transition-colors cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -870,7 +466,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                   value={settings.google_site_verification || ''}
                   onChange={(e) => update('google_site_verification', e.target.value)}
                   placeholder="Ej: abc123def456..."
-                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
                 />
                 <p className="text-[0.55rem] text-gray-400 mt-0.5">
                   Entra a search.google.com/search-console, agrega tu sitio y copia el código
@@ -885,7 +481,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                   value={settings.bing_site_verification || ''}
                   onChange={(e) => update('bing_site_verification', e.target.value)}
                   placeholder="Ej: abc123def456..."
-                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
                 />
                 <p className="text-[0.55rem] text-gray-400 mt-0.5">
                   Entra a bing.com/webmasters, agrega tu sitio y copia el código
@@ -926,7 +522,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             type="button"
             onClick={() => update('hide_from_search', !settings.hide_from_search)}
             className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
-              settings.hide_from_search ? 'bg-[#95D0C9]' : 'bg-gray-200'
+              settings.hide_from_search ? 'bg-primary' : 'bg-gray-200'
             }`}
           >
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
@@ -955,7 +551,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
         isOpen={openSection === 'social'}
         onToggle={() => toggle('social')}
         badge={filledSocials > 0 ? (
-          <span className="text-[0.6rem] px-1.5 py-0.5 rounded-full bg-[#E2F3F1] text-[#1C3B57] font-medium ml-1">
+          <span className="text-[0.6rem] px-1.5 py-0.5 rounded-full bg-primary/10 text-foreground font-medium ml-1">
             {filledSocials}/{SOCIAL_NETWORKS.length}
           </span>
         ) : undefined}
@@ -1004,7 +600,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             type="checkbox"
             checked={ogInherit}
             onChange={(e) => update('og_inherit_seo', e.target.checked)}
-            className="w-3.5 h-3.5 rounded border-gray-300 accent-[#95D0C9]"
+            className="w-3.5 h-3.5 rounded border-gray-300 accent-primary"
           />
           <span className="text-[0.72rem] text-gray-600">Usar el mismo título y descripción del SEO</span>
         </label>
@@ -1019,7 +615,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 value={settings.og_title || ''}
                 onChange={(e) => update('og_title', e.target.value)}
                 placeholder="Ej: Las mejores tortas artesanales"
-                className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
               />
             </div>
             <div>
@@ -1029,7 +625,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 onChange={(e) => update('og_description', e.target.value)}
                 placeholder="Ej: Hacemos tortas para toda ocasión. Haz tu pedido hoy."
                 rows={2}
-                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors resize-none"
+                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors resize-none"
               />
             </div>
           </div>
@@ -1127,7 +723,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             type="button"
             onClick={() => update('whatsapp_float_enabled', !settings.whatsapp_float_enabled)}
             className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
-              settings.whatsapp_float_enabled ? 'bg-[#95D0C9]' : 'bg-gray-200'
+              settings.whatsapp_float_enabled ? 'bg-primary' : 'bg-gray-200'
             }`}
           >
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
@@ -1161,7 +757,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                     const localNum = currentCode ? num.slice(currentCode.length).trim() : num.replace(/^\+\d+\s*/, '');
                     update('whatsapp_float_number', newCode + ' ' + localNum);
                   }}
-                  className="h-8 px-1.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 bg-white focus:outline-none focus:border-[#95D0C9] transition-colors shrink-0 cursor-pointer"
+                  className="h-8 px-1.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 bg-white focus:outline-none focus:border-primary transition-colors shrink-0 cursor-pointer"
                 >
                   {PHONE_COUNTRIES.map(({ code, flag, country }) => (
                     <option key={`${code}-${country}`} value={code}>{flag} {code}</option>
@@ -1182,7 +778,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                     update('whatsapp_float_number', currentCode + ' ' + e.target.value);
                   }}
                   placeholder={tenantPhone ? tenantPhone.replace(/^\+\d+\s*/, '') : '300 123 4567'}
-                  className="flex-1 min-w-0 h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                  className="flex-1 min-w-0 h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
               <p className="text-[0.55rem] text-gray-400 mt-0.5">El indicativo se carga automáticamente según tu país de registro</p>
@@ -1197,7 +793,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 onChange={(e) => update('whatsapp_float_message', e.target.value)}
                 placeholder="Hola, me interesa obtener más información..."
                 rows={2}
-                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors resize-none"
+                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors resize-none"
               />
             </div>
           </>
@@ -1211,7 +807,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
         isOpen={openSection === 'analytics'}
         onToggle={() => toggle('analytics')}
         badge={configuredAnalytics > 0 ? (
-          <span className="text-[0.6rem] px-1.5 py-0.5 rounded-full bg-[#E2F3F1] text-[#1C3B57] font-medium ml-1">
+          <span className="text-[0.6rem] px-1.5 py-0.5 rounded-full bg-primary/10 text-foreground font-medium ml-1">
             {configuredAnalytics}/{ANALYTICS_PROVIDERS.length}
           </span>
         ) : undefined}
@@ -1241,7 +837,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                   value={val}
                   onChange={(e) => update(key as keyof SiteSettings, e.target.value)}
                   placeholder={placeholder}
-                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 font-mono placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
                 />
                 <p className="text-[0.55rem] text-gray-400 mt-0.5">{help}</p>
               </div>
@@ -1271,7 +867,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             type="button"
             onClick={() => update('schema_enabled', !settings.schema_enabled)}
             className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
-              settings.schema_enabled ? 'bg-[#95D0C9]' : 'bg-gray-200'
+              settings.schema_enabled ? 'bg-primary' : 'bg-gray-200'
             }`}
           >
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
@@ -1290,7 +886,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 <select
                   value={settings.schema_business_type || 'LocalBusiness'}
                   onChange={(e) => update('schema_business_type', e.target.value)}
-                  className="w-full h-8 px-2.5 pr-7 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 bg-white appearance-none focus:outline-none focus:border-[#95D0C9] transition-colors cursor-pointer"
+                  className="w-full h-8 px-2.5 pr-7 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 bg-white appearance-none focus:outline-none focus:border-primary transition-colors cursor-pointer"
                 >
                   {SCHEMA_BUSINESS_TYPES.map(({ value, label }) => (
                     <option key={value} value={value}>{label}</option>
@@ -1350,7 +946,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             onChange={(e) => update('custom_head_code', e.target.value)}
             placeholder="<!-- CSS, meta tags, scripts -->"
             rows={4}
-            className="w-full px-3 py-2 rounded-lg border border-gray-700/30 text-[0.78rem] text-gray-200 bg-[#1e293b] font-mono placeholder:text-gray-500 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors resize-none"
+            className="w-full px-3 py-2 rounded-lg border border-gray-700/30 text-[0.78rem] text-gray-200 bg-[#1e293b] font-mono placeholder:text-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors resize-none"
           />
           <p className="text-[0.55rem] text-gray-400 mt-1">CSS personalizado, meta tags, scripts de seguimiento</p>
         </div>
@@ -1365,7 +961,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             onChange={(e) => update('custom_body_code', e.target.value)}
             placeholder="<!-- Widgets, chatbots, embeds -->"
             rows={4}
-            className="w-full px-3 py-2 rounded-lg border border-gray-700/30 text-[0.78rem] text-gray-200 bg-[#1e293b] font-mono placeholder:text-gray-500 focus:outline-none focus:border-[#95D0C9] focus:ring-1 focus:ring-[#95D0C9]/30 transition-colors resize-none"
+            className="w-full px-3 py-2 rounded-lg border border-gray-700/30 text-[0.78rem] text-gray-200 bg-[#1e293b] font-mono placeholder:text-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors resize-none"
           />
           <p className="text-[0.55rem] text-gray-400 mt-1">Widgets de chat, chatbots, scripts antes de &lt;/body&gt;</p>
         </div>
@@ -1402,13 +998,13 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
               onClick={() => update('site_access_mode', value)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 text-left transition-colors cursor-pointer ${
                 (settings.site_access_mode || 'public') === value
-                  ? 'border-[#1C3B57] bg-[#E2F3F1]/30'
+                  ? 'border-foreground bg-primary/30'
                   : 'border-gray-100 hover:border-gray-200'
               }`}
             >
               <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${dot}`} />
               <div className="min-w-0 flex-1">
-                <p className={`text-[0.75rem] font-semibold ${(settings.site_access_mode || 'public') === value ? 'text-[#1C3B57]' : 'text-gray-600'}`}>
+                <p className={`text-[0.75rem] font-semibold ${(settings.site_access_mode || 'public') === value ? 'text-foreground' : 'text-gray-600'}`}>
                   {label}
                 </p>
                 <p className="text-[0.6rem] text-gray-400">{description}</p>
@@ -1428,7 +1024,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 onChange={(e) => update('coming_soon_message', e.target.value)}
                 placeholder="Estamos trabajando en algo increíble. ¡Vuelve pronto!"
                 rows={2}
-                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors resize-none"
+                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors resize-none"
               />
             </div>
             <div>
@@ -1439,7 +1035,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 type="date"
                 value={settings.coming_soon_launch_date || ''}
                 onChange={(e) => update('coming_soon_launch_date', e.target.value)}
-                className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                className="w-full h-8 px-2.5 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 focus:outline-none focus:border-primary transition-colors"
               />
             </div>
           </div>
@@ -1456,7 +1052,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 value={settings.site_password || ''}
                 onChange={(e) => update('site_password', e.target.value)}
                 placeholder="Contraseña segura"
-                className="w-full h-8 px-2.5 pr-8 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors"
+                className="w-full h-8 px-2.5 pr-8 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors"
               />
               <button
                 type="button"
@@ -1491,7 +1087,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
             type="button"
             onClick={() => update('cookie_banner_enabled', !settings.cookie_banner_enabled)}
             className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
-              settings.cookie_banner_enabled ? 'bg-[#95D0C9]' : 'bg-gray-200'
+              settings.cookie_banner_enabled ? 'bg-primary' : 'bg-gray-200'
             }`}
           >
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
@@ -1510,7 +1106,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 onChange={(e) => update('cookie_banner_text', e.target.value)}
                 placeholder="Este sitio usa cookies para mejorar tu experiencia."
                 rows={2}
-                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#95D0C9] transition-colors resize-none"
+                className="w-full px-2.5 py-2 rounded-md border border-gray-200 text-[0.78rem] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-primary transition-colors resize-none"
               />
               <p className="text-[0.55rem] text-gray-400 mt-0.5">Si lo dejas vacío usaremos un mensaje estándar</p>
             </div>
@@ -1569,7 +1165,7 @@ export default function SettingsPanel({ settings, siteName, siteUrl, isPublished
                 <button
                   onClick={() => update('show_nerbis_badge', !(settings.show_nerbis_badge ?? true))}
                   className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
-                    (settings.show_nerbis_badge ?? true) ? 'bg-[#95D0C9]' : 'bg-gray-200'
+                    (settings.show_nerbis_badge ?? true) ? 'bg-primary' : 'bg-gray-200'
                   }`}
                   role="switch"
                   aria-checked={settings.show_nerbis_badge ?? true}
