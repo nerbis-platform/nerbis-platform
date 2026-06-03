@@ -32,10 +32,21 @@ import {
 import type {
   AdminTenant,
   AdminTenantFilters,
-  AdminTenantPhase,
-  AdminTenantPlan,
-  AdminSubscriptionStatus,
 } from '@/types/admin';
+import {
+  PAGE_SIZE,
+  type PlanFilter,
+  type StatusFilter,
+  type PendingAction,
+  formatDate,
+  PLAN_LABELS,
+  SUBSCRIPTION_LABELS,
+  planBadgeClass,
+  subscriptionBadgeClass,
+  PhaseBadge,
+  PLAN_CHIP_LABELS,
+  STATUS_CHIP_LABELS,
+} from './_helpers';
 import {
   Select,
   SelectContent,
@@ -65,97 +76,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
-const PAGE_SIZE = 20;
-
-type PlanFilter = 'all' | AdminTenantPlan;
-type StatusFilter = 'all' | 'active' | 'inactive';
-
-const PLAN_LABELS: Record<AdminTenantPlan, string> = {
-  trial: 'Trial',
-  basic: 'Básico',
-  professional: 'Profesional',
-  enterprise: 'Enterprise',
-};
-
-const SUBSCRIPTION_LABELS: Record<AdminSubscriptionStatus, string> = {
-  active: 'Activa',
-  trial: 'Trial',
-  expired: 'Vencida',
-  inactive: 'Inactiva',
-};
-
-function planBadgeClass(plan: AdminTenantPlan): string {
-  switch (plan) {
-    case 'enterprise':
-      return 'bg-indigo-50 text-indigo-700 ring-indigo-200';
-    case 'professional':
-      return 'bg-teal-50 text-teal-700 ring-teal-200';
-    case 'basic':
-      return 'bg-slate-100 text-slate-700 ring-slate-200';
-    case 'trial':
-    default:
-      return 'bg-amber-50 text-amber-700 ring-amber-200';
-  }
-}
-
-function subscriptionBadgeClass(
-  status: AdminSubscriptionStatus,
-  isActive: boolean,
-): string {
-  if (!isActive) return 'bg-red-50 text-red-700 ring-red-200';
-  switch (status) {
-    case 'active':
-      return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
-    case 'trial':
-      return 'bg-amber-50 text-amber-700 ring-amber-200';
-    case 'expired':
-      return 'bg-red-50 text-red-700 ring-red-200';
-    case 'inactive':
-    default:
-      return 'bg-slate-100 text-slate-600 ring-slate-200';
-  }
-}
-
-const PHASE_BADGE_META: Record<AdminTenantPhase, { label: string; cls: string }> = {
-  onboarding: { label: 'Onboarding', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
-  modules_configured: { label: 'Modulos OK', cls: 'bg-blue-50 text-blue-700 ring-blue-200' },
-  website_building: { label: 'Construyendo', cls: 'bg-violet-50 text-violet-700 ring-violet-200' },
-  website_generated: { label: 'Generado', cls: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
-  operational: { label: 'Operativo', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
-  suspended: { label: 'Suspendido', cls: 'bg-red-50 text-red-700 ring-red-200' },
-};
-
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '\u2014';
-  try {
-    return new Date(iso).toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-type PendingAction = {
-  tenant: AdminTenant;
-  target: 'activate' | 'deactivate' | 'delete' | 'restore';
-};
-
-// ── Filter chip labels ─────────────────────────────────────────────
-const PLAN_CHIP_LABELS: Record<AdminTenantPlan, string> = {
-  trial: 'Plan: Trial',
-  basic: 'Plan: Básico',
-  professional: 'Plan: Profesional',
-  enterprise: 'Plan: Enterprise',
-};
-
-const STATUS_CHIP_LABELS: Record<Exclude<StatusFilter, 'all'>, string> = {
-  active: 'Estado: Activos',
-  inactive: 'Estado: Suspendidos',
-};
 
 // ── Shared filter selects (used in desktop inline + mobile popover) ──
 function TenantFilterSelects({
@@ -688,15 +608,7 @@ export default function AdminTenantsPage() {
                     </td>
                     {tab === 'active' && (
                       <td className="px-4 py-3">
-                        {(() => {
-                          const pm = PHASE_BADGE_META[tenant.onboarding_phase] ?? PHASE_BADGE_META.onboarding;
-                          return (
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${pm.cls}`}>
-                              <span className={`h-1.5 w-1.5 rounded-full bg-current ${tenant.onboarding_phase !== 'suspended' && tenant.onboarding_phase !== 'operational' ? 'animate-pulse' : ''}`} />
-                              {pm.label}
-                            </span>
-                          );
-                        })()}
+                        <PhaseBadge phase={tenant.onboarding_phase} />
                       </td>
                     )}
                     <td className="px-4 py-3 text-right font-medium tabular-nums text-slate-700">
