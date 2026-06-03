@@ -52,64 +52,14 @@ import SectionManager from '@/components/website-builder/SectionManager';
 import PageManager from '@/components/website-builder/PageManager';
 import SettingsPanel, { type SiteSettings, type SeoSuggestion } from '@/components/website-builder/SettingsPanel';
 import { useTenantContact, useTenant } from '@/contexts/TenantContext';
-
-
-// ─── Types ───────────────────────────────────────────────────
-interface SectionContent {
-  title?: string;
-  subtitle?: string;
-  content?: string;
-  cta_text?: string;
-  cta_link?: string;
-  highlights?: string[];
-  items?: Record<string, unknown>[];
-  phone?: string;
-  email?: string;
-  address?: string;
-  whatsapp?: string;
-  hours?: string;
-  [key: string]: unknown;
-}
-
-interface ChatMsg {
-  id?: number;
-  role: 'user' | 'assistant';
-  content: string;
-  section_id?: string;
-  created_at?: string;
-}
-
-interface ThemeData {
-  primary_color: string;
-  secondary_color: string;
-  font_heading: string;
-  font_body: string;
-  style: string;
-  spacing: string;
-  button_style: string;
-  animation: string;
-  shadow: string;
-  color_mode: string;
-  bg_color: string;
-}
-
-type ActiveTab = 'design' | 'content' | 'settings';
-
-const DEFAULT_THEME: ThemeData = {
-  primary_color: '#3b82f6',
-  secondary_color: '#10b981',
-  font_heading: 'Poppins',
-  font_body: 'Inter',
-  style: 'modern',
-  spacing: 'normal',
-  button_style: 'rounded',
-  animation: 'fade',
-  shadow: 'subtle',
-  color_mode: 'light',
-  bg_color: '#FFFFFF',
-};
-
-const TOP_BAR_HEIGHT = 48;
+import {
+  type SectionContent,
+  type ChatMsg,
+  type ThemeData,
+  type ActiveTab,
+  DEFAULT_THEME,
+  TOP_BAR_HEIGHT,
+} from './_helpers';
 
 // ─── Main page ───────────────────────────────────────────────
 export default function EditorPage() {
