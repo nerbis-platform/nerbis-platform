@@ -16,10 +16,8 @@ interface Step {
 }
 
 const steps: Step[] = [
-  { id: 'template', number: 1, name: 'Plantilla', path: '/dashboard/website-builder' },
-  { id: 'onboarding', number: 2, name: 'Tu Negocio', path: '/dashboard/website-builder/onboarding' },
-  { id: 'generate', number: 3, name: 'Generar', path: '/dashboard/website-builder/generate' },
-  { id: 'editor', number: 4, name: 'Editar', path: '/dashboard/website-builder/editor' },
+  { id: 'quick-start', number: 1, name: 'Tu Negocio', path: '/dashboard/website-builder/quick-start' },
+  { id: 'editor', number: 2, name: 'Editar', path: '/dashboard/website-builder/editor' },
 ];
 
 // Map backend website_status to the highest step index reached
@@ -27,15 +25,9 @@ function getMaxStepFromStatus(websiteStatus: string | null | undefined): number 
   switch (websiteStatus) {
     case 'review':
     case 'published':
-      return 3; // editor
-    case 'generating':
-      return 2; // generate
-    case 'onboarding':
-      return 1; // onboarding
-    case 'draft':
-      return 0; // template
+      return 1; // editor
     default:
-      return 0;
+      return 0; // quick-start
   }
 }
 

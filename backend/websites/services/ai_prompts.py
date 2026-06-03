@@ -70,24 +70,66 @@ def format_visual_config(template, onboarding_responses: dict) -> str:
     return "\n".join(lines)
 
 
-def build_system_prompt(template, onboarding_responses: dict) -> str:
-    """
-    Construye el prompt del sistema basado en el template y respuestas.
+def _get_active_blocks(template=None, industry: str = "") -> list:
+    """Query active PromptBlocks with scope filtering."""
+    from websites.models import PromptBlock
 
-    Args:
-        template: WebsiteTemplate seleccionado
-        onboarding_responses: dict de respuestas del onboarding
+    blocks = list(
+        PromptBlock.objects.filter(is_active=True).order_by("category", "sort_order")
+    )
+    if not blocks:
+        return []
 
-    Returns:
-        String con el prompt del sistema
-    """
-    # Prompt base del template (si existe)
+    result = []
+    for block in blocks:
+        if block.scope == "global":
+            result.append(block)
+        elif block.scope == "template" and template and block.template_id == template.id:
+            result.append(block)
+        elif block.scope == "industry" and industry and block.industry == industry:
+            result.append(block)
+    return result
+
+
+def _build_variant_instructions(section_keys: list[str]) -> str:
+    """Build variant instruction text for the prompt from active SectionVariants."""
+    from websites.models import SectionVariant
+
+    variants = (
+        SectionVariant.objects.filter(is_active=True, section__key__in=section_keys)
+        .select_related("section")
+        .order_by("section__key", "sort_order")
+    )
+    if not variants:
+        return ""
+
+    lines = ["## Variantes de Diseno Disponibles", ""]
+    current_section = None
+    for v in variants:
+        if v.section.key != current_section:
+            current_section = v.section.key
+            lines.append(f"### {v.section.label} ({current_section})")
+        default_marker = " [DEFAULT]" if v.is_default else ""
+        lines.append(f"- **{v.key}**: {v.label}{default_marker}")
+        if v.description:
+            lines.append(f"  {v.description}")
+        if v.css_class_hint:
+            lines.append(f"  CSS: `{v.css_class_hint}`")
+        if v.mood:
+            lines.append(f"  Mood: {v.get_mood_display()}")
+
+    lines.append("")
+    lines.append(
+        "Para cada seccion, elige UNA variante y devuelvela en "
+        'el campo `"_variant"` del JSON de esa seccion.'
+    )
+    return "\n".join(lines)
+
+
+def _build_legacy_prompt(template, onboarding_responses: dict) -> str:
+    """Legacy hardcoded prompt — exact copy of previous behavior."""
     template_prompt = template.ai_system_prompt if template else ""
-
-    # Construir contexto del negocio desde las respuestas
     business_context = format_business_context(onboarding_responses)
-
-    # Configuración visual del template (paleta + tipografía)
     visual_context = format_visual_config(template, onboarding_responses)
 
     return f"""Eres un experto en crear contenido para sitios web de negocios.
@@ -115,3 +157,53 @@ Tu objetivo es generar contenido profesional, atractivo y personalizado.
 Responde SIEMPRE en formato JSON válido con la estructura solicitada.
 No incluyas explicaciones fuera del JSON.
 """
+
+
+def build_system_prompt(template, onboarding_responses: dict) -> str:
+    """
+    Construye el prompt del sistema.
+
+    Strategy:
+    1. Try dynamic assembly from PromptBlock records
+    2. If no blocks exist, fall back to legacy hardcoded prompt
+    """
+    from collections import defaultdict
+
+    industry = template.industry if template else "generic"
+    blocks = _get_active_blocks(template=template, industry=industry)
+
+    if not blocks:
+        return _build_legacy_prompt(template, onboarding_responses)
+
+    # Build context values for placeholder replacement
+    business_context = format_business_context(onboarding_responses)
+    visual_context = format_visual_config(template, onboarding_responses)
+    template_prompt = template.ai_system_prompt if template else ""
+    brand_tone = onboarding_responses.get("brand_tone", "profesional y cercano")
+
+    # Build variant instructions from selected sections
+    selected_sections = onboarding_responses.get("website_sections", [])
+    section_keys = set(selected_sections) if selected_sections else set()
+    section_keys.update(["hero", "contact"])
+    variant_instructions = _build_variant_instructions(list(section_keys))
+
+    placeholders = defaultdict(
+        str,
+        {
+            "business_context": business_context,
+            "visual_context": visual_context,
+            "template_prompt": template_prompt,
+            "brand_tone": brand_tone,
+            "variant_instructions": variant_instructions,
+        },
+    )
+
+    parts = []
+    for block in blocks:
+        try:
+            rendered = block.content.format_map(placeholders)
+        except (KeyError, ValueError):
+            rendered = block.content
+        parts.append(rendered)
+
+    return "\n\n".join(parts)

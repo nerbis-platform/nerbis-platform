@@ -139,6 +139,10 @@ export interface QuickStartRequest {
   brand_tone?: string;
   primary_color?: string;
   secondary_color?: string;
+  target_audience?: string;
+  unique_selling_point?: string;
+  business_email?: string;
+  business_phone?: string;
 }
 
 export interface QuickStartResponse {

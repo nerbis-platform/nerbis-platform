@@ -27,6 +27,9 @@ from core.admin_settings_serializers import (
     AdminMarketingSectionSerializer,
     AdminOnboardingQuestionSerializer,
     AdminPlatformModuleSerializer,
+    AdminPromptBlockSerializer,
+    AdminPromptPreviewSerializer,
+    AdminSectionVariantSerializer,
     AdminWebsitePageSerializer,
     AdminWebsiteSectionSerializer,
     IndustryGalleryReorderSerializer,
@@ -34,7 +37,15 @@ from core.admin_settings_serializers import (
 from core.marketing_defaults import MARKETING_SECTION_DEFAULTS
 from core.models import IndustryGalleryCard, MarketingSection, PlatformModule
 from core.permissions import IsSuperAdmin
-from websites.models import OnboardingQuestion, WebsitePage, WebsiteSection
+from websites.models import (
+    OnboardingQuestion,
+    PromptBlock,
+    SectionVariant,
+    WebsitePage,
+    WebsiteSection,
+    WebsiteTemplate,
+)
+from websites.services.ai_prompts import build_system_prompt
 
 # ---------------------------------------------------------------------------
 # PlatformModule views
@@ -278,5 +289,95 @@ class AdminIndustryGalleryViewSet(ModelViewSet):
         cards = self.get_queryset()
         return Response(
             AdminIndustryGalleryCardSerializer(cards, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+# ---------------------------------------------------------------------------
+# SectionVariant views
+# ---------------------------------------------------------------------------
+
+
+class AdminSectionVariantListCreateView(generics.ListCreateAPIView):
+    """GET/POST ``/api/admin/settings/variants/``."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminSectionVariantSerializer
+    pagination_class = None
+    queryset = SectionVariant.objects.select_related("section").order_by("sort_order")
+
+
+class AdminSectionVariantDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PUT/PATCH/DELETE ``/api/admin/settings/variants/<int:pk>/``."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminSectionVariantSerializer
+    queryset = SectionVariant.objects.select_related("section").order_by("sort_order")
+
+
+# ---------------------------------------------------------------------------
+# PromptBlock views
+# ---------------------------------------------------------------------------
+
+
+class AdminPromptBlockListCreateView(generics.ListCreateAPIView):
+    """GET/POST ``/api/admin/settings/prompt-blocks/``."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminPromptBlockSerializer
+    pagination_class = None
+    queryset = PromptBlock.objects.select_related("template").order_by("sort_order")
+
+
+class AdminPromptBlockDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PUT/PATCH/DELETE ``/api/admin/settings/prompt-blocks/<int:pk>/``."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminPromptBlockSerializer
+    queryset = PromptBlock.objects.select_related("template").order_by("sort_order")
+
+
+# ---------------------------------------------------------------------------
+# Prompt preview view
+# ---------------------------------------------------------------------------
+
+
+class AdminPromptPreviewView(APIView):
+    """POST ``/api/admin/settings/prompt-preview/``.
+
+    Construye y devuelve el system prompt que usaria la IA, sin ejecutar
+    generacion. Util para que el superadmin valide el resultado de los
+    PromptBlocks configurados.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request) -> Response:
+        serializer = AdminPromptPreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        template_id = serializer.validated_data.get("template_id")
+        onboarding_responses = serializer.validated_data.get("onboarding_responses", {})
+
+        template = None
+        if template_id:
+            try:
+                template = WebsiteTemplate.objects.get(pk=template_id)
+            except WebsiteTemplate.DoesNotExist:
+                return Response(
+                    {"detail": f"Template con id {template_id} no encontrado."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        prompt = build_system_prompt(template, onboarding_responses)
+
+        block_count = PromptBlock.objects.filter(is_active=True).count()
+
+        return Response(
+            {
+                "prompt": prompt,
+                "template_used": template.name if template else None,
+                "block_count": block_count,
+            },
             status=status.HTTP_200_OK,
         )

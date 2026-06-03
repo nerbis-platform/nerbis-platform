@@ -646,3 +646,103 @@ class WebsiteSection(models.Model):
     def __str__(self):
         page_label = self.page.label if self.page else "Home"
         return f"{self.label} ({page_label})"
+
+
+class SectionVariant(models.Model):
+    """Variante visual para una seccion de sitio web.
+    Modelo GLOBAL — permite al superadmin definir opciones de diseno
+    que la IA puede elegir al generar un sitio."""
+
+    MOOD_CHOICES = [
+        ("professional", "Profesional"),
+        ("playful", "Lúdico"),
+        ("elegant", "Elegante"),
+        ("bold", "Audaz"),
+        ("minimal", "Minimalista"),
+    ]
+
+    section = models.ForeignKey(
+        "WebsiteSection",
+        on_delete=models.CASCADE,
+        related_name="variants",
+        verbose_name="Sección",
+    )
+    key = models.SlugField("Clave", max_length=80, unique=True)
+    label = models.CharField("Etiqueta", max_length=100)
+    description = models.TextField("Descripción", blank=True)
+    css_class_hint = models.CharField("Clase CSS sugerida", max_length=100, blank=True)
+    preview_url = models.URLField("URL de preview", blank=True)
+    tags = models.JSONField("Tags", default=list, blank=True)
+    industries = models.JSONField("Industrias", default=list, blank=True)
+    mood = models.CharField(
+        "Mood", max_length=20, choices=MOOD_CHOICES, default="professional"
+    )
+    is_default = models.BooleanField("Por defecto", default=False)
+    is_active = models.BooleanField("Activa", default=True)
+    sort_order = models.PositiveIntegerField("Orden", default=0)
+    created_at = models.DateTimeField("Creado", auto_now_add=True)
+    updated_at = models.DateTimeField("Actualizado", auto_now=True)
+
+    class Meta:
+        verbose_name = "Variante de sección"
+        verbose_name_plural = "Variantes de sección"
+        ordering = ["section", "sort_order", "label"]
+
+    def __str__(self):
+        return f"{self.label} ({self.section.key})"
+
+
+class PromptBlock(models.Model):
+    """Bloque reutilizable de prompt para la IA.
+    Modelo GLOBAL — los superadmins componen el system prompt
+    ensamblando bloques por categoria y scope."""
+
+    CATEGORY_CHOICES = [
+        ("system", "Sistema"),
+        ("business", "Negocio"),
+        ("visual", "Visual"),
+        ("section", "Secciones"),
+        ("rules", "Reglas"),
+    ]
+
+    SCOPE_CHOICES = [
+        ("global", "Global"),
+        ("template", "Template específico"),
+        ("industry", "Industria específica"),
+    ]
+
+    key = models.SlugField("Clave", max_length=80, unique=True)
+    label = models.CharField("Etiqueta", max_length=100)
+    content = models.TextField("Contenido")
+    category = models.CharField(
+        "Categoría", max_length=20, choices=CATEGORY_CHOICES, default="system"
+    )
+    scope = models.CharField(
+        "Alcance", max_length=20, choices=SCOPE_CHOICES, default="global"
+    )
+    template = models.ForeignKey(
+        "WebsiteTemplate",
+        on_delete=models.CASCADE,
+        related_name="prompt_blocks",
+        null=True,
+        blank=True,
+    )
+    industry = models.CharField(
+        "Industria",
+        max_length=50,
+        choices=WebsiteTemplate.INDUSTRY_CHOICES,
+        blank=True,
+    )
+    sort_order = models.PositiveIntegerField("Orden", default=0)
+    is_active = models.BooleanField("Activo", default=True)
+    created_at = models.DateTimeField("Creado", auto_now_add=True)
+    updated_at = models.DateTimeField("Actualizado", auto_now=True)
+
+    class Meta:
+        verbose_name = "Bloque de prompt"
+        verbose_name_plural = "Bloques de prompt"
+        ordering = ["category", "sort_order", "key"]
+
+    def __str__(self):
+        scope_label = f" [{self.scope}]" if self.scope != "global" else ""
+        return f"{self.label} ({self.get_category_display()}){scope_label}"

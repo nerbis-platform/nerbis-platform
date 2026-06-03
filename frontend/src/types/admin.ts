@@ -536,3 +536,94 @@ export interface AdminWebsiteSectionPayload {
   sort_order?: number;
   is_active?: boolean;
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Section Variants
+// ──────────────────────────────────────────────────────────────────────
+
+export type VariantMood = 'professional' | 'playful' | 'elegant' | 'bold' | 'minimal';
+
+export interface AdminSectionVariant {
+  id: number;
+  section: number;
+  section_detail: { id: number; key: string; label: string };
+  key: string;
+  label: string;
+  description: string;
+  css_class_hint: string;
+  preview_url: string;
+  tags: string[];
+  industries: string[];
+  mood: VariantMood;
+  is_default: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminSectionVariantPayload {
+  section: number;
+  key: string;
+  label: string;
+  description?: string;
+  css_class_hint?: string;
+  preview_url?: string;
+  tags?: string[];
+  industries?: string[];
+  mood?: VariantMood;
+  is_default?: boolean;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Prompt Blocks
+// ──────────────────────────────────────────────────────────────────────
+
+export type PromptBlockCategory = 'system' | 'business' | 'visual' | 'section' | 'rules';
+export type PromptBlockScope = 'global' | 'template' | 'industry';
+
+export interface AdminPromptBlock {
+  id: number;
+  key: string;
+  label: string;
+  content: string;
+  category: PromptBlockCategory;
+  scope: PromptBlockScope;
+  template: number | null;
+  template_detail: { id: number; name: string; slug: string; industry: string } | null;
+  industry: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminPromptBlockPayload {
+  key: string;
+  label: string;
+  content: string;
+  category?: PromptBlockCategory;
+  scope?: PromptBlockScope;
+  template?: number | null;
+  industry?: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Prompt Preview
+// ──────────────────────────────────────────────────────────────────────
+
+export interface AdminPromptPreviewPayload {
+  template_id?: number | null;
+  industry?: string;
+  onboarding_responses?: Record<string, unknown>;
+}
+
+export interface AdminPromptPreviewResponse {
+  prompt: string;
+  template_used: string | null;
+  block_count: number;
+}

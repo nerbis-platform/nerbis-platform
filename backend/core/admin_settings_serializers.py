@@ -15,7 +15,14 @@ from __future__ import annotations
 from rest_framework import serializers
 
 from core.models import IndustryGalleryCard, MarketingSection, PlatformModule
-from websites.models import OnboardingQuestion, WebsitePage, WebsiteSection
+from websites.models import (
+    OnboardingQuestion,
+    PromptBlock,
+    SectionVariant,
+    WebsitePage,
+    WebsiteSection,
+    WebsiteTemplate,
+)
 
 # ---------------------------------------------------------------------------
 # PlatformModule serializers
@@ -316,3 +323,140 @@ class IndustryGalleryReorderSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"Cards no encontradas: {sorted(missing)}")
 
         return value
+
+
+# ---------------------------------------------------------------------------
+# SectionVariant serializers
+# ---------------------------------------------------------------------------
+
+
+class WebsiteSectionMinimalSerializer(serializers.ModelSerializer):
+    """Representacion minimal de una seccion para uso nested en FK."""
+
+    class Meta:
+        model = WebsiteSection
+        fields = ["id", "key", "label"]
+        read_only_fields = fields
+
+
+class AdminSectionVariantSerializer(serializers.ModelSerializer):
+    """CRUD completo de SectionVariant.
+
+    Patron dual-field para FK ``section``:
+    - ``section`` (write): PK para escritura.
+    - ``section_detail`` (read): representacion nested para lectura.
+    """
+
+    section_detail = WebsiteSectionMinimalSerializer(source="section", read_only=True)
+    section = serializers.PrimaryKeyRelatedField(queryset=WebsiteSection.objects.all())
+
+    class Meta:
+        model = SectionVariant
+        fields = [
+            "id",
+            "section",
+            "section_detail",
+            "key",
+            "label",
+            "description",
+            "css_class_hint",
+            "preview_url",
+            "tags",
+            "industries",
+            "mood",
+            "is_default",
+            "is_active",
+            "sort_order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+# ---------------------------------------------------------------------------
+# PromptBlock serializers
+# ---------------------------------------------------------------------------
+
+
+class WebsiteTemplateMinimalSerializer(serializers.ModelSerializer):
+    """Representacion minimal de un template para uso nested en FK."""
+
+    class Meta:
+        model = WebsiteTemplate
+        fields = ["id", "name", "slug", "industry"]
+        read_only_fields = fields
+
+
+class AdminPromptBlockSerializer(serializers.ModelSerializer):
+    """CRUD completo de PromptBlock.
+
+    Patron dual-field para FK ``template``:
+    - ``template`` (write): PK para escritura.
+    - ``template_detail`` (read): representacion nested para lectura.
+
+    Validacion cruzada:
+    - scope=template requiere template.
+    - scope=industry requiere industry.
+    - scope=global limpia template e industry.
+    """
+
+    template_detail = WebsiteTemplateMinimalSerializer(source="template", read_only=True)
+    template = serializers.PrimaryKeyRelatedField(
+        queryset=WebsiteTemplate.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = PromptBlock
+        fields = [
+            "id",
+            "key",
+            "label",
+            "content",
+            "category",
+            "scope",
+            "template",
+            "template_detail",
+            "industry",
+            "sort_order",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+    def validate(self, attrs):
+        scope = attrs.get("scope", getattr(self.instance, "scope", None) if self.instance else None)
+
+        if scope == "template":
+            template = attrs.get("template", getattr(self.instance, "template", None) if self.instance else None)
+            if template is None:
+                raise serializers.ValidationError(
+                    {"template": "Este campo es requerido cuando scope es 'template'."}
+                )
+        elif scope == "industry":
+            industry = attrs.get("industry", getattr(self.instance, "industry", "") if self.instance else "")
+            if not industry:
+                raise serializers.ValidationError(
+                    {"industry": "Este campo es requerido cuando scope es 'industry'."}
+                )
+            attrs["template"] = None
+        elif scope == "global":
+            attrs["template"] = None
+            attrs["industry"] = ""
+
+        return attrs
+
+
+# ---------------------------------------------------------------------------
+# Prompt preview serializer
+# ---------------------------------------------------------------------------
+
+
+class AdminPromptPreviewSerializer(serializers.Serializer):
+    """Serializer para previsualizar el prompt construido por la IA."""
+
+    template_id = serializers.IntegerField(required=False)
+    industry = serializers.CharField(required=False, default="generic")
+    onboarding_responses = serializers.DictField(required=False, default=dict)

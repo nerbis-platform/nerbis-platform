@@ -91,11 +91,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       } else if (tenant.has_management && !tenant.has_website) {
         // Management-only tenant → allow dashboard without website
       } else if (tenant.has_website) {
-        // Fase: website_building / website_generated → Builder
-        router.push('/dashboard/website-builder');
+        // Fase: website_building / website_generated → Quick Start con Pipe
+        router.push('/dashboard/website-builder/quick-start');
       } else {
-        // Fase: modules_configured sin website → Website Builder
-        router.push('/dashboard/website-builder');
+        // Fase: modules_configured sin website → Quick Start con Pipe
+        router.push('/dashboard/website-builder/quick-start');
       }
     }
   }, [mounted, isAuthenticated, isLoading, tenant, user, isBypassRoute, router]);
@@ -113,13 +113,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     tenant.website_status !== 'published' &&
     !isManagementOnly;
 
-  // Layout limpio para Setup y Website Builder
+  // Layout limpio para Setup y Website Builder.
+  // Render children immediately — these pages have their own header/layout.
+  // Auth redirect still works via the useEffect above.
+  // Layout limpio para Setup y Website Builder.
+  // Loading placeholder reserves the header height (h-14 = 56px) to avoid
+  // layout shift when children mount with their own header.
   if (isCleanLayout) {
     return (
       <>
         {!mounted || isLoading ? (
-          <div className="min-h-screen flex items-center justify-center">
-            <Skeleton className="h-10 w-64" />
+          <div className="h-screen flex flex-col" style={{ backgroundColor: '#fff' }}>
+            <div className="h-14 border-b" style={{ borderColor: '#F3F4F6' }} />
+            <div className="flex-1" />
           </div>
         ) : isAuthenticated ? (
           children

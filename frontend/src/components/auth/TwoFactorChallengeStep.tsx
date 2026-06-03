@@ -174,7 +174,7 @@ export function TwoFactorChallengeStep({
         } else if (authData.tenant?.has_management && !authData.tenant?.has_website) {
           target = '/dashboard';
         } else if (authData.tenant?.has_website && authData.tenant.website_status !== 'published') {
-          target = '/dashboard/website-builder';
+          target = '/dashboard/website-builder/quick-start';
         } else {
           target = '/dashboard';
         }
