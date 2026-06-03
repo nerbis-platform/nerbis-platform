@@ -7,69 +7,26 @@ Integra con Claude (Anthropic) para:
 - Chat interactivo para ediciones
 - Regenerar secciones específicas
 - Optimización SEO
+
+Los helpers, constantes, prompts y validaciones viven en submódulos:
+- ai_constants.py  — constantes compartidas
+- ai_prompts.py    — system prompts, format_business_context, templates de prompt
+- ai_validation.py — frases prohibidas, validaciones de contenido
+- ai_pricing.py    — MODEL_PRICING, calculate_cost
 """
 
 import json
 import logging
-from decimal import Decimal
 
 from django.conf import settings
 from django.utils import timezone
 
+from websites.services.ai_constants import SECTION_OPTION_MAP
+from websites.services.ai_pricing import calculate_cost
+from websites.services.ai_prompts import build_system_prompt
+from websites.services.ai_validation import validate_generated_content
+
 logger = logging.getLogger(__name__)
-
-
-# ───────────────────────────────────────────────────────────────────────────
-# Reglas de validacion de contenido generado por IA
-#
-# Las frases prohibidas viven por industria. Fuente de verdad por vertical:
-# backend/websites/design-references/<industria>.md
-# ───────────────────────────────────────────────────────────────────────────
-
-# Minimo de palabras aceptable para la descripcion de un servicio.
-# Menos que esto se considera generico ("Servicio 1 -- Descripcion del servicio").
-MIN_SERVICE_DESCRIPTION_WORDS = 15
-
-# CTAs genericos prohibidos en cualquier vertical.
-FORBIDDEN_CTA_PHRASES = [
-    "saber más",
-    "descubre más",
-    "conoce más",
-]
-
-# Frases prohibidas por industria (se comparan en minusculas, coincidencia parcial).
-# Para wellness ver: backend/websites/design-references/wellness.md §5.
-FORBIDDEN_PHRASES_BY_INDUSTRY: dict[str, list[str]] = {
-    "beauty": [
-        "tu belleza, nuestra pasión",
-        "tu belleza es importante para nosotros",
-        "bienvenido a nuestro centro",
-        "bienvenida a nuestro centro",
-        "con más de",  # matches "con más de X años de experiencia"
-        "somos especialistas en",
-        "la mejor opción para ti",
-        "cuidado premium",
-        "servicio premium",
-        "experiencia única",
-        "atención personalizada",
-        "ofrecemos bienestar",
-        "brindamos bienestar",
-        "transformamos tu belleza",
-        "descubre la diferencia",
-        "te invitamos a conocer",
-    ],
-}
-
-# Precios por modelo (USD por 1M tokens). Usados por calculate_cost cuando se
-# generan sitios con un modelo distinto al configurado por defecto en settings.
-# Si el modelo no esta aqui, se usa el precio de settings.ANTHROPIC_PRICE_*.
-MODEL_PRICING: dict[str, tuple[str, str]] = {
-    # (input, output)
-    "claude-sonnet-4-6": ("3.00", "15.00"),
-    "claude-sonnet-4-5": ("3.00", "15.00"),
-    "claude-haiku-4-5-20251001": ("1.00", "5.00"),
-    "claude-3-haiku-20240307": ("0.25", "1.25"),
-}
 
 
 class AIService:
@@ -78,6 +35,9 @@ class AIService:
 
     Maneja la generación de contenido, chat y tracking de uso.
     """
+
+    # Expuesto como atributo de clase para backward compatibility
+    SECTION_OPTION_MAP = SECTION_OPTION_MAP
 
     def __init__(self, tenant=None, website_config=None):
         """
@@ -90,7 +50,7 @@ class AIService:
         self.tenant = tenant
         self.website_config = website_config
         self.client = self._get_client()
-        # Modelo realmente usado en la ultima llamada a la API (puede diferir de
+        # Modelo realmente usado en la última llamada a la API (puede diferir de
         # settings.ANTHROPIC_MODEL cuando se usa ANTHROPIC_MODEL_INITIAL). Lo
         # consume log_generation para calcular el costo y registrar el modelo.
         self._last_model_used: str | None = None
@@ -109,88 +69,22 @@ class AIService:
             logger.error("anthropic package no instalado. Ejecutar: pip install anthropic")
             return None
 
+    # ───────────────────────────────────────────────────────────────────
+    # Delegaciones a submódulos
+    # ───────────────────────────────────────────────────────────────────
+
     def _build_system_prompt(self, template, onboarding_responses: dict) -> str:
-        """
-        Construye el prompt del sistema basado en el template y respuestas.
+        return build_system_prompt(template, onboarding_responses)
 
-        Args:
-            template: WebsiteTemplate seleccionado
-            onboarding_responses: dict de respuestas del onboarding
+    def _validate_generated_content(self, content_data: dict, template) -> list[str]:
+        return validate_generated_content(content_data, template)
 
-        Returns:
-            String con el prompt del sistema
-        """
-        # Prompt base del template (si existe)
-        template_prompt = template.ai_system_prompt if template else ""
+    def calculate_cost(self, tokens_input: int, tokens_output: int, model: str | None = None):
+        return calculate_cost(tokens_input, tokens_output, model=model)
 
-        # Construir contexto del negocio desde las respuestas
-        business_context = self._format_business_context(onboarding_responses)
-
-        # Configuracion visual del template (paleta + tipografia). Ayuda a que
-        # el copy armonice con la identidad visual.
-        visual_context = self._format_visual_config(template, onboarding_responses)
-
-        system_prompt = f"""Eres un experto en crear contenido para sitios web de negocios.
-Tu objetivo es generar contenido profesional, atractivo y personalizado.
-
-## Información del Negocio
-{business_context}
-
-## Configuración Visual
-{visual_context}
-
-## Instrucciones del Template
-{template_prompt}
-
-## Reglas Generales
-1. Escribe en español (España/Latinoamérica según el contexto)
-2. Usa un tono {onboarding_responses.get("brand_tone", "profesional y cercano")}
-3. Sé conciso pero impactante
-4. Incluye llamadas a la acción claras
-5. Personaliza el contenido según la industria y audiencia
-6. No inventes información que no se haya proporcionado
-7. Si falta información, usa placeholders descriptivos como "[Tu teléfono]"
-
-## Formato de Respuesta
-Responde SIEMPRE en formato JSON válido con la estructura solicitada.
-No incluyas explicaciones fuera del JSON.
-"""
-        return system_prompt
-
-    def _format_visual_config(self, template, onboarding_responses: dict) -> str:
-        """Formatea paleta + tipografia del template para el prompt."""
-        if not template or not template.default_theme:
-            return "Sin configuración visual específica. Usa un tono neutro."
-
-        theme = dict(template.default_theme)
-        # El onboarding puede sobrescribir los colores; usarlos si estan
-        if onboarding_responses.get("primary_color"):
-            theme["primary_color"] = onboarding_responses["primary_color"]
-        if onboarding_responses.get("secondary_color"):
-            theme["secondary_color"] = onboarding_responses["secondary_color"]
-
-        lines = []
-        if theme.get("primary_color"):
-            lines.append(f"- Color primario: {theme['primary_color']}")
-        if theme.get("secondary_color"):
-            lines.append(f"- Color secundario: {theme['secondary_color']}")
-        if theme.get("accent_color"):
-            lines.append(f"- Color de acento: {theme['accent_color']}")
-        if theme.get("font_heading"):
-            lines.append(f"- Tipografía de títulos: {theme['font_heading']}")
-        if theme.get("font_body"):
-            lines.append(f"- Tipografía de texto: {theme['font_body']}")
-        if theme.get("style"):
-            lines.append(f"- Estilo visual: {theme['style']}")
-
-        if not lines:
-            return "Sin configuración visual específica."
-
-        lines.append(
-            "\nEl copy generado debe armonizar con esta identidad visual "
-            "(tono, ritmo y vocabulario coherentes con los colores y tipografía)."
-        )
-        return "\n".join(lines)
+    # ───────────────────────────────────────────────────────────────────
+    # Industry defaults
+    # ───────────────────────────────────────────────────────────────────
 
     def _apply_industry_defaults(self, onboarding_responses: dict) -> dict:
         """Rellena campos faltantes del onboarding con defaults del vertical.
@@ -199,7 +93,7 @@ No incluyas explicaciones fuera del JSON.
         calidad que el onboarding completo (17 campos), porque la IA recibe
         brand_tone, business_hours y website_sections derivados de la industria.
 
-        **No sobrescribe** datos que el usuario ya proporciono.
+        **No sobrescribe** datos que el usuario ya proporcionó.
 
         Returns:
             Copia del dict con defaults inyectados.
@@ -233,78 +127,9 @@ No incluyas explicaciones fuera del JSON.
 
         return merged
 
-    def _format_business_context(self, responses: dict) -> str:
-        """Formatea las respuestas del onboarding como contexto."""
-        context_lines = []
-
-        # Mapeo de claves a descripciones legibles
-        key_labels = {
-            "business_name": "Nombre del negocio",
-            "business_tagline": "Slogan",
-            "business_description": "Descripción",
-            "target_audience": "Audiencia objetivo",
-            "unique_selling_point": "Propuesta de valor única",
-            "brand_tone": "Tono de comunicación",
-            "website_sections": "Secciones seleccionadas para el sitio",
-            "business_address": "Dirección",
-            "business_phone": "Teléfono",
-            "business_email": "Email",
-            "business_whatsapp": "WhatsApp",
-            "business_hours": "Horario de atención",
-        }
-
-        for key, value in responses.items():
-            if value:  # Solo incluir si tiene valor
-                label = key_labels.get(key, key.replace("_", " ").title())
-                if isinstance(value, list):
-                    value = ", ".join(str(v) for v in value)
-                context_lines.append(f"- {label}: {value}")
-
-        return "\n".join(context_lines) if context_lines else "No se proporcionó información adicional."
-
-    def _validate_generated_content(self, content_data: dict, template) -> list[str]:
-        """
-        Valida el contenido generado contra las reglas del vertical.
-
-        Devuelve lista de problemas detectados (vacia si todo OK). El caller
-        puede decidir si reintenta o solo loggea.
-
-        Reglas aplicadas:
-        1. Cada servicio debe tener descripcion >= MIN_SERVICE_DESCRIPTION_WORDS.
-        2. Si la industria del template tiene frases prohibidas, el contenido
-           completo no debe contenerlas (match en minusculas, parcial).
-        3. CTAs genericos prohibidos en cualquier industria.
-        """
-        if not content_data:
-            return []
-
-        problems: list[str] = []
-
-        # 1. Descripciones de servicios
-        services_items = (content_data.get("services") or {}).get("items") or []
-        for idx, item in enumerate(services_items, start=1):
-            desc = (item.get("description") or "").strip()
-            word_count = len(desc.split())
-            if word_count < MIN_SERVICE_DESCRIPTION_WORDS:
-                name = item.get("name") or f"servicio {idx}"
-                problems.append(
-                    f"Descripción de '{name}' muy corta ({word_count} palabras, "
-                    f"mínimo {MIN_SERVICE_DESCRIPTION_WORDS})."
-                )
-
-        # 2. Frases prohibidas segun industria
-        industry = (template.industry if template else "").lower()
-        forbidden = FORBIDDEN_PHRASES_BY_INDUSTRY.get(industry, [])
-        if forbidden or FORBIDDEN_CTA_PHRASES:
-            content_text = json.dumps(content_data, ensure_ascii=False).lower()
-            for phrase in forbidden:
-                if phrase.lower() in content_text:
-                    problems.append(f"Contiene frase prohibida: '{phrase}'.")
-            for cta in FORBIDDEN_CTA_PHRASES:
-                if cta in content_text:
-                    problems.append(f"Contiene CTA genérico prohibido: '{cta}'.")
-
-        return problems
+    # ───────────────────────────────────────────────────────────────────
+    # Generación inicial
+    # ───────────────────────────────────────────────────────────────────
 
     def generate_initial_content(
         self, template, onboarding_responses: dict, additional_instructions: str = ""
@@ -416,9 +241,9 @@ Responde con un JSON con esta estructura (incluye SOLO las secciones indicadas a
 
 Genera contenido profesional y atractivo basado en la información del negocio."""
 
-        # Para la generacion inicial usamos un modelo mas capaz (Sonnet) por
+        # Para la generación inicial usamos un modelo más capaz (Sonnet) por
         # defecto. El chat de ediciones posteriores sigue usando el modelo
-        # barato (Haiku) via settings.ANTHROPIC_MODEL. Si el env var no esta
+        # barato (Haiku) via settings.ANTHROPIC_MODEL. Si el env var no está
         # definido, cae a ANTHROPIC_MODEL para no romper entornos existentes.
         model = getattr(settings, "ANTHROPIC_MODEL_INITIAL", None) or settings.ANTHROPIC_MODEL
         self._last_model_used = model
@@ -428,8 +253,8 @@ Genera contenido profesional y atractivo basado en la información del negocio."
                 model=model, system_prompt=system_prompt, user_prompt=user_prompt
             )
 
-            # Validacion post-generacion. Si hay problemas, reintentamos una
-            # vez con instruccion explicita de corregirlos. Si el retry sigue
+            # Validación post-generación. Si hay problemas, reintentamos una
+            # vez con instrucción explícita de corregirlos. Si el retry sigue
             # fallando, usamos el mejor de los dos resultados y loggeamos.
             problems = self._validate_generated_content(content_data, template)
             if problems:
@@ -508,6 +333,10 @@ Genera contenido profesional y atractivo basado en la información del negocio."
 
         return content_data, seo_data, tokens_input, tokens_output, response_text
 
+    # ───────────────────────────────────────────────────────────────────
+    # Chat de edición
+    # ───────────────────────────────────────────────────────────────────
+
     def chat_edit(
         self, message: str, current_content: dict, chat_history: list[dict], section_id: str | None = None
     ) -> tuple[str, dict | None, str | None, int, int]:
@@ -565,6 +394,7 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
         messages.append({"role": "user", "content": f"{context_prefix}{message}"})
 
         try:
+            self._last_model_used = settings.ANTHROPIC_MODEL
             response = self.client.messages.create(
                 model=settings.ANTHROPIC_MODEL, max_tokens=2048, system=system_prompt, messages=messages
             )
@@ -596,36 +426,9 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             logger.error(f"Error en chat con Claude: {e}")
             return self._mock_chat_response(message, section_id)
 
-    def calculate_cost(self, tokens_input: int, tokens_output: int, model: str | None = None) -> Decimal:
-        """
-        Calcula el costo estimado en COP.
-
-        Args:
-            tokens_input: Tokens de entrada
-            tokens_output: Tokens de salida
-            model: Modelo usado (si se pasa y esta en MODEL_PRICING, se usa su
-                tarifa; si no, cae a settings.ANTHROPIC_PRICE_*).
-
-        Returns:
-            Costo estimado en COP
-        """
-        # Resolver precio por modelo si aplica
-        price_input_str = settings.ANTHROPIC_PRICE_INPUT
-        price_output_str = settings.ANTHROPIC_PRICE_OUTPUT
-        if model and model in MODEL_PRICING:
-            price_input_str, price_output_str = MODEL_PRICING[model]
-
-        price_input = Decimal(price_input_str)
-        price_output = Decimal(price_output_str)
-        cost_input = (Decimal(tokens_input) / 1_000_000) * price_input
-        cost_output = (Decimal(tokens_output) / 1_000_000) * price_output
-        cost_usd = cost_input + cost_output
-
-        # Convertir a COP (tasa aproximada)
-        usd_to_cop = Decimal("4200")  # TODO: Obtener tasa actual
-        cost_cop = cost_usd * usd_to_cop
-
-        return cost_cop.quantize(Decimal("0.01"))
+    # ───────────────────────────────────────────────────────────────────
+    # Usage limits & logging
+    # ───────────────────────────────────────────────────────────────────
 
     def check_usage_limit(self, tenant) -> tuple[bool, int, int]:
         """
@@ -697,12 +500,12 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             logger.warning("No se puede registrar generación sin tenant")
             return None
 
-        # Modelo efectivamente usado en la ultima llamada (lo setea
+        # Modelo efectivamente usado en la última llamada (lo setea
         # generate_initial_content cuando usa ANTHROPIC_MODEL_INITIAL).
         model_used = self._last_model_used or settings.ANTHROPIC_MODEL
         cost = self.calculate_cost(tokens_input, tokens_output, model=model_used)
 
-        # Verificar si es billable (excede limite)
+        # Verificar si es billable (excede límite)
         can_generate, used, limit = self.check_usage_limit(self.tenant)
         is_billable = used >= limit
 
@@ -731,9 +534,9 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
 
         return log
 
-    # ===================================
+    # ───────────────────────────────────────────────────────────────────
     # SEO AI Suggestions
-    # ===================================
+    # ───────────────────────────────────────────────────────────────────
 
     def suggest_seo(
         self,
@@ -794,6 +597,7 @@ Tu trabajo es generar un título y descripción optimizados para Google.
 Responde SOLO con el JSON, sin explicaciones."""
 
         try:
+            self._last_model_used = settings.ANTHROPIC_MODEL
             response = self.client.messages.create(
                 model=settings.ANTHROPIC_MODEL,
                 max_tokens=512,
@@ -821,6 +625,59 @@ Responde SOLO con el JSON, sin explicaciones."""
             logger.error(f"Error generando sugerencias SEO: {e}")
             return self._mock_seo_suggestions(keywords, business_name), 0, 0
 
+    # ───────────────────────────────────────────────────────────────────
+    # Filtrado de secciones
+    # ───────────────────────────────────────────────────────────────────
+
+    def _filter_sections_by_selection(self, sections: list[dict], responses: dict) -> list[dict]:
+        """
+        Filtra secciones del template según lo que el usuario seleccionó
+        y los módulos activos del tenant.
+
+        Las secciones 'required' (hero, contact) siempre se incluyen.
+        Las demás solo se incluyen si el usuario las seleccionó.
+        'services' solo si el tenant tiene has_services.
+        'products' solo si el tenant tiene has_shop.
+        """
+        selected = responses.get("website_sections", [])
+        if not selected or not isinstance(selected, list):
+            return sections  # Sin filtro si no hay selección
+
+        # IDs de sección permitidos
+        allowed_ids = set()
+        for option in selected:
+            for section_id in self.SECTION_OPTION_MAP.get(option, []):
+                allowed_ids.add(section_id)
+
+        # Filtrar services/products según módulos del tenant
+        if self.tenant:
+            if not getattr(self.tenant, "has_services", False) and "services" in allowed_ids:
+                allowed_ids.discard("services")
+            if not getattr(self.tenant, "has_shop", False) and "products" in allowed_ids:
+                allowed_ids.discard("products")
+            # Asegurar que al menos uno quede si seleccionó servicios/productos
+            services_or_products = {"Servicios", "Productos", "Servicios / Productos"}
+            if services_or_products & set(selected) and not allowed_ids & {"services", "products"}:
+                # Si ninguno quedó por los flags, incluir genérico
+                allowed_ids.add("services")
+
+        return [s for s in sections if s.get("required", False) or s.get("id") in allowed_ids]
+
+    def _default_sections(self) -> list[dict]:
+        """Secciones por defecto si el template no las define."""
+        return [
+            {"id": "hero", "name": "Encabezado Principal", "required": True},
+            {"id": "about", "name": "Sobre Nosotros", "required": False},
+            {"id": "services", "name": "Servicios", "required": False},
+            {"id": "products", "name": "Productos", "required": False},
+            {"id": "testimonials", "name": "Testimonios", "required": False},
+            {"id": "contact", "name": "Contacto", "required": True},
+        ]
+
+    # ───────────────────────────────────────────────────────────────────
+    # Mock methods (desarrollo sin API key)
+    # ───────────────────────────────────────────────────────────────────
+
     def _mock_seo_suggestions(self, keywords: list[str], business_name: str) -> dict:
         """Sugerencias SEO mock cuando no hay API key."""
         kw_str = ", ".join(keywords[:3]) if keywords else ""
@@ -828,13 +685,12 @@ Responde SOLO con el JSON, sin explicaciones."""
         subtitle = f" - Especialistas en {kw_str}" if kw_str else ""
         return {
             "title": f"{name}{subtitle}"[:60],
-            "description": f"Conoce {name}: ofrecemos {kw_str or 'soluciones'} con calidad y atención personalizada. Visítanos y descubre todo lo que tenemos para ti.",
+            "description": (
+                f"Conoce {name}: ofrecemos {kw_str or 'soluciones'} con calidad y "
+                "atención personalizada. Visítanos y descubre todo lo que tenemos para ti."
+            ),
             "extra_keywords": ["calidad", "confianza", "profesional"],
         }
-
-    # ===================================
-    # MÉTODOS MOCK (para desarrollo sin API)
-    # ===================================
 
     def _mock_generate_content(self, template, responses: dict) -> tuple[dict, dict, int, int]:
         """Genera contenido mock para desarrollo."""
@@ -938,7 +794,10 @@ Responde SOLO con el JSON, sin explicaciones."""
                     },
                     {
                         "question": "¿Cómo puedo contactarlos?",
-                        "answer": f"Puedes llamarnos al {responses.get('business_phone', '[teléfono]')} o escribirnos a {responses.get('business_email', '[email]')}.",
+                        "answer": (
+                            f"Puedes llamarnos al {responses.get('business_phone', '[teléfono]')} "
+                            f"o escribirnos a {responses.get('business_email', '[email]')}."
+                        ),
                     },
                 ],
             }
@@ -969,60 +828,3 @@ Responde SOLO con el JSON, sin explicaciones."""
             100,
             150,
         )
-
-    # Mapeo: opción del multi_choice → IDs de sección del template
-    SECTION_OPTION_MAP = {
-        "Sobre nosotros": ["about"],
-        "Servicios": ["services"],
-        "Productos": ["products"],
-        "Servicios / Productos": ["services", "products"],  # backwards compat
-        "Galería de fotos": ["gallery"],
-        "Testimonios / Reseñas": ["testimonials"],
-        "Precios / Tarifas": ["pricing"],
-        "Preguntas frecuentes": ["faq"],
-    }
-
-    def _filter_sections_by_selection(self, sections: list[dict], responses: dict) -> list[dict]:
-        """
-        Filtra secciones del template según lo que el usuario seleccionó
-        y los módulos activos del tenant.
-
-        Las secciones 'required' (hero, contact) siempre se incluyen.
-        Las demás solo se incluyen si el usuario las seleccionó.
-        'services' solo si el tenant tiene has_services.
-        'products' solo si el tenant tiene has_shop.
-        """
-        selected = responses.get("website_sections", [])
-        if not selected or not isinstance(selected, list):
-            return sections  # Sin filtro si no hay selección
-
-        # IDs de sección permitidos
-        allowed_ids = set()
-        for option in selected:
-            for section_id in self.SECTION_OPTION_MAP.get(option, []):
-                allowed_ids.add(section_id)
-
-        # Filtrar services/products según módulos del tenant
-        if self.tenant:
-            if not getattr(self.tenant, "has_services", False) and "services" in allowed_ids:
-                allowed_ids.discard("services")
-            if not getattr(self.tenant, "has_shop", False) and "products" in allowed_ids:
-                allowed_ids.discard("products")
-            # Asegurar que al menos uno quede si seleccionó servicios/productos
-            services_or_products = {"Servicios", "Productos", "Servicios / Productos"}
-            if services_or_products & set(selected) and not allowed_ids & {"services", "products"}:
-                # Si ninguno quedó por los flags, incluir genérico
-                allowed_ids.add("services")
-
-        return [s for s in sections if s.get("required", False) or s.get("id") in allowed_ids]
-
-    def _default_sections(self) -> list[dict]:
-        """Secciones por defecto si el template no las define."""
-        return [
-            {"id": "hero", "name": "Encabezado Principal", "required": True},
-            {"id": "about", "name": "Sobre Nosotros", "required": False},
-            {"id": "services", "name": "Servicios", "required": False},
-            {"id": "products", "name": "Productos", "required": False},
-            {"id": "testimonials", "name": "Testimonios", "required": False},
-            {"id": "contact", "name": "Contacto", "required": True},
-        ]

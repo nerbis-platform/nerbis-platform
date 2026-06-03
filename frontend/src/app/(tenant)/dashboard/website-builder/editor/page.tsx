@@ -52,64 +52,14 @@ import SectionManager from '@/components/website-builder/SectionManager';
 import PageManager from '@/components/website-builder/PageManager';
 import SettingsPanel, { type SiteSettings, type SeoSuggestion } from '@/components/website-builder/SettingsPanel';
 import { useTenantContact, useTenant } from '@/contexts/TenantContext';
-
-
-// ─── Types ───────────────────────────────────────────────────
-interface SectionContent {
-  title?: string;
-  subtitle?: string;
-  content?: string;
-  cta_text?: string;
-  cta_link?: string;
-  highlights?: string[];
-  items?: Record<string, unknown>[];
-  phone?: string;
-  email?: string;
-  address?: string;
-  whatsapp?: string;
-  hours?: string;
-  [key: string]: unknown;
-}
-
-interface ChatMsg {
-  id?: number;
-  role: 'user' | 'assistant';
-  content: string;
-  section_id?: string;
-  created_at?: string;
-}
-
-interface ThemeData {
-  primary_color: string;
-  secondary_color: string;
-  font_heading: string;
-  font_body: string;
-  style: string;
-  spacing: string;
-  button_style: string;
-  animation: string;
-  shadow: string;
-  color_mode: string;
-  bg_color: string;
-}
-
-type ActiveTab = 'design' | 'content' | 'settings';
-
-const DEFAULT_THEME: ThemeData = {
-  primary_color: '#3b82f6',
-  secondary_color: '#10b981',
-  font_heading: 'Poppins',
-  font_body: 'Inter',
-  style: 'modern',
-  spacing: 'normal',
-  button_style: 'rounded',
-  animation: 'fade',
-  shadow: 'subtle',
-  color_mode: 'light',
-  bg_color: '#FFFFFF',
-};
-
-const TOP_BAR_HEIGHT = 48;
+import {
+  type SectionContent,
+  type ChatMsg,
+  type ThemeData,
+  type ActiveTab,
+  DEFAULT_THEME,
+  TOP_BAR_HEIGHT,
+} from './_helpers';
 
 // ─── Main page ───────────────────────────────────────────────
 export default function EditorPage() {
@@ -129,6 +79,7 @@ export default function EditorPage() {
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
+  const [isSavingBeforePublish, setIsSavingBeforePublish] = useState(false);
   const [localTheme, setLocalTheme] = useState<ThemeData | null>(null);
   const [localSettings, setLocalSettings] = useState<SiteSettings | null>(null);
   const [savedSettings, setSavedSettings] = useState<SiteSettings | null>(null);
@@ -139,7 +90,7 @@ export default function EditorPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [contentOverrides, setContentOverrides] = useState<Record<string, Record<string, unknown>>>({});
   const [hasUnsavedContent, setHasUnsavedContent] = useState(false);
-  const contentSaveRef = useRef<(() => void) | null>(null);
+  const contentSaveRef = useRef<(() => Promise<void>) | null>(null);
   const contentSetRef = useRef<((c: SectionContent) => void) | null>(null);
 
   // ─── Global Undo / Redo ─────────────────────────────────
@@ -169,7 +120,7 @@ export default function EditorPage() {
     queryFn: getOnboardingStatus,
   });
 
-  const { data: config, isLoading: configLoading } = useQuery({
+  const { data: config, isLoading: configLoading, isError: configError } = useQuery({
     queryKey: ['websiteConfig'],
     queryFn: getWebsiteConfig,
     enabled: !!statusData && !['not_started', 'draft'].includes(statusData.status),
@@ -440,6 +391,13 @@ export default function EditorPage() {
         refetchPreview();
       }
     },
+    onError: () => {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Lo siento, hubo un error al procesar tu mensaje. Intenta de nuevo.' },
+      ]);
+      toast.error('Error al enviar el mensaje');
+    },
   });
 
   const settingsMutation = useMutation({
@@ -520,9 +478,13 @@ export default function EditorPage() {
   const publishMutation = useMutation({
     mutationFn: () => publishWebsite(),
     onSuccess: () => {
+      setShowPublishDialog(false);
       setPublishSuccess(true);
       queryClient.invalidateQueries({ queryKey: ['websiteConfig'] });
       queryClient.invalidateQueries({ queryKey: ['onboardingStatus'] });
+    },
+    onError: () => {
+      toast.error('Error al publicar tu sitio. Intenta de nuevo.');
     },
   });
 
@@ -604,7 +566,7 @@ export default function EditorPage() {
   // ─── Auto-save ──────────────────────────────────────────
   const handleContentAutoSave = useCallback(async () => {
     isAutoSaveRef.current = true;
-    contentSaveRef.current?.();
+    await contentSaveRef.current?.();
   }, []);
 
   const handleThemeAutoSave = useCallback(async () => {
@@ -631,10 +593,12 @@ export default function EditorPage() {
     return 'idle';
   })();
 
-  const handleSaveAllNow = useCallback(() => {
-    if (hasUnsavedContent) contentSaveRef.current?.();
-    if (hasUnsavedTheme) handleThemeSave();
-    if (hasUnsavedSettings) handleSettingsSave();
+  const handleSaveAllNow = useCallback(async () => {
+    const saves: Promise<void>[] = [];
+    if (hasUnsavedContent && contentSaveRef.current) saves.push(contentSaveRef.current());
+    if (hasUnsavedTheme) saves.push(handleThemeSave());
+    if (hasUnsavedSettings) saves.push(handleSettingsSave());
+    await Promise.all(saves);
   }, [hasUnsavedContent, hasUnsavedTheme, hasUnsavedSettings, handleThemeSave, handleSettingsSave]);
 
   // Show a one-time toast the first time auto-save triggers
@@ -887,6 +851,25 @@ export default function EditorPage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [globalUndo, globalRedo, handleSaveAllNow]);
+
+  // ─── Error state ────────────────────────────────────────
+  if (configError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4">
+          <AlertCircle className="h-5 w-5 text-red-500" />
+        </div>
+        <p className="text-[0.85rem] text-gray-600 mb-3">Error al cargar el editor</p>
+        <button
+          type="button"
+          onClick={() => queryClient.invalidateQueries({ queryKey: ['websiteConfig'] })}
+          className="text-[0.82rem] text-[#0D9488] hover:underline cursor-pointer"
+        >
+          Intentar de nuevo
+        </button>
+      </div>
+    );
+  }
 
   // ─── Loading state ───────────────────────────────────────
   if (statusLoading || configLoading || !config?.content_data) {
@@ -1193,8 +1176,8 @@ export default function EditorPage() {
                       <ContentPanel
                         sectionKey={activeSection}
                         content={currentContent}
-                        onSaveEdit={(content, mediaUpdates, seoUpdates) => {
-                          saveMutation.mutate({ sectionKey: activeSection, content, mediaUpdates, seoUpdates });
+                        onSaveEdit={async (content, mediaUpdates, seoUpdates) => {
+                          await saveMutation.mutateAsync({ sectionKey: activeSection, content, mediaUpdates, seoUpdates });
                         }}
                         onVariantChange={(variant) => {
                           variantMutation.mutate({ sectionId: activeSection, variant });
@@ -1629,21 +1612,27 @@ export default function EditorPage() {
               <button
                 type="button"
                 onClick={async () => {
-                  // Save any unsaved changes first, then publish
-                  handleSaveAllNow();
-                  setShowPublishDialog(false);
-                  publishMutation.mutate();
+                  try {
+                    setIsSavingBeforePublish(true);
+                    await handleSaveAllNow();
+                    setIsSavingBeforePublish(false);
+                    setShowPublishDialog(false);
+                    publishMutation.mutate();
+                  } catch {
+                    setIsSavingBeforePublish(false);
+                    toast.error('Error al guardar los cambios. Publicación cancelada.');
+                  }
                 }}
-                disabled={publishMutation.isPending}
+                disabled={publishMutation.isPending || isSavingBeforePublish}
                 className="flex items-center gap-2 h-10 px-5 rounded-lg text-white text-[0.82rem] font-medium hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
                 style={{ background: '#1C3B57' }}
               >
-                {publishMutation.isPending ? (
+                {(publishMutation.isPending || isSavingBeforePublish) ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Globe className="h-4 w-4" />
                 )}
-                Publicar ahora
+                {isSavingBeforePublish ? 'Guardando cambios...' : 'Publicar ahora'}
               </button>
             </div>
           </div>

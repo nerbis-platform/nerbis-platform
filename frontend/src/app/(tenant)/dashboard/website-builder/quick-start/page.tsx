@@ -10,15 +10,10 @@ import {
   ArrowUpRight,
   Check,
   Send,
-  FileText,
-  Layout,
-  MessageSquare,
-  Search,
   Sparkles,
   LogOut,
   UserCircle,
 } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
 import Link from 'next/link';
 import { PipeAvatar } from '@/components/pipe-avatar';
 import type { PipeMood } from '@/components/pipe-avatar';
@@ -34,128 +29,35 @@ import {
 import { configureModules, ModuleSelection, getCurrentUser } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api/client';
+import { toast } from 'sonner';
 import { Tenant, PlatformModule, OnboardingQuestion, WebsitePage } from '@/types';
-
-// ─── Brand constants ──────────────────────────────────────
-const NAVY = '#1C3B57';
-const TEAL = '#0D9488';
-const WARM_GRAY_50 = '#FAFAF8';
-const WARM_GRAY_100 = '#F5F5F0';
-const WARM_GRAY_200 = '#E8E6E1';
-const WARM_GRAY_400 = '#78716C';
-const WARM_GRAY_500 = '#78716C';
-const WARM_GRAY_600 = '#44403C';
-const WARM_GRAY_800 = '#292524';
-
-// ─── Conversational steps ─────────────────────────────────
-interface StyleOption { key: string; label: string; description: string; icon: string; color: string }
-interface PaletteOption { primary: string; secondary: string; label: string }
-interface ToneOption { key: string; label: string; emoji: string }
-
-interface ConversationStep {
-  id: string;
-  message: string;
-  type: 'textarea' | 'input' | 'action' | 'multiselect' | 'modules' | 'pages' | 'style_select' | 'color_picker' | 'tone_select';
-  placeholder?: string;
-  hint?: string;
-  inputType?: string;
-  minLength?: number;
-  maxLength?: number;
-  rows?: number;
-  options?: StyleOption[] | PaletteOption[] | ToneOption[];
-}
-
-// ─── Agent identity ───────────────────────────────────────
-const AGENT_NAME = 'Pipe';
-
-// ─── Lucide icon resolver ─────────────────────────────────
-function getLucideIcon(name: string): React.ComponentType<{ className?: string; style?: React.CSSProperties }> {
-  // Convert kebab-case to PascalCase: "shopping-cart" → "ShoppingCart"
-  const pascalName = name
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const icons = LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>;
-  return icons[pascalName] || LucideIcons.Circle;
-}
-
-// ─── Fallback data (used while API loads) ─────────────────
-const FALLBACK_MODULES: PlatformModule[] = [
-  { key: 'has_website', label: 'Sitio Web', description: 'Tu presencia online', icon: 'Globe', accent_color: '#1C3B57', sort_order: 0, dependencies: [] },
-  { key: 'has_shop', label: 'Tienda Online', description: 'Vende productos 24/7', icon: 'ShoppingCart', accent_color: '#0D9488', sort_order: 1, dependencies: [] },
-  { key: 'has_services', label: 'Servicios', description: 'Muestra y vende tus servicios', icon: 'Briefcase', accent_color: '#6366F1', sort_order: 2, dependencies: [] },
-  { key: 'has_bookings', label: 'Reservas', description: 'Agenda de citas online', icon: 'Calendar', accent_color: '#F59E0B', sort_order: 3, dependencies: ['has_services'] },
-];
-
-const FALLBACK_PAGES: WebsitePage[] = [
-  { key: 'home', label: 'Inicio', description: 'Página principal', icon: 'home', is_mandatory: true, is_default: true, sort_order: 0, auto_include_modules: [] },
-  { key: 'contact', label: 'Contacto', description: 'Formulario de contacto', icon: 'mail', is_mandatory: true, is_default: true, sort_order: 1, auto_include_modules: [] },
-  { key: 'about', label: 'Sobre nosotros', description: 'Tu historia', icon: 'users', is_mandatory: false, is_default: true, sort_order: 2, auto_include_modules: [] },
-  { key: 'blog', label: 'Blog', description: 'Artículos y noticias', icon: 'file-text', is_mandatory: false, is_default: false, sort_order: 6, auto_include_modules: [] },
-];
-
-const FALLBACK_STYLE_OPTIONS: StyleOption[] = [
-  { key: 'moderno', label: 'Moderno', description: 'Limpio y contemporáneo', icon: 'Sparkles', color: '#6366F1' },
-  { key: 'clasico', label: 'Clásico', description: 'Elegante y atemporal', icon: 'Crown', color: '#D97706' },
-  { key: 'minimalista', label: 'Minimalista', description: 'Menos es más', icon: 'Minus', color: '#1C3B57' },
-  { key: 'vibrante', label: 'Vibrante', description: 'Colorido y energético', icon: 'Zap', color: '#EC4899' },
-];
-
-const FALLBACK_PALETTES: PaletteOption[] = [
-  { primary: '#1C3B57', secondary: '#0D9488', label: 'NERBIS' },
-  { primary: '#1E293B', secondary: '#3B82F6', label: 'Corporativo' },
-  { primary: '#0F172A', secondary: '#10B981', label: 'Tech' },
-  { primary: '#7C3AED', secondary: '#EC4899', label: 'Creativo' },
-  { primary: '#DC2626', secondary: '#F59E0B', label: 'Energético' },
-  { primary: '#059669', secondary: '#34D399', label: 'Natural' },
-];
-
-const FALLBACK_TONE_OPTIONS: ToneOption[] = [
-  { key: 'profesional', label: 'Profesional', emoji: '💼' },
-  { key: 'calido', label: 'Cálido', emoji: '🤗' },
-  { key: 'moderno', label: 'Moderno', emoji: '✨' },
-  { key: 'minimalista', label: 'Minimalista', emoji: '🎯' },
-  { key: 'juvenil', label: 'Juvenil', emoji: '🚀' },
-];
-
-// ─── Generation progress steps ────────────────────────────
-const GENERATION_STEPS = [
-  { message: 'Estoy conociendo tu negocio', icon: FileText },
-  { message: 'Eligiendo el diseño ideal para ti', icon: Layout },
-  { message: 'Escribiendo el contenido de tu sitio', icon: MessageSquare },
-  { message: 'Optimizando para que te encuentren en Google', icon: Search },
-  { message: 'Últimos detalles, ya casi', icon: Sparkles },
-];
-
-const SECTION_LABELS: Record<string, string> = {
-  hero: 'Inicio',
-  about: 'Sobre nosotros',
-  services: 'Servicios',
-  products: 'Productos',
-  contact: 'Contacto',
-  testimonials: 'Testimonios',
-  gallery: 'Galería',
-  pricing: 'Precios',
-  faq: 'Preguntas frecuentes',
-};
-
-type PageState = 'chat' | 'generating' | 'success' | 'error' | 'limit-reached' | 'unsupported-industry';
+import {
+  NAVY, TEAL, WARM_GRAY_50, WARM_GRAY_100, WARM_GRAY_200,
+  WARM_GRAY_400, WARM_GRAY_500, WARM_GRAY_600, WARM_GRAY_800,
+  AGENT_NAME, getLucideIcon,
+  FALLBACK_MODULES, FALLBACK_PAGES, FALLBACK_STYLE_OPTIONS,
+  FALLBACK_PALETTES, FALLBACK_TONE_OPTIONS,
+  GENERATION_STEPS, SECTION_LABELS,
+  type StyleOption, type PaletteOption, type ToneOption,
+  type ConversationStep, type PageState,
+} from './_helpers';
 
 export default function QuickStartPage() {
   const router = useRouter();
   const { user, tenant, logout, setTenant } = useAuth();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // ─── Phase guard: redirigir si ya tiene sitio generado ────
+  // ─── Phase guard: si ya pasó onboarding, redirigir ────────
   useEffect(() => {
     if (!tenant) return;
-    if (tenant.website_status === 'published') {
-      router.replace('/dashboard');
-    } else if (tenant.website_status === 'review') {
-      router.replace('/dashboard/website-builder/editor');
+    if (tenant.modules_configured) {
+      // Ya configuró módulos — no debería estar en Quick Start
+      if (tenant.website_status === 'published') {
+        router.replace('/dashboard');
+      } else {
+        router.replace('/dashboard/website-builder');
+      }
     }
-    // Para generating/onboarding/draft/sin website: quedarse en quick-start
   }, [tenant, router]);
 
   // ─── Fetch config from API ──────────────────────────────
@@ -316,64 +218,6 @@ export default function QuickStartPage() {
       }
       result.push({ id: 'pages', message: '¿Qué páginas quieres en tu sitio?', type: 'pages', hint: 'Puedes agregar más después.' });
     }
-
-    // Insert extra conversational questions before the 'pages' step
-    const existingKeys = new Set(result.map(s => s.id));
-    const extraSteps: ConversationStep[] = [];
-
-    if (!existingKeys.has('target_audience')) {
-      extraSteps.push({
-        id: 'target_audience',
-        message: '¿Quién es tu cliente ideal? Edad, intereses, qué busca...',
-        type: 'textarea',
-        placeholder: 'Ej: Mujeres 25-45 interesadas en bienestar y cuidado personal',
-        hint: 'Esto ayuda a que el contenido conecte con tu público.',
-        minLength: 10,
-        rows: 2,
-      });
-    }
-
-    if (!existingKeys.has('unique_selling_point')) {
-      extraSteps.push({
-        id: 'unique_selling_point',
-        message: '¿Qué te hace diferente a tu competencia?',
-        type: 'textarea',
-        placeholder: 'Ej: 10 años de experiencia + atención personalizada',
-        hint: 'Tu diferenciador aparecerá destacado en el sitio.',
-        minLength: 10,
-        rows: 2,
-      });
-    }
-
-    if (!existingKeys.has('business_email')) {
-      extraSteps.push({
-        id: 'business_email',
-        message: '¿Cuál es el email de contacto de tu negocio?',
-        type: 'input',
-        placeholder: 'tu@negocio.com',
-        inputType: 'email',
-      });
-    }
-
-    if (!existingKeys.has('business_phone')) {
-      extraSteps.push({
-        id: 'business_phone',
-        message: '¿Tu número de teléfono para que te contacten?',
-        type: 'input',
-        placeholder: '+57 300 123 4567',
-        inputType: 'tel',
-      });
-    }
-
-    if (extraSteps.length > 0) {
-      const pagesIdx = result.findIndex(s => s.type === 'pages');
-      if (pagesIdx >= 0) {
-        result.splice(pagesIdx, 0, ...extraSteps);
-      } else {
-        result.push(...extraSteps);
-      }
-    }
-
     return result;
   }, [apiQuestions, selectedModules]);
 
@@ -557,10 +401,6 @@ export default function QuickStartPage() {
         primary_color: primaryColor || undefined,
         secondary_color: secondaryColor || undefined,
         business_whatsapp: answersData.pipe_whatsapp || undefined,
-        target_audience: answersData.target_audience || answersData.pipe_target_audience || undefined,
-        unique_selling_point: answersData.unique_selling_point || answersData.pipe_unique_selling_point || undefined,
-        business_email: answersData.business_email || answersData.pipe_business_email || undefined,
-        business_phone: answersData.business_phone || answersData.pipe_business_phone || undefined,
       });
       startPolling();
     } catch (error) {
@@ -634,7 +474,7 @@ export default function QuickStartPage() {
         const updatedTenant = await configureModules(payload);
         setTenant(updatedTenant);
       } catch {
-        setPageState('error');
+        toast.error('Error al configurar los módulos. Intenta de nuevo.');
         return;
       }
 
@@ -789,9 +629,9 @@ export default function QuickStartPage() {
           <Link
             href="/dashboard/profile"
             className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors"
-            style={{ color: WARM_GRAY_600 }}
+            style={{ color: WARM_GRAY_400 }}
             onMouseEnter={(e) => (e.currentTarget.style.color = NAVY)}
-            onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_600)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
           >
             <UserCircle className="w-3.5 h-3.5" />
             Mi cuenta
@@ -801,9 +641,9 @@ export default function QuickStartPage() {
             type="button"
             onClick={() => logout('/register-business')}
             className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors cursor-pointer"
-            style={{ color: WARM_GRAY_600 }}
+            style={{ color: WARM_GRAY_400 }}
             onMouseEnter={(e) => (e.currentTarget.style.color = '#EF4444')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_600)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
           >
             <LogOut className="w-3.5 h-3.5" />
             Salir
@@ -843,26 +683,24 @@ export default function QuickStartPage() {
       }
     }
 
-    // ── Unified chat layout: stable header + orbs, conditional content ──
-    return (
-      <div
-        className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)] pipe-chat-bg"
-      >
-        <div className="pipe-chat-bg__orbs" aria-hidden="true">
-          <div className="orb orb--teal" />
-          <div className="orb orb--sky" />
-          <div className="orb orb--mint" />
-        </div>
-        {header}
+    // ── Initial state: greeting centered + input below (like Claude empty state) ──
+    if (!hasHistory) {
+      return (
+        <div
+          className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+          style={{ backgroundColor: '#fff' }}
+        >
+          {header}
 
-        {!hasHistory ? (
-          /* ── Initial state: greeting centered + modules ── */
           <div className="flex-1 flex flex-col items-center justify-center px-4">
+            {/* Everything in one container with consistent width */}
             <div className="w-full max-w-sm flex flex-col items-center">
+              {/* Avatar */}
               <div className="mb-5">
                 <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={48} />
               </div>
 
+              {/* Greeting */}
               {isTyping ? (
                 <div className="flex gap-1.5 justify-center py-2">
                   {[0, 1, 2].map((i) => (
@@ -880,19 +718,20 @@ export default function QuickStartPage() {
               ) : (
                 <>
                   <div
-                    className="relative mb-14 animate-in fade-in duration-300 rounded-2xl px-5 py-4 text-center shadow-sm"
+                    className="relative mb-14 animate-in fade-in duration-500 rounded-2xl px-5 py-4 text-center"
                     style={{
-                      backgroundColor: '#fff',
-                      border: `1px solid ${WARM_GRAY_200}`,
+                      backgroundColor: '#f8f9fa',
+                      border: `1px solid ${WARM_GRAY_100}`,
                       maxWidth: '22rem',
                     }}
                   >
+                    {/* Speech bubble tail */}
                     <div
                       className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
                       style={{
-                        backgroundColor: '#fff',
-                        borderLeft: `1px solid ${WARM_GRAY_200}`,
-                        borderTop: `1px solid ${WARM_GRAY_200}`,
+                        backgroundColor: '#f8f9fa',
+                        borderLeft: `1px solid ${WARM_GRAY_100}`,
+                        borderTop: `1px solid ${WARM_GRAY_100}`,
                       }}
                     />
                     <p
@@ -907,14 +746,15 @@ export default function QuickStartPage() {
                     </p>
                     <p
                       className="text-lg font-semibold mt-1.5"
-                      style={{ color: NAVY, letterSpacing: '-0.01em' }}
+                      style={{ color: WARM_GRAY_800, letterSpacing: '-0.01em' }}
                     >
                       {step.message}
                     </p>
                   </div>
 
+                  {/* Module grid + continue — same width as title */}
                   {step.type === 'modules' && (
-                    <div className="w-full animate-in fade-in duration-300 space-y-12">
+                    <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100 space-y-12">
                       <div className="grid grid-cols-3 gap-3">
                         {modules.map((mod) => {
                           const modKey = mod.key as keyof ModuleSelection;
@@ -934,7 +774,7 @@ export default function QuickStartPage() {
                                   setTimeout(() => setActiveMood('listening'), 900);
                                 }
                               }}
-                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden cursor-pointer"
+                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
                               style={{
                                 backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                                 borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
@@ -972,7 +812,7 @@ export default function QuickStartPage() {
                                 </span>
                                 <span
                                   className="text-[0.58rem] leading-snug block text-center mt-0.5"
-                                  style={{ color: WARM_GRAY_600 }}
+                                  style={{ color: WARM_GRAY_400 }}
                                 >
                                   {mod.description}
                                 </span>
@@ -986,7 +826,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed"
                         style={{
                           backgroundColor: canSend ? TEAL : WARM_GRAY_100,
                           color: canSend ? '#fff' : WARM_GRAY_400,
@@ -995,437 +835,463 @@ export default function QuickStartPage() {
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
                       </button>
-                      <p className="text-[0.68rem] text-center -mt-6" style={{ color: WARM_GRAY_600 }}>{step.hint}</p>
+                      <p className="text-[0.68rem] text-center -mt-6" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
                     </div>
                   )}
                 </>
               )}
             </div>
           </div>
-        ) : (
-          /* ── Conversation state: messages + input ── */
-          <>
-            <div className="flex-1 overflow-y-auto">
-              <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6 w-full min-h-full flex flex-col justify-end">
-                {chatHistory.map((msg, i) => (
-                  <div key={`msg-${i}`}>
-                    {msg.role === 'user' ? (
-                      <div className="flex justify-end">
-                        <div
-                          className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
-                          style={{ backgroundColor: TEAL, color: '#fff' }}
-                        >
-                          {msg.content}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex justify-start">
-                        <div
-                          className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-[0.88rem] leading-relaxed max-w-[75%]"
-                          style={{ backgroundColor: NAVY, color: '#fff' }}
-                        >
-                          {msg.content}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+        </div>
+      );
+    }
 
-                <div className="flex gap-3 items-center">
-                  <div className="flex-shrink-0">
-                    <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={44} />
-                  </div>
-                  <div className="flex-1">
-                    {isTyping ? (
-                      <div className="flex gap-1.5 py-2">
-                        {[0, 1, 2].map((i) => (
-                          <div
-                            key={i}
-                            className="w-1.5 h-1.5 rounded-full animate-bounce"
-                            style={{
-                              backgroundColor: WARM_GRAY_400,
-                              animationDelay: `${i * 150}ms`,
-                              animationDuration: '0.8s',
-                            }}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <p
-                        className="text-[0.88rem] leading-relaxed pt-0.5 animate-in fade-in duration-300"
-                        style={{ color: NAVY }}
-                      >
-                        {step.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
+    // ── Conversation state: messages flow top-down, input fixed at bottom ──
+    return (
+      <div
+        className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+        style={{ backgroundColor: '#fff' }}
+      >
+        {header}
 
-                <div ref={chatEndRef} />
+        {/* Scrollable message area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+            {/* Chat history */}
+            {chatHistory.map((msg, i) => (
+              <div key={`msg-${i}`}>
+                {msg.role === 'user' ? (
+                  /* User bubble — right aligned */
+                  <div className="flex justify-end">
+                    <div
+                      className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
+                      style={{ backgroundColor: WARM_GRAY_100, color: WARM_GRAY_800 }}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ) : (
+                  /* Pipe text — left aligned, no bubble, with small avatar */
+                  <div className="flex gap-3 items-start">
+                    <div className="flex-shrink-0 mt-0.5">
+                      <PipeAvatar mood="idle" size={28} />
+                    </div>
+                    <p
+                      className="text-[0.88rem] leading-relaxed pt-0.5"
+                      style={{ color: WARM_GRAY_800 }}
+                    >
+                      {msg.content}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Current Pipe message */}
+            <div className="flex gap-3 items-start">
+              <div className="flex-shrink-0 mt-0.5">
+                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={28} />
+              </div>
+              <div className="flex-1">
+                {isTyping ? (
+                  <div className="flex gap-1.5 py-2">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="w-1.5 h-1.5 rounded-full animate-bounce"
+                        style={{
+                          backgroundColor: WARM_GRAY_400,
+                          animationDelay: `${i * 150}ms`,
+                          animationDuration: '0.8s',
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p
+                    className="text-[0.88rem] leading-relaxed pt-0.5 animate-in fade-in duration-300"
+                    style={{ color: WARM_GRAY_800 }}
+                  >
+                    {step.message}
+                  </p>
+                )}
               </div>
             </div>
 
-            <div
-              className="border-t"
-              style={{ borderColor: WARM_GRAY_100 }}
-            >
-                <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-4 pb-8">
-                  {currentStepIdx > 0 && (
+            <div ref={chatEndRef} />
+          </div>
+        </div>
+
+        {/* Input area — fixed at bottom */}
+        {!isTyping && (
+          <div
+            className="border-t animate-in fade-in slide-in-from-bottom-2 duration-300"
+            style={{ borderColor: WARM_GRAY_100 }}
+          >
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
+              {/* Back button */}
+              {currentStepIdx > 0 && (
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="flex items-center gap-1 text-[0.75rem] font-medium mb-2 transition-colors"
+                  style={{ color: WARM_GRAY_400 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = TEAL)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Volver al paso anterior
+                </button>
+              )}
+
+              {/* Textarea input */}
+              {step.type === 'textarea' && (
+                <>
+                  <div
+                    className="flex items-end gap-3 rounded-xl border px-4 py-3 transition-all focus-within:ring-2"
+                    style={{
+                      borderColor: WARM_GRAY_200,
+                      backgroundColor: WARM_GRAY_50,
+                      // @ts-expect-error -- CSS custom property
+                      '--tw-ring-color': `${TEAL}30`,
+                    }}
+                  >
+                    <textarea
+                      value={currentInput}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (step.maxLength && val.length > step.maxLength) return;
+                        setCurrentInput(val);
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder={step.placeholder}
+                      rows={step.rows || 2}
+                      maxLength={step.maxLength}
+                      autoFocus
+                      className="flex-1 bg-transparent text-[0.88rem] leading-relaxed resize-none focus:outline-none"
+                      style={{ color: WARM_GRAY_800 }}
+                    />
                     <button
                       type="button"
-                      onClick={handleBack}
-                      className="flex items-center gap-1 text-[0.75rem] font-medium mb-2 transition-colors cursor-pointer"
-                      style={{ color: WARM_GRAY_600 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = TEAL)}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_600)}
+                      onClick={handleSend}
+                      disabled={!canSend}
+                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                     >
-                      <ArrowLeft className="w-3.5 h-3.5" />
-                      Volver al paso anterior
+                      <Send className="w-4 h-4" />
                     </button>
-                  )}
-
-                  {step.type === 'textarea' && (
-                    <>
-                      <div
-                        className="flex items-end gap-3 rounded-xl border px-4 py-3 transition-all focus-within:ring-2 shadow-sm"
-                        style={{
-                          borderColor: WARM_GRAY_200,
-                          backgroundColor: '#fff',
-                          // @ts-expect-error -- CSS custom property
-                          '--tw-ring-color': `${TEAL}30`,
-                        }}
+                  </div>
+                  <div className="flex items-center justify-between mt-2 mx-1">
+                    {step.hint ? (
+                      <p className="text-[0.7rem]" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                    ) : <span />}
+                    {step.maxLength && (
+                      <p
+                        className="text-[0.7rem] tabular-nums"
+                        style={{ color: currentInput.length > step.maxLength * 0.9 ? '#B91C1C' : WARM_GRAY_600 }}
                       >
-                        <textarea
-                          value={currentInput}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (step.maxLength && val.length > step.maxLength) return;
-                            setCurrentInput(val);
-                          }}
-                          onKeyDown={handleKeyDown}
-                          placeholder={step.placeholder}
-                          rows={step.rows || 2}
-                          maxLength={step.maxLength}
-                          autoFocus
-                          className="flex-1 bg-transparent text-[0.88rem] leading-relaxed resize-none focus:outline-none"
-                          style={{ color: WARM_GRAY_800 }}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleSend}
-                          disabled={!canSend}
-                          className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed"
-                          style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                        >
-                          <Send className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between mt-2 mx-1">
-                        {step.hint ? (
-                          <p className="text-[0.7rem]" style={{ color: WARM_GRAY_600 }}>{step.hint}</p>
-                        ) : <span />}
-                        {step.maxLength && (
-                          <p
-                            className="text-[0.7rem] tabular-nums font-medium"
-                            style={{ color: currentInput.length >= (step.minLength || 0) ? '#059669' : '#B91C1C' }}
-                          >
-                            {currentInput.length}/{step.maxLength}
-                          </p>
-                        )}
-                      </div>
-                    </>
+                        {currentInput.length}/{step.maxLength}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Text input (single line) */}
+              {step.type === 'input' && (
+                <>
+                  <div
+                    className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-all focus-within:ring-2 focus-within:ring-teal-500/20"
+                    style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50 }}
+                  >
+                    <input
+                      type={step.inputType || 'text'}
+                      value={currentInput}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (step.maxLength && val.length > step.maxLength) return;
+                        setCurrentInput(val);
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder={step.placeholder}
+                      maxLength={step.maxLength}
+                      autoFocus
+                      className="flex-1 bg-transparent text-[0.88rem] focus:outline-none"
+                      style={{ color: WARM_GRAY_800 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSend}
+                      disabled={!canSend}
+                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {step.hint && (
+                    <p className="text-[0.7rem] mt-2 ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
                   )}
+                </>
+              )}
 
-                  {step.type === 'input' && (
-                    <>
-                      <div
-                        className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-all focus-within:ring-2 focus-within:ring-teal-500/20 shadow-sm"
-                        style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff' }}
-                      >
-                        <input
-                          type={step.inputType || 'text'}
-                          value={currentInput}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (step.maxLength && val.length > step.maxLength) return;
-                            setCurrentInput(val);
-                          }}
-                          onKeyDown={handleKeyDown}
-                          placeholder={step.placeholder}
-                          maxLength={step.maxLength}
-                          autoFocus
-                          className="flex-1 bg-transparent text-[0.88rem] focus:outline-none"
-                          style={{ color: WARM_GRAY_800 }}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleSend}
-                          disabled={!canSend}
-                          className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed"
-                          style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                        >
-                          <Send className="w-4 h-4" />
-                        </button>
-                      </div>
-                      {step.hint && (
-                        <p className="text-[0.7rem] mt-2 ml-1" style={{ color: WARM_GRAY_600 }}>{step.hint}</p>
-                      )}
-                    </>
-                  )}
-
-                  {step.type === 'style_select' && (() => {
-                    const styleOpts = (step.options || FALLBACK_STYLE_OPTIONS) as StyleOption[];
-                    return (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-2.5">
-                          {styleOpts.map((opt) => {
-                            const isActive = selectedStyle === opt.key;
-                            const OptIcon = getLucideIcon(opt.icon);
-                            return (
-                              <button
-                                key={opt.key}
-                                type="button"
-                                onClick={() => setSelectedStyle(opt.key)}
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 cursor-pointer"
-                                style={{
-                                  backgroundColor: isActive ? `${opt.color}0A` : '#fff',
-                                  borderColor: isActive ? opt.color : WARM_GRAY_200,
-                                }}
-                              >
-                                <div
-                                  className="flex items-center justify-center w-9 h-9 rounded-lg"
-                                  style={{ backgroundColor: `${opt.color}12` }}
-                                >
-                                  <OptIcon className="w-4 h-4" style={{ color: opt.color }} />
-                                </div>
-                                <div className="text-left">
-                                  <span className="text-[0.82rem] font-medium block" style={{ color: isActive ? opt.color : WARM_GRAY_800 }}>{opt.label}</span>
-                                  <span className="text-[0.68rem] block" style={{ color: WARM_GRAY_600 }}>{opt.description}</span>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div className="flex justify-end">
+              {/* Style selector */}
+              {step.type === 'style_select' && (() => {
+                const styleOpts = (step.options || FALLBACK_STYLE_OPTIONS) as StyleOption[];
+                return (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {styleOpts.map((opt) => {
+                        const isActive = selectedStyle === opt.key;
+                        const OptIcon = getLucideIcon(opt.icon);
+                        return (
                           <button
+                            key={opt.key}
                             type="button"
-                            onClick={handleSend}
-                            disabled={!canSend}
-                            className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                            style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                            onClick={() => setSelectedStyle(opt.key)}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
+                            style={{
+                              backgroundColor: isActive ? `${opt.color}0A` : '#fff',
+                              borderColor: isActive ? opt.color : WARM_GRAY_200,
+                            }}
                           >
-                            Continuar <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {step.type === 'color_picker' && (() => {
-                    const palettes = (step.options || FALLBACK_PALETTES) as PaletteOption[];
-                    return (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-3 gap-2.5">
-                          {palettes.map((pal) => {
-                            const isActive = primaryColor === pal.primary && secondaryColor === pal.secondary;
-                            return (
-                              <button
-                                key={pal.label}
-                                type="button"
-                                onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
-                                className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 cursor-pointer"
-                                style={{
-                                  borderColor: isActive ? TEAL : WARM_GRAY_200,
-                                  backgroundColor: isActive ? `${TEAL}08` : '#fff',
-                                }}
-                              >
-                                <div className="flex gap-1">
-                                  <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.primary }} />
-                                  <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.secondary }} />
-                                </div>
-                                <span className="text-[0.72rem] font-medium" style={{ color: isActive ? TEAL : WARM_GRAY_600 }}>{pal.label}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {step.hint && (
-                          <p className="text-[0.7rem] ml-1" style={{ color: WARM_GRAY_600 }}>{step.hint}</p>
-                        )}
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={handleSend}
-                            className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all cursor-pointer"
-                            style={{ backgroundColor: TEAL, color: '#fff' }}
-                          >
-                            Continuar <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {step.type === 'tone_select' && (() => {
-                    const toneOpts = (step.options || FALLBACK_TONE_OPTIONS) as ToneOption[];
-                    return (
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap gap-2">
-                          {toneOpts.map((opt) => {
-                            const isActive = selectedTone === opt.key;
-                            return (
-                              <button
-                                key={opt.key}
-                                type="button"
-                                onClick={() => setSelectedTone(opt.key)}
-                                className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium cursor-pointer"
-                                style={{
-                                  borderColor: isActive ? TEAL : WARM_GRAY_200,
-                                  backgroundColor: isActive ? `${TEAL}0A` : '#fff',
-                                  color: isActive ? TEAL : WARM_GRAY_600,
-                                }}
-                              >
-                                <span>{opt.emoji}</span>
-                                {opt.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={handleSend}
-                            disabled={!canSend}
-                            className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                            style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                          >
-                            Continuar <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {step.type === 'pages' && (
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2">
-                        {pages.map((page) => {
-                          const isSelected = selectedPages.has(page.key);
-                          const PageIcon = getLucideIcon(page.icon);
-                          return (
-                            <button
-                              key={page.key}
-                              type="button"
-                              onClick={() => {
-                                if (page.is_mandatory) return;
-                                const next = new Set(selectedPages);
-                                if (isSelected) next.delete(page.key);
-                                else next.add(page.key);
-                                setSelectedPages(next);
-                              }}
-                              disabled={page.is_mandatory}
-                              className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.82rem] font-medium border transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default"
-                              style={{
-                                backgroundColor: isSelected ? `${TEAL}0A` : '#fff',
-                                borderColor: isSelected ? TEAL : WARM_GRAY_200,
-                                color: isSelected ? TEAL : WARM_GRAY_600,
-                              }}
+                            <div
+                              className="flex items-center justify-center w-9 h-9 rounded-lg"
+                              style={{ backgroundColor: `${opt.color}12` }}
                             >
-                              <PageIcon className="w-3.5 h-3.5" />
-                              {isSelected && <Check className="w-3.5 h-3.5" />}
-                              {page.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-[0.72rem]" style={{ color: WARM_GRAY_600 }}>{step.hint}</p>
-                        <button
-                          type="button"
-                          onClick={handleSend}
-                          disabled={!canSend}
-                          className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                          style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                        >
-                          Generar mi sitio <Sparkles className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                              <OptIcon className="w-4 h-4" style={{ color: opt.color }} />
+                            </div>
+                            <div className="text-left">
+                              <span className="text-[0.82rem] font-medium block" style={{ color: isActive ? opt.color : WARM_GRAY_800 }}>{opt.label}</span>
+                              <span className="text-[0.68rem] block" style={{ color: WARM_GRAY_400 }}>{opt.description}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
-                  )}
-
-                  {step.type === 'modules' && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-3 gap-2.5">
-                        {modules.map((mod) => {
-                          const modKey = mod.key as keyof ModuleSelection;
-                          const isSelected = selectedModules.has(modKey);
-                          const isIncluded = isSelected && includedAsDep.has(mod.key);
-                          const ModIcon = getLucideIcon(mod.icon);
-                          return (
-                            <button
-                              key={mod.key}
-                              type="button"
-                              onClick={() => {
-                                toggleModule(modKey);
-                                if (isSelected) {
-                                  setActiveMood('listening');
-                                } else {
-                                  setActiveMood('happy');
-                                  setTimeout(() => setActiveMood('listening'), 900);
-                                }
-                              }}
-                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden cursor-pointer"
-                              style={{
-                                backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
-                                borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
-                              }}
-                            >
-                              {isIncluded && (
-                                <span
-                                  className="absolute top-0 right-0 flex items-center gap-0.5 text-[0.48rem] font-semibold text-white px-1.5 py-0.5 rounded-bl-lg rounded-tr-[11px]"
-                                  style={{ backgroundColor: mod.accent_color }}
-                                >
-                                  <Check className="w-2 h-2" />
-                                  Incluido
-                                </span>
-                              )}
-                              <div
-                                className="relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-300"
-                                style={{ backgroundColor: `${mod.accent_color}${isSelected ? '18' : '10'}` }}
-                              >
-                                <ModIcon className="w-4 h-4" style={{ color: mod.accent_color }} />
-                                {isSelected && !isIncluded && (
-                                  <div
-                                    className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
-                                    style={{ backgroundColor: mod.accent_color }}
-                                  >
-                                    <Check className="w-2 h-2 text-white" />
-                                  </div>
-                                )}
-                              </div>
-                              <span
-                                className="text-[0.7rem] font-medium leading-tight text-center"
-                                style={{ color: isSelected ? NAVY : WARM_GRAY_600 }}
-                              >
-                                {mod.label}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                    <div className="flex justify-end">
                       <button
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                         style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                  )}
+                  </div>
+                );
+              })()}
+
+              {/* Color picker */}
+              {step.type === 'color_picker' && (() => {
+                const palettes = (step.options || FALLBACK_PALETTES) as PaletteOption[];
+                return (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {palettes.map((pal) => {
+                        const isActive = primaryColor === pal.primary && secondaryColor === pal.secondary;
+                        return (
+                          <button
+                            key={pal.label}
+                            type="button"
+                            onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
+                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200"
+                            style={{
+                              borderColor: isActive ? TEAL : WARM_GRAY_200,
+                              backgroundColor: isActive ? `${TEAL}08` : '#fff',
+                            }}
+                          >
+                            <div className="flex gap-1">
+                              <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.primary }} />
+                              <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.secondary }} />
+                            </div>
+                            <span className="text-[0.72rem] font-medium" style={{ color: isActive ? TEAL : WARM_GRAY_600 }}>{pal.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {step.hint && (
+                      <p className="text-[0.7rem] ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                    )}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleSend}
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all"
+                        style={{ backgroundColor: TEAL, color: '#fff' }}
+                      >
+                        Continuar <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Tone selector */}
+              {step.type === 'tone_select' && (() => {
+                const toneOpts = (step.options || FALLBACK_TONE_OPTIONS) as ToneOption[];
+                return (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {toneOpts.map((opt) => {
+                        const isActive = selectedTone === opt.key;
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setSelectedTone(opt.key)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium"
+                            style={{
+                              borderColor: isActive ? TEAL : WARM_GRAY_200,
+                              backgroundColor: isActive ? `${TEAL}0A` : '#fff',
+                              color: isActive ? TEAL : WARM_GRAY_600,
+                            }}
+                          >
+                            <span>{opt.emoji}</span>
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleSend}
+                        disabled={!canSend}
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                      >
+                        Continuar <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Pages selection */}
+              {step.type === 'pages' && (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {pages.map((page) => {
+                      const isSelected = selectedPages.has(page.key);
+                      const PageIcon = getLucideIcon(page.icon);
+                      return (
+                        <button
+                          key={page.key}
+                          type="button"
+                          onClick={() => {
+                            if (page.is_mandatory) return;
+                            const next = new Set(selectedPages);
+                            if (isSelected) next.delete(page.key);
+                            else next.add(page.key);
+                            setSelectedPages(next);
+                          }}
+                          disabled={page.is_mandatory}
+                          className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.82rem] font-medium border transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default"
+                          style={{
+                            backgroundColor: isSelected ? `${TEAL}0A` : '#fff',
+                            borderColor: isSelected ? TEAL : WARM_GRAY_200,
+                            color: isSelected ? TEAL : WARM_GRAY_600,
+                          }}
+                        >
+                          <PageIcon className="w-3.5 h-3.5" />
+                          {isSelected && <Check className="w-3.5 h-3.5" />}
+                          {page.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[0.72rem]" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+                    <button
+                      type="button"
+                      onClick={handleSend}
+                      disabled={!canSend}
+                      className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                    >
+                      Generar mi sitio <Sparkles className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-          </>
+              )}
+
+              {/* Modules selection (in conversation mode) */}
+              {step.type === 'modules' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {modules.map((mod) => {
+                      const modKey = mod.key as keyof ModuleSelection;
+                      const isSelected = selectedModules.has(modKey);
+                      const isIncluded = isSelected && includedAsDep.has(mod.key);
+                      const ModIcon = getLucideIcon(mod.icon);
+                      return (
+                        <button
+                          key={mod.key}
+                          type="button"
+                          onClick={() => {
+                            toggleModule(modKey);
+                            if (isSelected) {
+                              setActiveMood('listening');
+                            } else {
+                              setActiveMood('happy');
+                              setTimeout(() => setActiveMood('listening'), 900);
+                            }
+                          }}
+                          className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                          style={{
+                            backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
+                            borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
+                          }}
+                        >
+                          {isIncluded && (
+                            <span
+                              className="absolute top-0 right-0 flex items-center gap-0.5 text-[0.48rem] font-semibold text-white px-1.5 py-0.5 rounded-bl-lg rounded-tr-[11px]"
+                              style={{ backgroundColor: mod.accent_color }}
+                            >
+                              <Check className="w-2 h-2" />
+                              Incluido
+                            </span>
+                          )}
+                          <div
+                            className="relative flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-300"
+                            style={{ backgroundColor: `${mod.accent_color}${isSelected ? '18' : '10'}` }}
+                          >
+                            <ModIcon className="w-4 h-4" style={{ color: mod.accent_color }} />
+                            {isSelected && !isIncluded && (
+                              <div
+                                className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
+                                style={{ backgroundColor: mod.accent_color }}
+                              >
+                                <Check className="w-2 h-2 text-white" />
+                              </div>
+                            )}
+                          </div>
+                          <span
+                            className="text-[0.7rem] font-medium leading-tight text-center"
+                            style={{ color: isSelected ? NAVY : WARM_GRAY_600 }}
+                          >
+                            {mod.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={!canSend}
+                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
+                  >
+                    Continuar <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     );
@@ -1477,7 +1343,7 @@ export default function QuickStartPage() {
             </div>
             <p
               className="text-[0.72rem] font-medium"
-              style={{ color: WARM_GRAY_600 }}
+              style={{ color: WARM_GRAY_400 }}
             >
               {Math.round(progress)}%
             </p>
@@ -1602,7 +1468,7 @@ export default function QuickStartPage() {
               {usageLimitInfo && (
                 <p
                   className="mb-6 text-[0.8rem] font-medium"
-                  style={{ color: WARM_GRAY_600 }}
+                  style={{ color: WARM_GRAY_400 }}
                 >
                   {usageLimitInfo.used} de {usageLimitInfo.limit} generaciones usadas
                 </p>
@@ -1652,7 +1518,7 @@ export default function QuickStartPage() {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   type="button"
-                  onClick={() => router.push('/dashboard/website-builder/quick-start')}
+                  onClick={() => router.push('/dashboard/website-builder')}
                   className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
                   style={{ backgroundColor: TEAL, color: '#fff' }}
                   onMouseEnter={(e) => {

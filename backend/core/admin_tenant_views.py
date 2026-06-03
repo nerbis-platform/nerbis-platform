@@ -439,7 +439,7 @@ class AdminResetOnboardingView(APIView):
 
                     WebsiteConfig.objects.filter(tenant=tenant).delete()
                 except Exception:
-                    pass
+                    logger.warning("Error al eliminar WebsiteConfig del tenant %s", tenant.slug, exc_info=True)
 
             tenant.save(update_fields=update_fields)
 

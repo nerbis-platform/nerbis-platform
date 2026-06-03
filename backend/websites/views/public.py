@@ -71,7 +71,7 @@ class PublicSiteView(APIView):
             if tenant.subscription.status != "trial":
                 show_badge = seo.get("show_nerbis_badge", True)
         except Exception:
-            pass
+            logger.warning("Error al verificar badge para tenant %s", slug, exc_info=True)
 
         industry = config.template.industry if config.template else "generic"
 

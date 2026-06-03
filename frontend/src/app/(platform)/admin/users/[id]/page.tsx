@@ -22,11 +22,8 @@
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  Apple,
   CalendarDays,
   CheckCircle2,
-  Chrome,
-  Facebook,
   Fingerprint,
   KeyRound,
   Link as LinkIcon,
@@ -42,7 +39,6 @@ import {
   UserCircle2,
   Users as UsersIcon,
   XCircle,
-  type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -55,10 +51,7 @@ import {
   adminUpdateUser,
 } from '@/lib/api/admin-tenants';
 import type {
-  AdminPasskey,
-  AdminSocialAccount,
   AdminSocialProvider,
-  AdminTenantUserRole,
   AdminUserDetail,
 } from '@/types/admin';
 import {
@@ -71,168 +64,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
-// ── Labels & styling helpers ─────────────────────────────────────────
-
-const ROLE_LABELS: Record<AdminTenantUserRole, string> = {
-  admin: 'Admin',
-  staff: 'Staff',
-  customer: 'Cliente',
-};
-
-const PROVIDER_LABELS: Record<AdminSocialProvider, string> = {
-  google: 'Google',
-  apple: 'Apple',
-  facebook: 'Facebook',
-};
-
-const PROVIDER_ICONS: Record<AdminSocialProvider, LucideIcon> = {
-  google: Chrome,
-  apple: Apple,
-  facebook: Facebook,
-};
-
-function roleBadgeClass(role: AdminTenantUserRole): string {
-  switch (role) {
-    case 'admin':
-      return 'bg-teal-50 text-teal-700 ring-teal-200';
-    case 'staff':
-      return 'bg-indigo-50 text-indigo-700 ring-indigo-200';
-    case 'customer':
-    default:
-      return 'bg-slate-100 text-slate-600 ring-slate-200';
-  }
-}
-
-function statusBadgeClass(isActive: boolean): string {
-  return isActive
-    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-    : 'bg-slate-100 text-slate-500 ring-slate-200';
-}
-
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '\u2014';
-  try {
-    return new Date(iso).toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '\u2014';
-  try {
-    return new Date(iso).toLocaleString('es-CO', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function fullName(user: AdminUserDetail): string {
-  const name = [user.first_name, user.last_name].filter(Boolean).join(' ');
-  return name || '\u2014';
-}
-
-// ── Types for pending destructive actions ────────────────────────────
-
-type PendingStatus = 'activate' | 'deactivate' | null;
-type PendingUnlink = { social: AdminSocialAccount } | null;
-type PendingPasskey = { passkey: AdminPasskey } | null;
-type PendingReset = boolean;
-type Pending2FA = boolean;
-
-// ── Subcomponents ────────────────────────────────────────────────────
-
-function InfoRow({
-  icon,
-  label,
-  value,
-  mono = false,
-}: {
-  icon?: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      {icon ? (
-        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
-          {icon}
-        </span>
-      ) : null}
-      <div className="min-w-0 flex-1">
-        <dt className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
-          {label}
-        </dt>
-        <dd
-          className={`mt-0.5 text-sm text-slate-900 ${mono ? 'font-mono' : ''}`}
-        >
-          {value}
-        </dd>
-      </div>
-    </div>
-  );
-}
-
-function AuthCardEmptyState({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50/40 px-4 py-6 text-center">
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200">
-        {icon}
-      </span>
-      <p className="text-sm font-medium text-slate-700">{title}</p>
-      <p className="max-w-xs text-xs text-slate-500">{description}</p>
-    </div>
-  );
-}
-
-function AdminUserDetailSkeleton() {
-  return (
-    <div className="animate-pulse space-y-4" aria-hidden="true">
-      <div className="h-40 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 h-4 w-40 rounded bg-slate-100" />
-        <div className="space-y-2">
-          <div className="h-3 w-full rounded bg-slate-100" />
-          <div className="h-3 w-3/4 rounded bg-slate-100" />
-          <div className="h-3 w-2/3 rounded bg-slate-100" />
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-48 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-          >
-            <div className="mb-4 h-4 w-32 rounded bg-slate-100" />
-            <div className="space-y-2">
-              <div className="h-3 w-full rounded bg-slate-100" />
-              <div className="h-3 w-3/4 rounded bg-slate-100" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+import {
+  formatDate,
+  formatDateTime,
+  roleBadgeClass,
+  InfoRow,
+  ROLE_LABELS,
+  PROVIDER_LABELS,
+  PROVIDER_ICONS,
+  statusBadgeClass,
+  fullName,
+  AuthCardEmptyState,
+  AdminUserDetailSkeleton,
+  type PendingStatus,
+  type PendingUnlink,
+  type PendingPasskey,
+  type PendingReset,
+  type Pending2FA,
+} from './_helpers';
 
 // ── Main page ────────────────────────────────────────────────────────
 
