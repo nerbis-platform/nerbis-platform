@@ -10,7 +10,7 @@ import {
   Link2,
   Lock,
 } from 'lucide-react';
-import type { SiteSettings } from './SettingsPanel';
+import type { SiteSettings } from './settings-panel-types';
 
 // ─── SEO Score ──────────────────────────────────────────────
 
