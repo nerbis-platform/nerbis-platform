@@ -4,12 +4,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
-  Building2,
-  Palette,
-  FileText,
-  Phone,
   ArrowRight,
   ArrowLeft,
+  Building2,
   Loader2,
   Sparkles,
   Check,
@@ -21,80 +18,18 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getOnboardingStatus, saveOnboardingResponses, getWebsiteTemplate, getWebsiteSections } from '@/lib/api/websites';
-import { OnboardingQuestion, QuestionSection, WebsiteSection } from '@/types';
+import { OnboardingQuestion, WebsiteSection } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import LogoOptimizer from '@/components/website-builder/LogoOptimizer';
-
-// ─── Section config ───────────────────────────────────────────
-
-const SECTIONS: { key: QuestionSection; label: string; icon: React.ElementType }[] = [
-  { key: 'basic', label: 'Tu Negocio', icon: Building2 },
-  { key: 'branding', label: 'Identidad', icon: Palette },
-  { key: 'content', label: 'Páginas', icon: FileText },
-  { key: 'contact', label: 'Contacto', icon: Phone },
-];
-
-// ─── sessionStorage helpers ──────────────────────────────────
-
-const SESSION_KEY_RESPONSES = (slug: string) => `onboarding_${slug}_responses`;
-const SESSION_KEY_SECTION = (slug: string) => `onboarding_${slug}_section`;
-
-function saveToSession(slug: string, responses: Record<string, string | string[]>, section: number) {
-  try {
-    sessionStorage.setItem(SESSION_KEY_RESPONSES(slug), JSON.stringify(responses));
-    sessionStorage.setItem(SESSION_KEY_SECTION(slug), String(section));
-  } catch {
-    // sessionStorage full or unavailable — silent fail
-  }
-}
-
-function loadFromSession(slug: string): { responses: Record<string, string | string[]>; section: number } | null {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY_RESPONSES(slug));
-    const sec = sessionStorage.getItem(SESSION_KEY_SECTION(slug));
-    if (!raw) return null;
-    return { responses: JSON.parse(raw), section: sec ? parseInt(sec, 10) : 0 };
-  } catch {
-    return null;
-  }
-}
-
-function clearSession(slug: string) {
-  try {
-    sessionStorage.removeItem(SESSION_KEY_RESPONSES(slug));
-    sessionStorage.removeItem(SESSION_KEY_SECTION(slug));
-  } catch {
-    // silent
-  }
-}
-
-// ─── Format validators ──────────────────────────────────────
-
-const FORMAT_VALIDATORS: Record<string, { regex: RegExp; message: string; minDigits?: number }> = {
-  business_email: {
-    regex: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-    message: 'Ingresa un email válido (ej: nombre@empresa.com)',
-  },
-  business_phone: {
-    regex: /^\+?[\d\s\-()]+$/,
-    message: 'Solo números, espacios, guiones y paréntesis',
-    minDigits: 7,
-  },
-  business_whatsapp: {
-    regex: /^\+?[\d\s\-()]+$/,
-    message: 'Solo números, espacios, guiones y paréntesis',
-    minDigits: 7,
-  },
-  primary_color: {
-    regex: /^#[0-9a-fA-F]{6}$/,
-    message: 'Usa formato hexadecimal (ej: #0D9488)',
-  },
-  secondary_color: {
-    regex: /^#[0-9a-fA-F]{6}$/,
-    message: 'Usa formato hexadecimal (ej: #1C3B57)',
-  },
-};
+import {
+  SECTIONS,
+  saveToSession,
+  loadFromSession,
+  clearSession,
+  FORMAT_VALIDATORS,
+  getDefaultSections,
+} from './_helpers';
 
 // ─── Image upload + color extraction ─────────────────────────
 
@@ -417,22 +352,6 @@ function QuestionBlock({
 }
 
 // ─── Main page ────────────────────────────────────────────────
-
-// Mapeo: flags del tenant → secciones pre-seleccionadas
-function getDefaultSections(tenant: { has_shop?: boolean; has_bookings?: boolean; has_services?: boolean; has_marketing?: boolean } | null): string[] {
-  const sections = ['Sobre nosotros', 'Preguntas frecuentes']; // Siempre incluir
-  if (tenant?.has_shop) {
-    sections.push('Productos', 'Precios / Tarifas', 'Galería de fotos');
-  }
-  if (tenant?.has_bookings || tenant?.has_services) {
-    sections.push('Servicios');
-    if (!sections.includes('Galería de fotos')) sections.push('Galería de fotos');
-  }
-  if (tenant?.has_marketing) {
-    sections.push('Testimonios / Reseñas');
-  }
-  return sections;
-}
 
 export default function OnboardingPage() {
   const router = useRouter();
