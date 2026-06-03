@@ -26,95 +26,17 @@ import {
   LayoutTemplate,
   Check,
   GripVertical,
-  Menu,
-  Home,
-  BookOpen,
-  Wrench,
-  ShoppingBag,
-  Phone,
-  Star,
-  Image,
-  DollarSign,
-  HelpCircle,
-  PanelBottom,
-  Users,
-  PenLine,
-  Sparkles,
-  BarChart3,
   FileText,
   X,
-  type LucideIcon,
 } from 'lucide-react';
-import type { PagesData, SitePage } from '@/types';
 import SectionLibrary from './SectionLibrary';
-
-const SECTION_LABELS: Record<string, string> = {
-  header: 'Menú principal',
-  hero: 'Inicio',
-  about: 'Sobre Nosotros',
-  services: 'Servicios',
-  products: 'Productos',
-  contact: 'Contacto',
-  testimonials: 'Testimonios',
-  gallery: 'Galería',
-  pricing: 'Precios',
-  faq: 'Preguntas frecuentes',
-  footer: 'Pie de página',
-  team: 'Equipo',
-  blog: 'Blog',
-  features: 'Características',
-  stats: 'Estadísticas',
-};
-
-const SECTION_ICONS: Record<string, LucideIcon> = {
-  header: Menu,
-  hero: Home,
-  about: BookOpen,
-  services: Wrench,
-  products: ShoppingBag,
-  contact: Phone,
-  testimonials: Star,
-  gallery: Image,
-  pricing: DollarSign,
-  faq: HelpCircle,
-  footer: PanelBottom,
-  team: Users,
-  blog: PenLine,
-  features: Sparkles,
-  stats: BarChart3,
-};
-
-const PAGE_ICONS: Record<string, LucideIcon> = {
-  home: Home,
-  about: BookOpen,
-  services: Wrench,
-  products: ShoppingBag,
-  contact: Phone,
-  pricing: DollarSign,
-  blog: PenLine,
-  gallery: Image,
-  faq: HelpCircle,
-};
-
-interface SectionInfo {
-  id: string;
-  name: string;
-  required: boolean;
-}
-
-interface PageManagerProps {
-  pagesData: PagesData;
-  activePage: string;
-  activeSection: string;
-  allSections: SectionInfo[];
-  editorContent?: React.ReactNode;
-  onSelectPage: (pageId: string) => void;
-  onSelectSection: (sectionId: string) => void;
-  onAddPage: (page: SitePage) => void;
-  onRemovePage: (pageId: string) => void;
-  onUpdatePages: (pagesData: PagesData) => void;
-  onAddSectionWithContent?: (sectionId: string, initialContent?: Record<string, unknown>, variant?: string) => void;
-}
+import type { SitePage } from '@/types';
+import {
+  SECTION_LABELS,
+  SECTION_ICONS,
+  PAGE_ICONS,
+  type PageManagerProps,
+} from './page-manager-helpers';
 
 export default function PageManager({
   pagesData,
