@@ -171,7 +171,7 @@ export default function QuickStartPage() {
     const modulesQ = apiQuestions?.find((q) => q.input_type === 'modules');
     const result: ConversationStep[] = [
       {
-        id: modulesQ?.key ?? 'modules',
+        id: modulesQ?.question_key ?? 'modules',
         message: modulesQ?.message ?? '¿Qué necesitas?',
         type: 'modules',
         hint: modulesQ?.hint ?? 'Incluye 14 días gratis. Puedes cambiar después.',
@@ -188,7 +188,7 @@ export default function QuickStartPage() {
         if (shouldShow) {
           const stepType: ConversationStep['type'] = q.input_type === 'multiselect' ? 'pages' : q.input_type as ConversationStep['type'];
           const step: ConversationStep = {
-            id: q.key,
+            id: q.question_key,
             message: q.message,
             type: stepType,
             placeholder: q.placeholder || undefined,
@@ -652,7 +652,7 @@ export default function QuickStartPage() {
     // Option 1: classify the industry right after the business description,
     // decoupled from generation. Pipe confirms the sector inline, then the
     // conversation continues (pages/design) and generation happens at the end.
-    if (step.id.includes('description')) {
+    if (step.id?.includes('description')) {
       setActiveMood('happy');
       setPageState('industry-confirm');
       void runClassification(value);
