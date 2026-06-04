@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { updateUserProfile, deleteAccount, getUserProfile } from '@/lib/api/user';
+import { updateUserProfile, updateUserAvatar, deleteAccount, getUserProfile } from '@/lib/api/user';
 import { Trash2, Save, Eye, EyeOff } from 'lucide-react';
 import {
   AlertDialog,
@@ -32,6 +32,7 @@ import {
   ViewEditList,
   DangerZone,
   DangerAction,
+  AvatarUploader,
 } from '@/components/settings';
 
 // ─── Toggle de visibilidad de contraseña ──────────────────
@@ -103,6 +104,14 @@ export default function SettingsProfilePage() {
     },
   });
 
+  const updateAvatarMutation = useMutation({
+    mutationFn: updateUserAvatar,
+    onSuccess: (data) => {
+      setUser(data);
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+    },
+  });
+
   const deleteAccountMutation = useMutation({
     mutationFn: deleteAccount,
     onSuccess: () => {
@@ -146,6 +155,24 @@ export default function SettingsProfilePage() {
 
   return (
     <div className="max-w-2xl">
+      {/* ── Foto de perfil ── */}
+      <section className="mb-8" aria-labelledby="profile-avatar">
+        <SectionHeader
+          id="profile-avatar"
+          title="Foto de perfil"
+          description="Se mostrará en tu cuenta y en el equipo."
+        />
+        <SettingCard>
+          <div className="px-4 py-5">
+            <AvatarUploader
+              user={user}
+              onUpload={updateAvatarMutation.mutateAsync}
+              isUploading={updateAvatarMutation.isPending}
+            />
+          </div>
+        </SettingCard>
+      </section>
+
       {/* ── Datos personales ── */}
       <section className="mb-8" aria-labelledby="profile-personal-data">
         <SectionHeader

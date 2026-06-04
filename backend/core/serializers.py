@@ -454,9 +454,13 @@ class SetPasswordSerializer(serializers.Serializer):
 class UpdateProfileSerializer(serializers.ModelSerializer):
     """Serializer para actualizar el perfil del usuario"""
 
+    # Tamano y formatos permitidos para el avatar
+    MAX_AVATAR_SIZE = 2 * 1024 * 1024  # 2 MB
+    ALLOWED_AVATAR_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "phone"]
+        fields = ["first_name", "last_name", "phone", "avatar"]
 
     def validate_first_name(self, value):
         if not value or not value.strip():
@@ -467,6 +471,45 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("El apellido es requerido")
         return value.strip()
+
+    def validate_avatar(self, value):
+        """Valida el avatar: tamano maximo (2 MB) y formato real con Pillow.
+
+        Permite limpiar el avatar (valor vacio/null) sin validar imagen: solo
+        valida cuando hay un archivo subido real. El sniffing de contenido se
+        hace con ``PIL.Image.verify()`` para no confiar en la extension ni en
+        el content-type enviado por el cliente.
+        """
+        # Permitir limpiar el avatar (vacio/null) sin validar imagen.
+        if not value:
+            return value
+
+        if value.size > self.MAX_AVATAR_SIZE:
+            raise serializers.ValidationError(
+                f"La imagen no puede superar 2 MB (recibido: {value.size / 1024 / 1024:.1f} MB)."
+            )
+
+        from PIL import Image, UnidentifiedImageError
+
+        pillow_to_mime: dict[str, str] = {
+            "JPEG": "image/jpeg",
+            "PNG": "image/png",
+            "WEBP": "image/webp",
+        }
+        try:
+            img = Image.open(value)
+            # verify() confirma que es una imagen real (no un .txt renombrado).
+            img.verify()
+        except (UnidentifiedImageError, OSError):
+            raise serializers.ValidationError("El archivo no es una imagen válida.")
+
+        detected_mime: str | None = pillow_to_mime.get(img.format)
+        if detected_mime not in self.ALLOWED_AVATAR_TYPES:
+            raise serializers.ValidationError(f"Formato no permitido: {img.format}. Usa JPG, PNG o WebP.")
+
+        # verify() consume el archivo: rebobinar para que el save posterior funcione.
+        value.seek(0)
+        return value
 
 
 class ChangePasswordSerializer(serializers.Serializer):
