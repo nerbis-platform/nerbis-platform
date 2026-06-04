@@ -627,3 +627,126 @@ export interface AdminPromptPreviewResponse {
   template_used: string | null;
   block_count: number;
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Industries — global catalog + AI config + AI usage stats (Issue #262)
+// ──────────────────────────────────────────────────────────────────────
+
+/** Lifecycle status of an industry. `proposed_by_model` rows await review. */
+export type AdminIndustryStatus = 'proposed_by_model' | 'reviewed';
+
+/**
+ * Minimal template reference nested in `default_template_detail`.
+ * Mirrors `WebsiteTemplateMinimalSerializer`.
+ */
+export interface AdminTemplateRef {
+  id: number;
+  name: string;
+  slug: string;
+  /** Industry FK key of the template (may be null). */
+  industry: string | null;
+}
+
+/**
+ * Industry returned by `GET /api/admin/settings/industries/`.
+ * Mirrors `AdminIndustrySerializer`.
+ */
+export interface AdminIndustry {
+  id: number;
+  key: string;
+  label: string;
+  description: string;
+  icon: string;
+  /** PK of the default template (write field); null when unset. */
+  default_template: number | null;
+  /** Nested read-only detail of the default template; null when unset. */
+  default_template_detail: AdminTemplateRef | null;
+  is_active: boolean;
+  sort_order: number;
+  /** True when the AI proposed this industry during onboarding. Read-only. */
+  created_by_ai: boolean;
+  /** Read-only — only changes via the promote endpoint. */
+  status: AdminIndustryStatus;
+  status_display: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Payload accepted by `POST/PATCH /api/admin/settings/industries/`.
+ * `created_by_ai` and `status` are read-only on the backend.
+ */
+export interface AdminIndustryPayload {
+  key: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  default_template?: number | null;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+/** AI task whose model config can be edited. Natural key — fixed set. */
+export type AdminAITask =
+  | 'classify_industry'
+  | 'web_content'
+  | 'chat_edit'
+  | 'seo';
+
+/**
+ * Per-task AI model configuration returned by
+ * `GET /api/admin/settings/ai-models/`. Mirrors `AdminAIModelConfigSerializer`.
+ * `temperature` is a DRF DecimalField (serialized as a string).
+ */
+export interface AdminAIModelConfig {
+  id: number;
+  task: AdminAITask;
+  task_display: string;
+  model: string;
+  max_tokens: number;
+  temperature: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Editable fields of an AI model config. `task` is read-only (natural key,
+ * seeded by migration) so it is not part of the payload.
+ */
+export interface AdminAIModelConfigPayload {
+  model?: string;
+  max_tokens?: number;
+  temperature?: string | number;
+  is_active?: boolean;
+}
+
+/** Aggregated AI usage row (per generation type or per model). */
+export interface AdminAIStatsRow {
+  count: number;
+  tokens_input: number;
+  tokens_output: number;
+  /** Decimal serialized as a string. */
+  cost_estimated: string;
+}
+
+/** Grand totals across all AI generation logs. */
+export type AdminAIStatsTotals = AdminAIStatsRow;
+
+export interface AdminAIStatsByGenerationType extends AdminAIStatsRow {
+  generation_type: string;
+}
+
+export interface AdminAIStatsByModel extends AdminAIStatsRow {
+  model_used: string;
+}
+
+/**
+ * AI usage statistics returned by `GET /api/admin/settings/ai-stats/`.
+ * Mirrors `AdminAIStatsView` response shape.
+ */
+export interface AdminAIStats {
+  totals: AdminAIStatsTotals;
+  by_generation_type: AdminAIStatsByGenerationType[];
+  by_model: AdminAIStatsByModel[];
+}

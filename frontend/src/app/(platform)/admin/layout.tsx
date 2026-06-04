@@ -8,6 +8,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
+  Briefcase,
   Building2,
   ChevronDown,
   ChevronRight,
@@ -35,6 +36,7 @@ const NAV_MAIN = [
 
 const NAV_CONFIG = [
   { href: '/admin/settings/modules', label: 'Modulos', icon: Package },
+  { href: '/admin/settings/industries', label: 'Industrias', icon: Briefcase },
   { href: '/admin/settings/onboarding', label: 'Onboarding', icon: Settings },
 ];
 

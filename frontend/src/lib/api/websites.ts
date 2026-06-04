@@ -143,6 +143,12 @@ export interface QuickStartRequest {
   unique_selling_point?: string;
   business_email?: string;
   business_phone?: string;
+  /**
+   * Industry key confirmed by the user via classifyIndustry. When present,
+   * the backend resolves the template from this key (overriding the tenant's
+   * stored industry). Always resolves to a template — never a 400.
+   */
+  industry_key?: string;
 }
 
 export interface QuickStartResponse {
@@ -184,6 +190,43 @@ export async function quickStartGenerate(
   const { data } = await apiClient.post<AsyncGenerationAccepted>(
     '/websites/onboarding/quick-start/',
     payload
+  );
+  return data;
+}
+
+// ===================================
+// INDUSTRY CLASSIFICATION (Pipe)
+// ===================================
+
+export interface ClassifyIndustryRequest {
+  business_description: string;
+  selected_modules?: string[];
+}
+
+export interface ClassifyIndustryResponse {
+  industry_key: string;
+  industry_label: string;
+  /** Confidence 0..1 returned by the classifier (0 in the mock/no-key path). */
+  confidence: number;
+  /** True when the classifier proposed a brand-new industry (created on the fly). */
+  is_new: boolean;
+}
+
+/**
+ * Clasifica la industria del negocio a partir de su descripcion y modulos.
+ * Nunca falla por industria no soportada: si no hay match, crea/propone una.
+ * POST /api/websites/classify-industry/
+ */
+export async function classifyIndustry(
+  businessDescription: string,
+  selectedModules?: string[]
+): Promise<ClassifyIndustryResponse> {
+  const { data } = await apiClient.post<ClassifyIndustryResponse>(
+    '/websites/classify-industry/',
+    {
+      business_description: businessDescription,
+      selected_modules: selectedModules ?? [],
+    }
   );
   return data;
 }

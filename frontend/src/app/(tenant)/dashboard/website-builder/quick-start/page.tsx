@@ -20,6 +20,8 @@ import type { PipeMood } from '@/components/pipe-avatar';
 import {
   quickStartGenerate,
   QuickStartResponse,
+  classifyIndustry,
+  ClassifyIndustryResponse,
   getPlatformModules,
   getOnboardingQuestions,
   getOnboardingPages,
@@ -229,6 +231,18 @@ export default function QuickStartPage() {
   const [result, setResult] = useState<QuickStartResponse | null>(null);
   const [usageLimitInfo, setUsageLimitInfo] = useState<{ used: number; limit: number } | null>(null);
 
+  // ─── Industry classification (Pipe confirm/correct step) ──
+  const [classifying, setClassifying] = useState(false);
+  const [classifyResult, setClassifyResult] = useState<ClassifyIndustryResponse | null>(null);
+  const [classifyError, setClassifyError] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
+  const [correctionInput, setCorrectionInput] = useState('');
+  // Holds the final answers + sections so generation can proceed after confirm.
+  const pendingGenerationRef = useRef<{
+    answers: Record<string, string>;
+    sections: Set<string>;
+  } | null>(null);
+
   // ─── Session storage keys (scoped to tenant to prevent cross-tenant leaks) ──
   const SS_KEY = `nerbis_quickstart_state_${tenant?.id || 'unknown'}`;
 
@@ -391,6 +405,7 @@ export default function QuickStartPage() {
   const triggerQuickStartGeneration = useCallback(async (
     answersData: Record<string, string>,
     sections: Set<string>,
+    industryKey?: string,
   ) => {
     try {
       await quickStartGenerate({
@@ -401,6 +416,7 @@ export default function QuickStartPage() {
         primary_color: primaryColor || undefined,
         secondary_color: secondaryColor || undefined,
         business_whatsapp: answersData.pipe_whatsapp || undefined,
+        industry_key: industryKey || undefined,
       });
       startPolling();
     } catch (error) {
@@ -412,13 +428,60 @@ export default function QuickStartPage() {
           setUsageLimitInfo({ used: data.used, limit: data.limit });
         }
         setPageState('limit-reached');
-      } else if (error instanceof ApiError && error.status === 400 && error.message?.includes('industria')) {
-        setPageState('unsupported-industry');
       } else {
+        // The backend never rejects an industry now — any failure is a
+        // generic generation error the user can retry.
         setPageState('error');
       }
     }
   }, [startPolling, selectedTone, primaryColor, secondaryColor]);
+
+  // ─── Industry classification + confirm step ───────────────
+  // Classify the business based on its description + selected modules, then
+  // surface the confirm/correct interstitial. Never dead-ends: if the call
+  // fails we let the user proceed (the backend resolves a generic template).
+  const runClassification = useCallback(async (description: string) => {
+    setClassifying(true);
+    setClassifyError(false);
+    setCorrecting(false);
+    setCorrectionInput('');
+    const moduleKeys = Array.from(selectedModules) as string[];
+    try {
+      const res = await classifyIndustry(description, moduleKeys);
+      setClassifyResult(res);
+    } catch {
+      setClassifyResult(null);
+      setClassifyError(true);
+    } finally {
+      setClassifying(false);
+    }
+  }, [selectedModules]);
+
+  // User confirmed the detected sector — proceed to generation.
+  const confirmIndustry = useCallback(() => {
+    const pending = pendingGenerationRef.current;
+    if (!pending) return;
+    const industryKey = classifyResult?.industry_key;
+    setPageState('generating');
+    setGenStep(0);
+    setProgress(0);
+    setTimeout(() => {
+      triggerQuickStartGeneration(pending.answers, pending.sections, industryKey);
+    }, 100);
+  }, [classifyResult, triggerQuickStartGeneration]);
+
+  // User wants to correct the sector — reveal the correction input.
+  const startCorrection = useCallback(() => {
+    setCorrecting(true);
+    setCorrectionInput('');
+  }, []);
+
+  // Re-classify using the user's own description of their sector.
+  const submitCorrection = useCallback(() => {
+    const text = correctionInput.trim();
+    if (text.length < 3) return;
+    void runClassification(text);
+  }, [correctionInput, runClassification]);
 
   // ─── Rotating generation messages ─────────────────────────
   useEffect(() => {
@@ -495,11 +558,13 @@ export default function QuickStartPage() {
       const newAnswers = { ...answers, [step.id]: labels.join(', ') };
       setAnswers(newAnswers);
 
-      // Last step — start generating
-      setPageState('generating');
-      setGenStep(0);
-      setProgress(0);
-      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedPages), 100);
+      // Last step — classify the industry, then confirm before generating.
+      pendingGenerationRef.current = { answers: newAnswers, sections: selectedPages };
+      setActiveMood('happy');
+      setPageState('industry-confirm');
+      void runClassification(
+        newAnswers.description || newAnswers.pipe_description || '',
+      );
       return;
     }
 
@@ -558,13 +623,15 @@ export default function QuickStartPage() {
     if (currentStepIdx < steps.length - 1) {
       setCurrentStepIdx((prev) => prev + 1);
     } else {
-      // All questions answered — start generating
-      setPageState('generating');
-      setGenStep(0);
-      setProgress(0);
-      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedPages), 100);
+      // All questions answered — classify the industry, then confirm.
+      pendingGenerationRef.current = { answers: newAnswers, sections: selectedPages };
+      setActiveMood('happy');
+      setPageState('industry-confirm');
+      void runClassification(
+        newAnswers.description || newAnswers.pipe_description || '',
+      );
     }
-  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, steps, modules, pages, triggerQuickStartGeneration, setTenant]);
+  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, steps, modules, pages, runClassification, setTenant]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -1297,6 +1364,173 @@ export default function QuickStartPage() {
     );
   }
 
+  // ─── INDUSTRY CONFIRM STATE ───────────────────────────────
+  if (pageState === 'industry-confirm') {
+    return (
+      <div
+        className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+        style={{ background: `linear-gradient(170deg, ${TEAL}06 0%, ${WARM_GRAY_50} 35%, #fff 100%)` }}
+      >
+        {header}
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          <div className="w-full max-w-md text-center">
+            <div className="flex justify-center mb-6">
+              <PipeAvatar mood={classifying ? 'thinking' : 'happy'} size={56} />
+            </div>
+
+            {classifying ? (
+              <>
+                <p
+                  className="text-[0.95rem]"
+                  style={{ color: WARM_GRAY_600 }}
+                >
+                  Estoy entendiendo a qué se dedica tu negocio...
+                </p>
+                <div className="flex gap-1.5 justify-center py-4">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-2 h-2 rounded-full animate-bounce"
+                      style={{
+                        backgroundColor: WARM_GRAY_400,
+                        animationDelay: `${i * 150}ms`,
+                        animationDuration: '0.8s',
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : correcting ? (
+              <>
+                <h2
+                  className="text-lg font-semibold mb-2"
+                  style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
+                >
+                  Cuéntame a qué se dedica tu negocio
+                </h2>
+                <p
+                  className="mb-5 text-[0.9rem]"
+                  style={{ color: WARM_GRAY_500 }}
+                >
+                  Escríbelo con tus palabras y lo vuelvo a revisar.
+                </p>
+                <input
+                  type="text"
+                  value={correctionInput}
+                  onChange={(e) => setCorrectionInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      submitCorrection();
+                    }
+                  }}
+                  placeholder="Ej: Floristería, estudio de tatuajes, taller mecánico..."
+                  autoFocus
+                  className="w-full h-11 px-4 rounded-lg border text-[0.9rem] outline-none transition-colors text-center"
+                  style={{ borderColor: WARM_GRAY_200, color: WARM_GRAY_800 }}
+                />
+                <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={submitCorrection}
+                    disabled={correctionInput.trim().length < 3}
+                    className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150 disabled:opacity-40"
+                    style={{ backgroundColor: TEAL, color: '#fff' }}
+                  >
+                    Revisar de nuevo
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCorrecting(false)}
+                    className="inline-flex items-center justify-center h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-colors"
+                    style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
+                  >
+                    Volver
+                  </button>
+                </div>
+              </>
+            ) : classifyError ? (
+              <>
+                <h2
+                  className="text-lg font-semibold mb-2"
+                  style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
+                >
+                  No alcancé a identificar tu sector
+                </h2>
+                <p
+                  className="mb-6 text-[0.9rem]"
+                  style={{ color: WARM_GRAY_500 }}
+                >
+                  No pasa nada — puedo crear tu sitio igual con un diseño versátil,
+                  o puedes decirme a qué te dedicas.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={confirmIndustry}
+                    className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
+                    style={{ backgroundColor: TEAL, color: '#fff' }}
+                  >
+                    Crear mi sitio
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startCorrection}
+                    className="inline-flex items-center justify-center h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-colors"
+                    style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
+                  >
+                    Decirle mi sector
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2
+                  className="text-lg font-semibold mb-2"
+                  style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
+                >
+                  De acuerdo con lo que me cuentas, tu negocio es del sector{' '}
+                  <span style={{ color: TEAL }}>
+                    {classifyResult?.industry_label}
+                  </span>
+                  .
+                </h2>
+                <p
+                  className="mb-6 text-[0.92rem]"
+                  style={{ color: WARM_GRAY_500 }}
+                >
+                  ¿Es correcto? Con esto elijo el mejor diseño para ti.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={confirmIndustry}
+                    className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
+                    style={{ backgroundColor: TEAL, color: '#fff' }}
+                  >
+                    <Check className="w-4 h-4" />
+                    Sí, es correcto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startCorrection}
+                    className="inline-flex items-center justify-center h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-colors"
+                    style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
+                  >
+                    No, corregir
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ─── GENERATING STATE ─────────────────────────────────────
   if (pageState === 'generating') {
     const StepIcon = GENERATION_STEPS[genStep].icon;
@@ -1497,41 +1731,6 @@ export default function QuickStartPage() {
                   style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
                 >
                   Ir al dashboard
-                </button>
-              </div>
-            </>
-          ) : pageState === 'unsupported-industry' ? (
-            <>
-              <h2
-                className="text-xl font-semibold mb-2"
-                style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
-              >
-                Tu tipo de negocio aún no está disponible
-              </h2>
-              <p
-                className="mb-6 text-[0.92rem]"
-                style={{ color: WARM_GRAY_500 }}
-              >
-                El modo rápido aún no soporta tu industria.
-                Te llevamos al asistente completo donde puedes elegir un template manualmente.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => router.push('/dashboard/website-builder')}
-                  className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
-                  style={{ backgroundColor: TEAL, color: '#fff' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                    e.currentTarget.style.opacity = '0.92';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                >
-                  Ir al asistente completo
-                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </>
