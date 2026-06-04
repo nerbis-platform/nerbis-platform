@@ -1,4 +1,4 @@
-// src/app/dashboard/settings/profile/page.tsx
+// src/app/(tenant)/dashboard/settings/profile/page.tsx
 // Datos personales del usuario + zona de peligro (eliminar cuenta).
 // Los métodos de acceso (email/password/social/passkeys) viven en /settings/login.
 
@@ -6,14 +6,13 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { updateUserProfile, deleteAccount, getUserProfile } from '@/lib/api/user';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-import { Trash2, Save, Eye, EyeOff, Pencil } from 'lucide-react';
+import { Trash2, Save, Eye, EyeOff } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +24,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  SectionHeader,
+  SettingCard,
+  SettingsField,
+  ViewEditRow,
+  ViewEditList,
+  DangerZone,
+  DangerAction,
+} from '@/components/settings';
 
 // ─── Toggle de visibilidad de contraseña ──────────────────
 function PasswordToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
@@ -34,10 +42,10 @@ function PasswordToggle({ show, onToggle }: { show: boolean; onToggle: () => voi
       variant="ghost"
       size="icon-sm"
       onClick={onToggle}
-      className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+      className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
       aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
     >
-      {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
     </Button>
   );
 }
@@ -45,7 +53,6 @@ function PasswordToggle({ show, onToggle }: { show: boolean; onToggle: () => voi
 // ─── Página de perfil ─────────────────────────────────────
 export default function SettingsProfilePage() {
   const { user, logout, setUser } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
 
@@ -85,21 +92,29 @@ export default function SettingsProfilePage() {
       setUser(data);
       setIsEditingProfile(false);
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
-      toast({ title: 'Perfil actualizado', description: 'Tus datos han sido actualizados correctamente' });
+      toast.success('Perfil actualizado', {
+        description: 'Tus datos han sido actualizados correctamente',
+      });
     },
     onError: (error: Error) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast.error('No se pudo actualizar el perfil', {
+        description: error.message,
+      });
     },
   });
 
   const deleteAccountMutation = useMutation({
     mutationFn: deleteAccount,
     onSuccess: () => {
-      toast({ title: 'Cuenta eliminada', description: 'Tu cuenta ha sido eliminada correctamente' });
+      toast.success('Cuenta eliminada', {
+        description: 'Tu cuenta ha sido eliminada correctamente',
+      });
       logout();
     },
     onError: (error: Error) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast.error('No se pudo eliminar la cuenta', {
+        description: error.message,
+      });
     },
   });
 
@@ -110,101 +125,114 @@ export default function SettingsProfilePage() {
 
   const handleDeleteAccount = () => {
     if (!deletePassword) {
-      toast({ title: 'Error', description: 'Debes ingresar tu contraseña para confirmar', variant: 'destructive' });
+      toast.error('Falta la contraseña', {
+        description: 'Debes ingresar tu contraseña para confirmar',
+      });
       return;
     }
     deleteAccountMutation.mutate(deletePassword);
   };
 
+  const cancelEdit = () => {
+    setIsEditingProfile(false);
+    if (user) {
+      setProfileData({
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        phone: user.phone || '',
+      });
+    }
+  };
+
   return (
     <div className="max-w-2xl">
       {/* ── Datos personales ── */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[0.7rem] text-gray-400 font-medium tracking-wide uppercase">
-            Datos personales
-          </h3>
-          {!isEditingProfile && (
-            <button
-              type="button"
-              onClick={() => setIsEditingProfile(true)}
-              className="flex items-center gap-1 text-[0.75rem] font-medium text-[#0D9488] hover:underline transition-colors cursor-pointer"
-            >
-              <Pencil className="size-3" aria-hidden="true" />
-              Editar
-            </button>
-          )}
-        </div>
+      <section className="mb-8" aria-labelledby="profile-personal-data">
+        <SectionHeader
+          id="profile-personal-data"
+          title="Datos personales"
+          description="Tu nombre y datos de contacto."
+          action={
+            !isEditingProfile ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingProfile(true)}
+                className="text-[var(--color-text-brand)] hover:bg-accent hover:text-[var(--color-text-brand)]"
+              >
+                Editar
+              </Button>
+            ) : undefined
+          }
+        />
 
-        <div className="rounded-xl border border-gray-200 bg-white">
+        <SettingCard>
           {isEditingProfile ? (
-            <form onSubmit={handleProfileSubmit} className="px-4 py-5 flex flex-col gap-4">
+            <form onSubmit={handleProfileSubmit} className="flex flex-col gap-4 px-4 py-5">
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="first_name" className="text-[0.75rem] text-gray-500">Nombre</Label>
-                  <Input
-                    id="first_name"
-                    name="first_name"
-                    placeholder="Tu nombre"
-                    value={profileData.first_name}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, first_name: e.target.value }))}
-                    required
-                    autoComplete="given-name"
-                    spellCheck={false}
-                    className="h-9 text-[0.85rem] md:text-[0.85rem]"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="last_name" className="text-[0.75rem] text-gray-500">Apellido</Label>
-                  <Input
-                    id="last_name"
-                    name="last_name"
-                    placeholder="Tu apellido"
-                    value={profileData.last_name}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, last_name: e.target.value }))}
-                    required
-                    autoComplete="family-name"
-                    spellCheck={false}
-                    className="h-9 text-[0.85rem] md:text-[0.85rem]"
-                  />
-                </div>
+                <SettingsField id="first_name" label="Nombre" required>
+                  {({ id, describedBy, invalid }) => (
+                    <Input
+                      id={id}
+                      name="first_name"
+                      placeholder="Tu nombre"
+                      value={profileData.first_name}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, first_name: e.target.value }))}
+                      required
+                      autoComplete="given-name"
+                      spellCheck={false}
+                      aria-describedby={describedBy}
+                      aria-invalid={invalid}
+                    />
+                  )}
+                </SettingsField>
+                <SettingsField id="last_name" label="Apellido" required>
+                  {({ id, describedBy, invalid }) => (
+                    <Input
+                      id={id}
+                      name="last_name"
+                      placeholder="Tu apellido"
+                      value={profileData.last_name}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, last_name: e.target.value }))}
+                      required
+                      autoComplete="family-name"
+                      spellCheck={false}
+                      aria-describedby={describedBy}
+                      aria-invalid={invalid}
+                    />
+                  )}
+                </SettingsField>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="phone" className="text-[0.75rem] text-gray-500">Teléfono</Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  inputMode="tel"
-                  placeholder="+57 300 123 4567"
-                  value={profileData.phone}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                  autoComplete="tel"
-                  className="h-9 text-[0.85rem] md:text-[0.85rem]"
-                />
-              </div>
+              <SettingsField id="phone" label="Teléfono">
+                {({ id, describedBy, invalid }) => (
+                  <Input
+                    id={id}
+                    name="phone"
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="+57 300 123 4567"
+                    value={profileData.phone}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                    autoComplete="tel"
+                    aria-describedby={describedBy}
+                    aria-invalid={invalid}
+                  />
+                )}
+              </SettingsField>
               <div className="flex justify-end gap-2 pt-1">
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => {
-                    setIsEditingProfile(false);
-                    if (user) {
-                      setProfileData({
-                        first_name: user.first_name || '',
-                        last_name: user.last_name || '',
-                        phone: user.phone || '',
-                      });
-                    }
-                  }}
-                  className="rounded-xl text-[0.82rem] text-gray-500 hover:text-gray-700"
+                  onClick={cancelEdit}
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
                   disabled={updateProfileMutation.isPending}
-                  className="rounded-xl text-[0.82rem] bg-[#1C3B57] hover:bg-[#15304a] hover:shadow-md active:scale-[0.98]"
+                  className="active:scale-[0.98]"
                 >
                   <Save className="size-3.5" aria-hidden="true" />
                   {updateProfileMutation.isPending ? 'Guardando…' : 'Guardar'}
@@ -212,105 +240,80 @@ export default function SettingsProfilePage() {
               </div>
             </form>
           ) : (
-            <div className="divide-y divide-gray-100">
-              {[
-                { label: 'Correo', value: !mounted ? '…' : (user?.email || '—') },
-                { label: 'Nombre', value: user?.first_name || '—' },
-                { label: 'Apellido', value: user?.last_name || '—' },
-                { label: 'Teléfono', value: user?.phone || 'Sin registrar' },
-              ].map((field) => (
-                <div key={field.label} className="flex items-center px-4 py-3.5">
-                  <span className="text-[0.75rem] text-gray-400 w-24 shrink-0">{field.label}</span>
-                  <span className={cn(
-                    'text-[0.85rem]',
-                    field.value === '—' || field.value === 'Sin registrar'
-                      ? 'text-gray-400'
-                      : 'text-gray-600'
-                  )}>{field.value}</span>
-                </div>
-              ))}
-            </div>
+            <ViewEditList>
+              <ViewEditRow label="Correo" value={!mounted ? '…' : user?.email} />
+              <ViewEditRow label="Nombre" value={user?.first_name} emptyLabel="—" />
+              <ViewEditRow label="Apellido" value={user?.last_name} emptyLabel="—" />
+              <ViewEditRow label="Teléfono" value={user?.phone} />
+            </ViewEditList>
           )}
-        </div>
+        </SettingCard>
       </section>
 
       {/* ── Zona de peligro ── */}
-      <section className="mb-16">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="h-px flex-1 bg-gray-200" />
-          <span className="text-[0.7rem] text-red-400/70 font-medium tracking-wide uppercase">
-            Zona de peligro
-          </span>
-          <div className="h-px flex-1 bg-gray-200" />
-        </div>
-        <div className="rounded-xl border border-red-100 bg-white">
-          <div className="px-4 py-5">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <p className="text-[0.82rem] font-medium text-gray-700 mb-1">Eliminar cuenta</p>
-                <p className="text-[0.75rem] text-gray-400 leading-relaxed">
-                  Se eliminarán todos tus datos de forma irreversible.
-                </p>
-              </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 text-[0.82rem] shrink-0"
-                  >
-                    <Trash2 className="size-3.5" aria-hidden="true" />
-                    Eliminar mi cuenta
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar cuenta?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta acción es irreversible. Se eliminarán todos tus datos de nuestros servidores.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  {profile?.has_password ? (
-                    <div className="py-3">
-                      <Label htmlFor="delete_password" className="mb-1.5 block text-[0.75rem] text-gray-500">
-                        Ingresa tu contraseña para confirmar
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="delete_password"
-                          name="delete_password"
-                          type={showDeletePassword ? 'text' : 'password'}
-                          placeholder="Tu contraseña…"
-                          value={deletePassword}
-                          onChange={(e) => setDeletePassword(e.target.value)}
-                          autoComplete="current-password"
-                          className="h-9 pr-10 text-[0.85rem] md:text-[0.85rem]"
-                        />
-                        <PasswordToggle show={showDeletePassword} onToggle={() => setShowDeletePassword(v => !v)} />
-                      </div>
+      <DangerZone>
+        <DangerAction
+          title="Eliminar cuenta"
+          description="Se eliminarán todos tus datos de forma irreversible."
+          action={
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="border-destructive/30 text-destructive hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="size-3.5" aria-hidden="true" />
+                  Eliminar mi cuenta
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar cuenta?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción es irreversible. Se eliminarán todos tus datos de nuestros servidores.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                {profile?.has_password ? (
+                  <div className="py-3">
+                    <Label htmlFor="delete_password" className="mb-1.5 block text-sm text-muted-foreground">
+                      Ingresa tu contraseña para confirmar
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="delete_password"
+                        name="delete_password"
+                        type={showDeletePassword ? 'text' : 'password'}
+                        placeholder="Tu contraseña…"
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        autoComplete="current-password"
+                        className="pr-10"
+                      />
+                      <PasswordToggle show={showDeletePassword} onToggle={() => setShowDeletePassword(v => !v)} />
                     </div>
-                  ) : (
-                    <p className="py-3 text-[0.78rem] text-gray-500 leading-relaxed">
-                      Para eliminar tu cuenta, primero debes crear una contraseña desde <strong>Inicio de sesión</strong>.
-                    </p>
-                  )}
-                  <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setDeletePassword('')}>
-                      Cancelar
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDeleteAccount}
-                      disabled={deleteAccountMutation.isPending || !profile?.has_password}
-                      className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600/30 disabled:opacity-50"
-                    >
-                      {deleteAccountMutation.isPending ? 'Eliminando…' : 'Eliminar cuenta'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </div>
-        </div>
-      </section>
+                  </div>
+                ) : (
+                  <p className="py-3 text-sm leading-relaxed text-muted-foreground">
+                    Para eliminar tu cuenta, primero debes crear una contraseña desde <strong>Inicio de sesión</strong>.
+                  </p>
+                )}
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setDeletePassword('')}>
+                    Cancelar
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteAccount}
+                    disabled={deleteAccountMutation.isPending || !profile?.has_password}
+                    className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/30 disabled:opacity-50"
+                  >
+                    {deleteAccountMutation.isPending ? 'Eliminando…' : 'Eliminar cuenta'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          }
+        />
+      </DangerZone>
     </div>
   );
 }
