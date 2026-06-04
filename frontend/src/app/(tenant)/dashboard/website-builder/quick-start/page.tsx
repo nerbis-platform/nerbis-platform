@@ -241,6 +241,9 @@ export default function QuickStartPage() {
   const [classifyError, setClassifyError] = useState(false);
   const [correcting, setCorrecting] = useState(false);
   const [correctionInput, setCorrectionInput] = useState('');
+  // Inline industry-confirm phase: rendered as a Pipe message inside the chat
+  // (no full-screen jump). Active between the description step and confirmation.
+  const [inlineConfirm, setInlineConfirm] = useState(false);
   // Industry confirmed by the user right after the description step (Option 1:
   // classify is decoupled from generate). Carried into the final generation call.
   const [confirmedIndustryKey, setConfirmedIndustryKey] = useState('');
@@ -341,7 +344,7 @@ export default function QuickStartPage() {
   // ─── Auto-scroll to bottom ───────────────────────────────
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [currentStepIdx, isTyping, pageState]);
+  }, [currentStepIdx, isTyping, pageState, inlineConfirm, classifying, classifyResult, correcting]);
 
   // ─── Polling ref para limpiar al desmontar ────────────────
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -485,9 +488,9 @@ export default function QuickStartPage() {
       void confirmClassification(classifyResult.classification_id, 'confirmed').catch(() => {});
     }
     setCorrecting(false);
+    setInlineConfirm(false);
     setActiveMood('happy');
     if (currentStepIdx < steps.length - 1) {
-      setPageState('chat');
       setCurrentStepIdx((prev) => prev + 1);
     } else {
       // Description was the last question — generate right away.
@@ -654,7 +657,7 @@ export default function QuickStartPage() {
     // conversation continues (pages/design) and generation happens at the end.
     if (step.id?.includes('description')) {
       setActiveMood('happy');
-      setPageState('industry-confirm');
+      setInlineConfirm(true);
       void runClassification(value);
       return;
     }
@@ -692,6 +695,10 @@ export default function QuickStartPage() {
     setPrimaryColor('');
     setSecondaryColor('');
     setConfirmedIndustryKey('');
+    setInlineConfirm(false);
+    setClassifyResult(null);
+    setClassifyError(false);
+    setCorrecting(false);
     setUsageLimitInfo(null);
     sessionStorage.removeItem(SS_KEY);
   }, []);
@@ -1022,12 +1029,132 @@ export default function QuickStartPage() {
               </div>
             </div>
 
+            {/* Inline industry classification — lives inside the chat as a Pipe
+                message (no full-screen jump), keeping the conversation intact. */}
+            {inlineConfirm && (
+              <>
+                {answers[step.id] && (
+                  <div className="flex justify-end">
+                    <div
+                      className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
+                      style={{ backgroundColor: WARM_GRAY_100, color: WARM_GRAY_800 }}
+                    >
+                      {answers[step.id]}
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-3 items-start">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <PipeAvatar mood={classifying ? 'thinking' : 'happy'} size={28} />
+                  </div>
+                  <div className="flex-1">
+                    {classifying ? (
+                      <div className="flex gap-1.5 py-2">
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className="w-1.5 h-1.5 rounded-full animate-bounce"
+                            style={{ backgroundColor: WARM_GRAY_400, animationDelay: `${i * 150}ms`, animationDuration: '0.8s' }}
+                          />
+                        ))}
+                      </div>
+                    ) : correcting ? (
+                      <div className="animate-in fade-in duration-300">
+                        <p className="text-[0.88rem] leading-relaxed mb-3" style={{ color: WARM_GRAY_800 }}>
+                          Cuéntame a qué se dedica tu negocio y lo reviso de nuevo.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="text"
+                            value={correctionInput}
+                            onChange={(e) => setCorrectionInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitCorrection(); } }}
+                            placeholder="Ej: Floristería, taller mecánico, estudio de tatuajes..."
+                            autoFocus
+                            className="flex-1 min-w-[12rem] h-10 px-3.5 rounded-lg border text-[0.85rem] outline-none focus:ring-2"
+                            style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50, color: WARM_GRAY_800 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={submitCorrection}
+                            disabled={correctionInput.trim().length < 3}
+                            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-40"
+                            style={{ backgroundColor: TEAL, color: '#fff' }}
+                          >
+                            Revisar <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCorrecting(false)}
+                            className="h-10 px-3 rounded-lg text-[0.82rem] font-medium"
+                            style={{ color: WARM_GRAY_500 }}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : classifyError ? (
+                      <div className="animate-in fade-in duration-300">
+                        <p className="text-[0.88rem] leading-relaxed mb-3" style={{ color: WARM_GRAY_800 }}>
+                          No alcancé a identificar tu sector, pero no pasa nada — puedo seguir con un diseño versátil, o dime a qué te dedicas.
+                        </p>
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={confirmIndustry}
+                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all"
+                            style={{ backgroundColor: TEAL, color: '#fff' }}
+                          >
+                            Continuar <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={startCorrection}
+                            className="inline-flex items-center h-9 px-4 rounded-lg border text-[0.82rem] font-medium"
+                            style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
+                          >
+                            Decirle mi sector
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="animate-in fade-in duration-300">
+                        <p className="text-[0.88rem] leading-relaxed mb-3" style={{ color: WARM_GRAY_800 }}>
+                          Entonces tu negocio es del sector{' '}
+                          <span style={{ color: TEAL, fontWeight: 600 }}>{classifyResult?.industry_label}</span>.
+                          {' '}¿Es correcto? Con esto elijo el mejor diseño para ti.
+                        </p>
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={confirmIndustry}
+                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all"
+                            style={{ backgroundColor: TEAL, color: '#fff' }}
+                          >
+                            <Check className="w-3.5 h-3.5" /> Sí, es correcto
+                          </button>
+                          <button
+                            type="button"
+                            onClick={startCorrection}
+                            className="inline-flex items-center h-9 px-4 rounded-lg border text-[0.82rem] font-medium"
+                            style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
+                          >
+                            No, corregir
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
             <div ref={chatEndRef} />
           </div>
         </div>
 
-        {/* Input area — fixed at bottom */}
-        {!isTyping && (
+        {/* Input area — fixed at bottom (hidden while confirming the industry inline) */}
+        {!isTyping && !inlineConfirm && (
           <div
             className="border-t animate-in fade-in slide-in-from-bottom-2 duration-300"
             style={{ borderColor: WARM_GRAY_100 }}
@@ -1397,173 +1524,6 @@ export default function QuickStartPage() {
             </div>
           </div>
         )}
-      </div>
-    );
-  }
-
-  // ─── INDUSTRY CONFIRM STATE ───────────────────────────────
-  if (pageState === 'industry-confirm') {
-    return (
-      <div
-        className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(170deg, ${TEAL}06 0%, ${WARM_GRAY_50} 35%, #fff 100%)` }}
-      >
-        {header}
-
-        <div className="flex-1 flex flex-col items-center justify-center px-6">
-          <div className="w-full max-w-md text-center">
-            <div className="flex justify-center mb-6">
-              <PipeAvatar mood={classifying ? 'thinking' : 'happy'} size={56} />
-            </div>
-
-            {classifying ? (
-              <>
-                <p
-                  className="text-[0.95rem]"
-                  style={{ color: WARM_GRAY_600 }}
-                >
-                  Estoy entendiendo a qué se dedica tu negocio...
-                </p>
-                <div className="flex gap-1.5 justify-center py-4">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="w-2 h-2 rounded-full animate-bounce"
-                      style={{
-                        backgroundColor: WARM_GRAY_400,
-                        animationDelay: `${i * 150}ms`,
-                        animationDuration: '0.8s',
-                      }}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : correcting ? (
-              <>
-                <h2
-                  className="text-lg font-semibold mb-2"
-                  style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
-                >
-                  Cuéntame a qué se dedica tu negocio
-                </h2>
-                <p
-                  className="mb-5 text-[0.9rem]"
-                  style={{ color: WARM_GRAY_500 }}
-                >
-                  Escríbelo con tus palabras y lo vuelvo a revisar.
-                </p>
-                <input
-                  type="text"
-                  value={correctionInput}
-                  onChange={(e) => setCorrectionInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      submitCorrection();
-                    }
-                  }}
-                  placeholder="Ej: Floristería, estudio de tatuajes, taller mecánico..."
-                  autoFocus
-                  className="w-full h-11 px-4 rounded-lg border text-[0.9rem] outline-none transition-colors text-center"
-                  style={{ borderColor: WARM_GRAY_200, color: WARM_GRAY_800 }}
-                />
-                <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={submitCorrection}
-                    disabled={correctionInput.trim().length < 3}
-                    className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150 disabled:opacity-40"
-                    style={{ backgroundColor: TEAL, color: '#fff' }}
-                  >
-                    Revisar de nuevo
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCorrecting(false)}
-                    className="inline-flex items-center justify-center h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-colors"
-                    style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
-                  >
-                    Volver
-                  </button>
-                </div>
-              </>
-            ) : classifyError ? (
-              <>
-                <h2
-                  className="text-lg font-semibold mb-2"
-                  style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
-                >
-                  No alcancé a identificar tu sector
-                </h2>
-                <p
-                  className="mb-6 text-[0.9rem]"
-                  style={{ color: WARM_GRAY_500 }}
-                >
-                  No pasa nada — puedo seguir con un diseño versátil,
-                  o puedes decirme a qué te dedicas.
-                </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={confirmIndustry}
-                    className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
-                    style={{ backgroundColor: TEAL, color: '#fff' }}
-                  >
-                    Continuar
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={startCorrection}
-                    className="inline-flex items-center justify-center h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-colors"
-                    style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
-                  >
-                    Decirle mi sector
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h2
-                  className="text-lg font-semibold mb-2"
-                  style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
-                >
-                  De acuerdo con lo que me cuentas, tu negocio es del sector{' '}
-                  <span style={{ color: TEAL }}>
-                    {classifyResult?.industry_label}
-                  </span>
-                  .
-                </h2>
-                <p
-                  className="mb-6 text-[0.92rem]"
-                  style={{ color: WARM_GRAY_500 }}
-                >
-                  ¿Es correcto? Con esto elijo el mejor diseño para ti.
-                </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={confirmIndustry}
-                    className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
-                    style={{ backgroundColor: TEAL, color: '#fff' }}
-                  >
-                    <Check className="w-4 h-4" />
-                    Sí, es correcto
-                  </button>
-                  <button
-                    type="button"
-                    onClick={startCorrection}
-                    className="inline-flex items-center justify-center h-10 px-5 rounded-lg border text-[0.85rem] font-medium transition-colors"
-                    style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
-                  >
-                    No, corregir
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
       </div>
     );
   }

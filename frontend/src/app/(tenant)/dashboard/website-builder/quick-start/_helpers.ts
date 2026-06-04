@@ -116,4 +116,4 @@ export const SECTION_LABELS: Record<string, string> = {
   faq: 'Preguntas frecuentes',
 };
 
-export type PageState = 'chat' | 'industry-confirm' | 'generating' | 'success' | 'error' | 'limit-reached';
+export type PageState = 'chat' | 'generating' | 'success' | 'error' | 'limit-reached';
