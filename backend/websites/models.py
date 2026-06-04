@@ -643,15 +643,11 @@ class IndustryClassification(models.Model):
         ("corrected", "Corregida"),
     ]
 
-    tenant = models.ForeignKey(
-        "core.Tenant", on_delete=models.CASCADE, related_name="industry_classifications"
-    )
+    tenant = models.ForeignKey("core.Tenant", on_delete=models.CASCADE, related_name="industry_classifications")
 
     # ── Input (features) ────────────────────────────────────────────
     business_description = models.TextField("Descripción del negocio")
-    selected_modules = models.JSONField(
-        "Módulos seleccionados", default=list, blank=True
-    )
+    selected_modules = models.JSONField("Módulos seleccionados", default=list, blank=True)
     description_normalized = models.CharField(
         "Descripción normalizada",
         max_length=255,
@@ -667,14 +663,10 @@ class IndustryClassification(models.Model):
     is_new = models.BooleanField(
         "Industria nueva", default=False, help_text="True si la IA propuso una industria nueva"
     )
-    source = models.CharField(
-        "Origen de la predicción", max_length=10, choices=SOURCE_CHOICES, default="haiku"
-    )
+    source = models.CharField("Origen de la predicción", max_length=10, choices=SOURCE_CHOICES, default="haiku")
 
     # ── Feedback humano (ground truth) ──────────────────────────────
-    user_action = models.CharField(
-        "Acción del usuario", max_length=10, choices=USER_ACTION_CHOICES, default="pending"
-    )
+    user_action = models.CharField("Acción del usuario", max_length=10, choices=USER_ACTION_CHOICES, default="pending")
     final_key = models.CharField("Industria final (key)", max_length=50, blank=True)
     final_label = models.CharField("Industria final (label)", max_length=120, blank=True)
     correction_text = models.TextField(

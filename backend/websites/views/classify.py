@@ -91,8 +91,15 @@ class ClassifyIndustryView(APIView):
         cached_industry = self._check_cache(normalized, active_industries)
         if cached_industry is not None:
             record = self._record(
-                tenant, business_description, selected_modules, normalized,
-                cached_industry.key, cached_industry.label, 1.0, is_new=False, source="cache",
+                tenant,
+                business_description,
+                selected_modules,
+                normalized,
+                cached_industry.key,
+                cached_industry.label,
+                1.0,
+                is_new=False,
+                source="cache",
             )
             return self._build_response(record, cached_industry, 1.0, is_new=False)
 
@@ -148,9 +155,18 @@ class ClassifyIndustryView(APIView):
         )
 
         record = self._record(
-            tenant, business_description, selected_modules, normalized,
-            industry.key, industry.label, confidence, is_new=is_new, source="haiku",
-            model_used=model_config["model"], tokens_in=tokens_in, tokens_out=tokens_out,
+            tenant,
+            business_description,
+            selected_modules,
+            normalized,
+            industry.key,
+            industry.label,
+            confidence,
+            is_new=is_new,
+            source="haiku",
+            model_used=model_config["model"],
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
         )
 
         return self._build_response(record, industry, confidence, is_new)
@@ -169,9 +185,7 @@ class ClassifyIndustryView(APIView):
         if not normalized:
             return None
         record = (
-            IndustryClassification.objects.filter(
-                description_normalized=normalized, user_action="confirmed"
-            )
+            IndustryClassification.objects.filter(description_normalized=normalized, user_action="confirmed")
             .exclude(final_key="")
             .order_by("-confirmed_at", "-created_at")
             .first()
@@ -214,7 +228,9 @@ class ClassifyIndustryView(APIView):
             tokens_output=tokens_out,
         )
 
-    def _build_response(self, record: IndustryClassification, industry: Industry, confidence: float, is_new: bool) -> Response:
+    def _build_response(
+        self, record: IndustryClassification, industry: Industry, confidence: float, is_new: bool
+    ) -> Response:
         return Response(
             {
                 "classification_id": record.id,
@@ -328,8 +344,15 @@ class ClassifyIndustryView(APIView):
                 defaults={"label": "Negocio General", "status": "reviewed", "is_active": True},
             )
         record = self._record(
-            tenant, description, modules, normalized,
-            generic.key, generic.label, 0.0, is_new=False, source="mock",
+            tenant,
+            description,
+            modules,
+            normalized,
+            generic.key,
+            generic.label,
+            0.0,
+            is_new=False,
+            source="mock",
         )
         return self._build_response(record, generic, 0.0, is_new=False)
 

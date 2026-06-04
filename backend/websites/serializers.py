@@ -435,9 +435,7 @@ class ConfirmClassificationSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Industria que el usuario aceptó (default: la predicha si confirma)",
     )
-    correction_text = serializers.CharField(
-        max_length=1000, required=False, allow_blank=True
-    )
+    correction_text = serializers.CharField(max_length=1000, required=False, allow_blank=True)
 
 
 # ===================================

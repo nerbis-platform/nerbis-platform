@@ -598,13 +598,9 @@ class AdminAIGenerationLogSerializer(serializers.ModelSerializer):
 
     tenant_name = serializers.CharField(source="tenant.name", read_only=True)
     tenant_slug = serializers.CharField(source="tenant.slug", read_only=True)
-    generation_type_display = serializers.CharField(
-        source="get_generation_type_display", read_only=True
-    )
+    generation_type_display = serializers.CharField(source="get_generation_type_display", read_only=True)
     total_tokens = serializers.IntegerField(read_only=True)
-    cost_estimated = serializers.DecimalField(
-        max_digits=10, decimal_places=2, coerce_to_string=True, read_only=True
-    )
+    cost_estimated = serializers.DecimalField(max_digits=10, decimal_places=2, coerce_to_string=True, read_only=True)
 
     class Meta:
         model = AIGenerationLog
