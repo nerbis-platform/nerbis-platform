@@ -63,20 +63,11 @@ class ClassifyIndustryView(APIView):
     throttle_scope = "classify_industry"
 
     SYSTEM_PROMPT = (
-        "Eres un clasificador de industrias para una plataforma de sitios web. "
-        "Recibes la descripción de un negocio y una lista de industrias disponibles. "
-        "Tu tarea es decidir si el negocio encaja con UNA de las industrias de la "
-        "lista o si ninguna aplica y hay que proponer una nueva.\n\n"
-        "Responde SIEMPRE en JSON estricto, sin texto adicional, con uno de estos "
-        "dos formatos:\n"
-        '- Si encaja: {"match": true, "industry_key": "<key_exacta_de_la_lista>", '
-        '"confidence": <0-1>}\n'
-        '- Si NO encaja ninguna: {"match": false, "new_label": "<nombre corto de la '
-        'industria propuesta>", "confidence": <0-1>}\n\n'
-        "Reglas:\n"
-        "- industry_key DEBE ser exactamente una de las keys de la lista.\n"
-        "- new_label debe ser un nombre legible y corto en español (ej: 'Floristería').\n"
-        "- confidence es tu certeza entre 0 y 1."
+        "Clasificas el negocio descrito en UNA industria de la lista provista, "
+        "o propones una nueva si ninguna aplica. Responde SOLO JSON, sin texto extra:\n"
+        '- Encaja: {"match": true, "industry_key": "<key_exacta>", "confidence": <0-1>}\n'
+        '- No encaja: {"match": false, "new_label": "<nombre corto en español>", "confidence": <0-1>}\n'
+        "industry_key debe ser una key literal de la lista. confidence es tu certeza 0-1."
     )
 
     def post(self, request):
