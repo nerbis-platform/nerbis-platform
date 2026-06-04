@@ -13,7 +13,6 @@ import {
 } from '@/lib/api/products';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,15 +75,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import type { ProductCategory } from '@/types';
-
-// ─── Schema ─────────────────────────────────────────────────
-const categorySchema = z.object({
-  name: z.string().min(1, 'El nombre es requerido').max(200),
-  description: z.string().optional().or(z.literal('')),
-  is_active: z.boolean(),
-});
-
-type CategoryFormValues = z.infer<typeof categorySchema>;
+import { categorySchema, type CategoryFormValues } from './_helpers';
 
 export default function CategoriesPage() {
   const { user } = useAuth();

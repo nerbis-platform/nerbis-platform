@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { useMutation } from '@tanstack/react-query';
@@ -27,21 +26,9 @@ import { formatPrice } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Loader2, LogIn, UserPlus, ShoppingCart, Calendar, Clock, User } from 'lucide-react';
 import Link from 'next/link';
+import { checkoutSchema, type CheckoutFormValues } from './_helpers';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!);
-
-const checkoutSchema = z.object({
-  billing_name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
-  billing_email: z.string().email('Email invalido'),
-  billing_phone: z.string().optional(),
-  billing_address: z.string().optional(),
-  billing_city: z.string().optional(),
-  billing_postal_code: z.string().optional(),
-  accept_terms: z.literal(true, { error: 'Debes aceptar los terminos y condiciones' }),
-  marketing_consent: z.boolean().optional(),
-});
-
-type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
 export default function CheckoutPage() {
   const router = useRouter();
