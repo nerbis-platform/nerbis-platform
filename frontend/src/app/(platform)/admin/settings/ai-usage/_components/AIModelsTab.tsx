@@ -1,4 +1,4 @@
-// src/app/(platform)/admin/settings/industries/_components/AIModelsTab.tsx
+// src/app/(platform)/admin/settings/ai-usage/_components/AIModelsTab.tsx
 //
 // Per-task AI model configuration (list + edit the seeded rows).
 // `task` is the natural key and is read-only; only model / max_tokens /

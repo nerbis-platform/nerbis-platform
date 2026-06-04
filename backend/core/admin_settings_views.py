@@ -13,10 +13,11 @@ Contrato de sub-agente SDD ``sdd/admin-onboarding-config`` (Phases 1 + 2).
 from __future__ import annotations
 
 from django.db import transaction
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from rest_framework import generics, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -24,6 +25,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from core.admin_settings_serializers import (
+    AdminAIGenerationLogSerializer,
     AdminAIModelConfigSerializer,
     AdminIndustryGalleryCardSerializer,
     AdminIndustrySerializer,
@@ -510,6 +512,19 @@ class AdminAIStatsView(APIView):
             .order_by("model_used")
         )
 
+        by_tenant = list(
+            base.values("tenant_id", "tenant__name", "tenant__slug")
+            .annotate(
+                count=Count("id"),
+                tokens_input=Sum("tokens_input"),
+                tokens_output=Sum("tokens_output"),
+                cost_estimated=Sum("cost_estimated"),
+                successful=Count("id", filter=Q(is_successful=True)),
+                failed=Count("id", filter=Q(is_successful=False)),
+            )
+            .order_by("-cost_estimated")
+        )
+
         totals = base.aggregate(
             count=Count("id"),
             tokens_input=Sum("tokens_input"),
@@ -522,6 +537,7 @@ class AdminAIStatsView(APIView):
                 "totals": self._normalize_row(totals),
                 "by_generation_type": [self._normalize_row(row) for row in by_type],
                 "by_model": [self._normalize_row(row) for row in by_model],
+                "by_tenant": [self._normalize_tenant_row(row) for row in by_tenant],
             },
             status=status.HTTP_200_OK,
         )
@@ -537,3 +553,63 @@ class AdminAIStatsView(APIView):
         cost = normalized.get("cost_estimated") or 0
         normalized["cost_estimated"] = str(cost)
         return normalized
+
+    @staticmethod
+    def _normalize_tenant_row(row: dict) -> dict:
+        """Aplana las claves de ``values(tenant_id, tenant__name, tenant__slug)``
+        a ``tenant_id/tenant_name/tenant_slug`` y normaliza tokens/costo/conteos."""
+        return {
+            "tenant_id": row.get("tenant_id"),
+            "tenant_name": row.get("tenant__name"),
+            "tenant_slug": row.get("tenant__slug"),
+            "count": row.get("count") or 0,
+            "tokens_input": row.get("tokens_input") or 0,
+            "tokens_output": row.get("tokens_output") or 0,
+            "cost_estimated": str(row.get("cost_estimated") or 0),
+            "successful": row.get("successful") or 0,
+            "failed": row.get("failed") or 0,
+        }
+
+
+class AdminAIGenerationLogPagination(PageNumberPagination):
+    """Paginación para el detalle de logs de IA. 50 por página, configurable
+    vía ``?page_size=`` hasta un tope de 200 para evitar respuestas enormes."""
+
+    page_size = 50
+    page_size_query_param = "page_size"
+    max_page_size = 200
+
+
+class AdminAIGenerationLogListView(generics.ListAPIView):
+    """GET ``/api/admin/settings/ai-logs/``.
+
+    Detalle paginado de ``AIGenerationLog`` con todos los campos para análisis
+    de datos. Read-only, solo superadmin. Filtros opcionales por query param:
+    ``tenant`` (id), ``generation_type``, ``model_used``, ``is_successful``
+    (``true``/``false``). Ordenado por ``created_at`` descendente.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminAIGenerationLogSerializer
+    pagination_class = AdminAIGenerationLogPagination
+
+    def get_queryset(self):
+        qs = AIGenerationLog.objects.select_related("tenant").order_by("-created_at")
+
+        tenant_id = self.request.query_params.get("tenant")
+        if tenant_id:
+            qs = qs.filter(tenant_id=tenant_id)
+
+        generation_type = self.request.query_params.get("generation_type")
+        if generation_type:
+            qs = qs.filter(generation_type=generation_type)
+
+        model_used = self.request.query_params.get("model_used")
+        if model_used:
+            qs = qs.filter(model_used=model_used)
+
+        is_successful = self.request.query_params.get("is_successful")
+        if is_successful is not None and is_successful != "":
+            qs = qs.filter(is_successful=is_successful.lower() == "true")
+
+        return qs

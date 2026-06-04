@@ -42,6 +42,7 @@ def health_check(request):
 
 # Importar el admin site personalizado de NERBIS
 from core.admin_settings_views import (
+    AdminAIGenerationLogListView,
     AdminAIModelConfigDetailView,
     AdminAIModelConfigListView,
     AdminAIStatsView,
@@ -367,6 +368,12 @@ urlpatterns = [
         "api/admin/settings/ai-stats/",
         AdminAIStatsView.as_view(),
         name="admin-settings-ai-stats",
+    ),
+    # Admin settings — AI logs (detalle paginado de AIGenerationLog)
+    path(
+        "api/admin/settings/ai-logs/",
+        AdminAIGenerationLogListView.as_view(),
+        name="admin-settings-ai-logs",
     ),
     # Admin settings — industry gallery (ViewSet via router)
     path("api/admin/settings/", include(admin_settings_router.urls)),

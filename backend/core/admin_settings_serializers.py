@@ -16,6 +16,7 @@ from rest_framework import serializers
 
 from core.models import IndustryGalleryCard, MarketingSection, PlatformModule
 from websites.models import (
+    AIGenerationLog,
     AIModelConfig,
     Industry,
     OnboardingQuestion,
@@ -585,3 +586,49 @@ class AdminAIModelConfigSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["task", "created_at", "updated_at"]
+
+
+class AdminAIGenerationLogSerializer(serializers.ModelSerializer):
+    """Detalle completo de un ``AIGenerationLog`` para análisis de datos.
+
+    Read-only. Expone TODOS los campos relevantes (tenant que originó la
+    consulta, tipo, modelo, tokens, costo, éxito/error, prompt completo,
+    respuesta cruda y snapshot del onboarding) para exportar/analizar.
+    """
+
+    tenant_name = serializers.CharField(source="tenant.name", read_only=True)
+    tenant_slug = serializers.CharField(source="tenant.slug", read_only=True)
+    generation_type_display = serializers.CharField(
+        source="get_generation_type_display", read_only=True
+    )
+    total_tokens = serializers.IntegerField(read_only=True)
+    cost_estimated = serializers.DecimalField(
+        max_digits=10, decimal_places=2, coerce_to_string=True, read_only=True
+    )
+
+    class Meta:
+        model = AIGenerationLog
+        fields = [
+            "id",
+            "created_at",
+            "tenant",
+            "tenant_name",
+            "tenant_slug",
+            "website_config",
+            "generation_type",
+            "generation_type_display",
+            "section_id",
+            "model_used",
+            "tokens_input",
+            "tokens_output",
+            "total_tokens",
+            "cost_estimated",
+            "is_successful",
+            "error_message",
+            "is_billable",
+            "prompt_summary",
+            "full_prompt",
+            "raw_response",
+            "onboarding_snapshot",
+        ]
+        read_only_fields = fields

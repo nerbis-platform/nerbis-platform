@@ -15,6 +15,8 @@ import type {
   AdminAIModelConfig,
   AdminAIModelConfigPayload,
   AdminAIStats,
+  AdminAIGenerationLogPage,
+  AdminAILogsParams,
 } from '@/types/admin';
 
 // ──────────────────────────────────────────────────────────────────────
@@ -95,6 +97,29 @@ export async function adminUpdateAIModel(
 export async function adminGetAIStats(): Promise<AdminAIStats> {
   const { data } = await adminClient.get<AdminAIStats>(
     '/admin/settings/ai-stats/',
+  );
+  return data;
+}
+
+/**
+ * Paginated detail of `AIGenerationLog` rows (all fields, for data analysis).
+ * Optional filters: tenant id, generation_type, model_used, is_successful.
+ */
+export async function adminListAILogs(
+  params: AdminAILogsParams = {},
+): Promise<AdminAIGenerationLogPage> {
+  const query: Record<string, string> = {};
+  if (params.tenant != null) query.tenant = String(params.tenant);
+  if (params.generation_type) query.generation_type = params.generation_type;
+  if (params.model_used) query.model_used = params.model_used;
+  if (params.is_successful != null)
+    query.is_successful = String(params.is_successful);
+  if (params.page != null) query.page = String(params.page);
+  if (params.page_size != null) query.page_size = String(params.page_size);
+
+  const { data } = await adminClient.get<AdminAIGenerationLogPage>(
+    '/admin/settings/ai-logs/',
+    { params: query },
   );
   return data;
 }

@@ -741,6 +741,16 @@ export interface AdminAIStatsByModel extends AdminAIStatsRow {
   model_used: string;
 }
 
+/** Per-tenant AI usage breakdown row. */
+export interface AdminAIStatsByTenant extends AdminAIStatsRow {
+  /** Tenant PK is a UUID string. */
+  tenant_id: string | null;
+  tenant_name: string | null;
+  tenant_slug: string | null;
+  successful: number;
+  failed: number;
+}
+
 /**
  * AI usage statistics returned by `GET /api/admin/settings/ai-stats/`.
  * Mirrors `AdminAIStatsView` response shape.
@@ -749,4 +759,53 @@ export interface AdminAIStats {
   totals: AdminAIStatsTotals;
   by_generation_type: AdminAIStatsByGenerationType[];
   by_model: AdminAIStatsByModel[];
+  by_tenant: AdminAIStatsByTenant[];
+}
+
+/**
+ * Detailed AI generation log row returned by
+ * `GET /api/admin/settings/ai-logs/`. Mirrors `AdminAIGenerationLogSerializer`.
+ */
+export interface AdminAIGenerationLog {
+  id: number;
+  created_at: string;
+  /** Tenant PK is a UUID string. */
+  tenant: string | null;
+  tenant_name: string | null;
+  tenant_slug: string | null;
+  website_config: number | null;
+  generation_type: string;
+  generation_type_display: string;
+  section_id: string | null;
+  model_used: string;
+  tokens_input: number;
+  tokens_output: number;
+  total_tokens: number;
+  /** Decimal serialized as a string. */
+  cost_estimated: string;
+  is_successful: boolean;
+  error_message: string | null;
+  is_billable: boolean;
+  prompt_summary: string | null;
+  full_prompt: string | null;
+  raw_response: string | null;
+  onboarding_snapshot: Record<string, unknown> | null;
+}
+
+/** Paginated DRF response for AI generation logs. */
+export interface AdminAIGenerationLogPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: AdminAIGenerationLog[];
+}
+
+/** Optional filters for `adminListAILogs`. */
+export interface AdminAILogsParams {
+  tenant?: number | string;
+  generation_type?: string;
+  model_used?: string;
+  is_successful?: boolean;
+  page?: number;
+  page_size?: number;
 }
