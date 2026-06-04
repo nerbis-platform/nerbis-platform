@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
 import { getProductCategories } from '@/lib/api/products';
 import { Button } from '@/components/ui/button';
@@ -30,51 +29,15 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Loader2, X, ImageIcon } from 'lucide-react';
 import Image from 'next/image';
-import type { Product, ProductImage as ProductImageType } from '@/types';
+import type { ProductImage as ProductImageType } from '@/types';
+import {
+  productSchema,
+  type ProductFormValues,
+  type ProductFormProps,
+} from './product-form-helpers';
 
-// ─── Zod Schema ─────────────────────────────────────────────
-const productSchema = z.object({
-  name: z.string().min(1, 'El nombre es requerido').max(300, 'Máximo 300 caracteres'),
-  category: z.number({ message: 'Selecciona una categoría' }),
-  price: z
-    .string()
-    .min(1, 'El precio es requerido')
-    .refine((val) => !isNaN(Number(val)) && Number(val) >= 0.01, {
-      message: 'Precio mínimo: 0.01',
-    }),
-  compare_at_price: z
-    .string()
-    .optional()
-    .refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= 0), {
-      message: 'Precio inválido',
-    }),
-  cost_price: z
-    .string()
-    .optional()
-    .refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= 0), {
-      message: 'Costo inválido',
-    }),
-  brand: z.string().max(200).optional().or(z.literal('')),
-  short_description: z.string().max(500).optional().or(z.literal('')),
-  description: z.string().optional().or(z.literal('')),
-  is_active: z.boolean(),
-  is_featured: z.boolean(),
-  requires_shipping: z.boolean(),
-});
-
-type ProductFormValues = z.infer<typeof productSchema>;
-
-// ─── Props ──────────────────────────────────────────────────
-export interface ProductFormSubmitData extends ProductFormValues {
-  newImages: File[];
-  removedImageIds: number[];
-}
-
-interface ProductFormProps {
-  product?: Product;
-  onSubmit: (data: ProductFormSubmitData) => Promise<void>;
-  isSubmitting: boolean;
-}
+// Re-export for backward compatibility
+export type { ProductFormSubmitData } from './product-form-helpers';
 
 export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProps) {
   const [newImages, setNewImages] = useState<File[]>([]);
