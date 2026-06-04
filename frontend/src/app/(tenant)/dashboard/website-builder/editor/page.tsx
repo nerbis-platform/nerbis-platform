@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
+import { PipeStatic } from '@/components/pipe-avatar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Sparkles,
@@ -1014,12 +1014,7 @@ export default function EditorPage() {
             className="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            <Image
-              src="/Isotipo_color_NERBIS.png"
-              alt="Nerbis"
-              width={24}
-              height={24}
-            />
+            <PipeStatic size={24} />
           </button>
           <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-gray-200">
             <span className="text-[0.78rem] font-medium text-[#1C3B57] truncate max-w-[180px]">

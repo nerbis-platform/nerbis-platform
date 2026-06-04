@@ -1,8 +1,10 @@
 // src/components/layout/BrandHeader.tsx
-// NERBIS platform header with optional tenant name indicator.
-// Used in dashboard clean layouts: settings, setup, website-builder.
+// Tenant store brand shown at the TOP of the dashboard construction layouts
+// (settings, setup, website-builder). During the build phase we surface the
+// tenant's own store name so the workspace feels like *their* business.
+// NERBIS signs discreetly in the footer (see NerbisFooterMark) — never here.
 
-import Image from 'next/image';
+import { Store } from 'lucide-react';
 
 interface BrandHeaderProps {
   tenantName?: string;
@@ -11,23 +13,15 @@ interface BrandHeaderProps {
 export function BrandHeader({ tenantName }: BrandHeaderProps) {
   return (
     <div className="flex items-center gap-2">
-      <Image
-        src="/Isotipo_color_NERBIS.png"
-        alt="Nerbis"
-        width={36}
-        height={36}
-      />
-      <span className="text-[0.85rem] font-semibold tracking-wide text-primary">
-        NERBIS
+      <span
+        className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
+        aria-hidden="true"
+      >
+        <Store className="size-4" />
       </span>
-      {tenantName && (
-        <>
-          <span className="text-gray-300 text-[0.75rem]" aria-hidden="true">·</span>
-          <span className="text-[0.8rem] text-gray-500 font-medium truncate max-w-[160px]">
-            {tenantName}
-          </span>
-        </>
-      )}
+      <span className="max-w-[200px] truncate text-sm font-semibold text-foreground">
+        {tenantName || 'Mi negocio'}
+      </span>
     </div>
   );
 }

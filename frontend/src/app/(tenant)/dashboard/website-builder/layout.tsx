@@ -1,6 +1,7 @@
 'use client';
 
 import { BrandHeader } from '@/components/layout/BrandHeader';
+import { NerbisFooterMark } from '@/components/layout/NerbisFooterMark';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -239,6 +240,9 @@ export default function WebsiteBuilderLayout({
       <main className="max-w-5xl mx-auto px-6 py-10">
         {children}
       </main>
+
+      {/* NERBIS firma discreta al final — solo el logo, sin barra */}
+      <NerbisFooterMark />
     </div>
   );
 }

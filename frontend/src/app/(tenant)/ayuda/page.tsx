@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useId } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { PipeStatic } from '@/components/pipe-avatar';
 import {
   Search,
   ChevronDown,
@@ -59,14 +59,9 @@ export default function AyudaPage() {
       <header className="bg-white border-b border-[var(--auth-border)]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <Image
-              src="/Isotipo_color_NERBIS.png"
-              alt="NERBIS"
-              width={28}
-              height={28}
-              className="transition-transform group-hover:scale-105"
-              unoptimized
-            />
+            <span className="transition-transform group-hover:scale-105">
+              <PipeStatic size={28} />
+            </span>
             <span
               className="text-lg text-[var(--auth-primary)]"
               style={{ fontFamily: 'var(--auth-font-brand)', fontWeight: 700, letterSpacing: '0.18em' }}
@@ -100,16 +95,11 @@ export default function AyudaPage() {
           }}
         />
         {/* Isotipo decorativo */}
-        <div className="absolute right-[8%] top-1/2 -translate-y-1/2 pointer-events-none opacity-[0.04] hidden md:block">
-          <Image
-            src="/Isotipo_color_NERBIS.png"
-            alt=""
-            width={280}
-            height={280}
-            className="brightness-0 invert"
-            unoptimized
-            aria-hidden="true"
-          />
+        <div
+          className="absolute right-[8%] top-1/2 -translate-y-1/2 pointer-events-none opacity-[0.06] hidden md:block"
+          aria-hidden="true"
+        >
+          <PipeStatic size={280} />
         </div>
         {/* Glow accent */}
         <div className="absolute inset-0 pointer-events-none">
@@ -366,7 +356,7 @@ export default function AyudaPage() {
       {/* Footer */}
       <footer className="border-t border-[var(--auth-border)] bg-white">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-center gap-2">
-          <Image src="/Isotipo_color_NERBIS.png" alt="NERBIS" width={18} height={18} unoptimized />
+          <PipeStatic size={18} />
           <span className="text-xs text-[var(--auth-text-muted)]">
             &copy; {new Date().getFullYear()} NERBIS. Todos los derechos reservados.
           </span>
