@@ -771,6 +771,32 @@ export default function QuickStartPage() {
     </div>
   );
 
+  // Animated color ovals behind the chat — soft "aurora" movement.
+  const backdrop = (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">
+      <style>{`
+        @keyframes pipe-blob-a { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(6%, 8%) scale(1.15); } }
+        @keyframes pipe-blob-b { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-7%, -5%) scale(1.1); } }
+        @keyframes pipe-blob-c { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(5%, -7%) scale(1.18); } }
+        @media (prefers-reduced-motion: reduce) {
+          .pipe-blob { animation: none !important; }
+        }
+      `}</style>
+      <div
+        className="pipe-blob absolute rounded-full blur-3xl"
+        style={{ width: '38rem', height: '38rem', top: '-10rem', left: '-8rem', backgroundColor: `${TEAL}38`, animation: 'pipe-blob-a 16s ease-in-out infinite' }}
+      />
+      <div
+        className="pipe-blob absolute rounded-full blur-3xl"
+        style={{ width: '34rem', height: '34rem', bottom: '-12rem', right: '-6rem', backgroundColor: '#3B82F633', animation: 'pipe-blob-b 19s ease-in-out infinite' }}
+      />
+      <div
+        className="pipe-blob absolute rounded-full blur-3xl"
+        style={{ width: '26rem', height: '26rem', top: '30%', right: '12%', backgroundColor: `${NAVY}26`, animation: 'pipe-blob-c 22s ease-in-out infinite' }}
+      />
+    </div>
+  );
+
   // ─── CHAT STATE — Claude-style AI Chat ──────────────────
   if (pageState === 'chat') {
     const step = steps[currentStepIdx];
@@ -814,9 +840,11 @@ export default function QuickStartPage() {
     if (!hasHistory) {
       return (
         <div
-          className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-          style={{ background: `linear-gradient(135deg, ${TEAL}14 0%, ${WARM_GRAY_50} 45%, #3B82F614 100%)` }}
+          className="relative overflow-hidden h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+          style={{ background: `linear-gradient(135deg, ${TEAL}10 0%, ${WARM_GRAY_50} 45%, #3B82F610 100%)` }}
         >
+          {backdrop}
+          <div className="relative z-10 flex flex-col flex-1 min-h-0">
           {header}
 
           <div className="flex-1 flex flex-col items-center justify-center px-4">
@@ -969,6 +997,7 @@ export default function QuickStartPage() {
               )}
             </div>
           </div>
+          </div>
         </div>
       );
     }
@@ -976,9 +1005,11 @@ export default function QuickStartPage() {
     // ── Conversation state: messages flow top-down, input fixed at bottom ──
     return (
       <div
-        className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(135deg, ${TEAL}14 0%, ${WARM_GRAY_50} 45%, #3B82F614 100%)` }}
+        className="relative overflow-hidden h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+        style={{ background: `linear-gradient(135deg, ${TEAL}10 0%, ${WARM_GRAY_50} 45%, #3B82F610 100%)` }}
       >
+        {backdrop}
+        <div className="relative z-10 flex flex-col flex-1 min-h-0">
         {header}
 
         {/* Scrollable message area */}
@@ -1550,6 +1581,7 @@ export default function QuickStartPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
     );
   }
