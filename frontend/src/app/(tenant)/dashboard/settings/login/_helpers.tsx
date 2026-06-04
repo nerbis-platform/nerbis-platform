@@ -63,7 +63,7 @@ export function PasswordToggle({ show, onToggle }: { show: boolean; onToggle: ()
       variant="ghost"
       size="icon-sm"
       onClick={onToggle}
-      className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+      className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
       aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
     >
       {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
