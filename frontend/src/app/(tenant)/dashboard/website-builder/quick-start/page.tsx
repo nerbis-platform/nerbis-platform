@@ -49,16 +49,19 @@ export default function QuickStartPage() {
   const { user, tenant, logout, setTenant } = useAuth();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // ─── Phase guard: si ya pasó onboarding, redirigir ────────
+  // ─── Phase guard: solo redirigir cuando el sitio ya fue generado ──
+  // Tener módulos configurados NO significa haber terminado el onboarding:
+  // el tenant puede haber elegido módulos pero aún no generó el sitio. Solo
+  // salimos de Quick Start cuando existe un sitio (review/published); de lo
+  // contrario el tenant sigue en onboarding aquí. Antes este guard rebotaba
+  // por `modules_configured` hacia `/website-builder`, que reenviaba de vuelta
+  // a Quick Start → loop infinito de redirects (flood de requests → 429).
   useEffect(() => {
     if (!tenant) return;
-    if (tenant.modules_configured) {
-      // Ya configuró módulos — no debería estar en Quick Start
-      if (tenant.website_status === 'published') {
-        router.replace('/dashboard');
-      } else {
-        router.replace('/dashboard/website-builder');
-      }
+    if (tenant.website_status === 'published') {
+      router.replace('/dashboard');
+    } else if (tenant.website_status === 'review') {
+      router.replace('/dashboard/website-builder/editor');
     }
   }, [tenant, router]);
 
