@@ -53,11 +53,11 @@ def tenant(_clear_tenant):
 
 
 @pytest.fixture()
-def template():
+def template(seeded_industries):
     return WebsiteTemplate.objects.create(
         name="Basic",
         slug="basic-test",
-        industry="beauty",
+        industry=seeded_industries("beauty"),
         description="Test template",
         structure_schema={"sections": ["hero", "about"]},
         default_theme={

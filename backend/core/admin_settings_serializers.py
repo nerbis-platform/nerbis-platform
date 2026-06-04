@@ -16,6 +16,9 @@ from rest_framework import serializers
 
 from core.models import IndustryGalleryCard, MarketingSection, PlatformModule
 from websites.models import (
+    AIGenerationLog,
+    AIModelConfig,
+    Industry,
     OnboardingQuestion,
     PromptBlock,
     SectionVariant,
@@ -326,6 +329,52 @@ class IndustryGalleryReorderSerializer(serializers.Serializer):
 
 
 # ---------------------------------------------------------------------------
+# Industry relation fields (shared)
+# ---------------------------------------------------------------------------
+
+
+class IndustryRelatedField(serializers.PrimaryKeyRelatedField):
+    """Campo relacional que acepta una ``Industry`` por ``id`` o por ``key``.
+
+    Tras la conversión CharField->FK/M2M (issue-262), ``PromptBlock.industry``
+    es un FK y ``SectionVariant.industries`` un M2M. Para no romper a los
+    clientes admin que enviaban la industria como string (``"beauty"``), este
+    campo acepta tanto el PK entero como la ``key`` slug. En lectura devuelve
+    la ``key`` (string estable), no el PK opaco.
+    """
+
+    default_error_messages = {
+        "does_not_exist": "Industria con clave o id '{value}' no encontrada.",
+        "invalid": "Valor inválido para industria: se esperaba una clave o un id.",
+    }
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("queryset", Industry.objects.all())
+        super().__init__(**kwargs)
+
+    def to_internal_value(self, data):
+        # id numérico -> resolución por PK (comportamiento estándar).
+        if isinstance(data, bool):
+            self.fail("invalid")
+        if isinstance(data, int) or (isinstance(data, str) and data.isdigit()):
+            return super().to_internal_value(int(data))
+        # string no-numérico -> resolución por key.
+        if isinstance(data, str):
+            try:
+                return self.get_queryset().get(key=data)
+            except Industry.DoesNotExist:
+                self.fail("does_not_exist", value=data)
+        self.fail("invalid")
+
+    def to_representation(self, value):
+        # value puede ser una instancia (M2M / select_related) o un PK (FK pk_only).
+        if hasattr(value, "key"):
+            return value.key
+        industry = Industry.objects.filter(pk=value.pk).only("key").first()
+        return industry.key if industry else None
+
+
+# ---------------------------------------------------------------------------
 # SectionVariant serializers
 # ---------------------------------------------------------------------------
 
@@ -349,6 +398,7 @@ class AdminSectionVariantSerializer(serializers.ModelSerializer):
 
     section_detail = WebsiteSectionMinimalSerializer(source="section", read_only=True)
     section = serializers.PrimaryKeyRelatedField(queryset=WebsiteSection.objects.all())
+    industries = IndustryRelatedField(many=True, required=False)
 
     class Meta:
         model = SectionVariant
@@ -406,6 +456,7 @@ class AdminPromptBlockSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    industry = IndustryRelatedField(required=False, allow_null=True)
 
     class Meta:
         model = PromptBlock
@@ -432,19 +483,15 @@ class AdminPromptBlockSerializer(serializers.ModelSerializer):
         if scope == "template":
             template = attrs.get("template", getattr(self.instance, "template", None) if self.instance else None)
             if template is None:
-                raise serializers.ValidationError(
-                    {"template": "Este campo es requerido cuando scope es 'template'."}
-                )
+                raise serializers.ValidationError({"template": "Este campo es requerido cuando scope es 'template'."})
         elif scope == "industry":
-            industry = attrs.get("industry", getattr(self.instance, "industry", "") if self.instance else "")
+            industry = attrs.get("industry", getattr(self.instance, "industry", None) if self.instance else None)
             if not industry:
-                raise serializers.ValidationError(
-                    {"industry": "Este campo es requerido cuando scope es 'industry'."}
-                )
+                raise serializers.ValidationError({"industry": "Este campo es requerido cuando scope es 'industry'."})
             attrs["template"] = None
         elif scope == "global":
             attrs["template"] = None
-            attrs["industry"] = ""
+            attrs["industry"] = None
 
         return attrs
 
@@ -460,3 +507,124 @@ class AdminPromptPreviewSerializer(serializers.Serializer):
     template_id = serializers.IntegerField(required=False)
     industry = serializers.CharField(required=False, default="generic")
     onboarding_responses = serializers.DictField(required=False, default=dict)
+
+
+# ---------------------------------------------------------------------------
+# Industry serializers
+# ---------------------------------------------------------------------------
+
+
+class AdminIndustrySerializer(serializers.ModelSerializer):
+    """CRUD completo del catalogo global de industrias.
+
+    Modelo GLOBAL (no tenant-aware). Expone todos los campos incluidos
+    ``status`` y ``created_by_ai`` (read-only — la IA los setea al proponer
+    una industria durante el onboarding). ``status`` solo cambia via el
+    endpoint ``promote`` (proposed_by_model -> reviewed).
+
+    Patron dual-field para FK ``default_template``:
+    - ``default_template`` (write): PK para escritura.
+    - ``default_template_detail`` (read): representacion nested para lectura.
+    """
+
+    default_template_detail = WebsiteTemplateMinimalSerializer(source="default_template", read_only=True)
+    default_template = serializers.PrimaryKeyRelatedField(
+        queryset=WebsiteTemplate.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = Industry
+        fields = [
+            "id",
+            "key",
+            "label",
+            "description",
+            "icon",
+            "default_template",
+            "default_template_detail",
+            "is_active",
+            "sort_order",
+            "created_by_ai",
+            "status",
+            "status_display",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_by_ai", "status", "created_at", "updated_at"]
+
+
+# ---------------------------------------------------------------------------
+# AIModelConfig serializer
+# ---------------------------------------------------------------------------
+
+
+class AdminAIModelConfigSerializer(serializers.ModelSerializer):
+    """CRUD (list/update) de la configuracion de modelo IA por tarea.
+
+    Modelo GLOBAL. Las 4 filas (classify_industry, web_content, chat_edit,
+    seo) se siembran via migracion; el superadmin solo edita ``model``,
+    ``max_tokens``, ``temperature`` e ``is_active``. ``task`` es la clave
+    natural y por eso es read-only en updates.
+    """
+
+    task_display = serializers.CharField(source="get_task_display", read_only=True)
+
+    class Meta:
+        model = AIModelConfig
+        fields = [
+            "id",
+            "task",
+            "task_display",
+            "model",
+            "max_tokens",
+            "temperature",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["task", "created_at", "updated_at"]
+
+
+class AdminAIGenerationLogSerializer(serializers.ModelSerializer):
+    """Detalle completo de un ``AIGenerationLog`` para análisis de datos.
+
+    Read-only. Expone TODOS los campos relevantes (tenant que originó la
+    consulta, tipo, modelo, tokens, costo, éxito/error, prompt completo,
+    respuesta cruda y snapshot del onboarding) para exportar/analizar.
+    """
+
+    tenant_name = serializers.CharField(source="tenant.name", read_only=True)
+    tenant_slug = serializers.CharField(source="tenant.slug", read_only=True)
+    generation_type_display = serializers.CharField(source="get_generation_type_display", read_only=True)
+    total_tokens = serializers.IntegerField(read_only=True)
+    cost_estimated = serializers.DecimalField(max_digits=10, decimal_places=2, coerce_to_string=True, read_only=True)
+
+    class Meta:
+        model = AIGenerationLog
+        fields = [
+            "id",
+            "created_at",
+            "tenant",
+            "tenant_name",
+            "tenant_slug",
+            "website_config",
+            "generation_type",
+            "generation_type_display",
+            "section_id",
+            "model_used",
+            "tokens_input",
+            "tokens_output",
+            "total_tokens",
+            "cost_estimated",
+            "is_successful",
+            "error_message",
+            "is_billable",
+            "prompt_summary",
+            "full_prompt",
+            "raw_response",
+            "onboarding_snapshot",
+        ]
+        read_only_fields = fields

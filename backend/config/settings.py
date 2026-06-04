@@ -372,6 +372,8 @@ REST_FRAMEWORK = {
         "token_refresh": "30/min",
         "public_check": "20/min",
         "public_site": "60/min",
+        # Clasificación de industria con IA (ScopedRateThrottle, por usuario)
+        "classify_industry": "10/hour",
         # API general (por usuario autenticado)
         "user": "120/min",
         # Por tenant: se configura dinámicamente según el plan
@@ -577,7 +579,7 @@ TWILIO_ENABLED = os.getenv("TWILIO_ENABLED", "False") == "True"
 # ANTHROPIC (IA para Website Builder)
 # ===================================
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 # Modelo para la generacion inicial del sitio (calidad sobre costo). Los precios
 # por modelo se resuelven en websites.services.ai_service.MODEL_PRICING.
 ANTHROPIC_MODEL_INITIAL = os.getenv("ANTHROPIC_MODEL_INITIAL", "claude-sonnet-4-6")

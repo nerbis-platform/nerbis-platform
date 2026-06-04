@@ -73,7 +73,7 @@ class PublicSiteView(APIView):
         except Exception:
             logger.warning("Error al verificar badge para tenant %s", slug, exc_info=True)
 
-        industry = config.template.industry if config.template else "generic"
+        industry = config.template.industry.key if config.template and config.template.industry_id else "generic"
 
         try:
             renderer = SiteRenderer(

@@ -37,6 +37,9 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
     "token_refresh": None,
     "public_check": None,
     "public_site": None,
+    # classify-industry usa ScopedRateThrottle: el scope DEBE existir aunque sea
+    # None (sin throttle). Los tests de rate-limit lo sobreescriben a "10/hour".
+    "classify_industry": None,
 }
 
 # ===================================

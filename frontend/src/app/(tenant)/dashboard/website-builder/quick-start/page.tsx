@@ -10,7 +10,6 @@ import {
   ArrowUpRight,
   Check,
   Send,
-  Sparkles,
   LogOut,
   UserCircle,
 } from 'lucide-react';
@@ -20,6 +19,9 @@ import type { PipeMood } from '@/components/pipe-avatar';
 import {
   quickStartGenerate,
   QuickStartResponse,
+  classifyIndustry,
+  confirmClassification,
+  ClassifyIndustryResponse,
   getPlatformModules,
   getOnboardingQuestions,
   getOnboardingPages,
@@ -30,15 +32,15 @@ import { configureModules, ModuleSelection, getCurrentUser } from '@/lib/api/aut
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api/client';
 import { toast } from 'sonner';
-import { Tenant, PlatformModule, OnboardingQuestion, WebsitePage } from '@/types';
+import { Tenant } from '@/types';
 import {
   NAVY, TEAL, WARM_GRAY_50, WARM_GRAY_100, WARM_GRAY_200,
   WARM_GRAY_400, WARM_GRAY_500, WARM_GRAY_600, WARM_GRAY_800,
   AGENT_NAME, getLucideIcon,
-  FALLBACK_MODULES, FALLBACK_PAGES, FALLBACK_STYLE_OPTIONS,
+  FALLBACK_MODULES, FALLBACK_PAGES,
   FALLBACK_PALETTES, FALLBACK_TONE_OPTIONS,
   GENERATION_STEPS, SECTION_LABELS,
-  type StyleOption, type PaletteOption, type ToneOption,
+  type PaletteOption, type ToneOption,
   type ConversationStep, type PageState,
 } from './_helpers';
 
@@ -47,16 +49,19 @@ export default function QuickStartPage() {
   const { user, tenant, logout, setTenant } = useAuth();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // ─── Phase guard: si ya pasó onboarding, redirigir ────────
+  // ─── Phase guard: solo redirigir cuando el sitio ya fue generado ──
+  // Tener módulos configurados NO significa haber terminado el onboarding:
+  // el tenant puede haber elegido módulos pero aún no generó el sitio. Solo
+  // salimos de Quick Start cuando existe un sitio (review/published); de lo
+  // contrario el tenant sigue en onboarding aquí. Antes este guard rebotaba
+  // por `modules_configured` hacia `/website-builder`, que reenviaba de vuelta
+  // a Quick Start → loop infinito de redirects (flood de requests → 429).
   useEffect(() => {
     if (!tenant) return;
-    if (tenant.modules_configured) {
-      // Ya configuró módulos — no debería estar en Quick Start
-      if (tenant.website_status === 'published') {
-        router.replace('/dashboard');
-      } else {
-        router.replace('/dashboard/website-builder');
-      }
+    if (tenant.website_status === 'published') {
+      router.replace('/dashboard');
+    } else if (tenant.website_status === 'review') {
+      router.replace('/dashboard/website-builder/editor');
     }
   }, [tenant, router]);
 
@@ -78,7 +83,6 @@ export default function QuickStartPage() {
   });
 
   const modules = apiModules ?? FALLBACK_MODULES;
-  const pages = apiPages ?? FALLBACK_PAGES;
 
   // ─── Conversation state ───────────────────────────────────
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
@@ -95,7 +99,6 @@ export default function QuickStartPage() {
     const defaults = (apiPages ?? FALLBACK_PAGES).filter((p) => p.is_default).map((p) => p.key);
     return new Set(defaults);
   });
-  const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedTone, setSelectedTone] = useState('');
   const [primaryColor, setPrimaryColor] = useState('');
   const [secondaryColor, setSecondaryColor] = useState('');
@@ -148,16 +151,25 @@ export default function QuickStartPage() {
     return deps;
   }, [modules, selectedModules]);
 
-  // Sync selectedPages when apiPages loads
+  // Derive selectedPages automatically — the pages question was removed from the
+  // chat. A page is included if it is mandatory, a sensible default, or its
+  // module is active (auto_include_modules). The user refines pages later in the
+  // editor (step 2).
   useEffect(() => {
     if (!apiPages) return;
-    const defaults = apiPages.filter((p) => p.is_default).map((p) => p.key);
+    const derived = apiPages
+      .filter((p) =>
+        p.is_mandatory ||
+        p.is_default ||
+        p.auto_include_modules.some((m) => selectedModules.has(m as keyof ModuleSelection))
+      )
+      .map((p) => p.key);
     setSelectedPages((prev) => {
-      const key = defaults.sort().join(',');
+      const key = derived.sort().join(',');
       const prevKey = Array.from(prev).sort().join(',');
-      return key !== prevKey ? new Set(defaults) : prev;
+      return key !== prevKey ? new Set(derived) : prev;
     });
-  }, [apiPages]);
+  }, [apiPages, selectedModules]);
 
   // ─── Build dynamic steps based on selected modules ──────
   const steps = useMemo<ConversationStep[]>(() => {
@@ -165,7 +177,7 @@ export default function QuickStartPage() {
     const modulesQ = apiQuestions?.find((q) => q.input_type === 'modules');
     const result: ConversationStep[] = [
       {
-        id: modulesQ?.key ?? 'modules',
+        id: modulesQ?.question_key ?? 'modules',
         message: modulesQ?.message ?? '¿Qué necesitas?',
         type: 'modules',
         hint: modulesQ?.hint ?? 'Incluye 14 días gratis. Puedes cambiar después.',
@@ -180,11 +192,10 @@ export default function QuickStartPage() {
         const shouldShow = q.required_modules.length === 0 ||
           q.required_modules.some((mk) => selectedModules.has(mk as keyof ModuleSelection));
         if (shouldShow) {
-          const stepType: ConversationStep['type'] = q.input_type === 'multiselect' ? 'pages' : q.input_type as ConversationStep['type'];
           const step: ConversationStep = {
-            id: q.key,
+            id: q.question_key,
             message: q.message,
-            type: stepType,
+            type: q.input_type as ConversationStep['type'],
             placeholder: q.placeholder || undefined,
             hint: q.hint || undefined,
             minLength: q.min_length || undefined,
@@ -192,9 +203,7 @@ export default function QuickStartPage() {
             rows: q.input_type === 'textarea' ? 3 : undefined,
           };
           // Pass options for special types
-          if (q.input_type === 'style_select' && q.options?.length) {
-            step.options = q.options as unknown as StyleOption[];
-          } else if (q.input_type === 'color_picker' && q.options?.length) {
+          if (q.input_type === 'color_picker' && q.options?.length) {
             step.options = q.options as unknown as PaletteOption[];
           } else if (q.input_type === 'tone_select' && q.options?.length) {
             step.options = q.options as unknown as ToneOption[];
@@ -216,7 +225,6 @@ export default function QuickStartPage() {
       if (selectedModules.has('has_bookings')) {
         result.push({ id: 'bookings', message: '¿Qué se puede reservar? Cuéntame duración, horarios y si es presencial o virtual.', type: 'textarea', placeholder: 'Ej:\nConsulta inicial — 30 min — virtual\nSesión de coaching — 1 hora — presencial', hint: 'Detalla cada tipo de cita.', minLength: 5, maxLength: 2000, rows: 4 });
       }
-      result.push({ id: 'pages', message: '¿Qué páginas quieres en tu sitio?', type: 'pages', hint: 'Puedes agregar más después.' });
     }
     return result;
   }, [apiQuestions, selectedModules]);
@@ -228,6 +236,22 @@ export default function QuickStartPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<QuickStartResponse | null>(null);
   const [usageLimitInfo, setUsageLimitInfo] = useState<{ used: number; limit: number } | null>(null);
+
+  // ─── Industry classification (Pipe confirm/correct step) ──
+  const [classifying, setClassifying] = useState(false);
+  const [classifyResult, setClassifyResult] = useState<ClassifyIndustryResponse | null>(null);
+  const [classifyError, setClassifyError] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
+  const [correctionInput, setCorrectionInput] = useState('');
+  // Inline industry-confirm phase: rendered as a Pipe message inside the chat
+  // (no full-screen jump). Active between the description step and confirmation.
+  const [inlineConfirm, setInlineConfirm] = useState(false);
+  // Industry confirmed by the user right after the description step (Option 1:
+  // classify is decoupled from generate). Carried into the final generation call.
+  const [confirmedIndustryKey, setConfirmedIndustryKey] = useState('');
+  // Label of the confirmed industry, kept so the decision stays visible in the
+  // chat history (Pipe's suggestion + the user's "Sí, es correcto").
+  const [confirmedIndustryLabel, setConfirmedIndustryLabel] = useState('');
 
   // ─── Session storage keys (scoped to tenant to prevent cross-tenant leaks) ──
   const SS_KEY = `nerbis_quickstart_state_${tenant?.id || 'unknown'}`;
@@ -249,10 +273,11 @@ export default function QuickStartPage() {
           explicitModulesRef.current = new Set(state.explicitModules || []);
         }
         if (state.selectedPages?.length) setSelectedPages(new Set(state.selectedPages));
-        if (state.selectedStyle) setSelectedStyle(state.selectedStyle);
         if (state.selectedTone) setSelectedTone(state.selectedTone);
         if (state.primaryColor) setPrimaryColor(state.primaryColor);
         if (state.secondaryColor) setSecondaryColor(state.secondaryColor);
+        if (state.confirmedIndustryKey) setConfirmedIndustryKey(state.confirmedIndustryKey);
+        if (state.confirmedIndustryLabel) setConfirmedIndustryLabel(state.confirmedIndustryLabel);
       }
     } catch { /* corrupted storage — start fresh */ }
   }, []);
@@ -267,13 +292,14 @@ export default function QuickStartPage() {
         selectedModules: Array.from(selectedModules),
         explicitModules: Array.from(explicitModulesRef.current),
         selectedPages: Array.from(selectedPages),
-        selectedStyle,
         selectedTone,
         primaryColor,
         secondaryColor,
+        confirmedIndustryKey,
+        confirmedIndustryLabel,
       }));
     } catch { /* storage full — silently ignore */ }
-  }, [currentStepIdx, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, pageState]);
+  }, [currentStepIdx, answers, selectedModules, selectedPages, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, confirmedIndustryLabel, pageState]);
 
   // ─── Simulate typing delay for each new message ──────────
   useEffect(() => {
@@ -284,7 +310,6 @@ export default function QuickStartPage() {
       setIsTyping(false);
     }, delay);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStepIdx, pageState]);
 
   // ─── Active mood reacts to user typing ───────────────────
@@ -324,7 +349,7 @@ export default function QuickStartPage() {
   // ─── Auto-scroll to bottom ───────────────────────────────
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [currentStepIdx, isTyping, pageState]);
+  }, [currentStepIdx, isTyping, pageState, inlineConfirm, classifying, classifyResult, correcting]);
 
   // ─── Polling ref para limpiar al desmontar ────────────────
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -391,6 +416,7 @@ export default function QuickStartPage() {
   const triggerQuickStartGeneration = useCallback(async (
     answersData: Record<string, string>,
     sections: Set<string>,
+    industryKey?: string,
   ) => {
     try {
       await quickStartGenerate({
@@ -401,6 +427,7 @@ export default function QuickStartPage() {
         primary_color: primaryColor || undefined,
         secondary_color: secondaryColor || undefined,
         business_whatsapp: answersData.pipe_whatsapp || undefined,
+        industry_key: industryKey || undefined,
       });
       startPolling();
     } catch (error) {
@@ -412,13 +439,87 @@ export default function QuickStartPage() {
           setUsageLimitInfo({ used: data.used, limit: data.limit });
         }
         setPageState('limit-reached');
-      } else if (error instanceof ApiError && error.status === 400 && error.message?.includes('industria')) {
-        setPageState('unsupported-industry');
       } else {
+        // The backend never rejects an industry now — any failure is a
+        // generic generation error the user can retry.
         setPageState('error');
       }
     }
   }, [startPolling, selectedTone, primaryColor, secondaryColor]);
+
+  // ─── Industry classification + confirm step ───────────────
+  // Classify the business based on its description + selected modules, then
+  // surface the confirm/correct interstitial. Never dead-ends: if the call
+  // fails we let the user proceed (the backend resolves a generic template).
+  const runClassification = useCallback(async (description: string) => {
+    setClassifying(true);
+    setClassifyError(false);
+    setCorrecting(false);
+    setCorrectionInput('');
+    const moduleKeys = Array.from(selectedModules) as string[];
+    try {
+      const res = await classifyIndustry(description, moduleKeys);
+      setClassifyResult(res);
+    } catch {
+      setClassifyResult(null);
+      setClassifyError(true);
+    } finally {
+      setClassifying(false);
+    }
+  }, [selectedModules]);
+
+  // Enter the generating phase with the (already confirmed) industry key.
+  const startGeneration = useCallback((
+    answersData: Record<string, string>,
+    sections: Set<string>,
+    industryKey?: string,
+  ) => {
+    setPageState('generating');
+    setGenStep(0);
+    setProgress(0);
+    setTimeout(() => {
+      triggerQuickStartGeneration(answersData, sections, industryKey || undefined);
+    }, 100);
+  }, [triggerQuickStartGeneration]);
+
+  // User confirmed the detected sector. Option 1: classification is decoupled
+  // from generation, so confirming just records the decision (feeding NERBIS'
+  // own dataset) and continues the conversation — generation happens at the end.
+  const confirmIndustry = useCallback(() => {
+    const key = classifyResult?.industry_key ?? '';
+    setConfirmedIndustryKey(key);
+    setConfirmedIndustryLabel(classifyResult?.industry_label ?? '');
+    if (classifyResult) {
+      // Fire-and-forget: persisting the decision must never block the user.
+      void confirmClassification(classifyResult.classification_id, 'confirmed').catch(() => {});
+    }
+    setCorrecting(false);
+    setInlineConfirm(false);
+    setActiveMood('happy');
+    if (currentStepIdx < steps.length - 1) {
+      setCurrentStepIdx((prev) => prev + 1);
+    } else {
+      // Description was the last question — generate right away.
+      startGeneration(answers, selectedPages, key);
+    }
+  }, [classifyResult, currentStepIdx, steps.length, answers, selectedPages, startGeneration]);
+
+  // User wants to correct the sector — reveal the correction input.
+  const startCorrection = useCallback(() => {
+    setCorrecting(true);
+    setCorrectionInput('');
+  }, []);
+
+  // Re-classify using the user's own description of their sector. The previous
+  // prediction is recorded as "corrected" so the dataset learns from the miss.
+  const submitCorrection = useCallback(() => {
+    const text = correctionInput.trim();
+    if (text.length < 3) return;
+    if (classifyResult) {
+      void confirmClassification(classifyResult.classification_id, 'corrected', undefined, text).catch(() => {});
+    }
+    void runClassification(text);
+  }, [correctionInput, classifyResult, runClassification]);
 
   // ─── Rotating generation messages ─────────────────────────
   useEffect(() => {
@@ -482,40 +583,6 @@ export default function QuickStartPage() {
       return;
     }
 
-    // Handle pages step
-    if (step.type === 'pages') {
-      if (selectedPages.size === 0) return;
-
-      setActiveMood('surprised');
-      setTimeout(() => setActiveMood('listening'), 600);
-
-      const labels = pages
-        .filter((p) => selectedPages.has(p.key))
-        .map((p) => p.label);
-      const newAnswers = { ...answers, [step.id]: labels.join(', ') };
-      setAnswers(newAnswers);
-
-      // Last step — start generating
-      setPageState('generating');
-      setGenStep(0);
-      setProgress(0);
-      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedPages), 100);
-      return;
-    }
-
-    // Handle style_select step
-    if (step.type === 'style_select') {
-      if (!selectedStyle) return;
-      setActiveMood('happy');
-      setTimeout(() => setActiveMood('listening'), 900);
-      const styleOpts = (step.options || FALLBACK_STYLE_OPTIONS) as StyleOption[];
-      const label = styleOpts.find((s) => s.key === selectedStyle)?.label || selectedStyle;
-      const newAnswers = { ...answers, [step.id]: label };
-      setAnswers(newAnswers);
-      setCurrentStepIdx((prev) => prev + 1);
-      return;
-    }
-
     // Handle color_picker step
     if (step.type === 'color_picker') {
       setActiveMood('happy');
@@ -554,17 +621,25 @@ export default function QuickStartPage() {
     setAnswers(newAnswers);
     setCurrentInput('');
 
+    // Option 1: classify the industry right after the business description,
+    // decoupled from generation. Pipe confirms the sector inline, then the
+    // conversation continues (pages/design) and generation happens at the end.
+    if (step.id?.includes('description')) {
+      setActiveMood('happy');
+      setInlineConfirm(true);
+      void runClassification(value);
+      return;
+    }
+
     // Next step
     if (currentStepIdx < steps.length - 1) {
       setCurrentStepIdx((prev) => prev + 1);
     } else {
-      // All questions answered — start generating
-      setPageState('generating');
-      setGenStep(0);
-      setProgress(0);
-      setTimeout(() => triggerQuickStartGeneration(newAnswers, selectedPages), 100);
+      // All questions answered — generate using the confirmed industry key.
+      setActiveMood('happy');
+      startGeneration(newAnswers, selectedPages, confirmedIndustryKey);
     }
-  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, steps, modules, pages, triggerQuickStartGeneration, setTenant]);
+  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, steps, modules, runClassification, startGeneration, setTenant]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -584,10 +659,15 @@ export default function QuickStartPage() {
     setGenStep(0);
     setProgress(0);
     setResult(null);
-    setSelectedStyle('');
     setSelectedTone('');
     setPrimaryColor('');
     setSecondaryColor('');
+    setConfirmedIndustryKey('');
+    setConfirmedIndustryLabel('');
+    setInlineConfirm(false);
+    setClassifyResult(null);
+    setClassifyError(false);
+    setCorrecting(false);
     setUsageLimitInfo(null);
     sessionStorage.removeItem(SS_KEY);
   }, []);
@@ -628,7 +708,7 @@ export default function QuickStartPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/profile"
-            className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors"
+            className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
             style={{ color: WARM_GRAY_400 }}
             onMouseEnter={(e) => (e.currentTarget.style.color = NAVY)}
             onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
@@ -640,7 +720,7 @@ export default function QuickStartPage() {
           <button
             type="button"
             onClick={() => logout('/register-business')}
-            className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
             style={{ color: WARM_GRAY_400 }}
             onMouseEnter={(e) => (e.currentTarget.style.color = '#EF4444')}
             onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
@@ -659,17 +739,36 @@ export default function QuickStartPage() {
     const minLen = step?.minLength || 0;
     const canSend = step?.type === 'modules'
       ? selectedModules.size > 0
-      : step?.type === 'pages'
-        ? selectedPages.size > 0
-        : step?.type === 'style_select'
-          ? selectedStyle !== ''
-          : step?.type === 'tone_select'
-            ? selectedTone !== ''
-            : step?.type === 'color_picker'
-              ? true
-              : currentInput.trim().length >= minLen;
+      : step?.type === 'tone_select'
+        ? selectedTone !== ''
+        : step?.type === 'color_picker'
+          ? true
+          : currentInput.trim().length >= minLen;
 
     const hasHistory = currentStepIdx > 0;
+
+    // Subtle progress under the header — single teal accent, communicates guiding.
+    const progressPct = ((currentStepIdx + 1) / steps.length) * 100;
+    const progressBar = (
+      <div style={{ backgroundColor: '#fff' }}>
+        <div className="max-w-2xl mx-auto">
+          <div
+            className="h-1 w-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={currentStepIdx + 1}
+            aria-valuemin={1}
+            aria-valuemax={steps.length}
+            aria-label={`Paso ${currentStepIdx + 1} de ${steps.length}`}
+            style={{ backgroundColor: WARM_GRAY_100 }}
+          >
+            <div
+              className="h-full"
+              style={{ width: `${progressPct}%`, backgroundColor: TEAL, transition: 'width 300ms ease' }}
+            />
+          </div>
+        </div>
+      </div>
+    );
 
     // Build chat history from completed steps
     const chatHistory: { role: 'pipe' | 'user'; content: string }[] = [];
@@ -681,6 +780,15 @@ export default function QuickStartPage() {
       if (answers[s.id]) {
         chatHistory.push({ role: 'user', content: answers[s.id] });
       }
+      // Keep the industry decision in the conversation: right after the
+      // description step, replay Pipe's suggestion + the user's confirmation.
+      if (s.id?.includes('description') && confirmedIndustryLabel) {
+        chatHistory.push({
+          role: 'pipe',
+          content: `Entonces tu negocio es del sector ${confirmedIndustryLabel}. Con esto elijo el mejor diseño para ti.`,
+        });
+        chatHistory.push({ role: 'user', content: 'Sí, es correcto' });
+      }
     }
 
     // ── Initial state: greeting centered + input below (like Claude empty state) ──
@@ -688,9 +796,10 @@ export default function QuickStartPage() {
       return (
         <div
           className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-          style={{ backgroundColor: '#fff' }}
+          style={{ backgroundColor: WARM_GRAY_50 }}
         >
           {header}
+          {progressBar}
 
           <div className="flex-1 flex flex-col items-center justify-center px-4">
             {/* Everything in one container with consistent width */}
@@ -718,9 +827,9 @@ export default function QuickStartPage() {
               ) : (
                 <>
                   <div
-                    className="relative mb-14 animate-in fade-in duration-500 rounded-2xl px-5 py-4 text-center"
+                    className="relative mb-14 rounded-2xl px-5 py-4 text-center shadow-sm"
                     style={{
-                      backgroundColor: '#f8f9fa',
+                      backgroundColor: '#fff',
                       border: `1px solid ${WARM_GRAY_100}`,
                       maxWidth: '22rem',
                     }}
@@ -729,7 +838,7 @@ export default function QuickStartPage() {
                     <div
                       className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
                       style={{
-                        backgroundColor: '#f8f9fa',
+                        backgroundColor: '#fff',
                         borderLeft: `1px solid ${WARM_GRAY_100}`,
                         borderTop: `1px solid ${WARM_GRAY_100}`,
                       }}
@@ -754,7 +863,7 @@ export default function QuickStartPage() {
 
                   {/* Module grid + continue — same width as title */}
                   {step.type === 'modules' && (
-                    <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100 space-y-12">
+                    <div className="w-full space-y-12">
                       <div className="grid grid-cols-3 gap-3">
                         {modules.map((mod) => {
                           const modKey = mod.key as keyof ModuleSelection;
@@ -774,7 +883,7 @@ export default function QuickStartPage() {
                                   setTimeout(() => setActiveMood('listening'), 900);
                                 }
                               }}
-                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                               style={{
                                 backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                                 borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
@@ -826,7 +935,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                         style={{
                           backgroundColor: canSend ? TEAL : WARM_GRAY_100,
                           color: canSend ? '#fff' : WARM_GRAY_400,
@@ -850,13 +959,14 @@ export default function QuickStartPage() {
     return (
       <div
         className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ backgroundColor: '#fff' }}
+        style={{ backgroundColor: WARM_GRAY_50 }}
       >
         {header}
+        {progressBar}
 
         {/* Scrollable message area */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 pb-6 space-y-6">
             {/* Chat history */}
             {chatHistory.map((msg, i) => (
               <div key={`msg-${i}`}>
@@ -865,36 +975,38 @@ export default function QuickStartPage() {
                   <div className="flex justify-end">
                     <div
                       className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
-                      style={{ backgroundColor: WARM_GRAY_100, color: WARM_GRAY_800 }}
+                      style={{ backgroundColor: TEAL, color: '#fff' }}
                     >
                       {msg.content}
                     </div>
                   </div>
                 ) : (
-                  /* Pipe text — left aligned, no bubble, with small avatar */
+                  /* Pipe bubble — left aligned, no avatar (Pipe only lives on the
+                     current message); aligned with the active message's bubble. */
                   <div className="flex gap-3 items-start">
-                    <div className="flex-shrink-0 mt-0.5">
-                      <PipeAvatar mood="idle" size={28} />
-                    </div>
-                    <p
-                      className="text-[0.88rem] leading-relaxed pt-0.5"
-                      style={{ color: WARM_GRAY_800 }}
+                    <div className="w-10 flex-shrink-0" aria-hidden="true" />
+                    <div
+                      className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-[0.88rem] leading-relaxed max-w-[75%]"
+                      style={{ backgroundColor: '#fff', color: WARM_GRAY_500, border: `1px solid ${WARM_GRAY_200}` }}
                     >
                       {msg.content}
-                    </p>
+                    </div>
                   </div>
                 )}
               </div>
             ))}
 
-            {/* Current Pipe message */}
+            {/* Current Pipe message — Pipe stays bigger on the active turn */}
             <div className="flex gap-3 items-start">
-              <div className="flex-shrink-0 mt-0.5">
-                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={28} />
+              <div className="flex-shrink-0">
+                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={40} />
               </div>
               <div className="flex-1">
                 {isTyping ? (
-                  <div className="flex gap-1.5 py-2">
+                  <div
+                    className="inline-flex gap-1.5 px-4 py-3 rounded-2xl rounded-tl-sm"
+                    style={{ backgroundColor: '#fff', border: `1px solid ${WARM_GRAY_200}` }}
+                  >
                     {[0, 1, 2].map((i) => (
                       <div
                         key={i}
@@ -908,33 +1020,155 @@ export default function QuickStartPage() {
                     ))}
                   </div>
                 ) : (
-                  <p
-                    className="text-[0.88rem] leading-relaxed pt-0.5 animate-in fade-in duration-300"
-                    style={{ color: WARM_GRAY_800 }}
+                  <div
+                    className="inline-block px-4 py-2.5 rounded-2xl rounded-tl-sm text-[0.9rem] font-medium leading-relaxed max-w-[85%] animate-in fade-in duration-300"
+                    style={{ backgroundColor: '#fff', color: NAVY, border: `1px solid ${WARM_GRAY_100}` }}
                   >
                     {step.message}
-                  </p>
+                  </div>
                 )}
               </div>
             </div>
+
+            {/* Inline industry classification — lives inside the chat as a Pipe
+                message (no full-screen jump), keeping the conversation intact. */}
+            {inlineConfirm && (
+              <>
+                {answers[step.id] && (
+                  <div className="flex justify-end">
+                    <div
+                      className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
+                      style={{ backgroundColor: TEAL, color: '#fff' }}
+                    >
+                      {answers[step.id]}
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-3 items-start">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <PipeAvatar mood={classifying ? 'thinking' : 'happy'} size={28} />
+                  </div>
+                  <div className="flex-1">
+                    {classifying ? (
+                      <div className="flex gap-1.5 py-2">
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className="w-1.5 h-1.5 rounded-full animate-bounce"
+                            style={{ backgroundColor: WARM_GRAY_400, animationDelay: `${i * 150}ms`, animationDuration: '0.8s' }}
+                          />
+                        ))}
+                      </div>
+                    ) : correcting ? (
+                      <div className="animate-in fade-in duration-300">
+                        <p className="text-[0.88rem] leading-relaxed mb-3" style={{ color: WARM_GRAY_800 }}>
+                          Cuéntame a qué se dedica tu negocio y lo reviso de nuevo.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="text"
+                            value={correctionInput}
+                            onChange={(e) => setCorrectionInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitCorrection(); } }}
+                            placeholder="Ej: Floristería, taller mecánico, estudio de tatuajes..."
+                            autoFocus
+                            className="flex-1 min-w-[12rem] h-10 px-3.5 rounded-lg border text-[0.85rem] outline-none focus:ring-2"
+                            style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50, color: WARM_GRAY_800 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={submitCorrection}
+                            disabled={correctionInput.trim().length < 3}
+                            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                            style={{ backgroundColor: TEAL, color: '#fff' }}
+                          >
+                            Revisar <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCorrecting(false)}
+                            className="h-10 px-3 rounded-lg text-[0.82rem] font-medium"
+                            style={{ color: WARM_GRAY_500 }}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : classifyError ? (
+                      <div className="animate-in fade-in duration-300">
+                        <p className="text-[0.88rem] leading-relaxed mb-3" style={{ color: WARM_GRAY_800 }}>
+                          No alcancé a identificar tu sector, pero no pasa nada — puedo seguir con un diseño versátil, o dime a qué te dedicas.
+                        </p>
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={confirmIndustry}
+                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                            style={{ backgroundColor: TEAL, color: '#fff' }}
+                          >
+                            Continuar <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={startCorrection}
+                            className="inline-flex items-center h-9 px-4 rounded-lg border text-[0.82rem] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                            style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
+                          >
+                            Decirle mi sector
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="animate-in fade-in duration-300">
+                        <p className="text-[0.88rem] leading-relaxed mb-3" style={{ color: WARM_GRAY_800 }}>
+                          Entonces tu negocio es del sector{' '}
+                          <span style={{ color: TEAL, fontWeight: 600 }}>{classifyResult?.industry_label}</span>.
+                          {' '}¿Es correcto? Con esto elijo el mejor diseño para ti.
+                        </p>
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={confirmIndustry}
+                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                            style={{ backgroundColor: TEAL, color: '#fff' }}
+                          >
+                            <Check className="w-3.5 h-3.5" /> Sí, es correcto
+                          </button>
+                          <button
+                            type="button"
+                            onClick={startCorrection}
+                            className="inline-flex items-center h-9 px-4 rounded-lg border text-[0.82rem] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                            style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
+                          >
+                            No, corregir
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             <div ref={chatEndRef} />
           </div>
         </div>
 
-        {/* Input area — fixed at bottom */}
-        {!isTyping && (
+        {/* Input area — stays at the bottom; only blocked (not hidden) while Pipe
+            is "typing" the next question, and hidden during inline industry confirm. */}
+        {!inlineConfirm && (
           <div
-            className="border-t animate-in fade-in slide-in-from-bottom-2 duration-300"
+            className={`border-t transition-opacity ${isTyping ? 'pointer-events-none opacity-50' : ''}`}
+            aria-disabled={isTyping}
             style={{ borderColor: WARM_GRAY_100 }}
           >
-            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-5 pb-7">
               {/* Back button */}
               {currentStepIdx > 0 && (
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="flex items-center gap-1 text-[0.75rem] font-medium mb-2 transition-colors"
+                  className="flex items-center gap-1 text-[0.75rem] font-medium mb-2 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                   style={{ color: WARM_GRAY_400 }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = TEAL)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
@@ -975,7 +1209,7 @@ export default function QuickStartPage() {
                       type="button"
                       onClick={handleSend}
                       disabled={!canSend}
-                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                       style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                     >
                       <Send className="w-4 h-4" />
@@ -988,7 +1222,13 @@ export default function QuickStartPage() {
                     {step.maxLength && (
                       <p
                         className="text-[0.7rem] tabular-nums"
-                        style={{ color: currentInput.length > step.maxLength * 0.9 ? '#B91C1C' : WARM_GRAY_600 }}
+                        style={{
+                          color:
+                            currentInput.length < (step.minLength || 0) ||
+                            currentInput.length > step.maxLength * 0.9
+                              ? '#B91C1C'
+                              : WARM_GRAY_600,
+                        }}
                       >
                         {currentInput.length}/{step.maxLength}
                       </p>
@@ -1023,7 +1263,7 @@ export default function QuickStartPage() {
                       type="button"
                       onClick={handleSend}
                       disabled={!canSend}
-                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                       style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                     >
                       <Send className="w-4 h-4" />
@@ -1034,55 +1274,6 @@ export default function QuickStartPage() {
                   )}
                 </>
               )}
-
-              {/* Style selector */}
-              {step.type === 'style_select' && (() => {
-                const styleOpts = (step.options || FALLBACK_STYLE_OPTIONS) as StyleOption[];
-                return (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {styleOpts.map((opt) => {
-                        const isActive = selectedStyle === opt.key;
-                        const OptIcon = getLucideIcon(opt.icon);
-                        return (
-                          <button
-                            key={opt.key}
-                            type="button"
-                            onClick={() => setSelectedStyle(opt.key)}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
-                            style={{
-                              backgroundColor: isActive ? `${opt.color}0A` : '#fff',
-                              borderColor: isActive ? opt.color : WARM_GRAY_200,
-                            }}
-                          >
-                            <div
-                              className="flex items-center justify-center w-9 h-9 rounded-lg"
-                              style={{ backgroundColor: `${opt.color}12` }}
-                            >
-                              <OptIcon className="w-4 h-4" style={{ color: opt.color }} />
-                            </div>
-                            <div className="text-left">
-                              <span className="text-[0.82rem] font-medium block" style={{ color: isActive ? opt.color : WARM_GRAY_800 }}>{opt.label}</span>
-                              <span className="text-[0.68rem] block" style={{ color: WARM_GRAY_400 }}>{opt.description}</span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleSend}
-                        disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                      >
-                        Continuar <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
 
               {/* Color picker */}
               {step.type === 'color_picker' && (() => {
@@ -1097,7 +1288,7 @@ export default function QuickStartPage() {
                             key={pal.label}
                             type="button"
                             onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
-                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200"
+                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                             style={{
                               borderColor: isActive ? TEAL : WARM_GRAY_200,
                               backgroundColor: isActive ? `${TEAL}08` : '#fff',
@@ -1119,7 +1310,7 @@ export default function QuickStartPage() {
                       <button
                         type="button"
                         onClick={handleSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                         style={{ backgroundColor: TEAL, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1142,7 +1333,7 @@ export default function QuickStartPage() {
                             key={opt.key}
                             type="button"
                             onClick={() => setSelectedTone(opt.key)}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                             style={{
                               borderColor: isActive ? TEAL : WARM_GRAY_200,
                               backgroundColor: isActive ? `${TEAL}0A` : '#fff',
@@ -1160,7 +1351,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                         style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1169,54 +1360,6 @@ export default function QuickStartPage() {
                   </div>
                 );
               })()}
-
-              {/* Pages selection */}
-              {step.type === 'pages' && (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {pages.map((page) => {
-                      const isSelected = selectedPages.has(page.key);
-                      const PageIcon = getLucideIcon(page.icon);
-                      return (
-                        <button
-                          key={page.key}
-                          type="button"
-                          onClick={() => {
-                            if (page.is_mandatory) return;
-                            const next = new Set(selectedPages);
-                            if (isSelected) next.delete(page.key);
-                            else next.add(page.key);
-                            setSelectedPages(next);
-                          }}
-                          disabled={page.is_mandatory}
-                          className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.82rem] font-medium border transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default"
-                          style={{
-                            backgroundColor: isSelected ? `${TEAL}0A` : '#fff',
-                            borderColor: isSelected ? TEAL : WARM_GRAY_200,
-                            color: isSelected ? TEAL : WARM_GRAY_600,
-                          }}
-                        >
-                          <PageIcon className="w-3.5 h-3.5" />
-                          {isSelected && <Check className="w-3.5 h-3.5" />}
-                          {page.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[0.72rem]" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
-                    <button
-                      type="button"
-                      onClick={handleSend}
-                      disabled={!canSend}
-                      className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                    >
-                      Generar mi sitio <Sparkles className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Modules selection (in conversation mode) */}
               {step.type === 'modules' && (
@@ -1240,7 +1383,7 @@ export default function QuickStartPage() {
                               setTimeout(() => setActiveMood('listening'), 900);
                             }
                           }}
-                          className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                          className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                           style={{
                             backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                             borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
@@ -1283,7 +1426,7 @@ export default function QuickStartPage() {
                     type="button"
                     onClick={handleSend}
                     disabled={!canSend}
-                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                     style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                   >
                     Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1304,7 +1447,7 @@ export default function QuickStartPage() {
     return (
       <div
         className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(170deg, ${TEAL}06 0%, ${WARM_GRAY_50} 35%, #fff 100%)` }}
+        style={{ backgroundColor: WARM_GRAY_50 }}
       >
         {header}
 
@@ -1362,7 +1505,7 @@ export default function QuickStartPage() {
     return (
       <div
         className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(170deg, ${TEAL}06 0%, ${WARM_GRAY_50} 35%, #fff 100%)` }}
+        style={{ backgroundColor: WARM_GRAY_50 }}
       >
         {header}
 
@@ -1374,29 +1517,28 @@ export default function QuickStartPage() {
             </div>
 
             <h2
-              className="text-2xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500"
+              className="text-2xl font-bold mb-2"
               style={{ color: WARM_GRAY_800, letterSpacing: '-0.03em' }}
             >
               Tu sitio web está listo
             </h2>
             <p
-              className="mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500 text-[0.92rem]"
-              style={{ color: WARM_GRAY_500, animationDelay: '100ms' }}
+              className="mb-8 text-[0.92rem]"
+              style={{ color: WARM_GRAY_500 }}
             >
               {result.template.name} · {sections.length} secciones generadas
             </p>
 
             {/* Section cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-8">
-              {sections.map((key, i) => (
+              {sections.map((key) => (
                 <div
                   key={key}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg border text-[0.82rem] animate-in fade-in slide-in-from-bottom-2"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg border text-[0.82rem]"
                   style={{
                     backgroundColor: '#fff',
                     borderColor: WARM_GRAY_200,
                     color: WARM_GRAY_800,
-                    animationDelay: `${150 + i * 80}ms`,
                   }}
                 >
                   <Check
@@ -1414,9 +1556,9 @@ export default function QuickStartPage() {
             <button
               type="button"
               onClick={() => router.push('/dashboard/website-builder/editor')}
-              className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-lg font-medium text-[0.88rem] transition-all duration-150"
+              className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-lg font-medium text-[0.88rem] transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
               style={{
-                backgroundColor: NAVY,
+                backgroundColor: TEAL,
                 color: '#fff',
               }}
               onMouseEnter={(e) => {
@@ -1497,41 +1639,6 @@ export default function QuickStartPage() {
                   style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
                 >
                   Ir al dashboard
-                </button>
-              </div>
-            </>
-          ) : pageState === 'unsupported-industry' ? (
-            <>
-              <h2
-                className="text-xl font-semibold mb-2"
-                style={{ color: WARM_GRAY_800, letterSpacing: '-0.02em' }}
-              >
-                Tu tipo de negocio aún no está disponible
-              </h2>
-              <p
-                className="mb-6 text-[0.92rem]"
-                style={{ color: WARM_GRAY_500 }}
-              >
-                El modo rápido aún no soporta tu industria.
-                Te llevamos al asistente completo donde puedes elegir un template manualmente.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => router.push('/dashboard/website-builder')}
-                  className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
-                  style={{ backgroundColor: TEAL, color: '#fff' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                    e.currentTarget.style.opacity = '0.92';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                >
-                  Ir al asistente completo
-                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </>

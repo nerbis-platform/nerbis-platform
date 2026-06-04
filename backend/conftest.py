@@ -94,6 +94,40 @@ def customer_user(tenant):
 
 
 @pytest.fixture()
+def superadmin_user(db):
+    """Superadmin de plataforma (sin tenant) — pasa IsSuperAdmin.
+
+    IsSuperAdmin exige is_authenticated AND is_superuser AND tenant_id IS NULL.
+    """
+    user = User(
+        email="superadmin@nerbis.test",
+        username="superadmin",
+        first_name="Super",
+        last_name="Admin",
+        tenant=None,
+        is_superuser=True,
+        is_staff=True,
+        is_active=True,
+        role="admin",
+        uid="admin:superadmin@nerbis.test",
+    )
+    user.set_password("Sup3rStr0ng!")
+    user.save()
+    return user
+
+
+@pytest.fixture()
+def admin_api_client(superadmin_user):
+    """APIClient autenticado como superadmin de plataforma (sin header de tenant)."""
+    from core.admin_views import build_superadmin_tokens
+
+    client = APIClient()
+    access = build_superadmin_tokens(superadmin_user)["access"]
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+    return client
+
+
+@pytest.fixture()
 def second_tenant_admin(second_tenant):
     """Usuario admin del segundo tenant."""
     return User.objects.create_user(
@@ -105,6 +139,38 @@ def second_tenant_admin(second_tenant):
         tenant=second_tenant,
         role="admin",
     )
+
+
+# ===================================
+# INDUSTRIES (catálogo global)
+# ===================================
+
+
+@pytest.fixture()
+def seeded_industries(db):
+    """Catálogo de industrias sembrado por la migración 0022.
+
+    Tras la conversión CharField->FK/M2M (issue-262), ``WebsiteTemplate.industry``
+    y ``PromptBlock.industry`` son FKs, y ``SectionVariant.industries`` es M2M.
+    La migración de datos siembra la UNIÓN (~36 industrias, incluyendo
+    ``generic``), por lo que cualquier test que cree estos modelos puede obtener
+    una instancia ``Industry`` por key.
+
+    Returns:
+        Un callable ``get(key)`` que devuelve la ``Industry`` con esa key
+        (creándola como reviewed si no existe, para tests que corren sin la
+        migración de datos).
+    """
+    from websites.models import Industry
+
+    def _get(key: str) -> "Industry":
+        industry, _ = Industry.objects.get_or_create(
+            key=key,
+            defaults={"label": key.title(), "is_active": True, "status": "reviewed"},
+        )
+        return industry
+
+    return _get
 
 
 # ===================================

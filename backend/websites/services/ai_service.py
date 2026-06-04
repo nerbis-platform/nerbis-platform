@@ -17,6 +17,7 @@ Los helpers, constantes, prompts y validaciones viven en submódulos:
 
 import json
 import logging
+import time
 
 from django.conf import settings
 from django.utils import timezone
@@ -27,6 +28,27 @@ from websites.services.ai_prompts import build_system_prompt
 from websites.services.ai_validation import validate_generated_content
 
 logger = logging.getLogger(__name__)
+
+# Cache TTL (segundos) para la configuración de modelo por tarea. Evita un query
+# por cada llamada a get_model_for_task sin requerir reinicio para reflejar
+# cambios del superadmin (se refresca cada ~60s).
+_MODEL_CONFIG_TTL = 60
+
+# Cache en proceso: {task: (expires_at, config_dict)}.
+_MODEL_CONFIG_CACHE: dict[str, tuple[float, dict]] = {}
+
+
+def _settings_fallback_for_task(task: str) -> dict:
+    """Config por defecto desde settings cuando no hay fila AIModelConfig.
+
+    web_content usa el modelo inicial más capaz (Sonnet); el resto usa el
+    modelo barato por defecto (Haiku). Mantiene backward compatibility con el
+    comportamiento previo (hardcoded settings.ANTHROPIC_MODEL).
+    """
+    if task == "web_content":
+        model = getattr(settings, "ANTHROPIC_MODEL_INITIAL", None) or settings.ANTHROPIC_MODEL
+        return {"model": model, "max_tokens": 4096, "temperature": 1.0}
+    return {"model": settings.ANTHROPIC_MODEL, "max_tokens": 4096, "temperature": 1.0}
 
 
 class AIService:
@@ -81,6 +103,43 @@ class AIService:
 
     def calculate_cost(self, tokens_input: int, tokens_output: int, model: str | None = None):
         return calculate_cost(tokens_input, tokens_output, model=model)
+
+    # ───────────────────────────────────────────────────────────────────
+    # Configuración de modelo por tarea
+    # ───────────────────────────────────────────────────────────────────
+
+    def get_model_for_task(self, task: str) -> dict:
+        """Resuelve modelo + parámetros para una tarea de IA.
+
+        Lee la fila activa de AIModelConfig para `task` (classify_industry,
+        web_content, chat_edit, seo) y devuelve un dict
+        {model, max_tokens, temperature}. Si no hay fila, está inactiva, o
+        falla el query, cae a los defaults de settings (backward compatible).
+
+        El resultado se cachea en proceso ~60s para evitar un query por llamada
+        sin requerir reinicio cuando el superadmin cambia la configuración.
+        """
+        now = time.monotonic()
+        cached = _MODEL_CONFIG_CACHE.get(task)
+        if cached and cached[0] > now:
+            return dict(cached[1])
+
+        config = _settings_fallback_for_task(task)
+        try:
+            from websites.models import AIModelConfig
+
+            row = AIModelConfig.objects.filter(task=task, is_active=True).first()
+            if row:
+                config = {
+                    "model": row.model,
+                    "max_tokens": row.max_tokens,
+                    "temperature": float(row.temperature),
+                }
+        except Exception as e:  # DB no disponible / migración pendiente
+            logger.warning("No se pudo leer AIModelConfig para '%s': %s", task, e)
+
+        _MODEL_CONFIG_CACHE[task] = (now + _MODEL_CONFIG_TTL, config)
+        return dict(config)
 
     # ───────────────────────────────────────────────────────────────────
     # Industry defaults
@@ -241,16 +300,17 @@ Responde con un JSON con esta estructura (incluye SOLO las secciones indicadas a
 
 Genera contenido profesional y atractivo basado en la información del negocio."""
 
-        # Para la generación inicial usamos un modelo más capaz (Sonnet) por
-        # defecto. El chat de ediciones posteriores sigue usando el modelo
-        # barato (Haiku) via settings.ANTHROPIC_MODEL. Si el env var no está
-        # definido, cae a ANTHROPIC_MODEL para no romper entornos existentes.
-        model = getattr(settings, "ANTHROPIC_MODEL_INITIAL", None) or settings.ANTHROPIC_MODEL
+        # Para la generación inicial usamos el modelo configurado para la tarea
+        # web_content (por defecto Sonnet via settings). El chat y SEO usan
+        # sus propias tareas. Si no hay fila AIModelConfig, cae a settings.
+        task_config = self.get_model_for_task("web_content")
+        model = task_config["model"]
+        max_tokens = task_config["max_tokens"]
         self._last_model_used = model
 
         try:
             content_data, seo_data, tokens_input, tokens_output, response_text = self._call_generation(
-                model=model, system_prompt=system_prompt, user_prompt=user_prompt
+                model=model, system_prompt=system_prompt, user_prompt=user_prompt, max_tokens=max_tokens
             )
 
             # Validación post-generación. Si hay problemas, reintentamos una
@@ -271,7 +331,7 @@ Genera contenido profesional y atractivo basado en la información del negocio."
                 )
                 try:
                     content_data2, seo_data2, tokens_in2, tokens_out2, response_text2 = self._call_generation(
-                        model=model, system_prompt=system_prompt, user_prompt=retry_prompt
+                        model=model, system_prompt=system_prompt, user_prompt=retry_prompt, max_tokens=max_tokens
                     )
                     tokens_input += tokens_in2
                     tokens_output += tokens_out2
@@ -295,7 +355,9 @@ Genera contenido profesional y atractivo basado en la información del negocio."
             logger.error(f"Error llamando a Claude API: {e}")
             return (*self._mock_generate_content(template, onboarding_responses), "", "")
 
-    def _call_generation(self, model: str, system_prompt: str, user_prompt: str) -> tuple[dict, dict, int, int, str]:
+    def _call_generation(
+        self, model: str, system_prompt: str, user_prompt: str, max_tokens: int = 4096
+    ) -> tuple[dict, dict, int, int, str]:
         """
         Hace una llamada a Claude y parsea la respuesta JSON.
 
@@ -305,7 +367,7 @@ Genera contenido profesional y atractivo basado en la información del negocio."
         """
         response = self.client.messages.create(
             model=model,
-            max_tokens=4096,
+            max_tokens=max_tokens,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
         )
@@ -394,9 +456,13 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
         messages.append({"role": "user", "content": f"{context_prefix}{message}"})
 
         try:
-            self._last_model_used = settings.ANTHROPIC_MODEL
+            task_config = self.get_model_for_task("chat_edit")
+            self._last_model_used = task_config["model"]
             response = self.client.messages.create(
-                model=settings.ANTHROPIC_MODEL, max_tokens=2048, system=system_prompt, messages=messages
+                model=task_config["model"],
+                max_tokens=min(task_config["max_tokens"], 2048),
+                system=system_prompt,
+                messages=messages,
             )
 
             response_text = response.content[0].text
@@ -597,10 +663,11 @@ Tu trabajo es generar un título y descripción optimizados para Google.
 Responde SOLO con el JSON, sin explicaciones."""
 
         try:
-            self._last_model_used = settings.ANTHROPIC_MODEL
+            task_config = self.get_model_for_task("seo")
+            self._last_model_used = task_config["model"]
             response = self.client.messages.create(
-                model=settings.ANTHROPIC_MODEL,
-                max_tokens=512,
+                model=task_config["model"],
+                max_tokens=min(task_config["max_tokens"], 512),
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
             )

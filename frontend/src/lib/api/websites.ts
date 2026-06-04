@@ -143,6 +143,12 @@ export interface QuickStartRequest {
   unique_selling_point?: string;
   business_email?: string;
   business_phone?: string;
+  /**
+   * Industry key confirmed by the user via classifyIndustry. When present,
+   * the backend resolves the template from this key (overriding the tenant's
+   * stored industry). Always resolves to a template — never a 400.
+   */
+  industry_key?: string;
 }
 
 export interface QuickStartResponse {
@@ -184,6 +190,74 @@ export async function quickStartGenerate(
   const { data } = await apiClient.post<AsyncGenerationAccepted>(
     '/websites/onboarding/quick-start/',
     payload
+  );
+  return data;
+}
+
+// ===================================
+// INDUSTRY CLASSIFICATION (Pipe)
+// ===================================
+
+export interface ClassifyIndustryRequest {
+  business_description: string;
+  selected_modules?: string[];
+}
+
+export interface ClassifyIndustryResponse {
+  /** ID del registro IndustryClassification para confirmar/corregir luego. */
+  classification_id: number;
+  industry_key: string;
+  industry_label: string;
+  /** Confidence 0..1 returned by the classifier (0 in the mock/no-key path). */
+  confidence: number;
+  /** True when the classifier proposed a brand-new industry (created on the fly). */
+  is_new: boolean;
+}
+
+export interface ConfirmClassificationResponse {
+  id: number;
+  user_action: 'confirmed' | 'corrected';
+  final_key: string;
+  final_label: string;
+}
+
+/**
+ * Clasifica la industria del negocio a partir de su descripcion y modulos.
+ * Nunca falla por industria no soportada: si no hay match, crea/propone una.
+ * POST /api/websites/classify-industry/
+ */
+export async function classifyIndustry(
+  businessDescription: string,
+  selectedModules?: string[]
+): Promise<ClassifyIndustryResponse> {
+  const { data } = await apiClient.post<ClassifyIndustryResponse>(
+    '/websites/classify-industry/',
+    {
+      business_description: businessDescription,
+      selected_modules: selectedModules ?? [],
+    }
+  );
+  return data;
+}
+
+/**
+ * Confirma o corrige la clasificacion de industria propuesta por Pipe.
+ * Alimenta el dataset propio de NERBIS para reducir dependencia del modelo.
+ * POST /api/websites/classify-industry/<id>/confirm/
+ */
+export async function confirmClassification(
+  classificationId: number,
+  action: 'confirmed' | 'corrected',
+  finalKey?: string,
+  correctionText?: string
+): Promise<ConfirmClassificationResponse> {
+  const { data } = await apiClient.post<ConfirmClassificationResponse>(
+    `/websites/classify-industry/${classificationId}/confirm/`,
+    {
+      action,
+      ...(finalKey ? { final_key: finalKey } : {}),
+      ...(correctionText ? { correction_text: correctionText } : {}),
+    }
   );
   return data;
 }

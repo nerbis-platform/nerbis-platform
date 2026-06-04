@@ -15,6 +15,108 @@ from django.db import models
 from django.utils.text import slugify
 
 
+class Industry(models.Model):
+    """
+    Catálogo global de industrias / tipos de negocio.
+
+    Modelo GLOBAL (no tenant-aware) — es la única fuente de verdad para
+    la industria que se usa en la resolución de templates y variantes.
+    Reemplaza las listas hardcodeadas (Tenant.INDUSTRY_CHOICES,
+    WebsiteTemplate.INDUSTRY_CHOICES, SectionVariant.industries).
+
+    Las industrias pueden ser creadas por un superadmin (status=reviewed)
+    o propuestas por la IA durante el onboarding (status=proposed_by_model).
+    """
+
+    STATUS_CHOICES = [
+        ("proposed_by_model", "Propuesta por IA"),
+        ("reviewed", "Revisada"),
+    ]
+
+    key = models.SlugField(
+        "Clave",
+        max_length=50,
+        unique=True,
+        help_text="Identificador único de la industria (ej: 'beauty', 'restaurant')",
+    )
+    label = models.CharField("Etiqueta", max_length=120, help_text="Nombre visible de la industria")
+    description = models.TextField("Descripción", blank=True, help_text="Descripción corta de la industria")
+    icon = models.CharField("Icono", max_length=50, blank=True, help_text="Nombre del icono Lucide")
+    default_template = models.ForeignKey(
+        "WebsiteTemplate",
+        on_delete=models.SET_NULL,
+        related_name="default_for_industries",
+        null=True,
+        blank=True,
+        verbose_name="Template por defecto",
+        help_text="Template que se usa por defecto para esta industria",
+    )
+    is_active = models.BooleanField("Activa", default=True)
+    sort_order = models.PositiveIntegerField("Orden", default=0)
+    created_by_ai = models.BooleanField(
+        "Creada por IA",
+        default=False,
+        help_text="True si la industria fue propuesta por la IA durante el onboarding",
+    )
+    status = models.CharField(
+        "Estado",
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="reviewed",
+        help_text="Las propuestas por IA quedan en revisión hasta que un admin las promueve",
+    )
+    created_at = models.DateTimeField("Creado", auto_now_add=True)
+    updated_at = models.DateTimeField("Actualizado", auto_now=True)
+
+    class Meta:
+        verbose_name = "Industria"
+        verbose_name_plural = "Industrias"
+        ordering = ["sort_order", "label"]
+
+    def __str__(self):
+        return self.label
+
+
+class AIModelConfig(models.Model):
+    """
+    Configuración del modelo de IA por tarea.
+
+    Modelo GLOBAL (no tenant-aware). Permite al superadmin elegir qué
+    modelo y parámetros usar en cada tarea de IA, en lugar de leer
+    directamente de settings.ANTHROPIC_MODEL*. AIService cae a los
+    defaults de settings si no hay fila para una tarea.
+    """
+
+    TASK_CHOICES = [
+        ("classify_industry", "Clasificar industria"),
+        ("web_content", "Generar contenido web"),
+        ("chat_edit", "Editar por chat"),
+        ("seo", "Optimización SEO"),
+    ]
+
+    task = models.CharField(
+        "Tarea",
+        max_length=30,
+        choices=TASK_CHOICES,
+        unique=True,
+        help_text="Tarea de IA a la que aplica esta configuración",
+    )
+    model = models.CharField("Modelo", max_length=80, help_text="ID del modelo de Anthropic")
+    max_tokens = models.PositiveIntegerField("Tokens máximos", default=4096)
+    temperature = models.DecimalField("Temperatura", max_digits=3, decimal_places=2, default=Decimal("1.0"))
+    is_active = models.BooleanField("Activo", default=True)
+    created_at = models.DateTimeField("Creado", auto_now_add=True)
+    updated_at = models.DateTimeField("Actualizado", auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración de modelo IA"
+        verbose_name_plural = "Configuraciones de modelo IA"
+        ordering = ["task"]
+
+    def __str__(self):
+        return f"{self.get_task_display()} → {self.model}"
+
+
 class WebsiteTemplate(models.Model):
     """
     Plantilla base de sitio web por industria.
@@ -47,7 +149,14 @@ class WebsiteTemplate(models.Model):
         "Nombre", max_length=100, help_text="Nombre visible del template (ej: 'Restaurante Moderno')"
     )
     slug = models.SlugField("Slug", max_length=100, unique=True, help_text="Identificador único del template")
-    industry = models.CharField("Industria", max_length=50, choices=INDUSTRY_CHOICES, default="generic")
+    industry = models.ForeignKey(
+        "Industry",
+        on_delete=models.PROTECT,
+        related_name="templates",
+        null=True,
+        verbose_name="Industria",
+        help_text="Industria a la que pertenece el template",
+    )
     description = models.TextField("Descripción", help_text="Descripción del template para el usuario")
 
     # Previsualización
@@ -115,10 +224,11 @@ class WebsiteTemplate(models.Model):
     class Meta:
         verbose_name = "Template de Sitio Web"
         verbose_name_plural = "Templates de Sitio Web"
-        ordering = ["sort_order", "industry", "name"]
+        ordering = ["sort_order", "industry__sort_order", "name"]
 
     def __str__(self):
-        return f"{self.name} ({self.get_industry_display()})"
+        industry_label = self.industry.label if self.industry_id else "Sin industria"
+        return f"{self.name} ({industry_label})"
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -432,10 +542,12 @@ class AIGenerationLog(models.Model):
 
     GENERATION_TYPES = [
         ("initial", "Generación Inicial"),
+        ("quick_start", "Inicio Rápido"),
         ("regenerate_section", "Regenerar Sección"),
         ("edit_content", "Editar Contenido"),
         ("generate_images", "Generar Imágenes"),
         ("seo_optimization", "Optimización SEO"),
+        ("classify_industry", "Clasificar Industria"),
     ]
 
     tenant = models.ForeignKey("core.Tenant", on_delete=models.CASCADE, related_name="ai_generation_logs")
@@ -498,6 +610,87 @@ class AIGenerationLog(models.Model):
         return (
             f"{self.get_generation_type_display()} - {self.tenant.name} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
         )
+
+    @property
+    def total_tokens(self):
+        return self.tokens_input + self.tokens_output
+
+
+class IndustryClassification(models.Model):
+    """
+    Dataset etiquetado de clasificaciones de industria.
+
+    Modelo GLOBAL (no tenant-aware) — registra cada decisión del modelo
+    (Haiku) más la confirmación/corrección del usuario durante el onboarding.
+    El objetivo es construir un dataset propio ``(descripción, módulos) ->
+    industria confirmada`` para:
+      1. Resolver clasificaciones repetidas desde caché (sin gastar tokens).
+      2. A futuro, entrenar un clasificador propio de NERBIS.
+
+    ``final_key`` es el ground truth (lo que el usuario aceptó). Las filas con
+    ``user_action='confirmed'`` y confianza alta alimentan la caché.
+    """
+
+    SOURCE_CHOICES = [
+        ("haiku", "Haiku (IA)"),
+        ("cache", "Caché (dataset propio)"),
+        ("mock", "Mock (sin IA)"),
+    ]
+
+    USER_ACTION_CHOICES = [
+        ("pending", "Pendiente"),
+        ("confirmed", "Confirmada"),
+        ("corrected", "Corregida"),
+    ]
+
+    tenant = models.ForeignKey("core.Tenant", on_delete=models.CASCADE, related_name="industry_classifications")
+
+    # ── Input (features) ────────────────────────────────────────────
+    business_description = models.TextField("Descripción del negocio")
+    selected_modules = models.JSONField("Módulos seleccionados", default=list, blank=True)
+    description_normalized = models.CharField(
+        "Descripción normalizada",
+        max_length=255,
+        db_index=True,
+        blank=True,
+        help_text="Slug del texto para deduplicar / lookup de caché",
+    )
+
+    # ── Predicción del modelo ───────────────────────────────────────
+    predicted_key = models.CharField("Industria predicha (key)", max_length=50)
+    predicted_label = models.CharField("Industria predicha (label)", max_length=120)
+    predicted_confidence = models.FloatField("Confianza", default=0.0)
+    is_new = models.BooleanField(
+        "Industria nueva", default=False, help_text="True si la IA propuso una industria nueva"
+    )
+    source = models.CharField("Origen de la predicción", max_length=10, choices=SOURCE_CHOICES, default="haiku")
+
+    # ── Feedback humano (ground truth) ──────────────────────────────
+    user_action = models.CharField("Acción del usuario", max_length=10, choices=USER_ACTION_CHOICES, default="pending")
+    final_key = models.CharField("Industria final (key)", max_length=50, blank=True)
+    final_label = models.CharField("Industria final (label)", max_length=120, blank=True)
+    correction_text = models.TextField(
+        "Texto de corrección", blank=True, help_text="Lo que escribió el usuario al corregir"
+    )
+
+    # ── Costo asociado ──────────────────────────────────────────────
+    model_used = models.CharField("Modelo usado", max_length=50, blank=True)
+    tokens_input = models.PositiveIntegerField("Tokens de entrada", default=0)
+    tokens_output = models.PositiveIntegerField("Tokens de salida", default=0)
+
+    created_at = models.DateTimeField("Creado", auto_now_add=True)
+    confirmed_at = models.DateTimeField("Confirmado", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Clasificación de Industria"
+        verbose_name_plural = "Clasificaciones de Industria"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["description_normalized", "user_action"]),
+        ]
+
+    def __str__(self):
+        return f"{self.business_description[:40]} -> {self.final_key or self.predicted_key} ({self.user_action})"
 
     @property
     def total_tokens(self):
@@ -673,10 +866,13 @@ class SectionVariant(models.Model):
     css_class_hint = models.CharField("Clase CSS sugerida", max_length=100, blank=True)
     preview_url = models.URLField("URL de preview", blank=True)
     tags = models.JSONField("Tags", default=list, blank=True)
-    industries = models.JSONField("Industrias", default=list, blank=True)
-    mood = models.CharField(
-        "Mood", max_length=20, choices=MOOD_CHOICES, default="professional"
+    industries = models.ManyToManyField(
+        "Industry",
+        related_name="section_variants",
+        blank=True,
+        verbose_name="Industrias",
     )
+    mood = models.CharField("Mood", max_length=20, choices=MOOD_CHOICES, default="professional")
     is_default = models.BooleanField("Por defecto", default=False)
     is_active = models.BooleanField("Activa", default=True)
     sort_order = models.PositiveIntegerField("Orden", default=0)
@@ -714,12 +910,8 @@ class PromptBlock(models.Model):
     key = models.SlugField("Clave", max_length=80, unique=True)
     label = models.CharField("Etiqueta", max_length=100)
     content = models.TextField("Contenido")
-    category = models.CharField(
-        "Categoría", max_length=20, choices=CATEGORY_CHOICES, default="system"
-    )
-    scope = models.CharField(
-        "Alcance", max_length=20, choices=SCOPE_CHOICES, default="global"
-    )
+    category = models.CharField("Categoría", max_length=20, choices=CATEGORY_CHOICES, default="system")
+    scope = models.CharField("Alcance", max_length=20, choices=SCOPE_CHOICES, default="global")
     template = models.ForeignKey(
         "WebsiteTemplate",
         on_delete=models.CASCADE,
@@ -727,11 +919,13 @@ class PromptBlock(models.Model):
         null=True,
         blank=True,
     )
-    industry = models.CharField(
-        "Industria",
-        max_length=50,
-        choices=WebsiteTemplate.INDUSTRY_CHOICES,
+    industry = models.ForeignKey(
+        "Industry",
+        on_delete=models.CASCADE,
+        related_name="prompt_blocks",
+        null=True,
         blank=True,
+        verbose_name="Industria",
     )
     sort_order = models.PositiveIntegerField("Orden", default=0)
     is_active = models.BooleanField("Activo", default=True)

@@ -9,7 +9,7 @@ from django.urls import reverse
 from rest_framework import status
 
 from core.test_base import TenantAwareTestCase
-from websites.models import WebsiteConfig, WebsiteTemplate
+from websites.models import Industry, WebsiteConfig, WebsiteTemplate
 
 
 class TeamInvitationsGuardBaseTestCase(TenantAwareTestCase):
@@ -18,10 +18,14 @@ class TeamInvitationsGuardBaseTestCase(TenantAwareTestCase):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
+        generic, _ = Industry.objects.get_or_create(
+            key="generic",
+            defaults={"label": "Negocio General", "is_active": True, "status": "reviewed"},
+        )
         cls.template = WebsiteTemplate.objects.create(
             name="Template Test",
             slug="template-test",
-            industry="generic",
+            industry=generic,
             description="Template para tests",
         )
 

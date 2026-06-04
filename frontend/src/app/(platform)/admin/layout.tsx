@@ -8,6 +8,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
+  Briefcase,
   Building2,
   ChevronDown,
   ChevronRight,
@@ -17,6 +18,7 @@ import {
   LogOut,
   Package,
   Settings,
+  Sparkles,
   Users,
 } from 'lucide-react';
 import { PipeAdmin } from '@/components/pipe-avatar';
@@ -35,6 +37,8 @@ const NAV_MAIN = [
 
 const NAV_CONFIG = [
   { href: '/admin/settings/modules', label: 'Modulos', icon: Package },
+  { href: '/admin/settings/industries', label: 'Industrias', icon: Briefcase },
+  { href: '/admin/settings/ai-usage', label: 'Uso de IA', icon: Sparkles },
   { href: '/admin/settings/onboarding', label: 'Onboarding', icon: Settings },
 ];
 

@@ -71,7 +71,7 @@ def validate_generated_content(content_data: dict, template) -> list[str]:
             )
 
     # 2. Frases prohibidas según industria
-    industry = ((template.industry if template else "") or "").lower()
+    industry = ((template.industry.key if template and template.industry_id else "") or "").lower()
     forbidden = FORBIDDEN_PHRASES_BY_INDUSTRY.get(industry, [])
     if forbidden or FORBIDDEN_CTA_PHRASES:
         content_text = json.dumps(content_data, ensure_ascii=False).lower()
