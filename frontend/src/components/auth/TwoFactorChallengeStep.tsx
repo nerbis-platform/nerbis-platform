@@ -22,37 +22,14 @@ import type { AuthResponse } from '@/types';
 import { OtpInput } from './OtpInput';
 import { SubmitButton } from './SubmitButton';
 import { LABEL_CLASS, LABEL_STYLE } from './constants';
-
-interface TwoFactorChallengeStepProps {
-  challengeToken: string;
-  methods?: string[];
-  redirectTo?: string | null;
-  onBack: () => void;
-}
-
-type Mode = 'passkey' | 'totp' | 'backup';
-
-const TOTP_LENGTH = 6;
-const BACKUP_PATTERN = /^[A-Za-z0-9]{4}-?[A-Za-z0-9]{4}$/;
-
-// ─── Helpers de codificación base64url <-> ArrayBuffer ──────────
-
-function base64UrlToBuffer(b64url: string): ArrayBuffer {
-  const pad = '='.repeat((4 - (b64url.length % 4)) % 4);
-  const b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(b64);
-  const buf = new ArrayBuffer(raw.length);
-  const view = new Uint8Array(buf);
-  for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
-  return buf;
-}
-
-function bufferToBase64Url(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
+import {
+  type TwoFactorChallengeStepProps,
+  type Mode,
+  TOTP_LENGTH,
+  BACKUP_PATTERN,
+  base64UrlToBuffer,
+  bufferToBase64Url,
+} from './two-factor-challenge-helpers';
 
 export function TwoFactorChallengeStep({
   challengeToken,
