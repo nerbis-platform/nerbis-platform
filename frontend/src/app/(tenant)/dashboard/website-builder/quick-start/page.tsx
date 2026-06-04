@@ -815,7 +815,7 @@ export default function QuickStartPage() {
       return (
         <div
           className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-          style={{ backgroundColor: '#fff' }}
+          style={{ background: `linear-gradient(135deg, ${TEAL}14 0%, ${WARM_GRAY_50} 45%, #3B82F614 100%)` }}
         >
           {header}
 
@@ -845,9 +845,9 @@ export default function QuickStartPage() {
               ) : (
                 <>
                   <div
-                    className="relative mb-14 animate-in fade-in duration-500 rounded-2xl px-5 py-4 text-center"
+                    className="relative mb-14 animate-in fade-in duration-500 rounded-2xl px-5 py-4 text-center shadow-sm"
                     style={{
-                      backgroundColor: '#f8f9fa',
+                      backgroundColor: '#fff',
                       border: `1px solid ${WARM_GRAY_100}`,
                       maxWidth: '22rem',
                     }}
@@ -856,7 +856,7 @@ export default function QuickStartPage() {
                     <div
                       className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
                       style={{
-                        backgroundColor: '#f8f9fa',
+                        backgroundColor: '#fff',
                         borderLeft: `1px solid ${WARM_GRAY_100}`,
                         borderTop: `1px solid ${WARM_GRAY_100}`,
                       }}
@@ -977,13 +977,13 @@ export default function QuickStartPage() {
     return (
       <div
         className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ backgroundColor: '#fff' }}
+        style={{ background: `linear-gradient(135deg, ${TEAL}14 0%, ${WARM_GRAY_50} 45%, #3B82F614 100%)` }}
       >
         {header}
 
         {/* Scrollable message area */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 pb-6 space-y-6">
             {/* Chat history */}
             {chatHistory.map((msg, i) => (
               <div key={`msg-${i}`}>
@@ -992,42 +992,44 @@ export default function QuickStartPage() {
                   <div className="flex justify-end">
                     <div
                       className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
-                      style={{ backgroundColor: WARM_GRAY_100, color: WARM_GRAY_800 }}
+                      style={{ backgroundColor: TEAL, color: '#fff' }}
                     >
                       {msg.content}
                     </div>
                   </div>
                 ) : (
-                  /* Pipe text — left aligned, no bubble, with small avatar */
+                  /* Pipe bubble — left aligned, no avatar (Pipe only lives on the
+                     current message); aligned with the active message's bubble. */
                   <div className="flex gap-3 items-start">
-                    <div className="flex-shrink-0 mt-0.5">
-                      <PipeAvatar mood="idle" size={28} />
-                    </div>
-                    <p
-                      className="text-[0.88rem] leading-relaxed pt-0.5"
-                      style={{ color: WARM_GRAY_800 }}
+                    <div className="w-10 flex-shrink-0" aria-hidden="true" />
+                    <div
+                      className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-[0.88rem] leading-relaxed max-w-[75%]"
+                      style={{ backgroundColor: NAVY, color: '#fff' }}
                     >
                       {msg.content}
-                    </p>
+                    </div>
                   </div>
                 )}
               </div>
             ))}
 
-            {/* Current Pipe message */}
+            {/* Current Pipe message — Pipe stays bigger on the active turn */}
             <div className="flex gap-3 items-start">
-              <div className="flex-shrink-0 mt-0.5">
-                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={28} />
+              <div className="flex-shrink-0">
+                <PipeAvatar mood={isTyping ? 'thinking' : activeMood} size={40} />
               </div>
               <div className="flex-1">
                 {isTyping ? (
-                  <div className="flex gap-1.5 py-2">
+                  <div
+                    className="inline-flex gap-1.5 px-4 py-3 rounded-2xl rounded-tl-sm"
+                    style={{ backgroundColor: NAVY }}
+                  >
                     {[0, 1, 2].map((i) => (
                       <div
                         key={i}
                         className="w-1.5 h-1.5 rounded-full animate-bounce"
                         style={{
-                          backgroundColor: WARM_GRAY_400,
+                          backgroundColor: 'rgba(255,255,255,0.7)',
                           animationDelay: `${i * 150}ms`,
                           animationDuration: '0.8s',
                         }}
@@ -1035,12 +1037,12 @@ export default function QuickStartPage() {
                     ))}
                   </div>
                 ) : (
-                  <p
-                    className="text-[0.88rem] leading-relaxed pt-0.5 animate-in fade-in duration-300"
-                    style={{ color: WARM_GRAY_800 }}
+                  <div
+                    className="inline-block px-4 py-2.5 rounded-2xl rounded-tl-sm text-[0.9rem] font-medium leading-relaxed max-w-[85%] animate-in fade-in duration-300"
+                    style={{ backgroundColor: NAVY, color: '#fff' }}
                   >
                     {step.message}
-                  </p>
+                  </div>
                 )}
               </div>
             </div>
@@ -1053,7 +1055,7 @@ export default function QuickStartPage() {
                   <div className="flex justify-end">
                     <div
                       className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
-                      style={{ backgroundColor: WARM_GRAY_100, color: WARM_GRAY_800 }}
+                      style={{ backgroundColor: TEAL, color: '#fff' }}
                     >
                       {answers[step.id]}
                     </div>
@@ -1169,13 +1171,15 @@ export default function QuickStartPage() {
           </div>
         </div>
 
-        {/* Input area — fixed at bottom (hidden while confirming the industry inline) */}
-        {!isTyping && !inlineConfirm && (
+        {/* Input area — stays at the bottom; only blocked (not hidden) while Pipe
+            is "typing" the next question, and hidden during inline industry confirm. */}
+        {!inlineConfirm && (
           <div
-            className="border-t animate-in fade-in slide-in-from-bottom-2 duration-300"
+            className={`border-t animate-in fade-in slide-in-from-bottom-2 duration-300 transition-opacity ${isTyping ? 'pointer-events-none opacity-50' : ''}`}
+            aria-disabled={isTyping}
             style={{ borderColor: WARM_GRAY_100 }}
           >
-            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4">
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-5 pb-7">
               {/* Back button */}
               {currentStepIdx > 0 && (
                 <button
@@ -1235,7 +1239,13 @@ export default function QuickStartPage() {
                     {step.maxLength && (
                       <p
                         className="text-[0.7rem] tabular-nums"
-                        style={{ color: currentInput.length > step.maxLength * 0.9 ? '#B91C1C' : WARM_GRAY_600 }}
+                        style={{
+                          color:
+                            currentInput.length < (step.minLength || 0) ||
+                            currentInput.length > step.maxLength * 0.9
+                              ? '#B91C1C'
+                              : WARM_GRAY_600,
+                        }}
                       >
                         {currentInput.length}/{step.maxLength}
                       </p>
