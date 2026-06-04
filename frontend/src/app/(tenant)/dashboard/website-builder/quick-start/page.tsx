@@ -10,7 +10,6 @@ import {
   ArrowUpRight,
   Check,
   Send,
-  Sparkles,
   LogOut,
   UserCircle,
 } from 'lucide-react';
@@ -38,10 +37,10 @@ import {
   NAVY, TEAL, WARM_GRAY_50, WARM_GRAY_100, WARM_GRAY_200,
   WARM_GRAY_400, WARM_GRAY_500, WARM_GRAY_600, WARM_GRAY_800,
   AGENT_NAME, getLucideIcon,
-  FALLBACK_MODULES, FALLBACK_PAGES, FALLBACK_STYLE_OPTIONS,
+  FALLBACK_MODULES, FALLBACK_PAGES,
   FALLBACK_PALETTES, FALLBACK_TONE_OPTIONS,
   GENERATION_STEPS, SECTION_LABELS,
-  type StyleOption, type PaletteOption, type ToneOption,
+  type PaletteOption, type ToneOption,
   type ConversationStep, type PageState,
 } from './_helpers';
 
@@ -84,7 +83,6 @@ export default function QuickStartPage() {
   });
 
   const modules = apiModules ?? FALLBACK_MODULES;
-  const pages = apiPages ?? FALLBACK_PAGES;
 
   // ─── Conversation state ───────────────────────────────────
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
@@ -101,7 +99,6 @@ export default function QuickStartPage() {
     const defaults = (apiPages ?? FALLBACK_PAGES).filter((p) => p.is_default).map((p) => p.key);
     return new Set(defaults);
   });
-  const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedTone, setSelectedTone] = useState('');
   const [primaryColor, setPrimaryColor] = useState('');
   const [secondaryColor, setSecondaryColor] = useState('');
@@ -154,16 +151,25 @@ export default function QuickStartPage() {
     return deps;
   }, [modules, selectedModules]);
 
-  // Sync selectedPages when apiPages loads
+  // Derive selectedPages automatically — the pages question was removed from the
+  // chat. A page is included if it is mandatory, a sensible default, or its
+  // module is active (auto_include_modules). The user refines pages later in the
+  // editor (step 2).
   useEffect(() => {
     if (!apiPages) return;
-    const defaults = apiPages.filter((p) => p.is_default).map((p) => p.key);
+    const derived = apiPages
+      .filter((p) =>
+        p.is_mandatory ||
+        p.is_default ||
+        p.auto_include_modules.some((m) => selectedModules.has(m as keyof ModuleSelection))
+      )
+      .map((p) => p.key);
     setSelectedPages((prev) => {
-      const key = defaults.sort().join(',');
+      const key = derived.sort().join(',');
       const prevKey = Array.from(prev).sort().join(',');
-      return key !== prevKey ? new Set(defaults) : prev;
+      return key !== prevKey ? new Set(derived) : prev;
     });
-  }, [apiPages]);
+  }, [apiPages, selectedModules]);
 
   // ─── Build dynamic steps based on selected modules ──────
   const steps = useMemo<ConversationStep[]>(() => {
@@ -186,11 +192,10 @@ export default function QuickStartPage() {
         const shouldShow = q.required_modules.length === 0 ||
           q.required_modules.some((mk) => selectedModules.has(mk as keyof ModuleSelection));
         if (shouldShow) {
-          const stepType: ConversationStep['type'] = q.input_type === 'multiselect' ? 'pages' : q.input_type as ConversationStep['type'];
           const step: ConversationStep = {
             id: q.question_key,
             message: q.message,
-            type: stepType,
+            type: q.input_type as ConversationStep['type'],
             placeholder: q.placeholder || undefined,
             hint: q.hint || undefined,
             minLength: q.min_length || undefined,
@@ -198,9 +203,7 @@ export default function QuickStartPage() {
             rows: q.input_type === 'textarea' ? 3 : undefined,
           };
           // Pass options for special types
-          if (q.input_type === 'style_select' && q.options?.length) {
-            step.options = q.options as unknown as StyleOption[];
-          } else if (q.input_type === 'color_picker' && q.options?.length) {
+          if (q.input_type === 'color_picker' && q.options?.length) {
             step.options = q.options as unknown as PaletteOption[];
           } else if (q.input_type === 'tone_select' && q.options?.length) {
             step.options = q.options as unknown as ToneOption[];
@@ -222,7 +225,6 @@ export default function QuickStartPage() {
       if (selectedModules.has('has_bookings')) {
         result.push({ id: 'bookings', message: '¿Qué se puede reservar? Cuéntame duración, horarios y si es presencial o virtual.', type: 'textarea', placeholder: 'Ej:\nConsulta inicial — 30 min — virtual\nSesión de coaching — 1 hora — presencial', hint: 'Detalla cada tipo de cita.', minLength: 5, maxLength: 2000, rows: 4 });
       }
-      result.push({ id: 'pages', message: '¿Qué páginas quieres en tu sitio?', type: 'pages', hint: 'Puedes agregar más después.' });
     }
     return result;
   }, [apiQuestions, selectedModules]);
@@ -271,7 +273,6 @@ export default function QuickStartPage() {
           explicitModulesRef.current = new Set(state.explicitModules || []);
         }
         if (state.selectedPages?.length) setSelectedPages(new Set(state.selectedPages));
-        if (state.selectedStyle) setSelectedStyle(state.selectedStyle);
         if (state.selectedTone) setSelectedTone(state.selectedTone);
         if (state.primaryColor) setPrimaryColor(state.primaryColor);
         if (state.secondaryColor) setSecondaryColor(state.secondaryColor);
@@ -291,7 +292,6 @@ export default function QuickStartPage() {
         selectedModules: Array.from(selectedModules),
         explicitModules: Array.from(explicitModulesRef.current),
         selectedPages: Array.from(selectedPages),
-        selectedStyle,
         selectedTone,
         primaryColor,
         secondaryColor,
@@ -299,7 +299,7 @@ export default function QuickStartPage() {
         confirmedIndustryLabel,
       }));
     } catch { /* storage full — silently ignore */ }
-  }, [currentStepIdx, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, confirmedIndustryLabel, pageState]);
+  }, [currentStepIdx, answers, selectedModules, selectedPages, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, confirmedIndustryLabel, pageState]);
 
   // ─── Simulate typing delay for each new message ──────────
   useEffect(() => {
@@ -583,43 +583,6 @@ export default function QuickStartPage() {
       return;
     }
 
-    // Handle pages step
-    if (step.type === 'pages') {
-      if (selectedPages.size === 0) return;
-
-      setActiveMood('surprised');
-      setTimeout(() => setActiveMood('listening'), 600);
-
-      const labels = pages
-        .filter((p) => selectedPages.has(p.key))
-        .map((p) => p.label);
-      const newAnswers = { ...answers, [step.id]: labels.join(', ') };
-      setAnswers(newAnswers);
-
-      // Industry was already classified + confirmed after the description step
-      // (Option 1). Here we either advance or generate using the confirmed key.
-      if (currentStepIdx < steps.length - 1) {
-        setCurrentStepIdx((prev) => prev + 1);
-      } else {
-        setActiveMood('happy');
-        startGeneration(newAnswers, selectedPages, confirmedIndustryKey);
-      }
-      return;
-    }
-
-    // Handle style_select step
-    if (step.type === 'style_select') {
-      if (!selectedStyle) return;
-      setActiveMood('happy');
-      setTimeout(() => setActiveMood('listening'), 900);
-      const styleOpts = (step.options || FALLBACK_STYLE_OPTIONS) as StyleOption[];
-      const label = styleOpts.find((s) => s.key === selectedStyle)?.label || selectedStyle;
-      const newAnswers = { ...answers, [step.id]: label };
-      setAnswers(newAnswers);
-      setCurrentStepIdx((prev) => prev + 1);
-      return;
-    }
-
     // Handle color_picker step
     if (step.type === 'color_picker') {
       setActiveMood('happy');
@@ -676,7 +639,7 @@ export default function QuickStartPage() {
       setActiveMood('happy');
       startGeneration(newAnswers, selectedPages, confirmedIndustryKey);
     }
-  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, steps, modules, pages, runClassification, startGeneration, setTenant]);
+  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, steps, modules, runClassification, startGeneration, setTenant]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -696,7 +659,6 @@ export default function QuickStartPage() {
     setGenStep(0);
     setProgress(0);
     setResult(null);
-    setSelectedStyle('');
     setSelectedTone('');
     setPrimaryColor('');
     setSecondaryColor('');
@@ -777,15 +739,11 @@ export default function QuickStartPage() {
     const minLen = step?.minLength || 0;
     const canSend = step?.type === 'modules'
       ? selectedModules.size > 0
-      : step?.type === 'pages'
-        ? selectedPages.size > 0
-        : step?.type === 'style_select'
-          ? selectedStyle !== ''
-          : step?.type === 'tone_select'
-            ? selectedTone !== ''
-            : step?.type === 'color_picker'
-              ? true
-              : currentInput.trim().length >= minLen;
+      : step?.type === 'tone_select'
+        ? selectedTone !== ''
+        : step?.type === 'color_picker'
+          ? true
+          : currentInput.trim().length >= minLen;
 
     const hasHistory = currentStepIdx > 0;
 
@@ -1317,55 +1275,6 @@ export default function QuickStartPage() {
                 </>
               )}
 
-              {/* Style selector */}
-              {step.type === 'style_select' && (() => {
-                const styleOpts = (step.options || FALLBACK_STYLE_OPTIONS) as StyleOption[];
-                return (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {styleOpts.map((opt) => {
-                        const isActive = selectedStyle === opt.key;
-                        const OptIcon = getLucideIcon(opt.icon);
-                        return (
-                          <button
-                            key={opt.key}
-                            type="button"
-                            onClick={() => setSelectedStyle(opt.key)}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
-                            style={{
-                              backgroundColor: isActive ? `${opt.color}0A` : '#fff',
-                              borderColor: isActive ? opt.color : WARM_GRAY_200,
-                            }}
-                          >
-                            <div
-                              className="flex items-center justify-center w-9 h-9 rounded-lg"
-                              style={{ backgroundColor: `${opt.color}12` }}
-                            >
-                              <OptIcon className="w-4 h-4" style={{ color: opt.color }} />
-                            </div>
-                            <div className="text-left">
-                              <span className="text-[0.82rem] font-medium block" style={{ color: isActive ? opt.color : WARM_GRAY_800 }}>{opt.label}</span>
-                              <span className="text-[0.68rem] block" style={{ color: WARM_GRAY_400 }}>{opt.description}</span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleSend}
-                        disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
-                        style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                      >
-                        Continuar <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-
               {/* Color picker */}
               {step.type === 'color_picker' && (() => {
                 const palettes = (step.options || FALLBACK_PALETTES) as PaletteOption[];
@@ -1451,54 +1360,6 @@ export default function QuickStartPage() {
                   </div>
                 );
               })()}
-
-              {/* Pages selection */}
-              {step.type === 'pages' && (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {pages.map((page) => {
-                      const isSelected = selectedPages.has(page.key);
-                      const PageIcon = getLucideIcon(page.icon);
-                      return (
-                        <button
-                          key={page.key}
-                          type="button"
-                          onClick={() => {
-                            if (page.is_mandatory) return;
-                            const next = new Set(selectedPages);
-                            if (isSelected) next.delete(page.key);
-                            else next.add(page.key);
-                            setSelectedPages(next);
-                          }}
-                          disabled={page.is_mandatory}
-                          className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.82rem] font-medium border transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
-                          style={{
-                            backgroundColor: isSelected ? `${TEAL}0A` : '#fff',
-                            borderColor: isSelected ? TEAL : WARM_GRAY_200,
-                            color: isSelected ? TEAL : WARM_GRAY_600,
-                          }}
-                        >
-                          <PageIcon className="w-3.5 h-3.5" />
-                          {isSelected && <Check className="w-3.5 h-3.5" />}
-                          {page.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[0.72rem]" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
-                    <button
-                      type="button"
-                      onClick={handleSend}
-                      disabled={!canSend}
-                      className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                      style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
-                    >
-                      Generar mi sitio <Sparkles className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Modules selection (in conversation mode) */}
               {step.type === 'modules' && (
