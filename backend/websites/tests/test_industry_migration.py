@@ -53,9 +53,14 @@ class TestIndustrySeed:
             assert Industry.objects.filter(key=key).exists(), key
 
     def test_template_only_keys_present(self):
-        """Las keys que solo existían en WebsiteTemplate también se sembraron."""
-        for key in ["retail", "health", "fitness", "professional", "generic"]:
+        """Las keys template-only se sembraron y la migración 0023 las consolidó
+        en su twin canónico (retail→store, health→clinic, fitness→gym,
+        professional→services)."""
+        for key in ["store", "clinic", "gym", "services", "generic"]:
             assert Industry.objects.filter(key=key).exists(), key
+        # Los duplicados fusionados por 0023 ya no existen en el catálogo.
+        for old in ["retail", "health", "fitness", "professional"]:
+            assert not Industry.objects.filter(key=old).exists(), old
 
 
 @pytest.mark.django_db
