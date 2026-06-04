@@ -12,6 +12,7 @@ from .views import (
     AddSectionView,
     ChatView,
     ClassifyIndustryView,
+    ConfirmClassificationView,
     DuplicateSectionView,
     GenerateContentView,
     GenerationStatusView,
@@ -51,6 +52,11 @@ urlpatterns = [
     path("onboarding/sections/", WebsiteSectionListView.as_view(), name="onboarding-sections"),
     # Industry classification (onboarding)
     path("classify-industry/", ClassifyIndustryView.as_view(), name="classify-industry"),
+    path(
+        "classify-industry/<int:pk>/confirm/",
+        ConfirmClassificationView.as_view(),
+        name="classify-industry-confirm",
+    ),
     # AI Generation
     path("generate/", GenerateContentView.as_view(), name="generate-content"),
     path("generation-status/", GenerationStatusView.as_view(), name="generation-status"),

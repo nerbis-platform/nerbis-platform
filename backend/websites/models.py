@@ -616,6 +616,95 @@ class AIGenerationLog(models.Model):
         return self.tokens_input + self.tokens_output
 
 
+class IndustryClassification(models.Model):
+    """
+    Dataset etiquetado de clasificaciones de industria.
+
+    Modelo GLOBAL (no tenant-aware) — registra cada decisión del modelo
+    (Haiku) más la confirmación/corrección del usuario durante el onboarding.
+    El objetivo es construir un dataset propio ``(descripción, módulos) ->
+    industria confirmada`` para:
+      1. Resolver clasificaciones repetidas desde caché (sin gastar tokens).
+      2. A futuro, entrenar un clasificador propio de NERBIS.
+
+    ``final_key`` es el ground truth (lo que el usuario aceptó). Las filas con
+    ``user_action='confirmed'`` y confianza alta alimentan la caché.
+    """
+
+    SOURCE_CHOICES = [
+        ("haiku", "Haiku (IA)"),
+        ("cache", "Caché (dataset propio)"),
+        ("mock", "Mock (sin IA)"),
+    ]
+
+    USER_ACTION_CHOICES = [
+        ("pending", "Pendiente"),
+        ("confirmed", "Confirmada"),
+        ("corrected", "Corregida"),
+    ]
+
+    tenant = models.ForeignKey(
+        "core.Tenant", on_delete=models.CASCADE, related_name="industry_classifications"
+    )
+
+    # ── Input (features) ────────────────────────────────────────────
+    business_description = models.TextField("Descripción del negocio")
+    selected_modules = models.JSONField(
+        "Módulos seleccionados", default=list, blank=True
+    )
+    description_normalized = models.CharField(
+        "Descripción normalizada",
+        max_length=255,
+        db_index=True,
+        blank=True,
+        help_text="Slug del texto para deduplicar / lookup de caché",
+    )
+
+    # ── Predicción del modelo ───────────────────────────────────────
+    predicted_key = models.CharField("Industria predicha (key)", max_length=50)
+    predicted_label = models.CharField("Industria predicha (label)", max_length=120)
+    predicted_confidence = models.FloatField("Confianza", default=0.0)
+    is_new = models.BooleanField(
+        "Industria nueva", default=False, help_text="True si la IA propuso una industria nueva"
+    )
+    source = models.CharField(
+        "Origen de la predicción", max_length=10, choices=SOURCE_CHOICES, default="haiku"
+    )
+
+    # ── Feedback humano (ground truth) ──────────────────────────────
+    user_action = models.CharField(
+        "Acción del usuario", max_length=10, choices=USER_ACTION_CHOICES, default="pending"
+    )
+    final_key = models.CharField("Industria final (key)", max_length=50, blank=True)
+    final_label = models.CharField("Industria final (label)", max_length=120, blank=True)
+    correction_text = models.TextField(
+        "Texto de corrección", blank=True, help_text="Lo que escribió el usuario al corregir"
+    )
+
+    # ── Costo asociado ──────────────────────────────────────────────
+    model_used = models.CharField("Modelo usado", max_length=50, blank=True)
+    tokens_input = models.PositiveIntegerField("Tokens de entrada", default=0)
+    tokens_output = models.PositiveIntegerField("Tokens de salida", default=0)
+
+    created_at = models.DateTimeField("Creado", auto_now_add=True)
+    confirmed_at = models.DateTimeField("Confirmado", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Clasificación de Industria"
+        verbose_name_plural = "Clasificaciones de Industria"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["description_normalized", "user_action"]),
+        ]
+
+    def __str__(self):
+        return f"{self.business_description[:40]} -> {self.final_key or self.predicted_key} ({self.user_action})"
+
+    @property
+    def total_tokens(self):
+        return self.tokens_input + self.tokens_output
+
+
 class ChatMessage(models.Model):
     """
     Historial de mensajes del chat de edición con IA.

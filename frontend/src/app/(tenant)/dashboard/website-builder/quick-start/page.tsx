@@ -21,6 +21,7 @@ import {
   quickStartGenerate,
   QuickStartResponse,
   classifyIndustry,
+  confirmClassification,
   ClassifyIndustryResponse,
   getPlatformModules,
   getOnboardingQuestions,
@@ -240,11 +241,9 @@ export default function QuickStartPage() {
   const [classifyError, setClassifyError] = useState(false);
   const [correcting, setCorrecting] = useState(false);
   const [correctionInput, setCorrectionInput] = useState('');
-  // Holds the final answers + sections so generation can proceed after confirm.
-  const pendingGenerationRef = useRef<{
-    answers: Record<string, string>;
-    sections: Set<string>;
-  } | null>(null);
+  // Industry confirmed by the user right after the description step (Option 1:
+  // classify is decoupled from generate). Carried into the final generation call.
+  const [confirmedIndustryKey, setConfirmedIndustryKey] = useState('');
 
   // ─── Session storage keys (scoped to tenant to prevent cross-tenant leaks) ──
   const SS_KEY = `nerbis_quickstart_state_${tenant?.id || 'unknown'}`;
@@ -270,6 +269,7 @@ export default function QuickStartPage() {
         if (state.selectedTone) setSelectedTone(state.selectedTone);
         if (state.primaryColor) setPrimaryColor(state.primaryColor);
         if (state.secondaryColor) setSecondaryColor(state.secondaryColor);
+        if (state.confirmedIndustryKey) setConfirmedIndustryKey(state.confirmedIndustryKey);
       }
     } catch { /* corrupted storage — start fresh */ }
   }, []);
@@ -288,9 +288,10 @@ export default function QuickStartPage() {
         selectedTone,
         primaryColor,
         secondaryColor,
+        confirmedIndustryKey,
       }));
     } catch { /* storage full — silently ignore */ }
-  }, [currentStepIdx, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, pageState]);
+  }, [currentStepIdx, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, pageState]);
 
   // ─── Simulate typing delay for each new message ──────────
   useEffect(() => {
@@ -459,18 +460,40 @@ export default function QuickStartPage() {
     }
   }, [selectedModules]);
 
-  // User confirmed the detected sector — proceed to generation.
-  const confirmIndustry = useCallback(() => {
-    const pending = pendingGenerationRef.current;
-    if (!pending) return;
-    const industryKey = classifyResult?.industry_key;
+  // Enter the generating phase with the (already confirmed) industry key.
+  const startGeneration = useCallback((
+    answersData: Record<string, string>,
+    sections: Set<string>,
+    industryKey?: string,
+  ) => {
     setPageState('generating');
     setGenStep(0);
     setProgress(0);
     setTimeout(() => {
-      triggerQuickStartGeneration(pending.answers, pending.sections, industryKey);
+      triggerQuickStartGeneration(answersData, sections, industryKey || undefined);
     }, 100);
-  }, [classifyResult, triggerQuickStartGeneration]);
+  }, [triggerQuickStartGeneration]);
+
+  // User confirmed the detected sector. Option 1: classification is decoupled
+  // from generation, so confirming just records the decision (feeding NERBIS'
+  // own dataset) and continues the conversation — generation happens at the end.
+  const confirmIndustry = useCallback(() => {
+    const key = classifyResult?.industry_key ?? '';
+    setConfirmedIndustryKey(key);
+    if (classifyResult) {
+      // Fire-and-forget: persisting the decision must never block the user.
+      void confirmClassification(classifyResult.classification_id, 'confirmed').catch(() => {});
+    }
+    setCorrecting(false);
+    setActiveMood('happy');
+    if (currentStepIdx < steps.length - 1) {
+      setPageState('chat');
+      setCurrentStepIdx((prev) => prev + 1);
+    } else {
+      // Description was the last question — generate right away.
+      startGeneration(answers, selectedPages, key);
+    }
+  }, [classifyResult, currentStepIdx, steps.length, answers, selectedPages, startGeneration]);
 
   // User wants to correct the sector — reveal the correction input.
   const startCorrection = useCallback(() => {
@@ -478,12 +501,16 @@ export default function QuickStartPage() {
     setCorrectionInput('');
   }, []);
 
-  // Re-classify using the user's own description of their sector.
+  // Re-classify using the user's own description of their sector. The previous
+  // prediction is recorded as "corrected" so the dataset learns from the miss.
   const submitCorrection = useCallback(() => {
     const text = correctionInput.trim();
     if (text.length < 3) return;
+    if (classifyResult) {
+      void confirmClassification(classifyResult.classification_id, 'corrected', undefined, text).catch(() => {});
+    }
     void runClassification(text);
-  }, [correctionInput, runClassification]);
+  }, [correctionInput, classifyResult, runClassification]);
 
   // ─── Rotating generation messages ─────────────────────────
   useEffect(() => {
@@ -560,13 +587,14 @@ export default function QuickStartPage() {
       const newAnswers = { ...answers, [step.id]: labels.join(', ') };
       setAnswers(newAnswers);
 
-      // Last step — classify the industry, then confirm before generating.
-      pendingGenerationRef.current = { answers: newAnswers, sections: selectedPages };
-      setActiveMood('happy');
-      setPageState('industry-confirm');
-      void runClassification(
-        newAnswers.description || newAnswers.pipe_description || '',
-      );
+      // Industry was already classified + confirmed after the description step
+      // (Option 1). Here we either advance or generate using the confirmed key.
+      if (currentStepIdx < steps.length - 1) {
+        setCurrentStepIdx((prev) => prev + 1);
+      } else {
+        setActiveMood('happy');
+        startGeneration(newAnswers, selectedPages, confirmedIndustryKey);
+      }
       return;
     }
 
@@ -621,19 +649,25 @@ export default function QuickStartPage() {
     setAnswers(newAnswers);
     setCurrentInput('');
 
+    // Option 1: classify the industry right after the business description,
+    // decoupled from generation. Pipe confirms the sector inline, then the
+    // conversation continues (pages/design) and generation happens at the end.
+    if (step.id.includes('description')) {
+      setActiveMood('happy');
+      setPageState('industry-confirm');
+      void runClassification(value);
+      return;
+    }
+
     // Next step
     if (currentStepIdx < steps.length - 1) {
       setCurrentStepIdx((prev) => prev + 1);
     } else {
-      // All questions answered — classify the industry, then confirm.
-      pendingGenerationRef.current = { answers: newAnswers, sections: selectedPages };
+      // All questions answered — generate using the confirmed industry key.
       setActiveMood('happy');
-      setPageState('industry-confirm');
-      void runClassification(
-        newAnswers.description || newAnswers.pipe_description || '',
-      );
+      startGeneration(newAnswers, selectedPages, confirmedIndustryKey);
     }
-  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, steps, modules, pages, runClassification, setTenant]);
+  }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, steps, modules, pages, runClassification, startGeneration, setTenant]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -657,6 +691,7 @@ export default function QuickStartPage() {
     setSelectedTone('');
     setPrimaryColor('');
     setSecondaryColor('');
+    setConfirmedIndustryKey('');
     setUsageLimitInfo(null);
     sessionStorage.removeItem(SS_KEY);
   }, []);
@@ -1465,7 +1500,7 @@ export default function QuickStartPage() {
                   className="mb-6 text-[0.9rem]"
                   style={{ color: WARM_GRAY_500 }}
                 >
-                  No pasa nada — puedo crear tu sitio igual con un diseño versátil,
+                  No pasa nada — puedo seguir con un diseño versátil,
                   o puedes decirme a qué te dedicas.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -1475,7 +1510,7 @@ export default function QuickStartPage() {
                     className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg text-[0.85rem] font-medium transition-all duration-150"
                     style={{ backgroundColor: TEAL, color: '#fff' }}
                   >
-                    Crear mi sitio
+                    Continuar
                     <ArrowRight className="w-4 h-4" />
                   </button>
                   <button

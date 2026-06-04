@@ -10,6 +10,7 @@ por la IA quedan en estado `proposed_by_model` para revisión de un admin.
 import json
 import logging
 
+from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -17,8 +18,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from ..models import Industry
-from ..serializers import ClassifyIndustrySerializer
+from ..models import Industry, IndustryClassification
+from ..serializers import ClassifyIndustrySerializer, ConfirmClassificationSerializer
 from ..services import AIService
 
 logger = logging.getLogger(__name__)
@@ -90,14 +91,25 @@ class ClassifyIndustryView(APIView):
         serializer.is_valid(raise_exception=True)
         business_description = serializer.validated_data["business_description"]
         selected_modules = serializer.validated_data.get("selected_modules", [])
+        normalized = _normalize(business_description)[:255]
 
         active_industries = list(Industry.objects.filter(is_active=True).order_by("sort_order", "label"))
+
+        # 1. Caché: ¿ya tenemos una clasificación confirmada por un humano para
+        # esta misma descripción? Si sí, la reusamos sin gastar tokens.
+        cached_industry = self._check_cache(normalized, active_industries)
+        if cached_industry is not None:
+            record = self._record(
+                tenant, business_description, selected_modules, normalized,
+                cached_industry.key, cached_industry.label, 1.0, is_new=False, source="cache",
+            )
+            return self._build_response(record, cached_industry, 1.0, is_new=False)
 
         ai_service = AIService(tenant=tenant)
 
         # Sin API key: clasificación mock determinista para no bloquear el onboarding.
         if not ai_service.client:
-            return self._mock_classify(active_industries)
+            return self._mock_classify(tenant, business_description, selected_modules, normalized, active_industries)
 
         model_config = ai_service.get_model_for_task("classify_industry")
         full_prompt, user_prompt = self._build_prompts(business_description, selected_modules, active_industries)
@@ -116,7 +128,7 @@ class ClassifyIndustryView(APIView):
             ai_service._last_model_used = model_config["model"]
         except Exception as e:
             logger.error("Error llamando a Claude para classify-industry: %s", e)
-            return self._mock_classify(active_industries)
+            return self._mock_classify(tenant, business_description, selected_modules, normalized, active_industries)
 
         try:
             result = json.loads(_strip_json_fences(raw_response))
@@ -131,7 +143,7 @@ class ClassifyIndustryView(APIView):
                 full_prompt=full_prompt,
                 raw_response=raw_response,
             )
-            return self._mock_classify(active_industries)
+            return self._mock_classify(tenant, business_description, selected_modules, normalized, active_industries)
 
         industry, is_new, confidence = self._resolve_industry(result, active_industries)
 
@@ -144,8 +156,77 @@ class ClassifyIndustryView(APIView):
             raw_response=raw_response,
         )
 
+        record = self._record(
+            tenant, business_description, selected_modules, normalized,
+            industry.key, industry.label, confidence, is_new=is_new, source="haiku",
+            model_used=model_config["model"], tokens_in=tokens_in, tokens_out=tokens_out,
+        )
+
+        return self._build_response(record, industry, confidence, is_new)
+
+    # ───────────────────────────────────────────────────────────────────
+    # Dataset propio / caché
+    # ───────────────────────────────────────────────────────────────────
+
+    def _check_cache(self, normalized: str, active_industries: list) -> Industry | None:
+        """Busca una clasificación confirmada por un humano para la misma
+        descripción normalizada. Devuelve la Industry (aún activa) o None.
+
+        Esto es lo que permite resolver clasificaciones repetidas sin gastar
+        tokens: el ground truth previo se reutiliza.
+        """
+        if not normalized:
+            return None
+        record = (
+            IndustryClassification.objects.filter(
+                description_normalized=normalized, user_action="confirmed"
+            )
+            .exclude(final_key="")
+            .order_by("-confirmed_at", "-created_at")
+            .first()
+        )
+        if not record:
+            return None
+        # Solo sirve si la industria final sigue activa.
+        return next((i for i in active_industries if i.key == record.final_key), None)
+
+    def _record(
+        self,
+        tenant,
+        description: str,
+        modules: list,
+        normalized: str,
+        predicted_key: str,
+        predicted_label: str,
+        confidence: float,
+        *,
+        is_new: bool,
+        source: str,
+        model_used: str = "",
+        tokens_in: int = 0,
+        tokens_out: int = 0,
+    ) -> IndustryClassification:
+        """Crea el registro etiquetado (input + predicción). El feedback humano
+        se completa luego vía el endpoint de confirmación."""
+        return IndustryClassification.objects.create(
+            tenant=tenant,
+            business_description=description,
+            selected_modules=modules,
+            description_normalized=normalized,
+            predicted_key=predicted_key,
+            predicted_label=predicted_label,
+            predicted_confidence=confidence,
+            is_new=is_new,
+            source=source,
+            model_used=model_used,
+            tokens_input=tokens_in,
+            tokens_output=tokens_out,
+        )
+
+    def _build_response(self, record: IndustryClassification, industry: Industry, confidence: float, is_new: bool) -> Response:
         return Response(
             {
+                "classification_id": record.id,
                 "industry_key": industry.key,
                 "industry_label": industry.label,
                 "confidence": confidence,
@@ -240,7 +321,14 @@ class ClassifyIndustryView(APIView):
             return 0.0
         return max(0.0, min(1.0, conf))
 
-    def _mock_classify(self, active_industries: list) -> Response:
+    def _mock_classify(
+        self,
+        tenant,
+        description: str,
+        modules: list,
+        normalized: str,
+        active_industries: list,
+    ) -> Response:
         """Clasificación determinista sin API key (onboarding sin IA)."""
         generic = next((i for i in active_industries if i.key == "generic"), None)
         if not generic:
@@ -248,11 +336,83 @@ class ClassifyIndustryView(APIView):
                 key="generic",
                 defaults={"label": "Negocio General", "status": "reviewed", "is_active": True},
             )
+        record = self._record(
+            tenant, description, modules, normalized,
+            generic.key, generic.label, 0.0, is_new=False, source="mock",
+        )
+        return self._build_response(record, generic, 0.0, is_new=False)
+
+
+class ConfirmClassificationView(APIView):
+    """
+    POST /api/websites/classify-industry/<id>/confirm/
+
+    Registra el feedback humano sobre una clasificación previa. Esto completa
+    el dataset etiquetado: ``confirmed`` marca el ground truth (alimenta la
+    caché); ``corrected`` marca la predicción como rechazada.
+
+    Body:
+        - action: "confirmed" | "corrected"
+        - final_key: industria aceptada (opcional; default = la predicha al confirmar)
+        - correction_text: texto libre del usuario al corregir (opcional)
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk: int):
+        tenant = getattr(request, "tenant", None) or getattr(request.user, "tenant", None)
+        if not tenant:
+            return Response(
+                {"error": "Usuario no asociado a un tenant"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Aislamiento por tenant: un tenant solo confirma sus propias clasificaciones.
+        try:
+            record = IndustryClassification.objects.get(pk=pk, tenant=tenant)
+        except IndustryClassification.DoesNotExist:
+            return Response(
+                {"error": "Clasificación no encontrada"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = ConfirmClassificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        action = serializer.validated_data["action"]
+        final_key = serializer.validated_data.get("final_key", "").strip()
+        correction_text = serializer.validated_data.get("correction_text", "").strip()
+
+        if action == "confirmed":
+            # Si no mandan final_key, el ground truth es la industria predicha.
+            key = final_key or record.predicted_key
+            industry = Industry.objects.filter(key=key).first()
+            record.final_key = key
+            record.final_label = industry.label if industry else record.predicted_label
+            record.user_action = "confirmed"
+        else:  # corrected
+            record.user_action = "corrected"
+            record.correction_text = correction_text
+            if final_key:
+                industry = Industry.objects.filter(key=final_key).first()
+                record.final_key = final_key
+                record.final_label = industry.label if industry else ""
+
+        record.confirmed_at = timezone.now()
+        record.save(
+            update_fields=[
+                "user_action",
+                "final_key",
+                "final_label",
+                "correction_text",
+                "confirmed_at",
+            ]
+        )
+
         return Response(
             {
-                "industry_key": generic.key,
-                "industry_label": generic.label,
-                "confidence": 0.0,
-                "is_new": False,
+                "id": record.id,
+                "user_action": record.user_action,
+                "final_key": record.final_key,
+                "final_label": record.final_label,
             }
         )

@@ -204,12 +204,21 @@ export interface ClassifyIndustryRequest {
 }
 
 export interface ClassifyIndustryResponse {
+  /** ID del registro IndustryClassification para confirmar/corregir luego. */
+  classification_id: number;
   industry_key: string;
   industry_label: string;
   /** Confidence 0..1 returned by the classifier (0 in the mock/no-key path). */
   confidence: number;
   /** True when the classifier proposed a brand-new industry (created on the fly). */
   is_new: boolean;
+}
+
+export interface ConfirmClassificationResponse {
+  id: number;
+  user_action: 'confirmed' | 'corrected';
+  final_key: string;
+  final_label: string;
 }
 
 /**
@@ -226,6 +235,28 @@ export async function classifyIndustry(
     {
       business_description: businessDescription,
       selected_modules: selectedModules ?? [],
+    }
+  );
+  return data;
+}
+
+/**
+ * Confirma o corrige la clasificacion de industria propuesta por Pipe.
+ * Alimenta el dataset propio de NERBIS para reducir dependencia del modelo.
+ * POST /api/websites/classify-industry/<id>/confirm/
+ */
+export async function confirmClassification(
+  classificationId: number,
+  action: 'confirmed' | 'corrected',
+  finalKey?: string,
+  correctionText?: string
+): Promise<ConfirmClassificationResponse> {
+  const { data } = await apiClient.post<ConfirmClassificationResponse>(
+    `/websites/classify-industry/${classificationId}/confirm/`,
+    {
+      action,
+      ...(finalKey ? { final_key: finalKey } : {}),
+      ...(correctionText ? { correction_text: correctionText } : {}),
     }
   );
   return data;

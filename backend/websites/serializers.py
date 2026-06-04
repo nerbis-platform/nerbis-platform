@@ -420,6 +420,26 @@ class ClassifyIndustrySerializer(serializers.Serializer):
     )
 
 
+class ConfirmClassificationSerializer(serializers.Serializer):
+    """Registra el feedback humano sobre una clasificación de industria.
+
+    ``confirmed``: el usuario aceptó la industria predicha (ground truth).
+    ``corrected``: el usuario rechazó la predicción (ejemplo negativo); la
+    industria final correcta llega en una clasificación posterior.
+    """
+
+    action = serializers.ChoiceField(choices=["confirmed", "corrected"])
+    final_key = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        help_text="Industria que el usuario aceptó (default: la predicha si confirma)",
+    )
+    correction_text = serializers.CharField(
+        max_length=1000, required=False, allow_blank=True
+    )
+
+
 # ===================================
 # CHAT CON IA
 # ===================================

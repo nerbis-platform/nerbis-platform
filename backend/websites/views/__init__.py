@@ -7,7 +7,7 @@ Re-exporta todas las views para mantener compatibilidad con urls.py.
 
 from .ai_generation import GenerateContentView, GenerationStatusView
 from .chat import ChatView
-from .classify import ClassifyIndustryView
+from .classify import ClassifyIndustryView, ConfirmClassificationView
 from .config import WebsiteConfigViewSet
 from .media import UploadWebsiteMediaView
 from .onboarding import (
@@ -37,6 +37,7 @@ __all__ = [
     "AddSectionView",
     "ChatView",
     "ClassifyIndustryView",
+    "ConfirmClassificationView",
     "DuplicateSectionView",
     "GenerateContentView",
     "GenerationStatusView",
