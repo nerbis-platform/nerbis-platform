@@ -18,6 +18,7 @@ export function NerbisFooterMark({ className, size = 40 }: NerbisFooterMarkProps
   return (
     <div className={cn('flex justify-center py-8', className)}>
       <span
+        role="img"
         className="opacity-50 transition-opacity duration-[var(--duration-fast)] hover:opacity-100"
         aria-label="NERBIS"
       >
