@@ -50,7 +50,6 @@ export function getLucideIcon(name: string): React.ComponentType<{ className?: s
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join('');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const icons = LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>;
   return icons[pascalName] || LucideIcons.Circle;
 }

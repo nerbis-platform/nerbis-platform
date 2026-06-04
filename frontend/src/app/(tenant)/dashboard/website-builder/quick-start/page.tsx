@@ -32,7 +32,7 @@ import { configureModules, ModuleSelection, getCurrentUser } from '@/lib/api/aut
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api/client';
 import { toast } from 'sonner';
-import { Tenant, PlatformModule, OnboardingQuestion, WebsitePage } from '@/types';
+import { Tenant } from '@/types';
 import {
   NAVY, TEAL, WARM_GRAY_50, WARM_GRAY_100, WARM_GRAY_200,
   WARM_GRAY_400, WARM_GRAY_500, WARM_GRAY_600, WARM_GRAY_800,
@@ -298,7 +298,6 @@ export default function QuickStartPage() {
       setIsTyping(false);
     }, delay);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStepIdx, pageState]);
 
   // ─── Active mood reacts to user typing ───────────────────

@@ -213,22 +213,24 @@ class ClassifyIndustryView(APIView):
             if _normalize(industry.key) == normalized or _normalize(industry.label) == normalized:
                 return industry, False, confidence
 
-        # Asegurar key única (puede colisionar con industrias inactivas).
+        # Crear de forma atómica, generando una key única si colisiona con
+        # industrias existentes (incluidas inactivas). get_or_create evita la
+        # ventana de carrera entre la verificación y la creación.
         base_key = normalized or "industria"
         key = base_key
         suffix = 2
-        while Industry.objects.filter(key=key).exists():
+        defaults = {
+            "label": new_label,
+            "created_by_ai": True,
+            "status": "proposed_by_model",
+            "is_active": True,
+        }
+        while True:
+            industry, created = Industry.objects.get_or_create(key=key, defaults=defaults)
+            if created:
+                return industry, True, confidence
             key = f"{base_key}-{suffix}"
             suffix += 1
-
-        industry = Industry.objects.create(
-            key=key,
-            label=new_label,
-            created_by_ai=True,
-            status="proposed_by_model",
-            is_active=True,
-        )
-        return industry, True, confidence
 
     def _clamp_confidence(self, value) -> float:
         """Convierte confidence a float en [0, 1]; 0.0 si es inválido."""
