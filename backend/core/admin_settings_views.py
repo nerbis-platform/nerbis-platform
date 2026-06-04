@@ -310,7 +310,7 @@ class AdminSectionVariantListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     serializer_class = AdminSectionVariantSerializer
     pagination_class = None
-    queryset = SectionVariant.objects.select_related("section").order_by("sort_order")
+    queryset = SectionVariant.objects.select_related("section").prefetch_related("industries").order_by("sort_order")
 
 
 class AdminSectionVariantDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -318,7 +318,7 @@ class AdminSectionVariantDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     serializer_class = AdminSectionVariantSerializer
-    queryset = SectionVariant.objects.select_related("section").order_by("sort_order")
+    queryset = SectionVariant.objects.select_related("section").prefetch_related("industries").order_by("sort_order")
 
 
 # ---------------------------------------------------------------------------
@@ -332,7 +332,7 @@ class AdminPromptBlockListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     serializer_class = AdminPromptBlockSerializer
     pagination_class = None
-    queryset = PromptBlock.objects.select_related("template").order_by("sort_order")
+    queryset = PromptBlock.objects.select_related("template", "industry").order_by("sort_order")
 
 
 class AdminPromptBlockDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -340,7 +340,7 @@ class AdminPromptBlockDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     permission_classes = [IsAuthenticated, IsSuperAdmin]
     serializer_class = AdminPromptBlockSerializer
-    queryset = PromptBlock.objects.select_related("template").order_by("sort_order")
+    queryset = PromptBlock.objects.select_related("template", "industry").order_by("sort_order")
 
 
 # ---------------------------------------------------------------------------

@@ -328,6 +328,52 @@ class IndustryGalleryReorderSerializer(serializers.Serializer):
 
 
 # ---------------------------------------------------------------------------
+# Industry relation fields (shared)
+# ---------------------------------------------------------------------------
+
+
+class IndustryRelatedField(serializers.PrimaryKeyRelatedField):
+    """Campo relacional que acepta una ``Industry`` por ``id`` o por ``key``.
+
+    Tras la conversión CharField->FK/M2M (issue-262), ``PromptBlock.industry``
+    es un FK y ``SectionVariant.industries`` un M2M. Para no romper a los
+    clientes admin que enviaban la industria como string (``"beauty"``), este
+    campo acepta tanto el PK entero como la ``key`` slug. En lectura devuelve
+    la ``key`` (string estable), no el PK opaco.
+    """
+
+    default_error_messages = {
+        "does_not_exist": "Industria con clave o id '{value}' no encontrada.",
+        "invalid": "Valor inválido para industria: se esperaba una clave o un id.",
+    }
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("queryset", Industry.objects.all())
+        super().__init__(**kwargs)
+
+    def to_internal_value(self, data):
+        # id numérico -> resolución por PK (comportamiento estándar).
+        if isinstance(data, bool):
+            self.fail("invalid")
+        if isinstance(data, int) or (isinstance(data, str) and data.isdigit()):
+            return super().to_internal_value(int(data))
+        # string no-numérico -> resolución por key.
+        if isinstance(data, str):
+            try:
+                return self.get_queryset().get(key=data)
+            except Industry.DoesNotExist:
+                self.fail("does_not_exist", value=data)
+        self.fail("invalid")
+
+    def to_representation(self, value):
+        # value puede ser una instancia (M2M / select_related) o un PK (FK pk_only).
+        if hasattr(value, "key"):
+            return value.key
+        industry = Industry.objects.filter(pk=value.pk).only("key").first()
+        return industry.key if industry else None
+
+
+# ---------------------------------------------------------------------------
 # SectionVariant serializers
 # ---------------------------------------------------------------------------
 
@@ -351,6 +397,7 @@ class AdminSectionVariantSerializer(serializers.ModelSerializer):
 
     section_detail = WebsiteSectionMinimalSerializer(source="section", read_only=True)
     section = serializers.PrimaryKeyRelatedField(queryset=WebsiteSection.objects.all())
+    industries = IndustryRelatedField(many=True, required=False)
 
     class Meta:
         model = SectionVariant
@@ -408,6 +455,7 @@ class AdminPromptBlockSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    industry = IndustryRelatedField(required=False, allow_null=True)
 
     class Meta:
         model = PromptBlock
@@ -436,13 +484,13 @@ class AdminPromptBlockSerializer(serializers.ModelSerializer):
             if template is None:
                 raise serializers.ValidationError({"template": "Este campo es requerido cuando scope es 'template'."})
         elif scope == "industry":
-            industry = attrs.get("industry", getattr(self.instance, "industry", "") if self.instance else "")
+            industry = attrs.get("industry", getattr(self.instance, "industry", None) if self.instance else None)
             if not industry:
                 raise serializers.ValidationError({"industry": "Este campo es requerido cuando scope es 'industry'."})
             attrs["template"] = None
         elif scope == "global":
             attrs["template"] = None
-            attrs["industry"] = ""
+            attrs["industry"] = None
 
         return attrs
 

@@ -24,12 +24,12 @@ from websites.models import WebsiteConfig, WebsiteTemplate
 
 
 @pytest.fixture()
-def template(db):
+def template(db, seeded_industries):
     """Template de prueba para generacion."""
     return WebsiteTemplate.objects.create(
         name="Test Template",
         slug="test-template",
-        industry="beauty",
+        industry=seeded_industries("beauty"),
         description="Template de prueba",
         structure_schema={"sections": [{"id": "hero"}, {"id": "about"}, {"id": "contact"}]},
         ai_system_prompt="Generate content for a beauty business.",
