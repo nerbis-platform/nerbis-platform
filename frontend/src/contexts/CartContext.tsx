@@ -4,70 +4,18 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
-import { Cart, CartItem, AppliedCoupon } from '@/types';
+import { Cart, AppliedCoupon } from '@/types';
 import * as cartApi from '@/lib/api/cart';
 import * as couponsApi from '@/lib/api/coupons';
 import * as localCartStorage from '@/lib/storage/localCart';
 import { createAppointment } from '@/lib/api/bookings';
 import { useAuth } from './AuthContext';
 import { useTenantLegal } from './TenantContext';
-
-// Tipo para items del carrito local (compatible con CartItem)
-interface LocalCartItemDisplay {
-  id: string;
-  item_type: 'product' | 'service';
-  item_data: {
-    id: number;
-    name: string;
-    description?: string;
-    price: string;
-    image?: string;
-    formatted_duration?: string;
-  };
-  quantity: number;
-  unit_price: string;
-  total_price: string;
-  // Para citas pendientes de usuarios anónimos
-  pending_appointment?: {
-    staff_member_id: number;
-    staff_member_name: string;
-    start_datetime: string;
-    notes?: string;
-  };
-}
-
-// Tipo unificado para el carrito (puede ser local o del servidor)
-interface UnifiedCart {
-  id: number | string;
-  items: (CartItem | LocalCartItemDisplay)[];
-  items_count: number;
-  subtotal: string;
-  discount_amount: string;
-  tax_amount: string;
-  total: string;
-  coupon?: AppliedCoupon | null;
-  is_local: boolean; // true si es carrito local
-}
-
-interface CartContextType {
-  cart: UnifiedCart | null;
-  isLoading: boolean;
-  itemsCount: number;
-  isLocalCart: boolean;
-  appliedCoupon: AppliedCoupon | null;
-  couponError: string | null;
-  couponWarnings: string[];
-  isPendingCoupon: boolean; // true si es cupón en preview (anónimo)
-  refreshCart: () => Promise<void>;
-  addProduct: (productId: number, quantity: number, productData?: { name: string; price: string; description?: string; image?: string }) => Promise<void>;
-  addService: (serviceId: number, appointmentIdOrData: number | { staff_member_id: number; staff_member_name: string; start_datetime: string; notes?: string }, serviceData?: { name: string; price: string; description?: string; duration_minutes?: number; formatted_duration?: string }) => Promise<void>;
-  updateItem: (itemId: number | string, quantity: number) => Promise<void>;
-  removeItem: (itemId: number | string) => Promise<void>;
-  clearCart: () => Promise<void>;
-  syncCartToServer: () => Promise<void>;
-  applyCoupon: (code: string) => Promise<boolean>;
-  removeCoupon: () => Promise<void>;
-}
+import type {
+  LocalCartItemDisplay,
+  UnifiedCart,
+  CartContextType,
+} from './cart-context-types';
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
