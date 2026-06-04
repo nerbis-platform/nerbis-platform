@@ -247,6 +247,9 @@ export default function QuickStartPage() {
   // Industry confirmed by the user right after the description step (Option 1:
   // classify is decoupled from generate). Carried into the final generation call.
   const [confirmedIndustryKey, setConfirmedIndustryKey] = useState('');
+  // Label of the confirmed industry, kept so the decision stays visible in the
+  // chat history (Pipe's suggestion + the user's "Sí, es correcto").
+  const [confirmedIndustryLabel, setConfirmedIndustryLabel] = useState('');
 
   // ─── Session storage keys (scoped to tenant to prevent cross-tenant leaks) ──
   const SS_KEY = `nerbis_quickstart_state_${tenant?.id || 'unknown'}`;
@@ -273,6 +276,7 @@ export default function QuickStartPage() {
         if (state.primaryColor) setPrimaryColor(state.primaryColor);
         if (state.secondaryColor) setSecondaryColor(state.secondaryColor);
         if (state.confirmedIndustryKey) setConfirmedIndustryKey(state.confirmedIndustryKey);
+        if (state.confirmedIndustryLabel) setConfirmedIndustryLabel(state.confirmedIndustryLabel);
       }
     } catch { /* corrupted storage — start fresh */ }
   }, []);
@@ -292,9 +296,10 @@ export default function QuickStartPage() {
         primaryColor,
         secondaryColor,
         confirmedIndustryKey,
+        confirmedIndustryLabel,
       }));
     } catch { /* storage full — silently ignore */ }
-  }, [currentStepIdx, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, pageState]);
+  }, [currentStepIdx, answers, selectedModules, selectedPages, selectedStyle, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, confirmedIndustryLabel, pageState]);
 
   // ─── Simulate typing delay for each new message ──────────
   useEffect(() => {
@@ -483,6 +488,7 @@ export default function QuickStartPage() {
   const confirmIndustry = useCallback(() => {
     const key = classifyResult?.industry_key ?? '';
     setConfirmedIndustryKey(key);
+    setConfirmedIndustryLabel(classifyResult?.industry_label ?? '');
     if (classifyResult) {
       // Fire-and-forget: persisting the decision must never block the user.
       void confirmClassification(classifyResult.classification_id, 'confirmed').catch(() => {});
@@ -695,6 +701,7 @@ export default function QuickStartPage() {
     setPrimaryColor('');
     setSecondaryColor('');
     setConfirmedIndustryKey('');
+    setConfirmedIndustryLabel('');
     setInlineConfirm(false);
     setClassifyResult(null);
     setClassifyError(false);
@@ -791,6 +798,15 @@ export default function QuickStartPage() {
         : s.message });
       if (answers[s.id]) {
         chatHistory.push({ role: 'user', content: answers[s.id] });
+      }
+      // Keep the industry decision in the conversation: right after the
+      // description step, replay Pipe's suggestion + the user's confirmation.
+      if (s.id?.includes('description') && confirmedIndustryLabel) {
+        chatHistory.push({
+          role: 'pipe',
+          content: `Entonces tu negocio es del sector ${confirmedIndustryLabel}. Con esto elijo el mejor diseño para ti.`,
+        });
+        chatHistory.push({ role: 'user', content: 'Sí, es correcto' });
       }
     }
 
