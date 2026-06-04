@@ -386,6 +386,13 @@ class QuickStartSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Telefono de contacto del negocio",
     )
+    industry_key = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        help_text="Clave de la industria clasificada (de classify-industry). "
+        "Si no se envia, se usa la industria del tenant.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -59,6 +59,7 @@ def generate_website(
     brand_tone: str | None = None,
     primary_color: str | None = None,
     secondary_color: str | None = None,
+    industry_key: str | None = None,
 ) -> GenerationResult:
     """Genera un sitio web completo para un tenant.
 
@@ -73,28 +74,23 @@ def generate_website(
         brand_tone: Personalidad de marca (profesional, calido, moderno, etc.).
         primary_color: Color primario hex (ej: #1C3B57).
         secondary_color: Color secundario hex (ej: #0D9488).
+        industry_key: Clave de industria clasificada (de classify-industry).
+            Si no se pasa, se usa ``tenant.industry``.
 
     Returns:
         GenerationResult con toda la data generada.
 
     Raises:
-        GenerationError: Si hay un problema con template, límite o generación.
+        GenerationError: Solo si no hay templates activos, falla el límite o la generación.
     """
-    from core.industry_defaults import get_default_template_slug
+    from websites.services.template_resolution import resolve_template_for_industry
 
-    # 1. Resolver template por industria
-    slug = get_default_template_slug(tenant.industry)
-    if not slug:
-        raise GenerationError(
-            "Tu industria aún no tiene un template asignado. Usa el flujo completo.",
-            status_code=400,
-        )
-
-    template = WebsiteTemplate.objects.filter(slug=slug, is_active=True).first()
+    # 1. Resolver template por industria (sin dead-end; cae a generic / primer activo).
+    template = resolve_template_for_industry(industry_key or tenant.industry)
     if not template:
         raise GenerationError(
-            f"Template '{slug}' no encontrado. Contacta soporte.",
-            status_code=400,
+            "No hay templates disponibles. Contacta soporte.",
+            status_code=503,
         )
 
     # 2. Crear o actualizar WebsiteConfig

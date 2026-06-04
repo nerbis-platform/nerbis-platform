@@ -16,6 +16,8 @@ from rest_framework import serializers
 
 from core.models import IndustryGalleryCard, MarketingSection, PlatformModule
 from websites.models import (
+    AIModelConfig,
+    Industry,
     OnboardingQuestion,
     PromptBlock,
     SectionVariant,
@@ -432,15 +434,11 @@ class AdminPromptBlockSerializer(serializers.ModelSerializer):
         if scope == "template":
             template = attrs.get("template", getattr(self.instance, "template", None) if self.instance else None)
             if template is None:
-                raise serializers.ValidationError(
-                    {"template": "Este campo es requerido cuando scope es 'template'."}
-                )
+                raise serializers.ValidationError({"template": "Este campo es requerido cuando scope es 'template'."})
         elif scope == "industry":
             industry = attrs.get("industry", getattr(self.instance, "industry", "") if self.instance else "")
             if not industry:
-                raise serializers.ValidationError(
-                    {"industry": "Este campo es requerido cuando scope es 'industry'."}
-                )
+                raise serializers.ValidationError({"industry": "Este campo es requerido cuando scope es 'industry'."})
             attrs["template"] = None
         elif scope == "global":
             attrs["template"] = None
@@ -460,3 +458,82 @@ class AdminPromptPreviewSerializer(serializers.Serializer):
     template_id = serializers.IntegerField(required=False)
     industry = serializers.CharField(required=False, default="generic")
     onboarding_responses = serializers.DictField(required=False, default=dict)
+
+
+# ---------------------------------------------------------------------------
+# Industry serializers
+# ---------------------------------------------------------------------------
+
+
+class AdminIndustrySerializer(serializers.ModelSerializer):
+    """CRUD completo del catalogo global de industrias.
+
+    Modelo GLOBAL (no tenant-aware). Expone todos los campos incluidos
+    ``status`` y ``created_by_ai`` (read-only — la IA los setea al proponer
+    una industria durante el onboarding). ``status`` solo cambia via el
+    endpoint ``promote`` (proposed_by_model -> reviewed).
+
+    Patron dual-field para FK ``default_template``:
+    - ``default_template`` (write): PK para escritura.
+    - ``default_template_detail`` (read): representacion nested para lectura.
+    """
+
+    default_template_detail = WebsiteTemplateMinimalSerializer(source="default_template", read_only=True)
+    default_template = serializers.PrimaryKeyRelatedField(
+        queryset=WebsiteTemplate.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = Industry
+        fields = [
+            "id",
+            "key",
+            "label",
+            "description",
+            "icon",
+            "default_template",
+            "default_template_detail",
+            "is_active",
+            "sort_order",
+            "created_by_ai",
+            "status",
+            "status_display",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_by_ai", "status", "created_at", "updated_at"]
+
+
+# ---------------------------------------------------------------------------
+# AIModelConfig serializer
+# ---------------------------------------------------------------------------
+
+
+class AdminAIModelConfigSerializer(serializers.ModelSerializer):
+    """CRUD (list/update) de la configuracion de modelo IA por tarea.
+
+    Modelo GLOBAL. Las 4 filas (classify_industry, web_content, chat_edit,
+    seo) se siembran via migracion; el superadmin solo edita ``model``,
+    ``max_tokens``, ``temperature`` e ``is_active``. ``task`` es la clave
+    natural y por eso es read-only en updates.
+    """
+
+    task_display = serializers.CharField(source="get_task_display", read_only=True)
+
+    class Meta:
+        model = AIModelConfig
+        fields = [
+            "id",
+            "task",
+            "task_display",
+            "model",
+            "max_tokens",
+            "temperature",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["task", "created_at", "updated_at"]

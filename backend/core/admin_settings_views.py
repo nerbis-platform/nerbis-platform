@@ -13,6 +13,7 @@ Contrato de sub-agente SDD ``sdd/admin-onboarding-config`` (Phases 1 + 2).
 from __future__ import annotations
 
 from django.db import transaction
+from django.db.models import Count, Sum
 from rest_framework import generics, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -23,7 +24,9 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from core.admin_settings_serializers import (
+    AdminAIModelConfigSerializer,
     AdminIndustryGalleryCardSerializer,
+    AdminIndustrySerializer,
     AdminMarketingSectionSerializer,
     AdminOnboardingQuestionSerializer,
     AdminPlatformModuleSerializer,
@@ -38,6 +41,9 @@ from core.marketing_defaults import MARKETING_SECTION_DEFAULTS
 from core.models import IndustryGalleryCard, MarketingSection, PlatformModule
 from core.permissions import IsSuperAdmin
 from websites.models import (
+    AIGenerationLog,
+    AIModelConfig,
+    Industry,
     OnboardingQuestion,
     PromptBlock,
     SectionVariant,
@@ -381,3 +387,153 @@ class AdminPromptPreviewView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+# ---------------------------------------------------------------------------
+# Industry views
+# ---------------------------------------------------------------------------
+
+
+class AdminIndustryListCreateView(generics.ListCreateAPIView):
+    """GET/POST ``/api/admin/settings/industries/``.
+
+    Lista todo el catalogo global de industrias (incluidas las propuestas por
+    IA e inactivas) o crea una nueva. Sin paginacion — catalogo pequeno.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminIndustrySerializer
+    pagination_class = None
+    queryset = Industry.objects.select_related("default_template").order_by("sort_order", "label")
+
+
+class AdminIndustryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PUT/PATCH/DELETE ``/api/admin/settings/industries/<int:pk>/``."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminIndustrySerializer
+    queryset = Industry.objects.select_related("default_template").order_by("sort_order", "label")
+
+
+class AdminIndustryPromoteView(APIView):
+    """POST ``/api/admin/settings/industries/<int:pk>/promote/``.
+
+    Promueve una industria de ``proposed_by_model`` a ``reviewed`` (one-way).
+    Idempotente: si ya esta ``reviewed`` devuelve 200 sin cambios.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request, pk: int) -> Response:
+        try:
+            industry = Industry.objects.get(pk=pk)
+        except Industry.DoesNotExist:
+            return Response(
+                {"detail": f"Industria con id {pk} no encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if industry.status != "reviewed":
+            industry.status = "reviewed"
+            industry.save(update_fields=["status", "updated_at"])
+
+        return Response(AdminIndustrySerializer(industry).data, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# AIModelConfig views
+# ---------------------------------------------------------------------------
+
+
+class AdminAIModelConfigListView(generics.ListAPIView):
+    """GET ``/api/admin/settings/ai-models/``.
+
+    Lista las 4 filas de configuracion de modelo IA por tarea
+    (classify_industry, web_content, chat_edit, seo). Sin paginacion.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminAIModelConfigSerializer
+    pagination_class = None
+    queryset = AIModelConfig.objects.order_by("task")
+
+
+class AdminAIModelConfigDetailView(generics.RetrieveUpdateAPIView):
+    """GET/PUT/PATCH ``/api/admin/settings/ai-models/<int:pk>/``.
+
+    Actualiza ``model``, ``max_tokens``, ``temperature`` e ``is_active`` de
+    una fila. ``task`` es read-only (clave natural sembrada por migracion).
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    serializer_class = AdminAIModelConfigSerializer
+    queryset = AIModelConfig.objects.order_by("task")
+
+
+# ---------------------------------------------------------------------------
+# AI stats view
+# ---------------------------------------------------------------------------
+
+
+class AdminAIStatsView(APIView):
+    """GET ``/api/admin/settings/ai-stats/``.
+
+    Agrega ``AIGenerationLog`` por ``generation_type`` y ``model_used``,
+    sumando tokens y costo estimado mas conteos. Read-only. Sobre un log
+    vacio devuelve totales en cero y listas vacias (no crashea).
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request) -> Response:
+        base = AIGenerationLog.objects.all()
+
+        by_type = list(
+            base.values("generation_type")
+            .annotate(
+                count=Count("id"),
+                tokens_input=Sum("tokens_input"),
+                tokens_output=Sum("tokens_output"),
+                cost_estimated=Sum("cost_estimated"),
+            )
+            .order_by("generation_type")
+        )
+
+        by_model = list(
+            base.values("model_used")
+            .annotate(
+                count=Count("id"),
+                tokens_input=Sum("tokens_input"),
+                tokens_output=Sum("tokens_output"),
+                cost_estimated=Sum("cost_estimated"),
+            )
+            .order_by("model_used")
+        )
+
+        totals = base.aggregate(
+            count=Count("id"),
+            tokens_input=Sum("tokens_input"),
+            tokens_output=Sum("tokens_output"),
+            cost_estimated=Sum("cost_estimated"),
+        )
+
+        return Response(
+            {
+                "totals": self._normalize_row(totals),
+                "by_generation_type": [self._normalize_row(row) for row in by_type],
+                "by_model": [self._normalize_row(row) for row in by_model],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @staticmethod
+    def _normalize_row(row: dict) -> dict:
+        """Reemplaza ``None`` (de Sum sobre conjunto vacio) por ceros y
+        convierte ``cost_estimated`` (Decimal) a str para JSON exacto."""
+        normalized = dict(row)
+        normalized["count"] = normalized.get("count") or 0
+        normalized["tokens_input"] = normalized.get("tokens_input") or 0
+        normalized["tokens_output"] = normalized.get("tokens_output") or 0
+        cost = normalized.get("cost_estimated") or 0
+        normalized["cost_estimated"] = str(cost)
+        return normalized

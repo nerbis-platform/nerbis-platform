@@ -242,21 +242,19 @@ class QuickStartView(OnboardingView):
         serializer = QuickStartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # 1. Resolver template por industria
-        from core.industry_defaults import get_default_template_slug
+        # 1. Resolver template por industria (sin dead-end).
+        # Prioridad: industry_key clasificado (classify-industry) > tenant.industry.
+        # El resolver siempre cae a un fallback (generic / primer template activo)
+        # para que una industria propuesta por IA o desconocida no bloquee el flujo.
+        from ..services.template_resolution import resolve_template_for_industry
 
-        slug = get_default_template_slug(tenant.industry)
-        if not slug:
-            return Response(
-                {"error": "Tu industria aún no tiene un template asignado. Usa el flujo completo."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        template = WebsiteTemplate.objects.filter(slug=slug, is_active=True).first()
+        industry_key = serializer.validated_data.get("industry_key") or tenant.industry
+        template = resolve_template_for_industry(industry_key)
         if not template:
+            # Solo ocurre si no hay NINGÚN template activo en la base (seed inválido).
             return Response(
-                {"error": f"Template '{slug}' no encontrado. Contacta soporte."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": "No hay templates disponibles. Contacta soporte."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         # 2. Crear o actualizar WebsiteConfig con lock para evitar generaciones concurrentes

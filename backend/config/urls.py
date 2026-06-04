@@ -42,7 +42,13 @@ def health_check(request):
 
 # Importar el admin site personalizado de NERBIS
 from core.admin_settings_views import (
+    AdminAIModelConfigDetailView,
+    AdminAIModelConfigListView,
+    AdminAIStatsView,
+    AdminIndustryDetailView,
     AdminIndustryGalleryViewSet,
+    AdminIndustryListCreateView,
+    AdminIndustryPromoteView,
     AdminMarketingSectionDetailView,
     AdminMarketingSectionListView,
     AdminMarketingSectionResetView,
@@ -328,6 +334,39 @@ urlpatterns = [
         "api/admin/settings/prompt-preview/",
         AdminPromptPreviewView.as_view(),
         name="admin-settings-prompt-preview",
+    ),
+    # Admin settings — industries (catálogo global)
+    path(
+        "api/admin/settings/industries/",
+        AdminIndustryListCreateView.as_view(),
+        name="admin-settings-industries-list",
+    ),
+    path(
+        "api/admin/settings/industries/<int:pk>/",
+        AdminIndustryDetailView.as_view(),
+        name="admin-settings-industries-detail",
+    ),
+    path(
+        "api/admin/settings/industries/<int:pk>/promote/",
+        AdminIndustryPromoteView.as_view(),
+        name="admin-settings-industries-promote",
+    ),
+    # Admin settings — AI model config por tarea
+    path(
+        "api/admin/settings/ai-models/",
+        AdminAIModelConfigListView.as_view(),
+        name="admin-settings-ai-models-list",
+    ),
+    path(
+        "api/admin/settings/ai-models/<int:pk>/",
+        AdminAIModelConfigDetailView.as_view(),
+        name="admin-settings-ai-models-detail",
+    ),
+    # Admin settings — AI stats (agregación read-only de AIGenerationLog)
+    path(
+        "api/admin/settings/ai-stats/",
+        AdminAIStatsView.as_view(),
+        name="admin-settings-ai-stats",
     ),
     # Admin settings — industry gallery (ViewSet via router)
     path("api/admin/settings/", include(admin_settings_router.urls)),
