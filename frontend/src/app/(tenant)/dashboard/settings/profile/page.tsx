@@ -283,7 +283,14 @@ export default function SettingsProfilePage() {
           title="Eliminar cuenta"
           description="Se eliminarán todos tus datos de forma irreversible."
           action={
-            <AlertDialog>
+            <AlertDialog
+              onOpenChange={(open) => {
+                if (!open) {
+                  setDeletePassword('');
+                  setShowDeletePassword(false);
+                }
+              }}
+            >
               <AlertDialogTrigger asChild>
                 <Button
                   variant="outline"
@@ -325,7 +332,7 @@ export default function SettingsProfilePage() {
                   </p>
                 )}
                 <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setDeletePassword('')}>
+                  <AlertDialogCancel>
                     Cancelar
                   </AlertDialogCancel>
                   <AlertDialogAction
