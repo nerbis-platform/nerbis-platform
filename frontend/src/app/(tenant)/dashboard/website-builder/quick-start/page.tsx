@@ -746,7 +746,7 @@ export default function QuickStartPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/profile"
-            className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors"
+            className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
             style={{ color: WARM_GRAY_400 }}
             onMouseEnter={(e) => (e.currentTarget.style.color = NAVY)}
             onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
@@ -758,7 +758,7 @@ export default function QuickStartPage() {
           <button
             type="button"
             onClick={() => logout('/register-business')}
-            className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-[0.72rem] font-medium transition-colors cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
             style={{ color: WARM_GRAY_400 }}
             onMouseEnter={(e) => (e.currentTarget.style.color = '#EF4444')}
             onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
@@ -768,32 +768,6 @@ export default function QuickStartPage() {
           </button>
         </div>
       </div>
-    </div>
-  );
-
-  // Animated color ovals behind the chat — soft "aurora" movement.
-  const backdrop = (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0" aria-hidden="true">
-      <style>{`
-        @keyframes pipe-blob-a { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(6%, 8%) scale(1.15); } }
-        @keyframes pipe-blob-b { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-7%, -5%) scale(1.1); } }
-        @keyframes pipe-blob-c { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(5%, -7%) scale(1.18); } }
-        @media (prefers-reduced-motion: reduce) {
-          .pipe-blob { animation: none !important; }
-        }
-      `}</style>
-      <div
-        className="pipe-blob absolute rounded-full blur-3xl"
-        style={{ width: '38rem', height: '38rem', top: '-10rem', left: '-8rem', backgroundColor: `${TEAL}38`, animation: 'pipe-blob-a 16s ease-in-out infinite' }}
-      />
-      <div
-        className="pipe-blob absolute rounded-full blur-3xl"
-        style={{ width: '34rem', height: '34rem', bottom: '-12rem', right: '-6rem', backgroundColor: '#3B82F633', animation: 'pipe-blob-b 19s ease-in-out infinite' }}
-      />
-      <div
-        className="pipe-blob absolute rounded-full blur-3xl"
-        style={{ width: '26rem', height: '26rem', top: '30%', right: '12%', backgroundColor: `${NAVY}26`, animation: 'pipe-blob-c 22s ease-in-out infinite' }}
-      />
     </div>
   );
 
@@ -814,6 +788,29 @@ export default function QuickStartPage() {
               : currentInput.trim().length >= minLen;
 
     const hasHistory = currentStepIdx > 0;
+
+    // Subtle progress under the header — single teal accent, communicates guiding.
+    const progressPct = ((currentStepIdx + 1) / steps.length) * 100;
+    const progressBar = (
+      <div style={{ backgroundColor: '#fff' }}>
+        <div className="max-w-2xl mx-auto">
+          <div
+            className="h-1 w-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={currentStepIdx + 1}
+            aria-valuemin={1}
+            aria-valuemax={steps.length}
+            aria-label={`Paso ${currentStepIdx + 1} de ${steps.length}`}
+            style={{ backgroundColor: WARM_GRAY_100 }}
+          >
+            <div
+              className="h-full"
+              style={{ width: `${progressPct}%`, backgroundColor: TEAL, transition: 'width 300ms ease' }}
+            />
+          </div>
+        </div>
+      </div>
+    );
 
     // Build chat history from completed steps
     const chatHistory: { role: 'pipe' | 'user'; content: string }[] = [];
@@ -840,12 +837,11 @@ export default function QuickStartPage() {
     if (!hasHistory) {
       return (
         <div
-          className="relative overflow-hidden h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-          style={{ background: `linear-gradient(135deg, ${TEAL}10 0%, ${WARM_GRAY_50} 45%, #3B82F610 100%)` }}
+          className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+          style={{ backgroundColor: WARM_GRAY_50 }}
         >
-          {backdrop}
-          <div className="relative z-10 flex flex-col flex-1 min-h-0">
           {header}
+          {progressBar}
 
           <div className="flex-1 flex flex-col items-center justify-center px-4">
             {/* Everything in one container with consistent width */}
@@ -873,7 +869,7 @@ export default function QuickStartPage() {
               ) : (
                 <>
                   <div
-                    className="relative mb-14 animate-in fade-in duration-500 rounded-2xl px-5 py-4 text-center shadow-sm"
+                    className="relative mb-14 rounded-2xl px-5 py-4 text-center shadow-sm"
                     style={{
                       backgroundColor: '#fff',
                       border: `1px solid ${WARM_GRAY_100}`,
@@ -909,7 +905,7 @@ export default function QuickStartPage() {
 
                   {/* Module grid + continue — same width as title */}
                   {step.type === 'modules' && (
-                    <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100 space-y-12">
+                    <div className="w-full space-y-12">
                       <div className="grid grid-cols-3 gap-3">
                         {modules.map((mod) => {
                           const modKey = mod.key as keyof ModuleSelection;
@@ -929,7 +925,7 @@ export default function QuickStartPage() {
                                   setTimeout(() => setActiveMood('listening'), 900);
                                 }
                               }}
-                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                              className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                               style={{
                                 backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                                 borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
@@ -981,7 +977,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                         style={{
                           backgroundColor: canSend ? TEAL : WARM_GRAY_100,
                           color: canSend ? '#fff' : WARM_GRAY_400,
@@ -997,7 +993,6 @@ export default function QuickStartPage() {
               )}
             </div>
           </div>
-          </div>
         </div>
       );
     }
@@ -1005,12 +1000,11 @@ export default function QuickStartPage() {
     // ── Conversation state: messages flow top-down, input fixed at bottom ──
     return (
       <div
-        className="relative overflow-hidden h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(135deg, ${TEAL}10 0%, ${WARM_GRAY_50} 45%, #3B82F610 100%)` }}
+        className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+        style={{ backgroundColor: WARM_GRAY_50 }}
       >
-        {backdrop}
-        <div className="relative z-10 flex flex-col flex-1 min-h-0">
         {header}
+        {progressBar}
 
         {/* Scrollable message area */}
         <div className="flex-1 overflow-y-auto">
@@ -1035,7 +1029,7 @@ export default function QuickStartPage() {
                     <div className="w-10 flex-shrink-0" aria-hidden="true" />
                     <div
                       className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-[0.88rem] leading-relaxed max-w-[75%]"
-                      style={{ backgroundColor: NAVY, color: '#fff' }}
+                      style={{ backgroundColor: '#fff', color: WARM_GRAY_500, border: `1px solid ${WARM_GRAY_200}` }}
                     >
                       {msg.content}
                     </div>
@@ -1053,14 +1047,14 @@ export default function QuickStartPage() {
                 {isTyping ? (
                   <div
                     className="inline-flex gap-1.5 px-4 py-3 rounded-2xl rounded-tl-sm"
-                    style={{ backgroundColor: NAVY }}
+                    style={{ backgroundColor: '#fff', border: `1px solid ${WARM_GRAY_200}` }}
                   >
                     {[0, 1, 2].map((i) => (
                       <div
                         key={i}
                         className="w-1.5 h-1.5 rounded-full animate-bounce"
                         style={{
-                          backgroundColor: 'rgba(255,255,255,0.7)',
+                          backgroundColor: WARM_GRAY_400,
                           animationDelay: `${i * 150}ms`,
                           animationDuration: '0.8s',
                         }}
@@ -1070,7 +1064,7 @@ export default function QuickStartPage() {
                 ) : (
                   <div
                     className="inline-block px-4 py-2.5 rounded-2xl rounded-tl-sm text-[0.9rem] font-medium leading-relaxed max-w-[85%] animate-in fade-in duration-300"
-                    style={{ backgroundColor: NAVY, color: '#fff' }}
+                    style={{ backgroundColor: '#fff', color: NAVY, border: `1px solid ${WARM_GRAY_100}` }}
                   >
                     {step.message}
                   </div>
@@ -1127,7 +1121,7 @@ export default function QuickStartPage() {
                             type="button"
                             onClick={submitCorrection}
                             disabled={correctionInput.trim().length < 3}
-                            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-40"
+                            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                             style={{ backgroundColor: TEAL, color: '#fff' }}
                           >
                             Revisar <ArrowRight className="w-3.5 h-3.5" />
@@ -1151,7 +1145,7 @@ export default function QuickStartPage() {
                           <button
                             type="button"
                             onClick={confirmIndustry}
-                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all"
+                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                             style={{ backgroundColor: TEAL, color: '#fff' }}
                           >
                             Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1159,7 +1153,7 @@ export default function QuickStartPage() {
                           <button
                             type="button"
                             onClick={startCorrection}
-                            className="inline-flex items-center h-9 px-4 rounded-lg border text-[0.82rem] font-medium"
+                            className="inline-flex items-center h-9 px-4 rounded-lg border text-[0.82rem] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                             style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
                           >
                             Decirle mi sector
@@ -1177,7 +1171,7 @@ export default function QuickStartPage() {
                           <button
                             type="button"
                             onClick={confirmIndustry}
-                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all"
+                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                             style={{ backgroundColor: TEAL, color: '#fff' }}
                           >
                             <Check className="w-3.5 h-3.5" /> Sí, es correcto
@@ -1185,7 +1179,7 @@ export default function QuickStartPage() {
                           <button
                             type="button"
                             onClick={startCorrection}
-                            className="inline-flex items-center h-9 px-4 rounded-lg border text-[0.82rem] font-medium"
+                            className="inline-flex items-center h-9 px-4 rounded-lg border text-[0.82rem] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                             style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
                           >
                             No, corregir
@@ -1206,7 +1200,7 @@ export default function QuickStartPage() {
             is "typing" the next question, and hidden during inline industry confirm. */}
         {!inlineConfirm && (
           <div
-            className={`border-t animate-in fade-in slide-in-from-bottom-2 duration-300 transition-opacity ${isTyping ? 'pointer-events-none opacity-50' : ''}`}
+            className={`border-t transition-opacity ${isTyping ? 'pointer-events-none opacity-50' : ''}`}
             aria-disabled={isTyping}
             style={{ borderColor: WARM_GRAY_100 }}
           >
@@ -1216,7 +1210,7 @@ export default function QuickStartPage() {
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="flex items-center gap-1 text-[0.75rem] font-medium mb-2 transition-colors"
+                  className="flex items-center gap-1 text-[0.75rem] font-medium mb-2 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                   style={{ color: WARM_GRAY_400 }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = TEAL)}
                   onMouseLeave={(e) => (e.currentTarget.style.color = WARM_GRAY_400)}
@@ -1257,7 +1251,7 @@ export default function QuickStartPage() {
                       type="button"
                       onClick={handleSend}
                       disabled={!canSend}
-                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                       style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                     >
                       <Send className="w-4 h-4" />
@@ -1311,7 +1305,7 @@ export default function QuickStartPage() {
                       type="button"
                       onClick={handleSend}
                       disabled={!canSend}
-                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 transition-all disabled:opacity-25 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                       style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                     >
                       <Send className="w-4 h-4" />
@@ -1337,7 +1331,7 @@ export default function QuickStartPage() {
                             key={opt.key}
                             type="button"
                             onClick={() => setSelectedStyle(opt.key)}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200"
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                             style={{
                               backgroundColor: isActive ? `${opt.color}0A` : '#fff',
                               borderColor: isActive ? opt.color : WARM_GRAY_200,
@@ -1362,7 +1356,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                         style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1385,7 +1379,7 @@ export default function QuickStartPage() {
                             key={pal.label}
                             type="button"
                             onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
-                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200"
+                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                             style={{
                               borderColor: isActive ? TEAL : WARM_GRAY_200,
                               backgroundColor: isActive ? `${TEAL}08` : '#fff',
@@ -1407,7 +1401,7 @@ export default function QuickStartPage() {
                       <button
                         type="button"
                         onClick={handleSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                         style={{ backgroundColor: TEAL, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1430,7 +1424,7 @@ export default function QuickStartPage() {
                             key={opt.key}
                             type="button"
                             onClick={() => setSelectedTone(opt.key)}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 text-[0.82rem] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                             style={{
                               borderColor: isActive ? TEAL : WARM_GRAY_200,
                               backgroundColor: isActive ? `${TEAL}0A` : '#fff',
@@ -1448,7 +1442,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                         style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1477,7 +1471,7 @@ export default function QuickStartPage() {
                             setSelectedPages(next);
                           }}
                           disabled={page.is_mandatory}
-                          className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.82rem] font-medium border transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default"
+                          className="flex items-center gap-2 px-3.5 py-2 rounded-full text-[0.82rem] font-medium border transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                           style={{
                             backgroundColor: isSelected ? `${TEAL}0A` : '#fff',
                             borderColor: isSelected ? TEAL : WARM_GRAY_200,
@@ -1528,7 +1522,7 @@ export default function QuickStartPage() {
                               setTimeout(() => setActiveMood('listening'), 900);
                             }
                           }}
-                          className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden"
+                          className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-all duration-300 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                           style={{
                             backgroundColor: isSelected ? `${mod.accent_color}08` : '#fff',
                             borderColor: isSelected ? mod.accent_color : WARM_GRAY_200,
@@ -1571,7 +1565,7 @@ export default function QuickStartPage() {
                     type="button"
                     onClick={handleSend}
                     disabled={!canSend}
-                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                     style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                   >
                     Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1581,7 +1575,6 @@ export default function QuickStartPage() {
             </div>
           </div>
         )}
-        </div>
       </div>
     );
   }
@@ -1593,7 +1586,7 @@ export default function QuickStartPage() {
     return (
       <div
         className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(170deg, ${TEAL}06 0%, ${WARM_GRAY_50} 35%, #fff 100%)` }}
+        style={{ backgroundColor: WARM_GRAY_50 }}
       >
         {header}
 
@@ -1651,7 +1644,7 @@ export default function QuickStartPage() {
     return (
       <div
         className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
-        style={{ background: `linear-gradient(170deg, ${TEAL}06 0%, ${WARM_GRAY_50} 35%, #fff 100%)` }}
+        style={{ backgroundColor: WARM_GRAY_50 }}
       >
         {header}
 
@@ -1663,29 +1656,28 @@ export default function QuickStartPage() {
             </div>
 
             <h2
-              className="text-2xl font-bold mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500"
+              className="text-2xl font-bold mb-2"
               style={{ color: WARM_GRAY_800, letterSpacing: '-0.03em' }}
             >
               Tu sitio web está listo
             </h2>
             <p
-              className="mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500 text-[0.92rem]"
-              style={{ color: WARM_GRAY_500, animationDelay: '100ms' }}
+              className="mb-8 text-[0.92rem]"
+              style={{ color: WARM_GRAY_500 }}
             >
               {result.template.name} · {sections.length} secciones generadas
             </p>
 
             {/* Section cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-8">
-              {sections.map((key, i) => (
+              {sections.map((key) => (
                 <div
                   key={key}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg border text-[0.82rem] animate-in fade-in slide-in-from-bottom-2"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg border text-[0.82rem]"
                   style={{
                     backgroundColor: '#fff',
                     borderColor: WARM_GRAY_200,
                     color: WARM_GRAY_800,
-                    animationDelay: `${150 + i * 80}ms`,
                   }}
                 >
                   <Check
@@ -1703,9 +1695,9 @@ export default function QuickStartPage() {
             <button
               type="button"
               onClick={() => router.push('/dashboard/website-builder/editor')}
-              className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-lg font-medium text-[0.88rem] transition-all duration-150"
+              className="inline-flex items-center justify-center gap-2 h-11 px-6 rounded-lg font-medium text-[0.88rem] transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
               style={{
-                backgroundColor: NAVY,
+                backgroundColor: TEAL,
                 color: '#fff',
               }}
               onMouseEnter={(e) => {
