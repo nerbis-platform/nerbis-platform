@@ -25,7 +25,8 @@ from .models import (
 class WebsiteTemplateListSerializer(serializers.ModelSerializer):
     """Serializer para listar templates disponibles."""
 
-    industry_display = serializers.CharField(source="get_industry_display", read_only=True)
+    industry = serializers.CharField(source="industry.key", read_only=True, default=None)
+    industry_display = serializers.CharField(source="industry.label", read_only=True, default=None)
     preview_image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -55,7 +56,8 @@ class WebsiteTemplateListSerializer(serializers.ModelSerializer):
 class WebsiteTemplateDetailSerializer(serializers.ModelSerializer):
     """Serializer detallado de un template con sus preguntas."""
 
-    industry_display = serializers.CharField(source="get_industry_display", read_only=True)
+    industry = serializers.CharField(source="industry.key", read_only=True, default=None)
+    industry_display = serializers.CharField(source="industry.label", read_only=True, default=None)
     questions = serializers.SerializerMethodField()
     default_theme = serializers.JSONField(read_only=True)
     structure_schema = serializers.JSONField(read_only=True)
@@ -197,7 +199,7 @@ class WebsiteConfigSerializer(serializers.ModelSerializer):
     """Serializer para la configuración del sitio web."""
 
     template_name = serializers.CharField(source="template.name", read_only=True)
-    template_industry = serializers.CharField(source="template.industry", read_only=True)
+    template_industry = serializers.CharField(source="template.industry.key", read_only=True, default=None)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     public_url = serializers.CharField(read_only=True)
     is_published = serializers.BooleanField(read_only=True)
@@ -389,6 +391,26 @@ class QuickStartSerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
         self.fields["website_sections"].child.choices = [(s, s) for s in self.ALLOWED_SECTIONS]
         self.fields["brand_tone"].choices = [(t, t) for t in self.ALLOWED_TONES]
+
+
+class ClassifyIndustrySerializer(serializers.Serializer):
+    """Serializer de entrada para clasificar la industria de un negocio.
+
+    Recibe una descripción libre del negocio y, opcionalmente, los módulos
+    seleccionados en el onboarding. La IA decide si la descripción encaja con
+    una industria existente o si debe proponerse una nueva.
+    """
+
+    business_description = serializers.CharField(
+        max_length=1000,
+        help_text="Descripción del negocio (qué hace, a quién atiende)",
+    )
+    selected_modules = serializers.ListField(
+        child=serializers.CharField(max_length=50),
+        required=False,
+        max_length=20,
+        help_text="Módulos seleccionados en el onboarding (opcional, da contexto)",
+    )
 
 
 # ===================================

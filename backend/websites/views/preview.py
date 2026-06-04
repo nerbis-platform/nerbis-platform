@@ -41,7 +41,7 @@ class PreviewWebsiteView(APIView):
             {
                 "template": {
                     "slug": config.template.slug,
-                    "industry": config.template.industry,
+                    "industry": config.template.industry.key if config.template.industry_id else None,
                     "structure": config.template.structure_schema,
                 },
                 "content": config.content_data,
@@ -89,7 +89,7 @@ class PreviewRenderView(APIView):
             pages_data, config.content_data, seo, structure, page_id
         )
 
-        industry = config.template.industry
+        industry = config.template.industry.key if config.template.industry_id else "generic"
         media = dict(config.media_data or {})
 
         current_logo = media.get("logo_url", "")

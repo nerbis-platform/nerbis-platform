@@ -331,7 +331,7 @@ class QuickStartView(OnboardingView):
                     sections=section_ids,
                     onboarding_responses=responses_dict,
                     tenant_industry=tenant.industry,
-                    template_industry=template.industry or "generic",
+                    template_industry=(template.industry.key if template.industry_id else "generic") or "generic",
                 )
                 self._inject_images_and_variants(content_data, images)
             except Exception as e:

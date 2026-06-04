@@ -74,9 +74,7 @@ def _get_active_blocks(template=None, industry: str = "") -> list:
     """Query active PromptBlocks with scope filtering."""
     from websites.models import PromptBlock
 
-    blocks = list(
-        PromptBlock.objects.filter(is_active=True).order_by("category", "sort_order")
-    )
+    blocks = list(PromptBlock.objects.filter(is_active=True).order_by("category", "sort_order"))
     if not blocks:
         return []
 
@@ -86,7 +84,7 @@ def _get_active_blocks(template=None, industry: str = "") -> list:
             result.append(block)
         elif block.scope == "template" and template and block.template_id == template.id:
             result.append(block)
-        elif block.scope == "industry" and industry and block.industry == industry:
+        elif block.scope == "industry" and industry and block.industry_id and block.industry.key == industry:
             result.append(block)
     return result
 
@@ -119,10 +117,7 @@ def _build_variant_instructions(section_keys: list[str]) -> str:
             lines.append(f"  Mood: {v.get_mood_display()}")
 
     lines.append("")
-    lines.append(
-        "Para cada seccion, elige UNA variante y devuelvela en "
-        'el campo `"_variant"` del JSON de esa seccion.'
-    )
+    lines.append('Para cada seccion, elige UNA variante y devuelvela en el campo `"_variant"` del JSON de esa seccion.')
     return "\n".join(lines)
 
 
@@ -169,7 +164,7 @@ def build_system_prompt(template, onboarding_responses: dict) -> str:
     """
     from collections import defaultdict
 
-    industry = template.industry if template else "generic"
+    industry = (template.industry.key if template and template.industry_id else "generic") or "generic"
     blocks = _get_active_blocks(template=template, industry=industry)
 
     if not blocks:

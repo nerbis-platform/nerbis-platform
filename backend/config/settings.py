@@ -372,6 +372,8 @@ REST_FRAMEWORK = {
         "token_refresh": "30/min",
         "public_check": "20/min",
         "public_site": "60/min",
+        # Clasificación de industria con IA (ScopedRateThrottle, por usuario)
+        "classify_industry": "10/hour",
         # API general (por usuario autenticado)
         "user": "120/min",
         # Por tenant: se configura dinámicamente según el plan

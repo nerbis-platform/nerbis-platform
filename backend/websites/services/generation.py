@@ -162,7 +162,7 @@ def generate_website(
                 sections=section_ids,
                 onboarding_responses=responses_dict,
                 tenant_industry=tenant.industry,
-                template_industry=template.industry or "generic",
+                template_industry=(template.industry.key if template.industry_id else "generic") or "generic",
             )
             _inject_images_and_variants(content_data, images)
         except Exception as e:
