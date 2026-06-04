@@ -29,6 +29,13 @@ import type {
   AdminWebsiteSection,
   VariantMood,
 } from '@/types/admin';
+import {
+  MOOD_OPTIONS,
+  MOOD_BADGE_CLASSES,
+  FILTER_ALL,
+  EMPTY_VARIANT_FORM,
+  type VariantFormState,
+} from './variants-helpers';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -72,53 +79,6 @@ import {
   BTN_SECONDARY,
   ACTION_TRIGGER,
 } from '../_helpers';
-
-// ─── Constants ───────────────────────────────────────────────
-
-const MOOD_OPTIONS: { value: VariantMood; label: string }[] = [
-  { value: 'professional', label: 'Professional' },
-  { value: 'playful', label: 'Playful' },
-  { value: 'elegant', label: 'Elegant' },
-  { value: 'bold', label: 'Bold' },
-  { value: 'minimal', label: 'Minimal' },
-];
-
-const MOOD_BADGE_CLASSES: Record<VariantMood, string> = {
-  professional: 'border-slate-200 bg-slate-50 text-slate-700',
-  playful: 'border-amber-200 bg-amber-50 text-amber-700',
-  elegant: 'border-violet-200 bg-violet-50 text-violet-700',
-  bold: 'border-red-200 bg-red-50 text-red-700',
-  minimal: 'border-teal-200 bg-teal-50 text-teal-700',
-};
-
-// ─── Form state ──────────────────────────────────────────────
-
-interface VariantFormState {
-  section: string;
-  key: string;
-  label: string;
-  description: string;
-  css_class_hint: string;
-  mood: VariantMood;
-  tags: string;
-  is_default: boolean;
-  sort_order: number;
-}
-
-const EMPTY_VARIANT_FORM: VariantFormState = {
-  section: '',
-  key: '',
-  label: '',
-  description: '',
-  css_class_hint: '',
-  mood: 'professional',
-  tags: '',
-  is_default: false,
-  sort_order: 0,
-};
-
-// Filter sentinel — represents "show all sections"
-const FILTER_ALL = '__all__';
 
 // ─── Component ───────────────────────────────────────────────
 
