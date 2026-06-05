@@ -80,6 +80,133 @@ export function isLightColor(hex: string): boolean {
   return luminance > 0.55;
 }
 
+// ─── Contraste WCAG ─────────────────────────────────────────
+
+/**
+ * Luminancia relativa según WCAG 2.1 (canal sRGB linealizado).
+ * Distinta de `isLightColor`, que usa una aproximación perceptual rápida.
+ * Aquí necesitamos el valor exacto para calcular ratios de contraste.
+ */
+export function wcagLuminance(hex: string): number {
+  const channel = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  const r = channel(parseInt(hex.slice(1, 3), 16));
+  const g = channel(parseInt(hex.slice(3, 5), 16));
+  const b = channel(parseInt(hex.slice(5, 7), 16));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * Ratio de contraste WCAG entre dos colores (1:1 a 21:1).
+ * AA exige ≥4.5 para texto normal, ≥3 para texto grande/UI.
+ */
+export function wcagContrast(hexA: string, hexB: string): number {
+  const lumA = wcagLuminance(hexA);
+  const lumB = wcagLuminance(hexB);
+  const lighter = Math.max(lumA, lumB);
+  const darker = Math.min(lumA, lumB);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// ─── Derivación de secundario armónico ──────────────────────
+
+/** Texto blanco/oscuro de referencia para validar contraste AA. */
+const WHITE = '#FFFFFF';
+const NEAR_BLACK = '#1A1A1A';
+/** Contraste AA mínimo para texto normal. */
+const WCAG_AA_TEXT = 4.5;
+
+/**
+ * Contraste del mejor foreground (blanco u oscuro) contra un color de fondo.
+ * Un color "usable como acento con texto encima" debe alcanzar AA con alguno.
+ */
+function bestForegroundContrast(hex: string): number {
+  return Math.max(wcagContrast(hex, WHITE), wcagContrast(hex, NEAR_BLACK));
+}
+
+/**
+ * Deriva un color secundario armónico a partir del primario.
+ *
+ * Estrategia:
+ * 1. Rotar la matiz HSL para obtener una relación armónica. Se prueba un
+ *    análogo cálido (+30°), su simétrico (−30°), un complementario suave
+ *    (+150°/−150°) y el complementario puro (+180°), eligiendo el primero
+ *    que cumpla contraste AA tras el ajuste de lightness/saturation.
+ * 2. Ajustar lightness/saturation hasta que el secundario alcance contraste
+ *    WCAG AA (≥4.5:1) con blanco o con texto oscuro, de modo que sea usable
+ *    como acento con texto encima.
+ *
+ * Reutiliza `hexToHSL` / `hslToHex` existentes. Siempre devuelve un hex válido
+ * (si ningún candidato converge, retorna el mejor encontrado por contraste).
+ *
+ * @param primaryHex Color primario en formato `#RRGGBB`.
+ * @returns Secundario armónico en formato `#RRGGBB`.
+ */
+export function deriveHarmonicSecondary(primaryHex: string): string {
+  const base = hexToHSL(primaryHex);
+
+  // Primario acromático (blanco/negro/gris): no hay matiz que rotar. Inyectamos
+  // un acento teal de marca con lightness ajustada para cumplir AA — así un logo
+  // monocromo igual recibe un secundario usable en vez de devolver el mismo gris.
+  if (base.s < 5) {
+    const TEAL_HUE = 174; // teal NERBIS (#0D9488)
+    const lightCandidates = [42, 35, 50, 30, 58];
+    let bestAchroma = hslToHex(TEAL_HUE, 70, 42);
+    let bestAchromaContrast = 0;
+    for (const light of lightCandidates) {
+      const candidate = hslToHex(TEAL_HUE, 70, light);
+      const contrast = bestForegroundContrast(candidate);
+      if (contrast >= WCAG_AA_TEXT) return candidate;
+      if (contrast > bestAchromaContrast) {
+        bestAchromaContrast = contrast;
+        bestAchroma = candidate;
+      }
+    }
+    return bestAchroma;
+  }
+
+  // Rotaciones de matiz candidatas (orden de preferencia estética).
+  const hueRotations = [30, -30, 150, -150, 180];
+
+  let best = primaryHex;
+  let bestContrast = 0;
+
+  for (const rotation of hueRotations) {
+    const hue = (base.h + rotation + 360) % 360;
+
+    // Para cada matiz, barrer lightness/saturation buscando AA.
+    // Saturación: mantener viveza pero permitir desaturar si hace falta.
+    const satCandidates = [
+      base.s,
+      Math.min(100, base.s + 12),
+      Math.max(20, base.s - 12),
+      Math.max(35, Math.min(85, base.s)),
+    ];
+    // Lightness: empezar cerca de un acento medio y abrirse hacia los extremos
+    // donde el contraste con texto blanco/oscuro mejora.
+    const lightCandidates = [base.l, 42, 35, 50, 30, 58, 24, 66];
+
+    for (const sat of satCandidates) {
+      for (const light of lightCandidates) {
+        const candidate = hslToHex(hue, sat, light);
+        const contrast = bestForegroundContrast(candidate);
+        if (contrast >= WCAG_AA_TEXT) {
+          return candidate;
+        }
+        if (contrast > bestContrast) {
+          bestContrast = contrast;
+          best = candidate;
+        }
+      }
+    }
+  }
+
+  // Ningún candidato alcanzó AA exacto — devolver el de mayor contraste.
+  return best;
+}
+
 // ─── Derivación de paleta (primitive-layer) ─────────────────
 
 /**

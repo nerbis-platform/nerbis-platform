@@ -394,10 +394,45 @@ class QuickStartSerializer(serializers.Serializer):
         "Si no se envia, se usa la industria del tenant.",
     )
 
+    # --- Logo upload (brand-color-from-logo) ---
+    # El frontend extrae los colores del logo y los envia ya derivados en
+    # primary_color / secondary_color. El backend solo persiste el archivo y
+    # los colores en el Tenant; NO recalcula el secundario.
+    MAX_LOGO_BYTES = 5 * 1024 * 1024  # 5 MB
+    ALLOWED_LOGO_CONTENT_TYPES = ("image/png", "image/jpeg", "image/webp")
+
+    logo_file = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Logo del negocio (PNG, JPEG o WEBP, max 5MB). Opcional: si no se "
+        "envia, el flujo JSON actual sigue funcionando sin cambios.",
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["website_sections"].child.choices = [(s, s) for s in self.ALLOWED_SECTIONS]
         self.fields["brand_tone"].choices = [(t, t) for t in self.ALLOWED_TONES]
+
+    def validate_logo_file(self, value):
+        """Valida MIME (PNG/JPEG) y tamaño (<5MB) del logo subido.
+
+        La integridad de la imagen (que PIL pueda abrirla) ya la valida
+        ``ImageField``; aqui reforzamos content-type y tamaño para rechazar
+        archivos no soportados o demasiado grandes con un 400 claro.
+        """
+        if value is None:
+            return value
+
+        if value.size > self.MAX_LOGO_BYTES:
+            raise serializers.ValidationError(
+                f"El logo supera el tamaño máximo de {self.MAX_LOGO_BYTES // (1024 * 1024)}MB."
+            )
+
+        content_type = getattr(value, "content_type", None)
+        if content_type and content_type not in self.ALLOWED_LOGO_CONTENT_TYPES:
+            raise serializers.ValidationError("Formato no soportado. Usa PNG, JPEG o WEBP.")
+
+        return value
 
 
 class ClassifyIndustrySerializer(serializers.Serializer):

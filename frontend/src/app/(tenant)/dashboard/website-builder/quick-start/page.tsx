@@ -12,7 +12,10 @@ import {
   Send,
   LogOut,
   UserCircle,
+  ImagePlus,
+  X,
 } from 'lucide-react';
+import { deriveHarmonicSecondary } from '@/lib/utils/theme-colors';
 import Link from 'next/link';
 import { PipeAvatar } from '@/components/pipe-avatar';
 import type { PipeMood } from '@/components/pipe-avatar';
@@ -43,6 +46,32 @@ import {
   type PaletteOption, type ToneOption,
   type ConversationStep, type PageState,
 } from './_helpers';
+
+// ─── Logo upload constraints (paso de color) ────────────────
+const MAX_LOGO_BYTES = 5 * 1024 * 1024; // 5 MB
+const ACCEPTED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+// Respuesta del paso de color: "#rrggbb / #rrggbb". Para el usuario el hex no
+// significa nada → mostramos swatches de color en vez del texto.
+const HEX_PAIR_RE = /^(#[0-9a-fA-F]{6}) \/ (#[0-9a-fA-F]{6})$/;
+
+function UserAnswerContent({ content }: { content: string }) {
+  const match = content.match(HEX_PAIR_RE);
+  if (!match) return <>{content}</>;
+  const [, primary, secondary] = match;
+  return (
+    <span
+      className="flex items-center gap-2"
+      aria-label={`Colores elegidos: ${primary} y ${secondary}`}
+    >
+      <span className="text-[0.82rem]">Mis colores</span>
+      <span className="flex items-center gap-1" aria-hidden="true">
+        <span className="w-4 h-4 rounded-full border border-white/50" style={{ backgroundColor: primary }} />
+        <span className="w-4 h-4 rounded-full border border-white/50" style={{ backgroundColor: secondary }} />
+      </span>
+    </span>
+  );
+}
 
 export default function QuickStartPage() {
   const router = useRouter();
@@ -102,6 +131,14 @@ export default function QuickStartPage() {
   const [selectedTone, setSelectedTone] = useState('');
   const [primaryColor, setPrimaryColor] = useState('');
   const [secondaryColor, setSecondaryColor] = useState('');
+  // Logo subido en el paso de color (camino 1): ColorThief extrae el primario y
+  // deriveHarmonicSecondary calcula el secundario. El archivo se envía al backend
+  // como multipart. No se persiste en sessionStorage (los File no son serializables).
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoSource, setLogoSource] = useState(false); // true → colores vienen del logo
+  const [logoLoading, setLogoLoading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
 
   // ─── Dependency helpers ─────────────────────────────────────
 
@@ -428,6 +465,9 @@ export default function QuickStartPage() {
         secondary_color: secondaryColor || undefined,
         business_whatsapp: answersData.pipe_whatsapp || undefined,
         industry_key: industryKey || undefined,
+        // Solo se envía cuando el tenant subió un logo en el paso de color.
+        // Activa el camino multipart en quickStartGenerate (backward-compat sin logo).
+        logo_file: logoFile || undefined,
       });
       startPolling();
     } catch (error) {
@@ -445,7 +485,7 @@ export default function QuickStartPage() {
         setPageState('error');
       }
     }
-  }, [startPolling, selectedTone, primaryColor, secondaryColor]);
+  }, [startPolling, selectedTone, primaryColor, secondaryColor, logoFile]);
 
   // ─── Industry classification + confirm step ───────────────
   // Classify the business based on its description + selected modules, then
@@ -546,6 +586,81 @@ export default function QuickStartPage() {
   }, [pageState]);
 
   // ─── Send answer ──────────────────────────────────────────
+  // ─── Logo upload → extracción de color (camino 1 del paso de color) ──
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = useCallback(async (file: File) => {
+    setLogoError(null);
+
+    if (!ACCEPTED_LOGO_TYPES.includes(file.type)) {
+      setLogoError('Formato no válido. Usa PNG, JPG o WEBP.');
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setLogoError('El logo pesa más de 5 MB. Sube una versión más liviana.');
+      return;
+    }
+
+    setLogoLoading(true);
+    try {
+      // Preview local (data URL) para mostrar el logo subido.
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('read-failed'));
+        reader.readAsDataURL(file);
+      });
+
+      // ColorThief necesita una imagen rasterizada. Los SVG no se pueden muestrear
+      // directamente en canvas en todos los navegadores: si falla, conservamos el
+      // logo pero pedimos color manual (sin romper el flujo).
+      const img = document.createElement('img');
+      img.crossOrigin = 'anonymous';
+      img.src = dataUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('decode-failed'));
+      });
+
+      const ColorThief = (await import('colorthief')).default;
+      const ct = new ColorThief();
+      const dominant = ct.getColor(img) as [number, number, number];
+      const toHex = (rgb: [number, number, number]) =>
+        '#' + rgb.map((c) => c.toString(16).padStart(2, '0')).join('');
+      const primary = toHex(dominant);
+      const secondary = deriveHarmonicSecondary(primary);
+
+      setLogoFile(file);
+      setLogoPreview(dataUrl);
+      setPrimaryColor(primary);
+      setSecondaryColor(secondary);
+      setLogoSource(true);
+    } catch {
+      setLogoError('No pudimos leer los colores del logo. Elige un color manualmente abajo.');
+    } finally {
+      setLogoLoading(false);
+    }
+  }, []);
+
+  const clearLogo = useCallback(() => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setLogoSource(false);
+    setLogoError(null);
+    setPrimaryColor('');
+    setSecondaryColor('');
+    if (logoInputRef.current) logoInputRef.current.value = '';
+  }, []);
+
+  // Color primario manual (camino 2): el secundario se auto-deriva.
+  const handleManualPrimary = useCallback((hex: string) => {
+    setLogoSource(false);
+    setLogoFile(null);
+    setLogoPreview(null);
+    setPrimaryColor(hex);
+    setSecondaryColor(deriveHarmonicSecondary(hex));
+  }, []);
+
   const handleSend = useCallback(async () => {
     const step = steps[currentStepIdx];
     if (!step) return;
@@ -747,31 +862,8 @@ export default function QuickStartPage() {
 
     const hasHistory = currentStepIdx > 0;
 
-    // Subtle progress under the header — single teal accent, communicates guiding.
-    const progressPct = ((currentStepIdx + 1) / steps.length) * 100;
-    const progressBar = (
-      <div style={{ backgroundColor: '#fff' }}>
-        <div className="max-w-2xl mx-auto">
-          <div
-            className="h-1 w-full overflow-hidden"
-            role="progressbar"
-            aria-valuenow={currentStepIdx + 1}
-            aria-valuemin={1}
-            aria-valuemax={steps.length}
-            aria-label={`Paso ${currentStepIdx + 1} de ${steps.length}`}
-            style={{ backgroundColor: WARM_GRAY_100 }}
-          >
-            <div
-              className="h-full"
-              style={{ width: `${progressPct}%`, backgroundColor: TEAL, transition: 'width 300ms ease' }}
-            />
-          </div>
-        </div>
-      </div>
-    );
-
     // Build chat history from completed steps
-    const chatHistory: { role: 'pipe' | 'user'; content: string }[] = [];
+    const chatHistory: { role: 'pipe' | 'user'; content: string; sector?: string }[] = [];
     for (let i = 0; i < currentStepIdx; i++) {
       const s = steps[i];
       chatHistory.push({ role: 'pipe', content: i === 0
@@ -782,11 +874,9 @@ export default function QuickStartPage() {
       }
       // Keep the industry decision in the conversation: right after the
       // description step, replay Pipe's suggestion + the user's confirmation.
+      // El sector va en `sector` para resaltarlo como chip en el historial.
       if (s.id?.includes('description') && confirmedIndustryLabel) {
-        chatHistory.push({
-          role: 'pipe',
-          content: `Entonces tu negocio es del sector ${confirmedIndustryLabel}. Con esto elijo el mejor diseño para ti.`,
-        });
+        chatHistory.push({ role: 'pipe', content: '', sector: confirmedIndustryLabel });
         chatHistory.push({ role: 'user', content: 'Sí, es correcto' });
       }
     }
@@ -799,7 +889,6 @@ export default function QuickStartPage() {
           style={{ backgroundColor: WARM_GRAY_50 }}
         >
           {header}
-          {progressBar}
 
           <div className="flex-1 flex flex-col items-center justify-center px-4">
             {/* Everything in one container with consistent width */}
@@ -962,7 +1051,6 @@ export default function QuickStartPage() {
         style={{ backgroundColor: WARM_GRAY_50 }}
       >
         {header}
-        {progressBar}
 
         {/* Scrollable message area */}
         <div className="flex-1 overflow-y-auto">
@@ -977,7 +1065,7 @@ export default function QuickStartPage() {
                       className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
                       style={{ backgroundColor: TEAL, color: '#fff' }}
                     >
-                      {msg.content}
+                      <UserAnswerContent content={msg.content} />
                     </div>
                   </div>
                 ) : (
@@ -989,7 +1077,14 @@ export default function QuickStartPage() {
                       className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-[0.88rem] leading-relaxed max-w-[75%]"
                       style={{ backgroundColor: '#fff', color: WARM_GRAY_500, border: `1px solid ${WARM_GRAY_200}` }}
                     >
-                      {msg.content}
+                      {msg.sector ? (
+                        <>
+                          Tu negocio es del sector{' '}
+                          <span style={{ color: NAVY, fontWeight: 600 }}>{msg.sector}</span>
+                        </>
+                      ) : (
+                        msg.content
+                      )}
                     </div>
                   </div>
                 )}
@@ -1040,7 +1135,7 @@ export default function QuickStartPage() {
                       className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-[0.88rem] leading-relaxed max-w-[75%]"
                       style={{ backgroundColor: TEAL, color: '#fff' }}
                     >
-                      {answers[step.id]}
+                      <UserAnswerContent content={answers[step.id]} />
                     </div>
                   </div>
                 )}
@@ -1122,7 +1217,7 @@ export default function QuickStartPage() {
                       <div className="animate-in fade-in duration-300">
                         <p className="text-[0.88rem] leading-relaxed mb-3" style={{ color: WARM_GRAY_800 }}>
                           Entonces tu negocio es del sector{' '}
-                          <span style={{ color: TEAL, fontWeight: 600 }}>{classifyResult?.industry_label}</span>.
+                          <span style={{ color: NAVY, fontWeight: 600 }}>{classifyResult?.industry_label}</span>.
                           {' '}¿Es correcto? Con esto elijo el mejor diseño para ti.
                         </p>
                         <div className="flex items-center gap-2.5">
@@ -1278,35 +1373,178 @@ export default function QuickStartPage() {
               {/* Color picker */}
               {step.type === 'color_picker' && (() => {
                 const palettes = (step.options || FALLBACK_PALETTES) as PaletteOption[];
+                const hasManualPrimary = /^#[0-9a-fA-F]{6}$/.test(primaryColor);
                 return (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-3 gap-2.5">
-                      {palettes.map((pal) => {
-                        const isActive = primaryColor === pal.primary && secondaryColor === pal.secondary;
-                        return (
-                          <button
-                            key={pal.label}
-                            type="button"
-                            onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
-                            className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
-                            style={{
-                              borderColor: isActive ? TEAL : WARM_GRAY_200,
-                              backgroundColor: isActive ? `${TEAL}08` : '#fff',
-                            }}
+                  <div className="space-y-4">
+                    {/* ── Camino 1: subir logo → detectar colores ── */}
+                    <div>
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="sr-only"
+                        aria-label="Subir logo para detectar colores de marca"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handleLogoUpload(file);
+                        }}
+                      />
+
+                      {!logoSource ? (
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          disabled={logoLoading}
+                          aria-busy={logoLoading}
+                          className="flex w-full items-center gap-3 px-4 py-3 rounded-xl border border-dashed transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-wait"
+                          style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50 }}
+                        >
+                          <span
+                            className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                            style={{ backgroundColor: `${TEAL}12` }}
                           >
-                            <div className="flex gap-1">
-                              <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.primary }} />
-                              <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.secondary }} />
+                            <ImagePlus className="w-4 h-4" style={{ color: TEAL }} />
+                          </span>
+                          <span className="text-left">
+                            <span className="block text-[0.82rem] font-medium" style={{ color: NAVY }}>
+                              {logoLoading ? 'Leyendo tu logo…' : 'Sube tu logo'}
+                            </span>
+                            <span className="block text-[0.7rem]" style={{ color: WARM_GRAY_500 }}>
+                              Detectamos tus colores automáticamente · PNG, JPG o WEBP
+                            </span>
+                          </span>
+                        </button>
+                      ) : (
+                        <div
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl border animate-in fade-in duration-200"
+                          style={{ borderColor: TEAL, backgroundColor: `${TEAL}08` }}
+                        >
+                          {logoPreview && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={logoPreview}
+                              alt="Logo subido"
+                              className="w-10 h-10 object-contain rounded-md shrink-0"
+                              style={{ backgroundColor: '#fff' }}
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[0.78rem] font-medium" style={{ color: NAVY }}>
+                              Detectamos estos colores en tu logo
+                            </p>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-5 h-5 rounded-full border border-black/5" style={{ backgroundColor: primaryColor }} />
+                                <span className="text-[0.68rem] font-mono" style={{ color: WARM_GRAY_500 }}>{primaryColor}</span>
+                              </span>
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-5 h-5 rounded-full border border-black/5" style={{ backgroundColor: secondaryColor }} />
+                                <span className="text-[0.68rem] font-mono" style={{ color: WARM_GRAY_500 }}>{secondaryColor}</span>
+                              </span>
                             </div>
-                            <span className="text-[0.72rem] font-medium" style={{ color: isActive ? TEAL : WARM_GRAY_600 }}>{pal.label}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={clearLogo}
+                            aria-label="Quitar logo y elegir otro color"
+                            className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40"
+                            style={{ color: WARM_GRAY_500 }}
+                          >
+                            <X className="w-3.5 h-3.5" />
                           </button>
-                        );
-                      })}
+                        </div>
+                      )}
+
+                      {logoError && (
+                        <p role="alert" className="text-[0.7rem] mt-1.5 ml-1" style={{ color: '#B91C1C' }}>
+                          {logoError}
+                        </p>
+                      )}
                     </div>
-                    {step.hint && (
-                      <p className="text-[0.7rem] ml-1" style={{ color: WARM_GRAY_400 }}>{step.hint}</p>
+
+                    {/* ── Camino 2: color manual (secundario auto-derivado) ── */}
+                    {!logoSource && (
+                      <div className="flex items-center gap-3">
+                        <label
+                          htmlFor="quickstart-primary-color"
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl border cursor-pointer transition-all duration-200 focus-within:ring-2 focus-within:ring-[#0D9488]/40 focus-within:ring-offset-1"
+                          style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff' }}
+                        >
+                          <span
+                            className="w-7 h-7 rounded-lg border border-black/5 shrink-0"
+                            style={{ backgroundColor: hasManualPrimary ? primaryColor : WARM_GRAY_100 }}
+                          />
+                          <span className="text-left">
+                            <span className="block text-[0.78rem] font-medium" style={{ color: NAVY }}>
+                              Elige tu color
+                            </span>
+                            <span className="block text-[0.68rem]" style={{ color: WARM_GRAY_500 }}>
+                              Derivamos el secundario armónico
+                            </span>
+                          </span>
+                          <input
+                            id="quickstart-primary-color"
+                            type="color"
+                            aria-label="Color primario de marca"
+                            value={hasManualPrimary ? primaryColor : '#1C3B57'}
+                            onChange={(e) => handleManualPrimary(e.target.value)}
+                            className="sr-only"
+                          />
+                        </label>
+                        {hasManualPrimary && (
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-6 h-6 rounded-full border border-black/5" style={{ backgroundColor: secondaryColor }} />
+                            <span className="text-[0.68rem] font-mono" style={{ color: WARM_GRAY_500 }}>{secondaryColor}</span>
+                          </span>
+                        )}
+                      </div>
                     )}
-                    <div className="flex justify-end">
+
+                    {/* ── Camino 3: paletas predefinidas (par tal cual) ── */}
+                    {!logoSource && (
+                      <div className="max-h-32 overflow-y-auto pr-1 -mr-1">
+                        <div className="grid grid-cols-3 gap-2.5">
+                          {palettes.map((pal) => {
+                            const isActive = primaryColor === pal.primary && secondaryColor === pal.secondary;
+                            return (
+                              <button
+                                key={pal.label}
+                                type="button"
+                                onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
+                                className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                                style={{
+                                  borderColor: isActive ? TEAL : WARM_GRAY_200,
+                                  backgroundColor: isActive ? `${TEAL}08` : '#fff',
+                                }}
+                              >
+                                <div className="flex gap-1">
+                                  <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.primary }} />
+                                  <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.secondary }} />
+                                </div>
+                                <span className="text-[0.72rem] font-medium" style={{ color: isActive ? TEAL : WARM_GRAY_600 }}>{pal.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {step.hint && (
+                      <p className="text-[0.7rem] ml-1" style={{ color: WARM_GRAY_400 }}>
+                        {step.hint}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-end gap-3">
+                      {/* Camino 4: saltar = defaults (sin colores) */}
+                      <button
+                        type="button"
+                        onClick={() => { clearLogo(); handleSend(); }}
+                        className="text-[0.78rem] font-medium transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 rounded"
+                        style={{ color: WARM_GRAY_500 }}
+                      >
+                        Usar los de NERBIS
+                      </button>
                       <button
                         type="button"
                         onClick={handleSend}

@@ -13,6 +13,17 @@ from django.utils.text import slugify
 from .managers import TenantAwareManager, TenantAwareUserManager
 
 
+def tenant_logo_upload_to(instance: "Tenant", filename: str) -> str:
+    """Scopea el logo del tenant por su id: ``tenants/logos/{tenant_id}/{filename}``.
+
+    Aisla los archivos de cada tenant en su propio directorio, evitando colisiones
+    de nombres entre tenants y permitiendo limpiezas/políticas de storage por tenant.
+    Para instancias aún sin ``pk`` (creación) cae a ``unassigned`` de forma segura.
+    """
+    tenant_id = instance.pk or "unassigned"
+    return f"tenants/logos/{tenant_id}/{filename}"
+
+
 # ===================================
 # AGREGAR ESTA CLASE
 # ===================================
@@ -243,7 +254,7 @@ class Tenant(models.Model):
 
     # Configuración personalizada
     logo = models.ImageField(
-        upload_to="tenants/logos/",
+        upload_to=tenant_logo_upload_to,
         null=True,
         blank=True,
         verbose_name="Logo del negocio",
