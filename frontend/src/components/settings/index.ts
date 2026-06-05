@@ -7,3 +7,4 @@ export { SettingsField } from './SettingsField';
 export { ViewEditRow, ViewEditList } from './ViewEditRow';
 export { DangerZone, DangerAction } from './DangerZone';
 export { ComingSoonState } from './ComingSoonState';
+export { AvatarUploader } from './avatar-uploader';

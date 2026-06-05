@@ -10,6 +10,7 @@ from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_sche
 from rest_framework import generics, status
 from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -784,6 +785,8 @@ class ProfileView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    # Permite subir avatar via multipart sin romper updates JSON (first_name, etc.).
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @extend_schema(responses={200: UserSerializer})
     def get(self, request):

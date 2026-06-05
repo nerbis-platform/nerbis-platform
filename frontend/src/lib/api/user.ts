@@ -24,6 +24,40 @@ export async function updateUserProfile(userData: {
 }
 
 /**
+ * Actualizar la foto de perfil (avatar) del usuario.
+ *
+ * Envía un PATCH multipart a `/auth/profile/` con el archivo en el campo `avatar`.
+ * Se fuerza `Content-Type: undefined` para que el navegador genere el boundary
+ * de `multipart/form-data` automáticamente (el cliente tiene `application/json`
+ * como header por defecto, que rompería el envío del archivo).
+ */
+export async function updateUserAvatar(file: File): Promise<User> {
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  const { data } = await apiClient.patch<User>('/auth/profile/', formData, {
+    headers: { 'Content-Type': undefined },
+  });
+  return data;
+}
+
+/**
+ * Eliminar la foto de perfil (avatar) del usuario.
+ *
+ * Envía un PATCH multipart con el campo `avatar` vacío para que el backend
+ * limpie la imagen actual.
+ */
+export async function removeAvatar(): Promise<User> {
+  const formData = new FormData();
+  formData.append('avatar', '');
+
+  const { data } = await apiClient.patch<User>('/auth/profile/', formData, {
+    headers: { 'Content-Type': undefined },
+  });
+  return data;
+}
+
+/**
  * Cambiar contraseña del usuario
  */
 export async function changePassword(passwordData: {
