@@ -1,4 +1,4 @@
-// src/app/dashboard/settings/layout.tsx
+// src/app/(tenant)/dashboard/settings/layout.tsx
 
 'use client';
 
@@ -6,46 +6,11 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandHeader } from '@/components/layout/BrandHeader';
-import {
-  ArrowLeft,
-  KeyRound,
-  LogOut,
-  UserCircle,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
+import { NerbisFooterMark } from '@/components/layout/NerbisFooterMark';
+import { ArrowLeft, LogOut } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-
-// ─── Navegación del sidebar ────────────────────────────────
-interface NavItem {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  adminOnly?: boolean;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  {
-    href: '/dashboard/settings/profile',
-    label: 'Mi Perfil',
-    icon: UserCircle,
-  },
-  {
-    href: '/dashboard/settings/login',
-    label: 'Inicio de sesión',
-    icon: KeyRound,
-  },
-  {
-    href: '/dashboard/settings/team',
-    label: 'Equipo',
-    icon: Users,
-    adminOnly: true,
-  },
-  // Futuras secciones:
-  // { href: '/dashboard/settings/billing', label: 'Facturación', icon: CreditCard },
-  // { href: '/dashboard/settings/notifications', label: 'Notificaciones', icon: Bell },
-];
+import { SETTINGS_NAV } from './settings-nav.config';
 
 export default function SettingsLayout({
   children,
@@ -55,130 +20,158 @@ export default function SettingsLayout({
   const pathname = usePathname();
   const { user, tenant, logout } = useAuth();
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !item.adminOnly || user?.role === 'admin'
+  const visibleItems = SETTINGS_NAV.filter(
+    (item) => !item.adminOnly || user?.role === 'admin',
   );
 
   return (
-    <>
-      <div
-        className="min-h-screen bg-[#fafbfc]"
-        style={{
-          '--stg-primary': '#1C3B57',
-          '--stg-primary-hover': '#15304a',
-          '--stg-accent': '#0D9488',
-          '--stg-accent-hover': '#0B7A70',
-          '--stg-accent-subtle': 'rgba(13,148,136,0.08)',
-        } as React.CSSProperties}
+    <div
+      className="min-h-screen bg-background"
+      // Compat shim: las páginas login/team aún consumen --stg-*.
+      // Ahora mapean a tokens del design system (sin hex hardcodeado).
+      // Eliminar cuando login (PR2) y team (PR3) migren a tokens directos.
+      style={
+        {
+          '--stg-primary': 'var(--primary)',
+          '--stg-primary-hover': 'color-mix(in oklch, var(--primary), black 12%)',
+          '--stg-accent': 'var(--color-text-brand)',
+          '--stg-accent-hover': 'var(--color-interactive-hover)',
+          '--stg-accent-subtle': 'var(--color-interactive-muted)',
+        } as React.CSSProperties
+      }
+    >
+      {/* Skip link */}
+      <a
+        href="#settings-content"
+        className="sr-only rounded-md bg-card px-4 py-2 text-sm font-medium text-foreground shadow-md focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50"
       >
-        {/* Skip link */}
-        <a
-          href="#settings-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-white focus:text-[var(--stg-primary)] focus:rounded-md focus:shadow-md focus:text-sm focus:font-medium"
-        >
-          Ir al contenido
-        </a>
+        Ir al contenido
+      </a>
 
-        {/* Header */}
-        <div className="bg-white border-b border-gray-100">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-            <BrandHeader tenantName={tenant?.name} />
-            <div className="flex items-center gap-1.5">
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-1.5 rounded-md px-3 py-2 min-h-[44px] text-[0.72rem] text-gray-500 hover:text-[var(--stg-primary)] hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--stg-primary)]/50 focus-visible:ring-offset-1 transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline">Volver al panel</span>
-              </Link>
-              <div className="w-px h-4 bg-gray-200" aria-hidden="true" />
-              <button
-                type="button"
-                onClick={() => void logout()}
-                aria-label="Cerrar sesión"
-                className="flex items-center gap-1.5 rounded-md px-3 py-2 min-h-[44px] text-[0.72rem] text-gray-500 hover:text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-1 transition-colors cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
-                Salir
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Content area with sidebar */}
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Sidebar — vertical en desktop, horizontal en mobile */}
-            <nav
-              className="lg:w-56 shrink-0"
-              aria-label="Configuración de cuenta"
+      {/* Header */}
+      <div className="border-b border-border bg-card">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
+          <BrandHeader tenantName={tenant?.name} />
+          <div className="flex items-center gap-1.5">
+            <Link
+              href="/dashboard"
+              className="flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             >
-              {/* Mobile: horizontal scroll */}
-              <div className="flex lg:hidden gap-1 overflow-x-auto pb-2 -mx-1 px-1">
-                {visibleItems.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[0.8rem] font-medium whitespace-nowrap transition-all',
-                        isActive
-                          ? 'bg-white text-[var(--stg-primary)] shadow-sm border border-gray-200'
-                          : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'
-                      )}
-                    >
-                      <item.icon className="w-3.5 h-3.5" aria-hidden="true" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-
-              {/* Desktop: vertical list */}
-              <div className="hidden lg:flex flex-col gap-0.5">
-                {visibleItems.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        'flex items-center gap-2.5 px-3 py-2 rounded-lg text-[0.8rem] font-medium transition-all',
-                        isActive
-                          ? 'bg-white text-[var(--stg-primary)] shadow-sm border border-gray-200'
-                          : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'
-                      )}
-                    >
-                      <item.icon
-                        className={cn(
-                          'w-4 h-4',
-                          isActive ? 'text-[var(--stg-accent)]' : ''
-                        )}
-                        aria-hidden="true"
-                      />
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </nav>
-
-            <Separator
-              orientation="vertical"
-              className="hidden lg:block h-auto self-stretch"
-            />
-
-            {/* Main content */}
-            <main
-              id="settings-content"
-              className="flex-1 min-w-0"
+              <ArrowLeft className="size-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Volver al panel</span>
+            </Link>
+            <div className="h-4 w-px bg-border" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={() => void logout()}
+              aria-label="Cerrar sesión"
+              className="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 focus-visible:ring-offset-1"
             >
-              {children}
-            </main>
+              <LogOut className="size-3.5" aria-hidden="true" />
+              Salir
+            </button>
           </div>
         </div>
       </div>
-    </>
+
+      {/* Content area with sidebar */}
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <div className="flex flex-col gap-8 lg:flex-row">
+          {/* Sidebar — vertical en desktop, horizontal en mobile */}
+          <nav className="shrink-0 lg:w-64" aria-label="Configuración de cuenta">
+            {/* Mobile: horizontal scroll */}
+            <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-2 lg:hidden">
+              {visibleItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-all',
+                      isActive
+                        ? 'border border-border bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      item.comingSoon && !isActive && 'opacity-70',
+                    )}
+                  >
+                    <item.icon className="size-3.5" aria-hidden="true" />
+                    {item.label}
+                    {item.comingSoon ? (
+                      <span className="text-xs font-normal text-muted-foreground">
+                        · Próximamente
+                      </span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Desktop: vertical list */}
+            <div className="hidden flex-col gap-0.5 lg:flex">
+              {visibleItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'group flex items-start gap-2.5 rounded-lg px-3 py-2.5 transition-all',
+                      isActive
+                        ? 'border border-border bg-card shadow-sm'
+                        : 'border border-transparent hover:bg-muted',
+                    )}
+                  >
+                    <item.icon
+                      className={cn(
+                        'mt-0.5 size-4 shrink-0',
+                        isActive
+                          ? 'text-[var(--color-text-brand)]'
+                          : 'text-muted-foreground',
+                      )}
+                      aria-hidden="true"
+                    />
+                    <span className="flex min-w-0 flex-col">
+                      <span
+                        className={cn(
+                          'flex items-center gap-1.5 text-sm font-medium',
+                          isActive ? 'text-foreground' : 'text-foreground/90',
+                          item.comingSoon && !isActive && 'text-muted-foreground',
+                        )}
+                      >
+                        {item.label}
+                        {item.comingSoon ? (
+                          <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                            Próximamente
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {item.description}
+                      </span>
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+
+          <Separator
+            orientation="vertical"
+            className="hidden h-auto self-stretch lg:block"
+          />
+
+          {/* Main content */}
+          <main id="settings-content" className="min-w-0 flex-1">
+            {children}
+          </main>
+        </div>
+      </div>
+
+      {/* NERBIS firma discreta al final — solo el logo, sin barra */}
+      <NerbisFooterMark />
+    </div>
   );
 }

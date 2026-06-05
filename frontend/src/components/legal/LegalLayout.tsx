@@ -4,7 +4,7 @@
 // Uses NERBIS corporate branding — NO tenant theme injection.
 
 import Link from 'next/link';
-import Image from 'next/image';
+import { NerbisWordmark } from '@/components/marketing/nerbis-wordmark';
 import { getContactEmail } from '@/lib/legal';
 
 export function LegalLayout({ children }: { children: React.ReactNode }) {
@@ -16,14 +16,7 @@ export function LegalLayout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2" aria-label="NERBIS — Inicio">
-            <Image
-              src="/nerbis-logo.svg"
-              alt="NERBIS"
-              width={96}
-              height={32}
-              priority
-              className="h-8 w-auto"
-            />
+            <NerbisWordmark variant="full" size={18} />
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link
