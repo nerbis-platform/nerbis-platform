@@ -474,6 +474,49 @@ class ConfirmClassificationSerializer(serializers.Serializer):
 
 
 # ===================================
+# SUGERENCIA DE COLOR PRIMARIO (IA)
+# ===================================
+
+
+class SuggestColorsSerializer(serializers.Serializer):
+    """Entrada para sugerir el color primario de la marca con IA.
+
+    La descripción del negocio es obligatoria; el sector (key/label) y el tono
+    son opcionales y dan contexto a la IA para una sugerencia más afinada.
+    """
+
+    business_description = serializers.CharField(
+        max_length=1000,
+        help_text="Descripción del negocio (qué hace, a quién atiende)",
+    )
+    industry_key = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        help_text="Key del sector/industria (opcional, da contexto)",
+    )
+    industry_label = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        help_text="Etiqueta legible del sector (opcional)",
+    )
+    tone = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        help_text="Tono deseado de la marca (opcional, ej: 'profesional', 'cercano')",
+    )
+
+
+class SuggestColorsResponseSerializer(serializers.Serializer):
+    """Respuesta de la sugerencia de color primario."""
+
+    primary_hex = serializers.CharField(help_text="Color primario sugerido (#RRGGBB)")
+    rationale = serializers.CharField(help_text="Justificación breve de la sugerencia")
+
+
+# ===================================
 # CHAT CON IA
 # ===================================
 

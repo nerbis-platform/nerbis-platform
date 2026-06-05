@@ -40,6 +40,8 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
     # classify-industry usa ScopedRateThrottle: el scope DEBE existir aunque sea
     # None (sin throttle). Los tests de rate-limit lo sobreescriben a "10/hour".
     "classify_industry": None,
+    # suggest-colors usa ScopedRateThrottle: el scope DEBE existir aunque sea None.
+    "suggest_colors": None,
 }
 
 # ===================================

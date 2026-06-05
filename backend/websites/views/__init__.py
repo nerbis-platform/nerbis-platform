@@ -31,6 +31,7 @@ from .sections import (
     UpdateSectionVariantView,
 )
 from .seo import SuggestSeoView
+from .suggest_colors import SuggestColorsView
 from .templates import WebsiteTemplateViewSet
 
 __all__ = [
@@ -52,6 +53,7 @@ __all__ = [
     "ReorderSectionsView",
     "SaveOnboardingResponsesView",
     "StartOnboardingView",
+    "SuggestColorsView",
     "SuggestSeoView",
     "UpdateSectionVariantView",
     "UploadWebsiteMediaView",

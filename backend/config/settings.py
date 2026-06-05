@@ -374,6 +374,8 @@ REST_FRAMEWORK = {
         "public_site": "60/min",
         # Clasificación de industria con IA (ScopedRateThrottle, por usuario)
         "classify_industry": "10/hour",
+        # Sugerencia de color primario con IA (ScopedRateThrottle, por usuario)
+        "suggest_colors": "10/hour",
         # API general (por usuario autenticado)
         "user": "120/min",
         # Por tenant: se configura dinámicamente según el plan

@@ -13,6 +13,7 @@ import {
   LogOut,
   UserCircle,
   ImagePlus,
+  Sparkles,
   X,
 } from 'lucide-react';
 import { deriveHarmonicSecondary } from '@/lib/utils/theme-colors';
@@ -25,6 +26,7 @@ import {
   classifyIndustry,
   confirmClassification,
   ClassifyIndustryResponse,
+  suggestColors,
   getPlatformModules,
   getOnboardingQuestions,
   getOnboardingPages,
@@ -139,6 +141,15 @@ export default function QuickStartPage() {
   const [logoSource, setLogoSource] = useState(false); // true → colores vienen del logo
   const [logoLoading, setLogoLoading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
+
+  // ─── Sugerencia de color por IA (camino "Sugiéreme los colores") ──
+  // Pipe propone un primario a partir del sector + descripción + tono. El
+  // secundario lo deriva el front (deriveHarmonicSecondary). El resultado se
+  // muestra en la MISMA tarjeta de swatches que el camino del logo. Ante error
+  // degradamos a las paletas predefinidas — nunca se atrapa al usuario.
+  const [aiColorLoading, setAiColorLoading] = useState(false);
+  const [aiColorRationale, setAiColorRationale] = useState<string | null>(null);
+  const [aiColorSource, setAiColorSource] = useState(false); // true → colores vienen de Pipe
 
   // ─── Dependency helpers ─────────────────────────────────────
 
@@ -648,6 +659,8 @@ export default function QuickStartPage() {
     setLogoPreview(null);
     setLogoSource(false);
     setLogoError(null);
+    setAiColorSource(false);
+    setAiColorRationale(null);
     setPrimaryColor('');
     setSecondaryColor('');
     if (logoInputRef.current) logoInputRef.current.value = '';
@@ -658,9 +671,47 @@ export default function QuickStartPage() {
     setLogoSource(false);
     setLogoFile(null);
     setLogoPreview(null);
+    setAiColorSource(false);
+    setAiColorRationale(null);
     setPrimaryColor(hex);
     setSecondaryColor(deriveHarmonicSecondary(hex));
   }, []);
+
+  // Camino "Sugiéreme los colores": Pipe propone un primario a partir del
+  // sector + descripción + tono. Solo disponible cuando NO hay logo (el logo
+  // ya define los colores). Ante cualquier error degradamos en silencio a las
+  // paletas predefinidas — el usuario nunca queda atrapado.
+  const handleSuggestColors = useCallback(async () => {
+    setAiColorLoading(true);
+    setLogoError(null);
+    // Recuperar la descripción del negocio (misma clave del onboarding).
+    const descriptionKey = Object.keys(answers).find((k) => k.includes('description'));
+    const businessDescription = (descriptionKey ? answers[descriptionKey] : '') || '';
+    try {
+      const res = await suggestColors({
+        industry_key: confirmedIndustryKey || undefined,
+        industry_label: confirmedIndustryLabel || undefined,
+        business_description: businessDescription,
+        tone: selectedTone || undefined,
+      });
+      const primary = res.primary_hex;
+      setLogoSource(false);
+      setLogoFile(null);
+      setLogoPreview(null);
+      setPrimaryColor(primary);
+      setSecondaryColor(deriveHarmonicSecondary(primary));
+      setAiColorRationale(res.rationale);
+      setAiColorSource(true);
+    } catch {
+      // Degradar con gracia: limpiar el estado de IA y dejar visibles las
+      // paletas predefinidas para que el usuario siga sin fricción.
+      setAiColorSource(false);
+      setAiColorRationale(null);
+      setLogoError('No pude sugerir colores ahora. Elige uno abajo o usa una paleta.');
+    } finally {
+      setAiColorLoading(false);
+    }
+  }, [answers, confirmedIndustryKey, confirmedIndustryLabel, selectedTone]);
 
   const handleSend = useCallback(async () => {
     const step = steps[currentStepIdx];
@@ -778,6 +829,8 @@ export default function QuickStartPage() {
     setSelectedTone('');
     setPrimaryColor('');
     setSecondaryColor('');
+    setAiColorSource(false);
+    setAiColorRationale(null);
     setConfirmedIndustryKey('');
     setConfirmedIndustryLabel('');
     setInlineConfirm(false);
@@ -1391,11 +1444,11 @@ export default function QuickStartPage() {
                         }}
                       />
 
-                      {!logoSource ? (
+                      {!logoSource && !aiColorSource ? (
                         <button
                           type="button"
                           onClick={() => logoInputRef.current?.click()}
-                          disabled={logoLoading}
+                          disabled={logoLoading || aiColorLoading}
                           aria-busy={logoLoading}
                           className="flex w-full items-center gap-3 px-4 py-3 rounded-xl border border-dashed transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-wait"
                           style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50 }}
@@ -1417,10 +1470,17 @@ export default function QuickStartPage() {
                         </button>
                       ) : (
                         <div
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl border animate-in fade-in duration-200"
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl border motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
                           style={{ borderColor: TEAL, backgroundColor: `${TEAL}08` }}
                         >
-                          {logoPreview && (
+                          {aiColorSource ? (
+                            <span
+                              className="flex items-center justify-center w-10 h-10 rounded-md shrink-0"
+                              style={{ backgroundColor: `${TEAL}14` }}
+                            >
+                              <Sparkles className="w-4 h-4" style={{ color: TEAL }} />
+                            </span>
+                          ) : logoPreview ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={logoPreview}
@@ -1428,11 +1488,18 @@ export default function QuickStartPage() {
                               className="w-10 h-10 object-contain rounded-md shrink-0"
                               style={{ backgroundColor: '#fff' }}
                             />
-                          )}
+                          ) : null}
                           <div className="flex-1 min-w-0">
                             <p className="text-[0.78rem] font-medium" style={{ color: NAVY }}>
-                              Detectamos estos colores en tu logo
+                              {aiColorSource
+                                ? `Elegí estos por tu sector${confirmedIndustryLabel ? ` ${confirmedIndustryLabel}` : ''}`
+                                : 'Detectamos estos colores en tu logo'}
                             </p>
+                            {aiColorSource && aiColorRationale && (
+                              <p className="text-[0.7rem] mt-0.5 leading-snug" style={{ color: WARM_GRAY_600 }}>
+                                {aiColorRationale}
+                              </p>
+                            )}
                             <div className="flex items-center gap-2 mt-1.5">
                               <span className="flex items-center gap-1.5">
                                 <span className="w-5 h-5 rounded-full border border-black/5" style={{ backgroundColor: primaryColor }} />
@@ -1447,13 +1514,51 @@ export default function QuickStartPage() {
                           <button
                             type="button"
                             onClick={clearLogo}
-                            aria-label="Quitar logo y elegir otro color"
+                            aria-label={aiColorSource ? 'Descartar sugerencia y elegir otro color' : 'Quitar logo y elegir otro color'}
                             className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40"
                             style={{ color: WARM_GRAY_500 }}
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
+                      )}
+
+                      {!logoSource && !aiColorSource && (
+                        <button
+                          type="button"
+                          onClick={() => void handleSuggestColors()}
+                          disabled={aiColorLoading || logoLoading}
+                          aria-busy={aiColorLoading}
+                          aria-label="Sugiéreme los colores con inteligencia artificial"
+                          className="mt-2.5 flex w-full items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-wait"
+                          style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff' }}
+                        >
+                          <span
+                            className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                            style={{ backgroundColor: `${TEAL}12` }}
+                          >
+                            <Sparkles className="w-4 h-4" style={{ color: TEAL }} />
+                          </span>
+                          <span className="text-left flex-1">
+                            <span className="block text-[0.82rem] font-medium" style={{ color: NAVY }}>
+                              {aiColorLoading ? 'Pipe está eligiendo tus colores…' : 'Sugiéreme los colores'}
+                            </span>
+                            <span className="block text-[0.7rem]" style={{ color: WARM_GRAY_500 }}>
+                              Pipe los elige según tu negocio
+                            </span>
+                          </span>
+                          {aiColorLoading && (
+                            <span className="flex gap-1 shrink-0" aria-hidden="true">
+                              {[0, 1, 2].map((i) => (
+                                <span
+                                  key={i}
+                                  className="w-1.5 h-1.5 rounded-full motion-safe:animate-bounce"
+                                  style={{ backgroundColor: TEAL, animationDelay: `${i * 150}ms`, animationDuration: '0.8s' }}
+                                />
+                              ))}
+                            </span>
+                          )}
+                        </button>
                       )}
 
                       {logoError && (
@@ -1464,7 +1569,7 @@ export default function QuickStartPage() {
                     </div>
 
                     {/* ── Camino 2: color manual (secundario auto-derivado) ── */}
-                    {!logoSource && (
+                    {!logoSource && !aiColorSource && (
                       <div className="flex items-center gap-3">
                         <label
                           htmlFor="quickstart-primary-color"
@@ -1502,7 +1607,7 @@ export default function QuickStartPage() {
                     )}
 
                     {/* ── Camino 3: paletas predefinidas (par tal cual) ── */}
-                    {!logoSource && (
+                    {!logoSource && !aiColorSource && (
                       <div className="max-h-32 overflow-y-auto pr-1 -mr-1">
                         <div className="grid grid-cols-3 gap-2.5">
                           {palettes.map((pal) => {
@@ -1511,7 +1616,7 @@ export default function QuickStartPage() {
                               <button
                                 key={pal.label}
                                 type="button"
-                                onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
+                                onClick={() => { setAiColorSource(false); setAiColorRationale(null); setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
                                 className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                                 style={{
                                   borderColor: isActive ? TEAL : WARM_GRAY_200,

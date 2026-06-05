@@ -26,6 +26,7 @@ from .views import (
     ReorderSectionsView,
     SaveOnboardingResponsesView,
     StartOnboardingView,
+    SuggestColorsView,
     SuggestSeoView,
     UpdateSectionVariantView,
     UploadWebsiteMediaView,
@@ -50,6 +51,7 @@ urlpatterns = [
     path("onboarding/questions/", OnboardingQuestionListView.as_view(), name="onboarding-questions"),
     path("onboarding/pages/", WebsitePageListView.as_view(), name="onboarding-pages"),
     path("onboarding/sections/", WebsiteSectionListView.as_view(), name="onboarding-sections"),
+    path("onboarding/suggest-colors/", SuggestColorsView.as_view(), name="onboarding-suggest-colors"),
     # Industry classification (onboarding)
     path("classify-industry/", ClassifyIndustryView.as_view(), name="classify-industry"),
     path(

@@ -296,6 +296,50 @@ export async function confirmClassification(
 }
 
 // ===================================
+// COLOR SUGGESTION (Pipe)
+// ===================================
+
+export interface SuggestColorsRequest {
+  /** Clave de industria confirmada por el usuario (classifyIndustry). */
+  industry_key?: string;
+  /** Etiqueta legible de la industria, para enriquecer el prompt. */
+  industry_label?: string;
+  /** Descripción del negocio (mismo campo del onboarding). */
+  business_description: string;
+  /** Tono de marca elegido (profesional, cálido, moderno…). */
+  tone?: string;
+}
+
+export interface SuggestColorsResponse {
+  /** Color primario sugerido en formato `#rrggbb`. */
+  primary_hex: string;
+  /** Explicación breve (en español) de por qué Pipe eligió ese color. */
+  rationale: string;
+}
+
+/**
+ * Pide a Pipe un color primario sugerido a partir del sector, la descripción
+ * del negocio y el tono. El secundario lo deriva el front con
+ * deriveHarmonicSecondary — el backend solo devuelve el primario + el porqué.
+ * Nunca debe atrapar al usuario: ante error, la UI degrada a las paletas
+ * predefinidas. POST /api/websites/onboarding/suggest-colors/
+ */
+export async function suggestColors(
+  payload: SuggestColorsRequest
+): Promise<SuggestColorsResponse> {
+  const { data } = await apiClient.post<SuggestColorsResponse>(
+    '/websites/onboarding/suggest-colors/',
+    {
+      business_description: payload.business_description,
+      ...(payload.industry_key ? { industry_key: payload.industry_key } : {}),
+      ...(payload.industry_label ? { industry_label: payload.industry_label } : {}),
+      ...(payload.tone ? { tone: payload.tone } : {}),
+    }
+  );
+  return data;
+}
+
+// ===================================
 // AI GENERATION
 // ===================================
 
