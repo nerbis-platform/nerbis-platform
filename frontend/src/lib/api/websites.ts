@@ -149,6 +149,13 @@ export interface QuickStartRequest {
    * stored industry). Always resolves to a template — never a 400.
    */
   industry_key?: string;
+  /**
+   * Logo subido por el tenant. Cuando está presente, la petición se envía como
+   * multipart/form-data y el backend persiste el archivo. Los colores ya vienen
+   * derivados desde el front (primary_color / secondary_color), el backend no
+   * deriva nada. Cuando es undefined, la petición se envía como JSON (backward-compat).
+   */
+  logo_file?: File;
 }
 
 export interface QuickStartResponse {
@@ -183,13 +190,39 @@ export interface GenerationStatusResponse {
  * Genera un sitio completo con 3 campos (onboarding rapido).
  * Auto-resuelve template por industria del tenant.
  * Devuelve 202 Accepted con task_id (generacion asincrona via Celery).
+ *
+ * Cuando `logo_file` está presente, la petición se envía como multipart/form-data
+ * (campo `logo_file` + el resto de campos como texto). Sin logo, se envía JSON
+ * (backward-compat). El header `X-Tenant-Slug` lo añade el interceptor de apiClient.
  */
 export async function quickStartGenerate(
   payload: QuickStartRequest
 ): Promise<AsyncGenerationAccepted> {
+  const { logo_file, ...rest } = payload;
+
+  if (logo_file) {
+    const formData = new FormData();
+    formData.append('logo_file', logo_file);
+    for (const [key, value] of Object.entries(rest)) {
+      if (value === undefined || value === null) continue;
+      // Arrays (ej. website_sections) → repetir el campo por cada valor.
+      if (Array.isArray(value)) {
+        for (const item of value) formData.append(key, String(item));
+      } else {
+        formData.append(key, String(value));
+      }
+    }
+    const { data } = await apiClient.post<AsyncGenerationAccepted>(
+      '/websites/onboarding/quick-start/',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return data;
+  }
+
   const { data } = await apiClient.post<AsyncGenerationAccepted>(
     '/websites/onboarding/quick-start/',
-    payload
+    rest
   );
   return data;
 }

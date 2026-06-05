@@ -242,6 +242,32 @@ class QuickStartView(OnboardingView):
         serializer = QuickStartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        data = serializer.validated_data
+
+        # 0. Persistir logo + colores en el Tenant ATÓMICAMENTE, antes de generar.
+        # El secundario llega ya derivado desde el frontend — el backend solo persiste.
+        # Backward-compat: si no viene logo_file, no se toca el logo del tenant.
+        logo_file = data.get("logo_file")
+        primary_color = data.get("primary_color")
+        secondary_color = data.get("secondary_color")
+        if logo_file or primary_color or secondary_color:
+            with transaction.atomic():
+                tenant_locked = type(tenant).objects.select_for_update().get(pk=tenant.pk)
+                update_fields = []
+                if logo_file:
+                    tenant_locked.logo = logo_file
+                    update_fields.append("logo")
+                if primary_color:
+                    tenant_locked.primary_color = primary_color
+                    update_fields.append("primary_color")
+                if secondary_color:
+                    tenant_locked.secondary_color = secondary_color
+                    update_fields.append("secondary_color")
+                if update_fields:
+                    tenant_locked.save(update_fields=update_fields)
+            # Refrescar la instancia en uso para que el resto del flujo vea los cambios.
+            tenant.refresh_from_db(fields=["logo", "primary_color", "secondary_color"])
+
         # 1. Resolver template por industria (sin dead-end).
         # Prioridad: industry_key clasificado (classify-industry) > tenant.industry.
         # El resolver siempre cae a un fallback (generic / primer template activo)
@@ -276,7 +302,6 @@ class QuickStartView(OnboardingView):
             )
 
         # 3. Armar onboarding_responses a partir de campos + tenant data
-        data = serializer.validated_data
         responses_dict = {
             "business_name": tenant.name,
             "business_description": data["business_description"],
