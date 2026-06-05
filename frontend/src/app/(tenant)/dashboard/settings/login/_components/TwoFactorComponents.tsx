@@ -35,7 +35,7 @@ import { copyToClipboard, downloadTxt } from './login-helpers';
 
 export function TwoFactorLoadingState() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+    <div className="rounded-xl border border-border bg-card p-5 space-y-3">
       <Skeleton className="h-5 w-48" />
       <Skeleton className="h-4 w-full max-w-md" />
       <Skeleton className="h-4 w-3/4" />
@@ -54,12 +54,12 @@ export function TwoFactorDisabledState({
   onActivate: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center gap-2 mb-1">
-        <ShieldAlert className="w-4 h-4 text-gray-400" aria-hidden="true" />
-        <h4 className="text-[0.9rem] font-medium text-[var(--stg-primary)]">Verificación en dos pasos</h4>
+        <ShieldAlert className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+        <h4 className="text-sm font-medium text-foreground">Verificación en dos pasos</h4>
       </div>
-      <p className="text-[0.8rem] text-gray-500 mb-5">
+      <p className="text-sm text-muted-foreground mb-5">
         Protege tu cuenta con un segundo paso de verificación usando una app
         autenticadora (Google Authenticator, 1Password, Authy).
       </p>
@@ -67,7 +67,7 @@ export function TwoFactorDisabledState({
         type="button"
         onClick={onActivate}
         disabled={isLoading}
-        className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
+        className="rounded-xl text-sm hover:shadow-md active:scale-[0.98]"
       >
         <ShieldCheck className="size-3.5" aria-hidden="true" />
         {isLoading ? 'Preparando\u2026' : 'Activar autenticación de dos pasos'}
@@ -115,16 +115,16 @@ export function TwoFactorEnablingState({
   };
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-5">
+    <div className="rounded-xl border border-border bg-card p-5 space-y-5">
       <div className="flex items-start gap-3">
-        <div className="size-9 rounded-lg bg-[var(--stg-accent-subtle)] flex items-center justify-center shrink-0">
-          <Smartphone className="size-4 text-[var(--stg-accent)]" aria-hidden="true" />
+        <div className="size-9 rounded-lg bg-accent flex items-center justify-center shrink-0">
+          <Smartphone className="size-4 text-[var(--color-text-brand)]" aria-hidden="true" />
         </div>
         <div>
-          <p className="text-[0.9rem] font-medium text-gray-800">
+          <p className="text-sm font-medium text-foreground">
             Escanea el QR con tu app autenticadora
           </p>
-          <p className="text-[0.78rem] text-gray-500 leading-relaxed mt-1">
+          <p className="text-xs text-muted-foreground leading-relaxed mt-1">
             Abre Google Authenticator, 1Password o Authy y escanea el código. Luego
             ingresa el código de 6 dígitos que te aparece.
           </p>
@@ -132,7 +132,7 @@ export function TwoFactorEnablingState({
       </div>
 
       <div className="flex justify-center py-2">
-        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
           <Image
             src={setup.qr_code_base64}
             alt="Código QR de 2FA"
@@ -144,12 +144,12 @@ export function TwoFactorEnablingState({
         </div>
       </div>
 
-      <details className="group rounded-lg border border-gray-100 bg-gray-50/60 p-3">
-        <summary className="cursor-pointer text-[0.75rem] text-gray-500 font-medium select-none">
+      <details className="group rounded-lg border border-border bg-muted/60 p-3">
+        <summary className="cursor-pointer text-xs text-muted-foreground font-medium select-none">
           ¿No puedes escanear? Copia la clave manualmente
         </summary>
         <div className="mt-3 flex items-center gap-2">
-          <code className="flex-1 overflow-x-auto rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[0.7rem] font-mono text-gray-700 whitespace-nowrap">
+          <code className="flex-1 overflow-x-auto rounded-md border border-border bg-card px-2 py-1.5 text-xs font-mono text-foreground whitespace-nowrap">
             {manualSecret}
           </code>
           <Button
@@ -157,7 +157,7 @@ export function TwoFactorEnablingState({
             variant="outline"
             size="sm"
             onClick={handleCopyUri}
-            className="shrink-0 rounded-lg text-[0.72rem] h-8"
+            className="shrink-0 rounded-lg text-xs h-8"
           >
             {uriCopied ? (
               <Check className="size-3.5" aria-hidden="true" />
@@ -170,7 +170,7 @@ export function TwoFactorEnablingState({
       </details>
 
       <div className="space-y-2">
-        <Label className="text-[0.75rem] text-gray-500">
+        <Label className="text-xs text-muted-foreground">
           Código de verificación
         </Label>
         <OtpInput value={code} onChange={onCodeChange} disabled={isSubmitting} />
@@ -182,7 +182,7 @@ export function TwoFactorEnablingState({
           variant="ghost"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="rounded-xl text-[0.82rem] text-gray-500 hover:text-gray-700"
+          className="rounded-xl text-sm text-muted-foreground hover:text-foreground"
         >
           Cancelar
         </Button>
@@ -190,7 +190,7 @@ export function TwoFactorEnablingState({
           type="button"
           onClick={onSubmit}
           disabled={isSubmitting || code.length !== 6}
-          className="rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
+          className="rounded-xl text-sm hover:shadow-md active:scale-[0.98]"
         >
           {isSubmitting ? 'Verificando\u2026' : 'Verificar y activar'}
         </Button>
@@ -229,21 +229,21 @@ export function TwoFactorShowCodesState({
     <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-5 space-y-4">
       <Alert className="border-amber-200 bg-amber-50 text-amber-900">
         <AlertTriangle className="size-4" aria-hidden="true" />
-        <AlertTitle className="text-[0.85rem] font-semibold">
+        <AlertTitle className="text-sm font-semibold">
           Guarda estos códigos ahora
         </AlertTitle>
-        <AlertDescription className="text-[0.78rem] leading-relaxed">
+        <AlertDescription className="text-xs leading-relaxed">
           Estos códigos de respaldo te permiten entrar si pierdes el acceso a tu app
           autenticadora. No volverán a mostrarse. Cada código se puede usar una sola
           vez.
         </AlertDescription>
       </Alert>
 
-      <div className="grid grid-cols-2 gap-2 rounded-lg border border-amber-200 bg-white p-4">
+      <div className="grid grid-cols-2 gap-2 rounded-lg border border-amber-200 bg-card p-4">
         {codes.map((code) => (
           <code
             key={code}
-            className="rounded-md bg-gray-50 px-3 py-2 text-center text-[0.82rem] font-mono tracking-[0.1em] text-gray-800"
+            className="rounded-md bg-muted px-3 py-2 text-center text-sm font-mono tracking-[0.1em] text-foreground"
           >
             {code}
           </code>
@@ -255,7 +255,7 @@ export function TwoFactorShowCodesState({
           type="button"
           variant="outline"
           onClick={handleCopyAll}
-          className="rounded-xl text-[0.8rem]"
+          className="rounded-xl text-sm"
         >
           <Copy className="size-3.5" aria-hidden="true" />
           Copiar todos
@@ -264,7 +264,7 @@ export function TwoFactorShowCodesState({
           type="button"
           variant="outline"
           onClick={handleDownload}
-          className="rounded-xl text-[0.8rem]"
+          className="rounded-xl text-sm"
         >
           <Download className="size-3.5" aria-hidden="true" />
           Descargar .txt
@@ -272,7 +272,7 @@ export function TwoFactorShowCodesState({
         <Button
           type="button"
           onClick={onDone}
-          className="ml-auto rounded-xl text-[0.82rem] bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] hover:shadow-md active:scale-[0.98]"
+          className="ml-auto rounded-xl text-sm hover:shadow-md active:scale-[0.98]"
         >
           Listo, ya los guardé
         </Button>
@@ -291,29 +291,29 @@ export function TwoFactorEnabledState({
   onDisable: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center gap-2 mb-1">
-        <ShieldCheck className="w-4 h-4 text-[var(--stg-accent)]" aria-hidden="true" />
-        <h4 className="text-[0.9rem] font-medium text-[var(--stg-primary)]">Verificación en dos pasos</h4>
+        <ShieldCheck className="w-4 h-4 text-[var(--color-text-brand)]" aria-hidden="true" />
+        <h4 className="text-sm font-medium text-foreground">Verificación en dos pasos</h4>
         <Badge
           variant="outline"
-          className="gap-1 text-[0.68rem] text-emerald-600 border-emerald-200 bg-emerald-50/80"
+          className="gap-1 text-xs text-emerald-600 border-emerald-200 bg-emerald-50/80"
         >
           <Check className="size-3" aria-hidden="true" />
           Activo
         </Badge>
       </div>
-      <p className="text-[0.8rem] text-gray-500 mb-5">
+      <p className="text-sm text-muted-foreground mb-5">
         Cada vez que inicies sesión te pediremos un código de 6 dígitos de tu app
         autenticadora. Guarda tus códigos de respaldo por si pierdes el acceso.
       </p>
 
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+      <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
         <Button
           type="button"
           variant="outline"
           onClick={onRegenerate}
-          className="rounded-xl text-[0.8rem]"
+          className="rounded-xl text-sm"
         >
           <KeyRound className="size-3.5" aria-hidden="true" />
           Regenerar códigos de respaldo
@@ -322,7 +322,7 @@ export function TwoFactorEnabledState({
           type="button"
           variant="outline"
           onClick={onDisable}
-          className="rounded-xl text-[0.8rem] border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+          className="rounded-xl text-sm border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/50"
         >
           <ShieldAlert className="size-3.5" aria-hidden="true" />
           Desactivar 2FA
@@ -357,27 +357,27 @@ export function RegenerateBackupCodesDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-sm rounded-xl p-5 gap-0 bg-white">
+      <DialogContent className="max-w-sm rounded-xl p-5 gap-0 bg-card">
         <DialogHeader className="space-y-1.5 pb-3">
-          <DialogTitle className="text-[0.92rem] font-semibold text-gray-800">
+          <DialogTitle className="text-base font-semibold text-foreground">
             Regenerar códigos de respaldo
           </DialogTitle>
-          <DialogDescription className="text-[0.78rem] text-gray-500 leading-relaxed">
+          <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
             Se invalidarán los códigos anteriores. Ingresa el código actual de tu app
             para confirmar.
           </DialogDescription>
         </DialogHeader>
         <div className="py-3 space-y-2">
-          <Label className="text-[0.75rem] text-gray-500">Código TOTP</Label>
+          <Label className="text-xs text-muted-foreground">Código TOTP</Label>
           <OtpInput value={code} onChange={setCode} disabled={isSubmitting} />
         </div>
-        <DialogFooter className="flex-row gap-2 pt-2 border-t border-gray-100">
+        <DialogFooter className="flex-row gap-2 pt-2 border-t border-border">
           <Button
             type="button"
             variant="outline"
             onClick={() => handleOpenChange(false)}
             disabled={isSubmitting}
-            className="flex-1 rounded-lg text-[0.8rem] h-9"
+            className="flex-1 rounded-lg text-sm h-9"
           >
             Cancelar
           </Button>
@@ -385,7 +385,7 @@ export function RegenerateBackupCodesDialog({
             type="button"
             onClick={() => onSubmit(code)}
             disabled={isSubmitting || code.length !== 6}
-            className="flex-1 rounded-lg text-[0.8rem] h-9 bg-[var(--stg-primary)] hover:bg-[var(--stg-primary-hover)] text-white"
+            className="flex-1 rounded-lg text-sm h-9 text-white"
           >
             {isSubmitting ? 'Generando\u2026' : 'Regenerar'}
           </Button>
@@ -440,12 +440,12 @@ export function DisableTwoFactorDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-sm rounded-xl p-5 gap-0 bg-white">
+      <DialogContent className="max-w-sm rounded-xl p-5 gap-0 bg-card">
         <DialogHeader className="space-y-1.5 pb-3">
-          <DialogTitle className="text-[0.92rem] font-semibold text-gray-800">
+          <DialogTitle className="text-base font-semibold text-foreground">
             Desactivar 2FA
           </DialogTitle>
-          <DialogDescription className="text-[0.78rem] text-gray-500 leading-relaxed">
+          <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
             Tu cuenta quedará protegida únicamente por tu contraseña. Puedes volver a
             activar 2FA cuando quieras.
           </DialogDescription>
@@ -455,7 +455,7 @@ export function DisableTwoFactorDialog({
             <div className="space-y-1.5">
               <Label
                 htmlFor="disable-2fa-password"
-                className="text-[0.75rem] text-gray-500"
+                className="text-xs text-muted-foreground"
               >
                 Contraseña actual
               </Label>
@@ -466,12 +466,12 @@ export function DisableTwoFactorDialog({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isSubmitting}
-                className="h-9 text-[0.85rem] md:text-[0.85rem]"
+                className="h-9 text-sm md:text-sm"
               />
             </div>
           )}
           <div className="space-y-2">
-            <Label className="text-[0.75rem] text-gray-500">
+            <Label className="text-xs text-muted-foreground">
               {useBackup ? 'Código de respaldo' : 'Código actual de tu app'}
             </Label>
             {useBackup ? (
@@ -482,7 +482,7 @@ export function DisableTwoFactorDialog({
                 onChange={(e) => setBackupCode(e.target.value.toUpperCase())}
                 disabled={isSubmitting}
                 autoComplete="off"
-                className="h-9 text-[0.85rem] md:text-[0.85rem] font-mono tracking-wider"
+                className="h-9 text-sm md:text-sm font-mono tracking-wider"
               />
             ) : (
               <OtpInput value={code} onChange={setCode} disabled={isSubmitting} />
@@ -490,19 +490,19 @@ export function DisableTwoFactorDialog({
             <button
               type="button"
               onClick={() => setUseBackup(!useBackup)}
-              className="text-[0.72rem] text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {useBackup ? 'Usar código de la app' : '¿No tienes acceso? Usa un código de respaldo'}
             </button>
           </div>
         </div>
-        <DialogFooter className="flex-row gap-2 pt-2 border-t border-gray-100">
+        <DialogFooter className="flex-row gap-2 pt-2 border-t border-border">
           <Button
             type="button"
             variant="outline"
             onClick={() => handleOpenChange(false)}
             disabled={isSubmitting}
-            className="flex-1 rounded-lg text-[0.8rem] h-9"
+            className="flex-1 rounded-lg text-sm h-9"
           >
             Cancelar
           </Button>
@@ -510,7 +510,7 @@ export function DisableTwoFactorDialog({
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="flex-1 rounded-lg text-[0.8rem] h-9 bg-red-500 hover:bg-red-600 text-white disabled:opacity-50"
+            className="flex-1 rounded-lg text-sm h-9 bg-destructive hover:bg-destructive/90 text-white disabled:opacity-50"
           >
             {isSubmitting ? 'Desactivando\u2026' : 'Desactivar'}
           </Button>
