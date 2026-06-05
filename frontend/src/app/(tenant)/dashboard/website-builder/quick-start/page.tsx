@@ -1080,7 +1080,7 @@ export default function QuickStartPage() {
                       {msg.sector ? (
                         <>
                           Tu negocio es del sector{' '}
-                          <span style={{ color: TEAL, fontWeight: 600 }}>{msg.sector}</span>
+                          <span style={{ color: NAVY, fontWeight: 600 }}>{msg.sector}</span>
                         </>
                       ) : (
                         msg.content
@@ -1217,7 +1217,7 @@ export default function QuickStartPage() {
                       <div className="animate-in fade-in duration-300">
                         <p className="text-[0.88rem] leading-relaxed mb-3" style={{ color: WARM_GRAY_800 }}>
                           Entonces tu negocio es del sector{' '}
-                          <span style={{ color: TEAL, fontWeight: 600 }}>{classifyResult?.industry_label}</span>.
+                          <span style={{ color: NAVY, fontWeight: 600 }}>{classifyResult?.industry_label}</span>.
                           {' '}¿Es correcto? Con esto elijo el mejor diseño para ti.
                         </p>
                         <div className="flex items-center gap-2.5">
