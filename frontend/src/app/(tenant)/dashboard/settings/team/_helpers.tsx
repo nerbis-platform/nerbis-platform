@@ -4,10 +4,12 @@ import Image from 'next/image';
 import { Mail, KeyRound, ShieldCheck, Shield, UserRound } from 'lucide-react';
 import type { TeamMember, SocialAccountDetail } from '@/lib/api/team';
 
-// ─── Style constants ──────────────────────────────────────
-
-export const navyText = { color: '#1C3B57' } as const;
-export const navyIconBg = { background: 'rgba(28, 59, 87, 0.06)' } as const;
+// ─── Style constants (tokenized) ──────────────────────────
+// Mapeo a tokens del design system:
+//   navy text → text-foreground
+//   navy 6% bg → bg-primary/[0.06]
+export const navyText = 'text-foreground';
+export const navyIconBg = 'bg-primary/[0.06]';
 
 // ─── Config objects ───────────────────────────────────────
 
