@@ -251,6 +251,7 @@ export default function QuickStartPage() {
             minLength: q.min_length || undefined,
             maxLength: q.max_length || undefined,
             rows: q.input_type === 'textarea' ? 3 : undefined,
+            optional: !q.is_required,
           };
           // Pass options for special types
           if (q.input_type === 'color_picker' && q.options?.length) {
@@ -827,6 +828,23 @@ export default function QuickStartPage() {
     }
   }, [currentStepIdx, currentInput, answers, selectedModules, selectedPages, selectedTone, primaryColor, secondaryColor, confirmedIndustryKey, steps, modules, runClassification, startGeneration, setTenant]);
 
+  // Skip an optional step: record an empty answer (generation degrades gracefully
+  // via tenant.phone fallback) and advance, or generate if it was the last step.
+  const handleSkip = useCallback(() => {
+    const step = steps[currentStepIdx];
+    if (!step) return;
+    setActiveMood('happy');
+    setTimeout(() => setActiveMood('listening'), 600);
+    setCurrentInput('');
+    const newAnswers = { ...answers, [step.id]: '' };
+    setAnswers(newAnswers);
+    if (currentStepIdx < steps.length - 1) {
+      setCurrentStepIdx((prev) => prev + 1);
+    } else {
+      startGeneration(newAnswers, selectedPages, confirmedIndustryKey);
+    }
+  }, [currentStepIdx, steps, answers, selectedPages, confirmedIndustryKey, startGeneration]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -921,6 +939,28 @@ export default function QuickStartPage() {
 
     const hasHistory = currentStepIdx > 0;
 
+    // Guard: persisted progress (sessionStorage) can restore currentStepIdx
+    // beyond the steps array while apiQuestions is still loading (steps falls
+    // back to a shorter set). steps is contiguous, so a missing current step
+    // means the conversation isn't ready yet — show a brief loader instead of
+    // indexing into undefined steps.
+    if (!step) {
+      return (
+        <div
+          className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+          style={{ backgroundColor: WARM_GRAY_50 }}
+        >
+          {header}
+          <div className="flex-1 flex items-center justify-center">
+            <div
+              className="w-5 h-5 rounded-full border-2 animate-spin"
+              style={{ borderColor: WARM_GRAY_200, borderTopColor: TEAL }}
+            />
+          </div>
+        </div>
+      );
+    }
+
     // Build chat history from completed steps
     const chatHistory: { role: 'pipe' | 'user'; content: string; sector?: string }[] = [];
     for (let i = 0; i < currentStepIdx; i++) {
@@ -930,6 +970,8 @@ export default function QuickStartPage() {
         : s.message });
       if (answers[s.id]) {
         chatHistory.push({ role: 'user', content: answers[s.id] });
+      } else if (s.optional && s.id in answers) {
+        chatHistory.push({ role: 'user', content: 'Lo agrego más tarde' });
       }
       // Keep the industry decision in the conversation: right after the
       // description step, replay Pipe's suggestion + the user's confirmation.
@@ -1083,7 +1125,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0 disabled:shadow-none disabled:hover:translate-y-0"
                         style={{
                           backgroundColor: canSend ? TEAL : WARM_GRAY_100,
                           color: canSend ? '#fff' : WARM_GRAY_400,
@@ -1233,7 +1275,7 @@ export default function QuickStartPage() {
                             type="button"
                             onClick={submitCorrection}
                             disabled={correctionInput.trim().length < 3}
-                            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0 disabled:shadow-none disabled:hover:translate-y-0"
                             style={{ backgroundColor: TEAL, color: '#fff' }}
                           >
                             Revisar <ArrowRight className="w-3.5 h-3.5" />
@@ -1257,7 +1299,7 @@ export default function QuickStartPage() {
                           <button
                             type="button"
                             onClick={confirmIndustry}
-                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0 disabled:shadow-none disabled:hover:translate-y-0"
                             style={{ backgroundColor: TEAL, color: '#fff' }}
                           >
                             Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1283,7 +1325,7 @@ export default function QuickStartPage() {
                           <button
                             type="button"
                             onClick={confirmIndustry}
-                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0 disabled:shadow-none disabled:hover:translate-y-0"
                             style={{ backgroundColor: TEAL, color: '#fff' }}
                           >
                             <Check className="w-3.5 h-3.5" /> Sí, es correcto
@@ -1395,7 +1437,7 @@ export default function QuickStartPage() {
               {step.type === 'input' && (
                 <>
                   <div
-                    className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-all focus-within:ring-2 focus-within:ring-teal-500/20"
+                    className="flex items-center gap-2 rounded-xl border px-4 py-3 transition-all focus-within:ring-2 focus-within:ring-teal-500/20"
                     style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50 }}
                   >
                     <input
@@ -1413,6 +1455,16 @@ export default function QuickStartPage() {
                       className="flex-1 bg-transparent text-[0.88rem] focus:outline-none"
                       style={{ color: WARM_GRAY_800 }}
                     />
+                    {step.optional && (
+                      <button
+                        type="button"
+                        onClick={handleSkip}
+                        className="inline-flex items-center h-9 px-3.5 rounded-lg border text-[0.82rem] font-medium flex-shrink-0 transition-all hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                        style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff', color: WARM_GRAY_500 }}
+                      >
+                        Omitir
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={handleSend}
@@ -1650,7 +1702,7 @@ export default function QuickStartPage() {
                       <button
                         type="button"
                         onClick={handleSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0"
                         style={{ backgroundColor: TEAL, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1691,7 +1743,7 @@ export default function QuickStartPage() {
                         type="button"
                         onClick={handleSend}
                         disabled={!canSend}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg text-[0.82rem] font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0 disabled:shadow-none disabled:hover:translate-y-0"
                         style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                       >
                         Continuar <ArrowRight className="w-3.5 h-3.5" />
@@ -1766,7 +1818,7 @@ export default function QuickStartPage() {
                     type="button"
                     onClick={handleSend}
                     disabled={!canSend}
-                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-[0.84rem] font-semibold transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0 disabled:shadow-none disabled:hover:translate-y-0"
                     style={{ backgroundColor: canSend ? TEAL : WARM_GRAY_200, color: '#fff' }}
                   >
                     Continuar <ArrowRight className="w-3.5 h-3.5" />
