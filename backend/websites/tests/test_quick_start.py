@@ -50,7 +50,10 @@ def _webp_upload(name: str = "logo.webp") -> SimpleUploadedFile:
 
 
 def _fake_generation_result() -> tuple:
-    """Imita el retorno de AIService.generate_initial_content."""
+    """Imita el retorno de AIService.generate_initial_content.
+
+    El 7º elemento es ``selected_pages`` (issue #262).
+    """
     content_data = {
         "hero": {"title": "Bienvenido", "subtitle": "Tu negocio"},
         "about": {"text": "Sobre nosotros"},
@@ -60,7 +63,8 @@ def _fake_generation_result() -> tuple:
     tokens_in, tokens_out = 100, 50
     full_prompt = "prompt"
     raw_response = "{}"
-    return content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response
+    selected_pages = ["about"]
+    return content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response, selected_pages
 
 
 @pytest.fixture()

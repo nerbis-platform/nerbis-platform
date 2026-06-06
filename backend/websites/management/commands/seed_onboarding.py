@@ -133,6 +133,36 @@ class Command(BaseCommand):
                 "is_default": False,
                 "sort_order": 6,
             },
+            # Electivas decididas por la IA (selected_pages). No se enlazan a
+            # ningun modulo: el merge servidor decide cuando incluirlas.
+            {
+                "key": "portfolio",
+                "label": "Portafolio",
+                "description": "Muestra tu trabajo",
+                "icon": "image",
+                "is_mandatory": False,
+                "is_default": False,
+                "sort_order": 7,
+            },
+            {
+                "key": "pricing",
+                "label": "Precios",
+                "description": "Planes y precios",
+                "icon": "tag",
+                "is_mandatory": False,
+                "is_default": False,
+                "sort_order": 8,
+            },
+            # Gateada por la vertical gastronomica (NO por modulo, NO por IA).
+            {
+                "key": "menu",
+                "label": "Menú",
+                "description": "Tu carta digital",
+                "icon": "utensils",
+                "is_mandatory": False,
+                "is_default": False,
+                "sort_order": 9,
+            },
         ]
 
         for data in pages_data:
