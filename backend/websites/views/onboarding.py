@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from ..models import OnboardingQuestion, OnboardingResponse, WebsiteConfig, WebsitePage, WebsiteSection, WebsiteTemplate
 from ..services.ai_service import AIService
+from ..services.pages import derive_enabled_pages
 from ..services.unsplash_service import UnsplashService
 
 logger = logging.getLogger(__name__)
@@ -339,11 +340,17 @@ class QuickStartView(OnboardingView):
 
         try:
             # 5. Generar contenido con IA
-            content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response = (
-                ai_service.generate_initial_content(
-                    template=template,
-                    onboarding_responses=responses_dict,
-                )
+            (
+                content_data,
+                seo_data,
+                tokens_in,
+                tokens_out,
+                full_prompt,
+                raw_response,
+                selected_pages,
+            ) = ai_service.generate_initial_content(
+                template=template,
+                onboarding_responses=responses_dict,
             )
 
             # 6. Enriquecer con imagenes de Unsplash
@@ -386,9 +393,20 @@ class QuickStartView(OnboardingView):
                 ordered.append("contact")
             content_data["_section_order"] = ordered
 
-            config.enabled_pages = [
+            # Derivar el set autoritativo de páginas con el helper centralizado
+            # (mismo que generation.py y tasks.py — sin duplicar lógica).
+            content_keys = [
                 k for k in content_data.keys() if not k.startswith("_") and k not in ("hero", "header", "footer")
             ]
+            resolved_industry = template.industry.key if template and template.industry_id else tenant.industry
+            config.enabled_pages = derive_enabled_pages(
+                content_keys=content_keys,
+                ai_selected_pages=selected_pages,
+                has_services=getattr(tenant, "has_services", False),
+                has_shop=getattr(tenant, "has_shop", False),
+                has_bookings=getattr(tenant, "has_bookings", False),
+                industry_key=resolved_industry,
+            )
 
             # 8. Guardar
             config.content_data = content_data

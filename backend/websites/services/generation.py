@@ -12,6 +12,7 @@ import random
 from core.models import Tenant
 from websites.models import WebsiteConfig, WebsiteTemplate
 from websites.services.ai_service import AIService
+from websites.services.pages import derive_enabled_pages
 from websites.services.unsplash_service import UnsplashService
 
 logger = logging.getLogger(__name__)
@@ -145,7 +146,15 @@ def generate_website(
 
     try:
         # 5. Generar contenido con IA
-        content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response = ai_service.generate_initial_content(
+        (
+            content_data,
+            seo_data,
+            tokens_in,
+            tokens_out,
+            full_prompt,
+            raw_response,
+            selected_pages,
+        ) = ai_service.generate_initial_content(
             template=template,
             onboarding_responses=responses_dict,
         )
@@ -195,9 +204,20 @@ def generate_website(
             ordered.append("contact")
         content_data["_section_order"] = ordered
 
-        config.enabled_pages = [
+        # Derivar el set autoritativo de páginas con el helper centralizado
+        # (mismo que usa tasks.py — la lógica vive en un solo lugar).
+        content_keys = [
             k for k in content_data.keys() if not k.startswith("_") and k not in ("hero", "header", "footer")
         ]
+        resolved_industry = industry_key or tenant.industry
+        config.enabled_pages = derive_enabled_pages(
+            content_keys=content_keys,
+            ai_selected_pages=selected_pages,
+            has_services=getattr(tenant, "has_services", False),
+            has_shop=getattr(tenant, "has_shop", False),
+            has_bookings=getattr(tenant, "has_bookings", False),
+            industry_key=resolved_industry,
+        )
 
         # 8. Guardar
         config.content_data = content_data

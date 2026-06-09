@@ -3,6 +3,21 @@
 System prompts, templates de prompt y formateo de contexto para la IA.
 """
 
+# Instrucciones para que la IA decida las páginas electivas (selected_pages).
+# Universo cerrado: about/blog/portfolio/pricing. NUNCA home/contact/services/
+# products/bookings/menu (esas las decide el servidor por reglas).
+SELECTED_PAGES_INSTRUCTIONS = """## Páginas electivas (selected_pages)
+Además del contenido, decide qué páginas electivas necesita este negocio como
+página propia y devuélvelas en el campo `selected_pages`. El universo cerrado es
+exactamente:
+- "about"     — incluye cuando el negocio tiene una historia/equipo/valores que contar.
+- "blog"      — incluye cuando el negocio publicará artículos, novedades o contenido educativo.
+- "portfolio" — incluye para creativos / negocios visuales que muestran trabajos previos.
+- "pricing"   — incluye cuando hay planes/tarifas claras que conviene transparentar.
+NUNCA incluyas "home", "contact", "services", "products", "bookings" ni "menu" en
+`selected_pages`. Si ninguna electiva aplica, devuelve una lista vacía. Sólo
+selecciona una electiva si además generas su sección de contenido correspondiente."""
+
 
 def format_business_context(responses: dict) -> str:
     """Formatea las respuestas del onboarding como contexto."""
@@ -148,6 +163,8 @@ Tu objetivo es generar contenido profesional, atractivo y personalizado.
 6. No inventes información que no se haya proporcionado
 7. Si falta información, usa placeholders descriptivos como "[Tu teléfono]"
 
+{SELECTED_PAGES_INSTRUCTIONS}
+
 ## Formato de Respuesta
 Responde SIEMPRE en formato JSON válido con la estructura solicitada.
 No incluyas explicaciones fuera del JSON.
@@ -190,6 +207,7 @@ def build_system_prompt(template, onboarding_responses: dict) -> str:
             "template_prompt": template_prompt,
             "brand_tone": brand_tone,
             "variant_instructions": variant_instructions,
+            "selected_pages_instructions": SELECTED_PAGES_INSTRUCTIONS,
         },
     )
 

@@ -38,6 +38,18 @@ _MODEL_CONFIG_TTL = 60
 _MODEL_CONFIG_CACHE: dict[str, tuple[float, dict]] = {}
 
 
+def _coerce_selected_pages(raw) -> list[str]:
+    """Normaliza el campo ``selected_pages`` de la IA a una lista de strings.
+
+    Defensivo contra salidas malformadas: si ``raw`` no es una lista, devuelve
+    ``[]``; ignora elementos no-string. El filtrado al universo electivo cerrado
+    lo hace ``derive_enabled_pages`` aguas abajo (aquí sólo se sanea el tipo).
+    """
+    if not isinstance(raw, list):
+        return []
+    return [item for item in raw if isinstance(item, str)]
+
+
 def _settings_fallback_for_task(task: str) -> dict:
     """Config por defecto desde settings cuando no hay fila AIModelConfig.
 
@@ -192,7 +204,7 @@ class AIService:
 
     def generate_initial_content(
         self, template, onboarding_responses: dict, additional_instructions: str = ""
-    ) -> tuple[dict, dict, int, int, str, str]:
+    ) -> tuple[dict, dict, int, int, str, str, list[str]]:
         """
         Genera el contenido inicial del sitio web.
 
@@ -202,14 +214,16 @@ class AIService:
             additional_instructions: Instrucciones adicionales
 
         Returns:
-            tuple de (content_data, seo_data, tokens_input, tokens_output, full_prompt, raw_response)
+            tuple de (content_data, seo_data, tokens_input, tokens_output, full_prompt,
+            raw_response, selected_pages). ``selected_pages`` es la lista de páginas
+            electivas que la IA decidió (default ``[]``).
         """
         # Inyectar defaults del vertical para campos faltantes (Fase 2:
         # onboarding corto). Esto es un merge -- no sobrescribe datos del usuario.
         onboarding_responses = self._apply_industry_defaults(onboarding_responses)
 
         if not self.client:
-            return (*self._mock_generate_content(template, onboarding_responses), "", "")
+            return (*self._mock_generate_content(template, onboarding_responses), "", "", [])
 
         # Obtener estructura de secciones del template
         sections = template.structure_schema.get("sections", self._default_sections())
@@ -268,6 +282,13 @@ Responde con un JSON con esta estructura (incluye SOLO las secciones indicadas a
             "subtitle": "...",
             "items": []
         }},
+        "portfolio": {{
+            "title": "Portafolio",
+            "subtitle": "...",
+            "items": [
+                {{"title": "...", "description": "...", "category": "..."}}
+            ]
+        }},
         "pricing": {{
             "title": "Precios",
             "subtitle": "...",
@@ -295,7 +316,8 @@ Responde con un JSON con esta estructura (incluye SOLO las secciones indicadas a
         "meta_title": "...",
         "meta_description": "...",
         "keywords": ["...", "..."]
-    }}
+    }},
+    "selected_pages": ["about", "blog"]
 }}
 
 Genera contenido profesional y atractivo basado en la información del negocio."""
@@ -309,7 +331,7 @@ Genera contenido profesional y atractivo basado en la información del negocio."
         self._last_model_used = model
 
         try:
-            content_data, seo_data, tokens_input, tokens_output, response_text = self._call_generation(
+            content_data, seo_data, tokens_input, tokens_output, response_text, selected_pages = self._call_generation(
                 model=model, system_prompt=system_prompt, user_prompt=user_prompt, max_tokens=max_tokens
             )
 
@@ -330,14 +352,17 @@ Genera contenido profesional y atractivo basado en la información del negocio."
                     "manteniendo la estructura JSON especificada."
                 )
                 try:
-                    content_data2, seo_data2, tokens_in2, tokens_out2, response_text2 = self._call_generation(
-                        model=model, system_prompt=system_prompt, user_prompt=retry_prompt, max_tokens=max_tokens
+                    content_data2, seo_data2, tokens_in2, tokens_out2, response_text2, selected_pages2 = (
+                        self._call_generation(
+                            model=model, system_prompt=system_prompt, user_prompt=retry_prompt, max_tokens=max_tokens
+                        )
                     )
                     tokens_input += tokens_in2
                     tokens_output += tokens_out2
                     problems_after = self._validate_generated_content(content_data2, template)
                     if len(problems_after) < len(problems):
                         content_data, seo_data, response_text = content_data2, seo_data2, response_text2
+                        selected_pages = selected_pages2
                         if problems_after:
                             logger.warning(
                                 "Retry mejoró pero aún quedan problemas: %s",
@@ -349,21 +374,23 @@ Genera contenido profesional y atractivo basado en la información del negocio."
                     logger.warning(f"Retry de generación falló: {retry_error}")
 
             full_prompt = f"=== SYSTEM PROMPT ===\n{system_prompt}\n\n=== USER PROMPT ===\n{user_prompt}"
-            return content_data, seo_data, tokens_input, tokens_output, full_prompt, response_text
+            return content_data, seo_data, tokens_input, tokens_output, full_prompt, response_text, selected_pages
 
         except Exception as e:
             logger.error(f"Error llamando a Claude API: {e}")
-            return (*self._mock_generate_content(template, onboarding_responses), "", "")
+            return (*self._mock_generate_content(template, onboarding_responses), "", "", [])
 
     def _call_generation(
         self, model: str, system_prompt: str, user_prompt: str, max_tokens: int = 4096
-    ) -> tuple[dict, dict, int, int, str]:
+    ) -> tuple[dict, dict, int, int, str, list[str]]:
         """
         Hace una llamada a Claude y parsea la respuesta JSON.
 
         Returns:
-            tuple (content_data, seo_data, tokens_input, tokens_output, response_text).
-            Si el parse falla, content_data contiene {"error": ..., "raw": ...}.
+            tuple (content_data, seo_data, tokens_input, tokens_output, response_text,
+            selected_pages). ``selected_pages`` es la lista de páginas electivas que
+            la IA seleccionó (default ``[]`` si falta o es malformada). Si el parse
+            falla, content_data contiene {"error": ..., "raw": ...}.
         """
         response = self.client.messages.create(
             model=model,
@@ -375,6 +402,7 @@ Genera contenido profesional y atractivo basado en la información del negocio."
         tokens_input = response.usage.input_tokens
         tokens_output = response.usage.output_tokens
 
+        selected_pages: list[str] = []
         try:
             json_text = response_text.strip()
             if json_text.startswith("```json"):
@@ -387,13 +415,14 @@ Genera contenido profesional y atractivo basado en la información del negocio."
             result = json.loads(json_text.strip())
             content_data = result.get("content", {})
             seo_data = result.get("seo", {})
+            selected_pages = _coerce_selected_pages(result.get("selected_pages"))
         except json.JSONDecodeError as e:
             logger.error(f"Error parseando JSON de IA: {e}")
             logger.debug(f"Respuesta: {response_text}")
             content_data = {"error": "Error parseando respuesta", "raw": response_text}
             seo_data = {}
 
-        return content_data, seo_data, tokens_input, tokens_output, response_text
+        return content_data, seo_data, tokens_input, tokens_output, response_text, selected_pages
 
     # ───────────────────────────────────────────────────────────────────
     # Chat de edición
@@ -722,8 +751,15 @@ Responde SOLO con el JSON, sin explicaciones."""
                 allowed_ids.discard("services")
             if not getattr(self.tenant, "has_shop", False) and "products" in allowed_ids:
                 allowed_ids.discard("products")
-            # Asegurar que al menos uno quede si seleccionó servicios/productos
-            services_or_products = {"Servicios", "Productos", "Servicios / Productos"}
+            # Asegurar que al menos uno quede si seleccionó servicios/productos.
+            # Reconoce tanto page keys ("services"/"products") como labels legacy.
+            services_or_products = {
+                "services",
+                "products",
+                "Servicios",
+                "Productos",
+                "Servicios / Productos",
+            }
             if services_or_products & set(selected) and not allowed_ids & {"services", "products"}:
                 # Si ninguno quedó por los flags, incluir genérico
                 allowed_ids.add("services")

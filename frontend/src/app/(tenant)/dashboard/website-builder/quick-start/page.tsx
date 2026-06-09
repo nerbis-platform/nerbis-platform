@@ -189,15 +189,16 @@ export default function QuickStartPage() {
   }, [modules, selectedModules]);
 
   // Derive selectedPages automatically — the pages question was removed from the
-  // chat. A page is included if it is mandatory, a sensible default, or its
-  // module is active (auto_include_modules). The user refines pages later in the
-  // editor (step 2).
+  // chat. A page is included if it is mandatory or its module is active
+  // (auto_include_modules). Elective pages (about/blog/portfolio/pricing) are NO
+  // longer force-sent here: the AI decides them server-side via selected_pages
+  // and the centralized derive_enabled_pages helper. The user refines pages later
+  // in the editor (step 2).
   useEffect(() => {
     if (!apiPages) return;
     const derived = apiPages
       .filter((p) =>
         p.is_mandatory ||
-        p.is_default ||
         p.auto_include_modules.some((m) => selectedModules.has(m as keyof ModuleSelection))
       )
       .map((p) => p.key);

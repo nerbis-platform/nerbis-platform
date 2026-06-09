@@ -36,6 +36,7 @@ def generate_website_content(
     from core.models import Tenant
     from websites.models import WebsiteConfig
     from websites.services import AIService, UnsplashService
+    from websites.services.pages import derive_enabled_pages
 
     try:
         tenant = Tenant.objects.get(id=tenant_id)
@@ -65,7 +66,15 @@ def generate_website_content(
             generation_type = "initial"
 
         # Generar contenido con IA
-        content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response = ai_service.generate_initial_content(
+        (
+            content_data,
+            seo_data,
+            tokens_in,
+            tokens_out,
+            full_prompt,
+            raw_response,
+            selected_pages,
+        ) = ai_service.generate_initial_content(
             template=config.template,
             onboarding_responses=onboarding_responses,
             additional_instructions=additional_instructions,
@@ -123,10 +132,22 @@ def generate_website_content(
             ordered.append("contact")
         content_data["_section_order"] = ordered
 
-        # Derivar paginas habilitadas
-        config.enabled_pages = [
+        # Derivar paginas habilitadas con el helper centralizado (mismo que
+        # generation.py — la logica vive en un solo lugar, no se duplica).
+        content_keys = [
             k for k in content_data.keys() if not k.startswith("_") and k not in ("hero", "header", "footer")
         ]
+        resolved_industry = (
+            config.template.industry.key if config.template and config.template.industry_id else tenant.industry
+        )
+        config.enabled_pages = derive_enabled_pages(
+            content_keys=content_keys,
+            ai_selected_pages=selected_pages,
+            has_services=getattr(tenant, "has_services", False),
+            has_shop=getattr(tenant, "has_shop", False),
+            has_bookings=getattr(tenant, "has_bookings", False),
+            industry_key=resolved_industry,
+        )
 
         # Guardar resultado
         config.content_data = content_data

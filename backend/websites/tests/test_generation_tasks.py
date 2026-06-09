@@ -62,7 +62,11 @@ def onboarding_responses():
 
 @pytest.fixture()
 def mock_ai_content():
-    """Contenido simulado que devuelve AIService."""
+    """Contenido simulado que devuelve AIService.
+
+    El 7º elemento es ``selected_pages`` (páginas electivas elegidas por la IA),
+    añadido por el cambio de páginas electivas (issue #262).
+    """
     content_data = {
         "hero": {"title": "Bienvenido", "subtitle": "Salon premium"},
         "about": {"title": "Sobre nosotros", "content": "Somos un salon..."},
@@ -73,7 +77,8 @@ def mock_ai_content():
     tokens_out = 800
     full_prompt = "system prompt + user prompt"
     raw_response = '{"hero": ...}'
-    return content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response
+    selected_pages = ["about"]
+    return content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response, selected_pages
 
 
 # ===================================
@@ -91,7 +96,7 @@ class TestGenerateWebsiteContentTask:
         self, mock_ai_cls, mock_unsplash_cls, website_config, tenant, onboarding_responses, mock_ai_content
     ):
         """Tarea exitosa: status -> review, content_data poblado, generation_task_id limpiado."""
-        content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response = mock_ai_content
+        content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response, selected_pages = mock_ai_content
 
         # Mock AIService
         mock_ai = MagicMock()
@@ -102,6 +107,7 @@ class TestGenerateWebsiteContentTask:
             tokens_out,
             full_prompt,
             raw_response,
+            selected_pages,
         )
         mock_ai.log_generation.return_value = None
         mock_ai_cls.return_value = mock_ai
@@ -199,7 +205,7 @@ class TestGenerateContentView:
         self, mock_ai_cls, mock_unsplash_cls, auth_admin_client, website_config, tenant, mock_ai_content
     ):
         """POST retorna 202 con task_id cuando se despacha exitosamente."""
-        content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response = mock_ai_content
+        content_data, seo_data, tokens_in, tokens_out, full_prompt, raw_response, selected_pages = mock_ai_content
 
         # Mock AIService (used in both view and task since EAGER mode)
         mock_ai = MagicMock()
@@ -211,6 +217,7 @@ class TestGenerateContentView:
             tokens_out,
             full_prompt,
             raw_response,
+            selected_pages,
         )
         mock_ai.log_generation.return_value = None
         mock_ai_cls.return_value = mock_ai
