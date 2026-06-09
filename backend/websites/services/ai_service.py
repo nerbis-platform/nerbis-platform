@@ -320,18 +320,6 @@ Responde con un JSON con esta estructura (incluye SOLO las secciones indicadas a
     "selected_pages": ["about", "blog"]
 }}
 
-## Páginas electivas (selected_pages)
-Devuelve en `selected_pages` SÓLO las páginas electivas que este negocio realmente
-necesita como página propia. El universo cerrado es exactamente:
-- "about"     — incluye cuando el negocio tiene una historia/equipo/valores que contar.
-- "blog"      — incluye cuando el negocio publicará artículos, novedades o contenido educativo.
-- "portfolio" — incluye para creativos / negocios visuales que muestran trabajos previos.
-- "pricing"   — incluye cuando hay planes/tarifas claras que conviene transparentar.
-NUNCA incluyas "home", "contact", "services", "products", "bookings" ni "menu" en
-`selected_pages` (esas las decide el servidor por reglas). Si ninguna electiva aplica,
-devuelve una lista vacía. Sólo selecciona una electiva si además generas su sección
-de contenido correspondiente arriba.
-
 Genera contenido profesional y atractivo basado en la información del negocio."""
 
         # Para la generación inicial usamos el modelo configurado para la tarea
