@@ -63,6 +63,7 @@ def patched_client():
     Devuelve un setter que configura el payload que la IA "responde".
     """
     with patch("websites.services.ai_service.AIService._get_client") as mock_get:
+
         def _set(payload):
             client = _fake_client(payload)
             mock_get.return_value = client
@@ -197,15 +198,11 @@ class TestSuggestColorsValidation:
         assert response.status_code == 400
 
     def test_over_cap_description_returns_400(self, auth_admin_client, patched_client):
-        response = auth_admin_client.post(
-            URL, _payload(business_description="x" * 1001), format="json"
-        )
+        response = auth_admin_client.post(URL, _payload(business_description="x" * 1001), format="json")
         assert response.status_code == 400
 
     def test_optional_fields_can_be_omitted(self, auth_admin_client, patched_client):
-        response = auth_admin_client.post(
-            URL, {"business_description": "Una tienda de ropa."}, format="json"
-        )
+        response = auth_admin_client.post(URL, {"business_description": "Una tienda de ropa."}, format="json")
         assert response.status_code == 200
 
 
@@ -227,12 +224,8 @@ class TestSuggestColorsLogging:
     def test_cross_tenant_isolation(self, auth_admin_client, patched_client, tenant, second_tenant):
         """El log se asocia al tenant que hizo la request, no al otro."""
         auth_admin_client.post(URL, _payload(), format="json")
-        assert AIGenerationLog.objects.filter(
-            tenant=tenant, generation_type="suggest_colors"
-        ).exists()
-        assert not AIGenerationLog.objects.filter(
-            tenant=second_tenant, generation_type="suggest_colors"
-        ).exists()
+        assert AIGenerationLog.objects.filter(tenant=tenant, generation_type="suggest_colors").exists()
+        assert not AIGenerationLog.objects.filter(tenant=second_tenant, generation_type="suggest_colors").exists()
 
 
 # ===================================
@@ -282,9 +275,7 @@ class TestSuggestColorsSeed:
 
         from django.apps import apps as django_apps
 
-        seed_mod = importlib.import_module(
-            "websites.migrations.0029_seed_suggest_colors_config"
-        )
+        seed_mod = importlib.import_module("websites.migrations.0029_seed_suggest_colors_config")
         before = AIModelConfig.objects.filter(task="suggest_colors").count()
         seed_mod.seed_suggest_colors_config(django_apps, None)
         after = AIModelConfig.objects.filter(task="suggest_colors").count()

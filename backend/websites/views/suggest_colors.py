@@ -90,7 +90,5 @@ class SuggestColorsView(APIView):
         except Exception as e:  # pragma: no cover - logging best-effort
             logger.warning("No se pudo registrar la generación suggest-colors: %s", e)
 
-        response_serializer = SuggestColorsResponseSerializer(
-            {"primary_hex": primary_hex, "rationale": rationale}
-        )
+        response_serializer = SuggestColorsResponseSerializer({"primary_hex": primary_hex, "rationale": rationale})
         return Response(response_serializer.data, status=status.HTTP_200_OK)

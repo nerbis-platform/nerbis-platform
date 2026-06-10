@@ -71,6 +71,7 @@ def _fallback_primary_for_sector(sector_key: str | None) -> str:
         return _FALLBACK_SECTOR_PRIMARIES.get(sector_key.strip().lower(), _DEFAULT_PRIMARY_HEX)
     return _DEFAULT_PRIMARY_HEX
 
+
 # Cache TTL (segundos) para la configuración de modelo por tarea. Evita un query
 # por cada llamada a get_model_for_task sin requerir reinicio para reflejar
 # cambios del superadmin (se refresca cada ~60s).
