@@ -1608,8 +1608,8 @@ export default function QuickStartPage() {
 
                     {/* ── Camino 3: paletas predefinidas (par tal cual) ── */}
                     {!logoSource && !aiColorSource && (
-                      <div className="max-h-32 overflow-y-auto pr-1 -mr-1">
-                        <div className="grid grid-cols-3 gap-2.5">
+                      <div className="max-h-28 overflow-y-auto pr-1 -mr-1">
+                        <div className="grid grid-cols-4 gap-1.5">
                           {palettes.map((pal) => {
                             const isActive = primaryColor === pal.primary && secondaryColor === pal.secondary;
                             return (
@@ -1617,17 +1617,17 @@ export default function QuickStartPage() {
                                 key={pal.label}
                                 type="button"
                                 onClick={() => { setAiColorSource(false); setAiColorRationale(null); setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
-                                className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                                 style={{
                                   borderColor: isActive ? TEAL : WARM_GRAY_200,
                                   backgroundColor: isActive ? `${TEAL}08` : '#fff',
                                 }}
                               >
-                                <div className="flex gap-1">
-                                  <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.primary }} />
-                                  <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.secondary }} />
-                                </div>
-                                <span className="text-[0.72rem] font-medium" style={{ color: isActive ? TEAL : WARM_GRAY_600 }}>{pal.label}</span>
+                                <span className="flex shrink-0">
+                                  <span className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: pal.primary }} />
+                                  <span className="w-4 h-4 rounded-full border border-white/20 -ml-1.5" style={{ backgroundColor: pal.secondary }} />
+                                </span>
+                                <span className="text-[0.7rem] font-medium truncate" style={{ color: isActive ? TEAL : WARM_GRAY_600 }}>{pal.label}</span>
                               </button>
                             );
                           })}
@@ -1642,15 +1642,6 @@ export default function QuickStartPage() {
                     )}
 
                     <div className="flex items-center justify-end gap-3">
-                      {/* Camino 4: saltar = defaults (sin colores) */}
-                      <button
-                        type="button"
-                        onClick={() => { clearLogo(); handleSend(); }}
-                        className="text-[0.78rem] font-medium transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 rounded"
-                        style={{ color: WARM_GRAY_500 }}
-                      >
-                        Usar los de NERBIS
-                      </button>
                       <button
                         type="button"
                         onClick={handleSend}
