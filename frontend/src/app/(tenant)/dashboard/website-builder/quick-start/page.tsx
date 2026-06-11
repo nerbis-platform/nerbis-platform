@@ -951,11 +951,12 @@ export default function QuickStartPage() {
           style={{ backgroundColor: WARM_GRAY_50 }}
         >
           {header}
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center" role="status" aria-live="polite">
             <div
               className="w-5 h-5 rounded-full border-2 animate-spin"
               style={{ borderColor: WARM_GRAY_200, borderTopColor: TEAL }}
             />
+            <span className="sr-only">Cargando conversación…</span>
           </div>
         </div>
       );

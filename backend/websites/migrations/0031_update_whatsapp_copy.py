@@ -2,10 +2,10 @@
 
 Refina el mensaje de Pipe para hablar de "visitantes" (más amplio que "clientes")
 y mantener el encuadre opcional. Solo cambia ``message``; el resto (hint,
-is_required) ya quedó fijado en 0029.
+is_required) ya quedó fijado en 0030.
 
-Patrón filter+update (como 0029): no-op si la fila no existe, sin duplicar.
-Reversible al copy de 0029.
+Patrón filter+update (como 0030): no-op si la fila no existe, sin duplicar.
+Reversible al copy de 0030.
 """
 
 from django.db import migrations
