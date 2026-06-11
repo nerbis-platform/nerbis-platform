@@ -948,7 +948,7 @@ export default function QuickStartPage() {
         >
           {header}
           <div className="flex-1 flex items-center justify-center">
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5" role="status" aria-live="polite" aria-label="Cargando">
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
