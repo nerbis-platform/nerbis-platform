@@ -38,6 +38,7 @@ export interface ConversationStep {
   minLength?: number;
   maxLength?: number;
   rows?: number;
+  optional?: boolean;
   options?: StyleOption[] | PaletteOption[] | ToneOption[];
 }
 
