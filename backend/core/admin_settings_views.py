@@ -416,6 +416,29 @@ class AdminIndustryDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = AdminIndustrySerializer
     queryset = Industry.objects.select_related("default_template").order_by("sort_order", "label")
 
+    def destroy(self, request, *args, **kwargs):
+        """Bloquea el borrado físico si la industria está en uso.
+
+        En v1 ``Tenant.industry`` es un key libre (CharField, sin FK), así que
+        eliminar la fila dejaría a esos tenants apuntando a un key inexistente.
+        Mientras exista esa referencia se devuelve 409 y se sugiere desactivar
+        (``is_active=false``) en lugar de borrar.
+        """
+        from core.models import Tenant
+
+        instance = self.get_object()
+        if Tenant.objects.filter(industry=instance.key).exists():
+            return Response(
+                {
+                    "detail": (
+                        "No se puede eliminar una industria en uso por uno o más "
+                        "tenants. Desactívala (is_active=false) en lugar de borrarla."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        return super().destroy(request, *args, **kwargs)
+
 
 class AdminIndustryPromoteView(APIView):
     """POST ``/api/admin/settings/industries/<int:pk>/promote/``.
