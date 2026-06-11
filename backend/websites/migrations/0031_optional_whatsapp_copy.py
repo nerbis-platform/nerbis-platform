@@ -48,7 +48,7 @@ def reverse(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("websites", "0029_seed_suggest_colors_config"),
+        ("websites", "0030_promptblock_industry_set_null"),
     ]
 
     operations = [
