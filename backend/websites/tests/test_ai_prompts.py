@@ -27,9 +27,7 @@ from websites.services.ai_prompts import (
 
 # El nombre del módulo de migración empieza por dígito, así que no se puede
 # importar con `import`. Cargamos el dict PREMIUM_BLOCK real que se siembra.
-_migration_0033 = importlib.import_module(
-    "websites.migrations.0033_seed_premium_global_block"
-)
+_migration_0033 = importlib.import_module("websites.migrations.0033_seed_premium_global_block")
 PREMIUM_BLOCK = _migration_0033.PREMIUM_BLOCK
 
 pytestmark = pytest.mark.django_db
