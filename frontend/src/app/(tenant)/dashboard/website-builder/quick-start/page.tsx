@@ -332,6 +332,17 @@ export default function QuickStartPage() {
     } catch { /* corrupted storage — start fresh */ }
   }, []);
 
+  // ─── Clamp restored index once steps load ──────────────────
+  // `steps` se carga async desde el API, así que el índice restaurado de
+  // sessionStorage puede quedar fuera de rango (negocio sin servicios = menos
+  // pasos, catálogo de pasos cambiado entre sesiones, etc.). Sin este clamp,
+  // `steps[currentStepIdx]` sería undefined y el render crashearía con
+  // "Cannot read properties of undefined (reading 'message')".
+  useEffect(() => {
+    if (steps.length === 0) return;
+    setCurrentStepIdx((prev) => Math.min(prev, steps.length - 1));
+  }, [steps.length]);
+
   // ─── Persist state to sessionStorage on changes ────────────
   useEffect(() => {
     if (pageState !== 'chat') return;
@@ -529,13 +540,26 @@ export default function QuickStartPage() {
     sections: Set<string>,
     industryKey?: string,
   ) => {
+    // Validación pre-POST: `business_description` es el único campo obligatorio
+    // del serializer (main_services ya es opcional). Si un estado restaurado
+    // incompleto lo dejó vacío, el POST a quick-start/ devolvería un 400 genérico
+    // y el polling un 404 (nunca se creó el WebsiteConfig). En vez de eso,
+    // regresamos al paso de descripción con un mensaje amable.
+    const businessDescription = (answersData.description || answersData.pipe_description || '').trim();
+    if (!businessDescription) {
+      const descIdx = steps.findIndex((s) => s.id?.includes('description'));
+      if (descIdx >= 0) setCurrentStepIdx(descIdx);
+      toast.error('Cuéntame primero sobre tu negocio para poder generar tu sitio.');
+      return;
+    }
+
     setPageState('generating');
     setGenStep(0);
     setProgress(0);
     setTimeout(() => {
       triggerQuickStartGeneration(answersData, sections, industryKey || undefined);
     }, 100);
-  }, [triggerQuickStartGeneration]);
+  }, [triggerQuickStartGeneration, steps]);
 
   // User confirmed the detected sector. Option 1: classification is decoupled
   // from generation, so confirming just records the decision (feeding NERBIS'
@@ -910,6 +934,38 @@ export default function QuickStartPage() {
   // ─── CHAT STATE — Claude-style AI Chat ──────────────────
   if (pageState === 'chat') {
     const step = steps[currentStepIdx];
+
+    // Guarda de crash: `steps` carga async y `currentStepIdx` puede provenir de
+    // sessionStorage, por lo que `step` puede ser undefined transitoriamente.
+    // Sin esta guarda, `step.message`/`step.type` más abajo crashearían con
+    // "Cannot read properties of undefined (reading 'message')". Mostramos un
+    // loader hasta que el paso esté disponible (el effect de clamp lo corrige).
+    if (!step) {
+      return (
+        <div
+          className="h-screen flex flex-col font-[family-name:var(--font-geist-sans)]"
+          style={{ backgroundColor: WARM_GRAY_50 }}
+        >
+          {header}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="w-2 h-2 rounded-full animate-bounce"
+                  style={{
+                    backgroundColor: WARM_GRAY_400,
+                    animationDelay: `${i * 150}ms`,
+                    animationDuration: '0.8s',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const minLen = step?.minLength || 0;
     const canSend = step?.type === 'modules'
       ? selectedModules.size > 0
