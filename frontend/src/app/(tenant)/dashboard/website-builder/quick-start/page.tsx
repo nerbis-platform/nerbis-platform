@@ -41,6 +41,7 @@ import { Tenant } from '@/types';
 import {
   NAVY, TEAL, WARM_GRAY_50, WARM_GRAY_100, WARM_GRAY_200,
   WARM_GRAY_400, WARM_GRAY_500, WARM_GRAY_600, WARM_GRAY_800,
+  ERROR_RED, SUCCESS_GREEN,
   AGENT_NAME, getLucideIcon,
   FALLBACK_MODULES, FALLBACK_PAGES,
   FALLBACK_PALETTES, FALLBACK_TONE_OPTIONS,
@@ -694,8 +695,16 @@ export default function QuickStartPage() {
   const handleSuggestColors = useCallback(async () => {
     setAiColorLoading(true);
     setLogoError(null);
-    // Recuperar la descripción del negocio (misma clave del onboarding).
-    const descriptionKey = Object.keys(answers).find((k) => k.includes('description'));
+    // Recuperar la descripción del negocio. Las claves canónicas del paso de
+    // descripción son 'pipe_description' (backend) o 'description' (fallback);
+    // se priorizan en ese orden y, si no están, se cae a una clave que TERMINE
+    // en 'description' (evita falsos positivos a mitad de string como includes).
+    const descriptionKey =
+      'pipe_description' in answers
+        ? 'pipe_description'
+        : 'description' in answers
+          ? 'description'
+          : Object.keys(answers).find((k) => /description$/i.test(k));
     const businessDescription = (descriptionKey ? answers[descriptionKey] : '') || '';
     try {
       const res = await suggestColors({
@@ -1371,7 +1380,7 @@ export default function QuickStartPage() {
                           color:
                             currentInput.length < (step.minLength || 0) ||
                             currentInput.length > step.maxLength * 0.9
-                              ? '#B91C1C'
+                              ? ERROR_RED
                               : WARM_GRAY_600,
                         }}
                       >
@@ -1558,7 +1567,7 @@ export default function QuickStartPage() {
                       )}
 
                       {logoError && (
-                        <p role="alert" className="text-[0.7rem] mt-1.5 ml-1" style={{ color: '#B91C1C' }}>
+                        <p role="alert" className="text-[0.7rem] mt-1.5 ml-1" style={{ color: ERROR_RED }}>
                           {logoError}
                         </p>
                       )}
@@ -1874,7 +1883,7 @@ export default function QuickStartPage() {
                 >
                   <Check
                     className="w-3.5 h-3.5 flex-shrink-0"
-                    style={{ color: '#16A34A' }}
+                    style={{ color: SUCCESS_GREEN }}
                   />
                   <span className="truncate">
                     {SECTION_LABELS[key] || key}

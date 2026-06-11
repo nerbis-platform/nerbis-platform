@@ -19,6 +19,8 @@ export const WARM_GRAY_400 = '#A8A29E';
 export const WARM_GRAY_500 = '#78716C';
 export const WARM_GRAY_600 = '#57534E';
 export const WARM_GRAY_800 = '#292524';
+export const ERROR_RED = '#B91C1C';
+export const SUCCESS_GREEN = '#16A34A';
 
 // ─── Types ────────────────────────────────────────────────
 
