@@ -65,14 +65,20 @@ class TestIndustrySeed:
 
 @pytest.mark.django_db
 class TestAIModelConfigSeed:
-    """Las 4 filas de configuración de modelo IA quedaron sembradas."""
+    """Las 5 filas de configuración de modelo IA quedaron sembradas."""
 
-    def test_four_rows_seeded(self):
-        assert AIModelConfig.objects.count() == 4
+    def test_five_rows_seeded(self):
+        assert AIModelConfig.objects.count() == 5
 
     def test_tasks_seeded(self):
         tasks = set(AIModelConfig.objects.values_list("task", flat=True))
-        assert tasks == {"classify_industry", "web_content", "chat_edit", "seo"}
+        assert tasks == {
+            "classify_industry",
+            "web_content",
+            "chat_edit",
+            "seo",
+            "suggest_colors",
+        }
 
     def test_classify_uses_cheap_model_low_tokens(self):
         row = AIModelConfig.objects.get(task="classify_industry")

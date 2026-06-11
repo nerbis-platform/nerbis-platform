@@ -13,6 +13,7 @@ import {
   LogOut,
   UserCircle,
   ImagePlus,
+  Sparkles,
   X,
 } from 'lucide-react';
 import { deriveHarmonicSecondary } from '@/lib/utils/theme-colors';
@@ -25,6 +26,7 @@ import {
   classifyIndustry,
   confirmClassification,
   ClassifyIndustryResponse,
+  suggestColors,
   getPlatformModules,
   getOnboardingQuestions,
   getOnboardingPages,
@@ -39,6 +41,7 @@ import { Tenant } from '@/types';
 import {
   NAVY, TEAL, WARM_GRAY_50, WARM_GRAY_100, WARM_GRAY_200,
   WARM_GRAY_400, WARM_GRAY_500, WARM_GRAY_600, WARM_GRAY_800,
+  ERROR_RED, SUCCESS_GREEN,
   AGENT_NAME, getLucideIcon,
   FALLBACK_MODULES, FALLBACK_PAGES,
   FALLBACK_PALETTES, FALLBACK_TONE_OPTIONS,
@@ -139,6 +142,15 @@ export default function QuickStartPage() {
   const [logoSource, setLogoSource] = useState(false); // true → colores vienen del logo
   const [logoLoading, setLogoLoading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
+
+  // ─── Sugerencia de color por IA (camino "Sugiéreme los colores") ──
+  // Pipe propone un primario a partir del sector + descripción + tono. El
+  // secundario lo deriva el front (deriveHarmonicSecondary). El resultado se
+  // muestra en la MISMA tarjeta de swatches que el camino del logo. Ante error
+  // degradamos a las paletas predefinidas — nunca se atrapa al usuario.
+  const [aiColorLoading, setAiColorLoading] = useState(false);
+  const [aiColorRationale, setAiColorRationale] = useState<string | null>(null);
+  const [aiColorSource, setAiColorSource] = useState(false); // true → colores vienen de Pipe
 
   // ─── Dependency helpers ─────────────────────────────────────
 
@@ -460,7 +472,9 @@ export default function QuickStartPage() {
       await quickStartGenerate({
         business_description: answersData.description || answersData.pipe_description || '',
         main_services: answersData.services || answersData.pipe_services || '',
-        website_sections: Array.from(sections),
+        // home y contact son páginas obligatorias, no secciones de contenido
+        // seleccionables — se excluyen del hint website_sections.
+        website_sections: Array.from(sections).filter((key) => key !== 'home' && key !== 'contact'),
         brand_tone: selectedTone || undefined,
         primary_color: primaryColor || undefined,
         secondary_color: secondaryColor || undefined,
@@ -563,26 +577,34 @@ export default function QuickStartPage() {
   }, [correctionInput, classifyResult, runClassification]);
 
   // ─── Rotating generation messages ─────────────────────────
+  // Los 5 pasos avanzan cada 6s para cubrir los ~30s reales de generación
+  // (5 × 6s = 30s); el último ("ya casi") queda hasta que el polling completa.
   useEffect(() => {
     if (pageState !== 'generating') return;
     const interval = setInterval(() => {
       setGenStep((prev) =>
         prev < GENERATION_STEPS.length - 1 ? prev + 1 : prev
       );
-    }, 3000);
+    }, 6000);
     return () => clearInterval(interval);
   }, [pageState]);
 
   // ─── Progress bar ─────────────────────────────────────────
+  // Simula el avance acompasado al tiempo real (~30s) con una curva ease-out
+  // basada en el tiempo transcurrido: rápida al inicio y desacelerando al
+  // acercarse al techo (95%). A los ~30s ronda el 90%. Nunca llega a 100% por
+  // sí sola — el polling fija 100% al completar la generación. El guard
+  // monótono evita retrocesos y respeta el 100% del polling.
   useEffect(() => {
     if (pageState !== 'generating') return;
+    const start = Date.now();
+    const CEILING = 95;
+    const TAU = 10.2; // segundos: calibra la curva para ~90% a los 30s
     const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 88) return 88;
-        const increment = prev < 40 ? 3 : prev < 70 ? 1.5 : 0.5;
-        return Math.min(88, prev + increment);
-      });
-    }, 300);
+      const elapsed = (Date.now() - start) / 1000;
+      const target = CEILING * (1 - Math.exp(-elapsed / TAU));
+      setProgress((prev) => (target > prev ? target : prev));
+    }, 200);
     return () => clearInterval(interval);
   }, [pageState]);
 
@@ -648,6 +670,8 @@ export default function QuickStartPage() {
     setLogoPreview(null);
     setLogoSource(false);
     setLogoError(null);
+    setAiColorSource(false);
+    setAiColorRationale(null);
     setPrimaryColor('');
     setSecondaryColor('');
     if (logoInputRef.current) logoInputRef.current.value = '';
@@ -658,9 +682,55 @@ export default function QuickStartPage() {
     setLogoSource(false);
     setLogoFile(null);
     setLogoPreview(null);
+    setAiColorSource(false);
+    setAiColorRationale(null);
     setPrimaryColor(hex);
     setSecondaryColor(deriveHarmonicSecondary(hex));
   }, []);
+
+  // Camino "Sugiéreme los colores": Pipe propone un primario a partir del
+  // sector + descripción + tono. Solo disponible cuando NO hay logo (el logo
+  // ya define los colores). Ante cualquier error degradamos en silencio a las
+  // paletas predefinidas — el usuario nunca queda atrapado.
+  const handleSuggestColors = useCallback(async () => {
+    setAiColorLoading(true);
+    setLogoError(null);
+    // Recuperar la descripción del negocio. Las claves canónicas del paso de
+    // descripción son 'pipe_description' (backend) o 'description' (fallback);
+    // se priorizan en ese orden y, si no están, se cae a una clave que TERMINE
+    // en 'description' (evita falsos positivos a mitad de string como includes).
+    const descriptionKey =
+      'pipe_description' in answers
+        ? 'pipe_description'
+        : 'description' in answers
+          ? 'description'
+          : Object.keys(answers).find((k) => /description$/i.test(k));
+    const businessDescription = (descriptionKey ? answers[descriptionKey] : '') || '';
+    try {
+      const res = await suggestColors({
+        industry_key: confirmedIndustryKey || undefined,
+        industry_label: confirmedIndustryLabel || undefined,
+        business_description: businessDescription,
+        tone: selectedTone || undefined,
+      });
+      const primary = res.primary_hex;
+      setLogoSource(false);
+      setLogoFile(null);
+      setLogoPreview(null);
+      setPrimaryColor(primary);
+      setSecondaryColor(deriveHarmonicSecondary(primary));
+      setAiColorRationale(res.rationale);
+      setAiColorSource(true);
+    } catch {
+      // Degradar con gracia: limpiar el estado de IA y dejar visibles las
+      // paletas predefinidas para que el usuario siga sin fricción.
+      setAiColorSource(false);
+      setAiColorRationale(null);
+      setLogoError('No pude sugerir colores ahora. Elige uno abajo o usa una paleta.');
+    } finally {
+      setAiColorLoading(false);
+    }
+  }, [answers, confirmedIndustryKey, confirmedIndustryLabel, selectedTone]);
 
   const handleSend = useCallback(async () => {
     const step = steps[currentStepIdx];
@@ -768,25 +838,13 @@ export default function QuickStartPage() {
   );
 
   const handleRetry = useCallback(() => {
-    setPageState('chat');
-    setCurrentStepIdx(0);
-    setAnswers({});
-    setCurrentInput('');
-    setGenStep(0);
-    setProgress(0);
+    // "Intentar de nuevo con los mismos datos": el fallo de generación es
+    // transitorio, así que NO reiniciamos el flujo ni borramos respuestas.
+    // Relanzamos la generación con los datos ya registrados (answers, páginas
+    // e industria confirmada siguen en el estado y en sessionStorage).
     setResult(null);
-    setSelectedTone('');
-    setPrimaryColor('');
-    setSecondaryColor('');
-    setConfirmedIndustryKey('');
-    setConfirmedIndustryLabel('');
-    setInlineConfirm(false);
-    setClassifyResult(null);
-    setClassifyError(false);
-    setCorrecting(false);
-    setUsageLimitInfo(null);
-    sessionStorage.removeItem(SS_KEY);
-  }, []);
+    startGeneration(answers, selectedPages, confirmedIndustryKey || undefined);
+  }, [answers, selectedPages, confirmedIndustryKey, startGeneration]);
 
   const handleBack = useCallback(() => {
     if (currentStepIdx <= 0) return;
@@ -1322,7 +1380,7 @@ export default function QuickStartPage() {
                           color:
                             currentInput.length < (step.minLength || 0) ||
                             currentInput.length > step.maxLength * 0.9
-                              ? '#B91C1C'
+                              ? ERROR_RED
                               : WARM_GRAY_600,
                         }}
                       >
@@ -1391,11 +1449,11 @@ export default function QuickStartPage() {
                         }}
                       />
 
-                      {!logoSource ? (
+                      {!logoSource && !aiColorSource ? (
                         <button
                           type="button"
                           onClick={() => logoInputRef.current?.click()}
-                          disabled={logoLoading}
+                          disabled={logoLoading || aiColorLoading}
                           aria-busy={logoLoading}
                           className="flex w-full items-center gap-3 px-4 py-3 rounded-xl border border-dashed transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-wait"
                           style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50 }}
@@ -1417,10 +1475,17 @@ export default function QuickStartPage() {
                         </button>
                       ) : (
                         <div
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl border animate-in fade-in duration-200"
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl border motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
                           style={{ borderColor: TEAL, backgroundColor: `${TEAL}08` }}
                         >
-                          {logoPreview && (
+                          {aiColorSource ? (
+                            <span
+                              className="flex items-center justify-center w-10 h-10 rounded-md shrink-0"
+                              style={{ backgroundColor: `${TEAL}14` }}
+                            >
+                              <Sparkles className="w-4 h-4" style={{ color: TEAL }} />
+                            </span>
+                          ) : logoPreview ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={logoPreview}
@@ -1428,11 +1493,18 @@ export default function QuickStartPage() {
                               className="w-10 h-10 object-contain rounded-md shrink-0"
                               style={{ backgroundColor: '#fff' }}
                             />
-                          )}
+                          ) : null}
                           <div className="flex-1 min-w-0">
                             <p className="text-[0.78rem] font-medium" style={{ color: NAVY }}>
-                              Detectamos estos colores en tu logo
+                              {aiColorSource
+                                ? `Elegí estos por tu sector${confirmedIndustryLabel ? ` ${confirmedIndustryLabel}` : ''}`
+                                : 'Detectamos estos colores en tu logo'}
                             </p>
+                            {aiColorSource && aiColorRationale && (
+                              <p className="text-[0.7rem] mt-0.5 leading-snug" style={{ color: WARM_GRAY_600 }}>
+                                {aiColorRationale}
+                              </p>
+                            )}
                             <div className="flex items-center gap-2 mt-1.5">
                               <span className="flex items-center gap-1.5">
                                 <span className="w-5 h-5 rounded-full border border-black/5" style={{ backgroundColor: primaryColor }} />
@@ -1447,7 +1519,7 @@ export default function QuickStartPage() {
                           <button
                             type="button"
                             onClick={clearLogo}
-                            aria-label="Quitar logo y elegir otro color"
+                            aria-label={aiColorSource ? 'Descartar sugerencia y elegir otro color' : 'Quitar logo y elegir otro color'}
                             className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40"
                             style={{ color: WARM_GRAY_500 }}
                           >
@@ -1456,15 +1528,53 @@ export default function QuickStartPage() {
                         </div>
                       )}
 
+                      {!logoSource && !aiColorSource && (
+                        <button
+                          type="button"
+                          onClick={() => void handleSuggestColors()}
+                          disabled={aiColorLoading || logoLoading}
+                          aria-busy={aiColorLoading}
+                          aria-label="Sugiéreme los colores con inteligencia artificial"
+                          className="mt-2.5 flex w-full items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-wait"
+                          style={{ borderColor: WARM_GRAY_200, backgroundColor: '#fff' }}
+                        >
+                          <span
+                            className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                            style={{ backgroundColor: `${TEAL}12` }}
+                          >
+                            <Sparkles className="w-4 h-4" style={{ color: TEAL }} />
+                          </span>
+                          <span className="text-left flex-1">
+                            <span className="block text-[0.82rem] font-medium" style={{ color: NAVY }}>
+                              {aiColorLoading ? 'Pipe está eligiendo tus colores…' : 'Sugiéreme los colores'}
+                            </span>
+                            <span className="block text-[0.7rem]" style={{ color: WARM_GRAY_500 }}>
+                              Pipe los elige según tu negocio
+                            </span>
+                          </span>
+                          {aiColorLoading && (
+                            <span className="flex gap-1 shrink-0" aria-hidden="true">
+                              {[0, 1, 2].map((i) => (
+                                <span
+                                  key={i}
+                                  className="w-1.5 h-1.5 rounded-full motion-safe:animate-bounce"
+                                  style={{ backgroundColor: TEAL, animationDelay: `${i * 150}ms`, animationDuration: '0.8s' }}
+                                />
+                              ))}
+                            </span>
+                          )}
+                        </button>
+                      )}
+
                       {logoError && (
-                        <p role="alert" className="text-[0.7rem] mt-1.5 ml-1" style={{ color: '#B91C1C' }}>
+                        <p role="alert" className="text-[0.7rem] mt-1.5 ml-1" style={{ color: ERROR_RED }}>
                           {logoError}
                         </p>
                       )}
                     </div>
 
                     {/* ── Camino 2: color manual (secundario auto-derivado) ── */}
-                    {!logoSource && (
+                    {!logoSource && !aiColorSource && (
                       <div className="flex items-center gap-3">
                         <label
                           htmlFor="quickstart-primary-color"
@@ -1502,27 +1612,27 @@ export default function QuickStartPage() {
                     )}
 
                     {/* ── Camino 3: paletas predefinidas (par tal cual) ── */}
-                    {!logoSource && (
-                      <div className="max-h-32 overflow-y-auto pr-1 -mr-1">
-                        <div className="grid grid-cols-3 gap-2.5">
+                    {!logoSource && !aiColorSource && (
+                      <div className="max-h-28 overflow-y-auto pr-1 -mr-1">
+                        <div className="grid grid-cols-4 gap-1.5">
                           {palettes.map((pal) => {
                             const isActive = primaryColor === pal.primary && secondaryColor === pal.secondary;
                             return (
                               <button
                                 key={pal.label}
                                 type="button"
-                                onClick={() => { setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
-                                className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
+                                onClick={() => { setAiColorSource(false); setAiColorRationale(null); setPrimaryColor(pal.primary); setSecondaryColor(pal.secondary); }}
+                                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1"
                                 style={{
                                   borderColor: isActive ? TEAL : WARM_GRAY_200,
                                   backgroundColor: isActive ? `${TEAL}08` : '#fff',
                                 }}
                               >
-                                <div className="flex gap-1">
-                                  <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.primary }} />
-                                  <div className="w-6 h-6 rounded-full border border-white/20" style={{ backgroundColor: pal.secondary }} />
-                                </div>
-                                <span className="text-[0.72rem] font-medium" style={{ color: isActive ? TEAL : WARM_GRAY_600 }}>{pal.label}</span>
+                                <span className="flex shrink-0">
+                                  <span className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: pal.primary }} />
+                                  <span className="w-4 h-4 rounded-full border border-white/20 -ml-1.5" style={{ backgroundColor: pal.secondary }} />
+                                </span>
+                                <span className="text-[0.7rem] font-medium truncate" style={{ color: isActive ? TEAL : WARM_GRAY_600 }}>{pal.label}</span>
                               </button>
                             );
                           })}
@@ -1537,15 +1647,6 @@ export default function QuickStartPage() {
                     )}
 
                     <div className="flex items-center justify-end gap-3">
-                      {/* Camino 4: saltar = defaults (sin colores) */}
-                      <button
-                        type="button"
-                        onClick={() => { clearLogo(); handleSend(); }}
-                        className="text-[0.78rem] font-medium transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-1 rounded"
-                        style={{ color: WARM_GRAY_500 }}
-                      >
-                        Usar los de NERBIS
-                      </button>
                       <button
                         type="button"
                         onClick={handleSend}
@@ -1782,7 +1883,7 @@ export default function QuickStartPage() {
                 >
                   <Check
                     className="w-3.5 h-3.5 flex-shrink-0"
-                    style={{ color: '#16A34A' }}
+                    style={{ color: SUCCESS_GREEN }}
                   />
                   <span className="truncate">
                     {SECTION_LABELS[key] || key}
@@ -1828,7 +1929,7 @@ export default function QuickStartPage() {
 
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         <div className="w-full max-w-md text-center">
-          <div className="mb-5">
+          <div className="mb-5 flex justify-center">
             <PipeAvatar mood="idle" size={48} />
           </div>
 

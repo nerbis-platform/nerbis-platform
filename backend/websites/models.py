@@ -92,6 +92,7 @@ class AIModelConfig(models.Model):
         ("web_content", "Generar contenido web"),
         ("chat_edit", "Editar por chat"),
         ("seo", "Optimización SEO"),
+        ("suggest_colors", "Sugerir colores"),
     ]
 
     task = models.CharField(
@@ -548,6 +549,7 @@ class AIGenerationLog(models.Model):
         ("generate_images", "Generar Imágenes"),
         ("seo_optimization", "Optimización SEO"),
         ("classify_industry", "Clasificar Industria"),
+        ("suggest_colors", "Sugerir Colores"),
     ]
 
     tenant = models.ForeignKey("core.Tenant", on_delete=models.CASCADE, related_name="ai_generation_logs")

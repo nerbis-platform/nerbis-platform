@@ -313,6 +313,8 @@ class QuickStartSerializer(serializers.Serializer):
     )
     main_services = serializers.CharField(
         max_length=2000,
+        required=False,
+        allow_blank=True,
         help_text="Servicios principales, separados por coma o salto de linea",
     )
     business_whatsapp = serializers.CharField(
@@ -321,22 +323,19 @@ class QuickStartSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Numero de WhatsApp (opcional, se pre-llena con phone del tenant)",
     )
-    ALLOWED_SECTIONS = [
-        "Sobre nosotros",
-        "Servicios",
-        "Productos",
-        "Servicios / Productos",
-        "Galería de fotos",
-        "Testimonios / Reseñas",
-        "Precios / Tarifas",
-        "Preguntas frecuentes",
-    ]
-
+    # website_sections es una pista BLANDA: el frontend envia page keys
+    # ("about", "blog", "services", ...) — ver ai_constants.SECTION_OPTION_MAP,
+    # la unica fuente de verdad que normaliza estos valores e ignora cualquier
+    # key desconocida (home/contact/bookings/menu o futuras paginas) sin romper.
+    # Por eso este campo NO valida contra un enum cerrado: hacerlo dead-endeaba
+    # la generacion con un 400 cada vez que el universo de paginas cambiaba. Se
+    # acepta una lista de strings cortas y el mapeo downstream decide que aplica.
     website_sections = serializers.ListField(
-        child=serializers.ChoiceField(choices=[]),  # choices set in __init__
+        child=serializers.CharField(max_length=100),
         required=False,
-        max_length=8,
-        help_text="Secciones seleccionadas por el usuario (ej: ['Sobre nosotros', 'Testimonios / Reseñas']). "
+        max_length=12,
+        help_text="Page keys seleccionadas por el usuario (ej: ['about', 'testimonials']). "
+        "Se normalizan via SECTION_OPTION_MAP; las desconocidas se ignoran. "
         "Si no se envia, se usan los defaults del vertical.",
     )
 
@@ -410,7 +409,6 @@ class QuickStartSerializer(serializers.Serializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["website_sections"].child.choices = [(s, s) for s in self.ALLOWED_SECTIONS]
         self.fields["brand_tone"].choices = [(t, t) for t in self.ALLOWED_TONES]
 
     def validate_logo_file(self, value):
@@ -471,6 +469,49 @@ class ConfirmClassificationSerializer(serializers.Serializer):
         help_text="Industria que el usuario aceptó (default: la predicha si confirma)",
     )
     correction_text = serializers.CharField(max_length=1000, required=False, allow_blank=True)
+
+
+# ===================================
+# SUGERENCIA DE COLOR PRIMARIO (IA)
+# ===================================
+
+
+class SuggestColorsSerializer(serializers.Serializer):
+    """Entrada para sugerir el color primario de la marca con IA.
+
+    La descripción del negocio es obligatoria; el sector (key/label) y el tono
+    son opcionales y dan contexto a la IA para una sugerencia más afinada.
+    """
+
+    business_description = serializers.CharField(
+        max_length=1000,
+        help_text="Descripción del negocio (qué hace, a quién atiende)",
+    )
+    industry_key = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        help_text="Key del sector/industria (opcional, da contexto)",
+    )
+    industry_label = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        help_text="Etiqueta legible del sector (opcional)",
+    )
+    tone = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        help_text="Tono deseado de la marca (opcional, ej: 'profesional', 'cercano')",
+    )
+
+
+class SuggestColorsResponseSerializer(serializers.Serializer):
+    """Respuesta de la sugerencia de color primario."""
+
+    primary_hex = serializers.CharField(help_text="Color primario sugerido (#RRGGBB)")
+    rationale = serializers.CharField(help_text="Justificación breve de la sugerencia")
 
 
 # ===================================

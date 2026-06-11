@@ -109,12 +109,12 @@ class TestAdminIndustriesPermissions:
 
 @pytest.mark.django_db
 class TestAdminAIModels:
-    def test_list_four_rows(self, admin_api_client):
+    def test_list_five_rows(self, admin_api_client):
         url = reverse("admin-settings-ai-models-list")
         response = admin_api_client.get(url)
         assert response.status_code == 200
         assert isinstance(response.data, list)
-        assert len(response.data) == 4
+        assert len(response.data) == 5
 
     def test_patch_model_fields(self, admin_api_client):
         row = AIModelConfig.objects.get(task="classify_industry")

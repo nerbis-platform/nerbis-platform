@@ -17,6 +17,7 @@ Los helpers, constantes, prompts y validaciones viven en submódulos:
 
 import json
 import logging
+import re
 import time
 
 from django.conf import settings
@@ -28,6 +29,48 @@ from websites.services.ai_prompts import build_system_prompt
 from websites.services.ai_validation import validate_generated_content
 
 logger = logging.getLogger(__name__)
+
+# Validación de un color hex de 6 dígitos (#RRGGBB).
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+# Default global cuando no hay sector ni nada que sugerir. Coincide con el azul
+# corporativo usado en el resto del onboarding (mismo que FALLBACK_PALETTES del
+# frontend para 'generic').
+_DEFAULT_PRIMARY_HEX = "#1C3B57"
+
+# Primarios curados por sector (key de Industry o INDUSTRY_CHOICES). Se usan
+# como fallback determinista cuando la IA no devuelve un hex válido. Reflejan
+# los primarios de FALLBACK_PALETTES del frontend (_helpers) por vertical.
+_FALLBACK_SECTOR_PRIMARIES: dict[str, str] = {
+    "beauty": "#C2589A",
+    "wellness": "#0D9488",
+    "spa": "#0D9488",
+    "health": "#2563EB",
+    "fitness": "#EA580C",
+    "gym": "#EA580C",
+    "restaurant": "#B91C1C",
+    "food": "#B91C1C",
+    "retail": "#7C3AED",
+    "ecommerce": "#7C3AED",
+    "professional": "#1C3B57",
+    "consulting": "#1C3B57",
+    "education": "#1D4ED8",
+    "automotive": "#334155",
+    "real_estate": "#0F766E",
+    "events": "#DB2777",
+    "pet": "#CA8A04",
+    "tech": "#4F46E5",
+    "creative": "#9333EA",
+    "generic": _DEFAULT_PRIMARY_HEX,
+}
+
+
+def _fallback_primary_for_sector(sector_key: str | None) -> str:
+    """Devuelve un primario curado para el sector, o el default global."""
+    if sector_key:
+        return _FALLBACK_SECTOR_PRIMARIES.get(sector_key.strip().lower(), _DEFAULT_PRIMARY_HEX)
+    return _DEFAULT_PRIMARY_HEX
+
 
 # Cache TTL (segundos) para la configuración de modelo por tarea. Evita un query
 # por cada llamada a get_model_for_task sin requerir reinicio para reflejar
@@ -720,6 +763,107 @@ Responde SOLO con el JSON, sin explicaciones."""
         except Exception as e:
             logger.error(f"Error generando sugerencias SEO: {e}")
             return self._mock_seo_suggestions(keywords, business_name), 0, 0
+
+    # ───────────────────────────────────────────────────────────────────
+    # Sugerencia de color primario
+    # ───────────────────────────────────────────────────────────────────
+
+    def suggest_colors(
+        self,
+        business_description: str,
+        sector_key: str = "",
+        sector_label: str = "",
+        tone: str = "",
+    ) -> tuple[str, str, int, int]:
+        """Sugiere un color primario (#RRGGBB) para la marca del negocio.
+
+        Usa Haiku (tarea ``suggest_colors``) para proponer un primario coherente
+        con el sector, la descripción del negocio y el tono deseado. La respuesta
+        es JSON estricto ``{"primary_hex": "#RRGGBB", "rationale": "..."}``.
+
+        Ante CUALQUIER fallo (sin API key, JSON inválido, hex inválido/ausente,
+        excepción de la API) cae a un primario curado por sector. La descripción
+        del negocio se pasa SOLO como contenido del mensaje de usuario (no en el
+        system prompt) y se recorta a ~1000 chars.
+
+        Returns:
+            tuple de (primary_hex, rationale, tokens_input, tokens_output)
+        """
+        description = (business_description or "").strip()[:1000]
+        fallback_primary = _fallback_primary_for_sector(sector_key)
+        sector_display = (sector_label or sector_key or "negocio general").strip()
+        tone_display = (tone or "").strip()
+
+        if not self.client:
+            return (
+                fallback_primary,
+                f"Color base sugerido para {sector_display}.",
+                0,
+                0,
+            )
+
+        system_prompt = (
+            "Eres un experto en identidad de marca. Sugieres UN color primario "
+            "para el sitio web de un negocio según su sector, descripción y tono. "
+            "El color debe ser accesible, profesional y representativo del sector. "
+            "Responde SOLO JSON, sin texto extra:\n"
+            '{"primary_hex": "#RRGGBB", "rationale": "<una frase breve en español>"}\n'
+            "primary_hex debe ser un hex de 6 dígitos en mayúsculas (ej: #1C3B57). "
+            "rationale debe ser corto (máx ~120 caracteres)."
+        )
+
+        tone_line = f"\n## Tono deseado\n{tone_display}" if tone_display else ""
+        user_prompt = (
+            f"## Sector\n{sector_display}\n\n"
+            f"## Descripción del negocio\n{description or 'Sin descripción'}"
+            f"{tone_line}\n\n"
+            "Sugiere el color primario. Responde SOLO con el JSON."
+        )
+
+        task_config = self.get_model_for_task("suggest_colors")
+        self._last_model_used = task_config["model"]
+
+        try:
+            response = self.client.messages.create(
+                model=task_config["model"],
+                max_tokens=min(task_config["max_tokens"], 256),
+                temperature=task_config["temperature"],
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            raw_response = response.content[0].text
+            tokens_in = response.usage.input_tokens
+            tokens_out = response.usage.output_tokens
+        except Exception as e:
+            logger.error("Error llamando a Claude para suggest-colors: %s", e)
+            return fallback_primary, f"Color base sugerido para {sector_display}.", 0, 0
+
+        try:
+            result = json.loads(self._strip_json_fences(raw_response))
+        except json.JSONDecodeError as e:
+            logger.warning("JSON inválido en suggest-colors: %s", e)
+            return fallback_primary, f"Color base sugerido para {sector_display}.", tokens_in, tokens_out
+
+        primary_hex = str(result.get("primary_hex") or "").strip()
+        if not _HEX_COLOR_RE.match(primary_hex):
+            logger.warning("Hex inválido/ausente en suggest-colors: %r", primary_hex)
+            return fallback_primary, f"Color base sugerido para {sector_display}.", tokens_in, tokens_out
+
+        rationale = str(result.get("rationale") or "").strip()[:160]
+        if not rationale:
+            rationale = f"Color sugerido para {sector_display}."
+        return primary_hex.upper(), rationale, tokens_in, tokens_out
+
+    def _strip_json_fences(self, text: str) -> str:
+        """Quita fences ```json ... ``` de una respuesta de la IA."""
+        json_text = text.strip()
+        if json_text.startswith("```json"):
+            json_text = json_text[7:]
+        if json_text.startswith("```"):
+            json_text = json_text[3:]
+        if json_text.endswith("```"):
+            json_text = json_text[:-3]
+        return json_text.strip()
 
     # ───────────────────────────────────────────────────────────────────
     # Filtrado de secciones
