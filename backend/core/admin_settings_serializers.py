@@ -484,6 +484,7 @@ class AdminPromptBlockSerializer(serializers.ModelSerializer):
             template = attrs.get("template", getattr(self.instance, "template", None) if self.instance else None)
             if template is None:
                 raise serializers.ValidationError({"template": "Este campo es requerido cuando scope es 'template'."})
+            attrs["industry"] = None
         elif scope == "industry":
             industry = attrs.get("industry", getattr(self.instance, "industry", None) if self.instance else None)
             if not industry:
@@ -554,6 +555,23 @@ class AdminIndustrySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["created_by_ai", "status", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        # ``default_template`` debe pertenecer a esta industria (o no tener
+        # industria asignada — templates genéricos/compartidos). Evita asignar
+        # como default un template curado para otra industria.
+        template = attrs.get("default_template")
+        if template is not None and template.industry_id is not None:
+            current_id = self.instance.pk if self.instance else None
+            if template.industry_id != current_id:
+                raise serializers.ValidationError(
+                    {
+                        "default_template": (
+                            "El template debe pertenecer a esta industria o no tener industria asignada."
+                        )
+                    }
+                )
+        return attrs
 
 
 # ---------------------------------------------------------------------------

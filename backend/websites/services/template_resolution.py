@@ -40,8 +40,9 @@ def resolve_template_for_industry(industry_key: str | None) -> WebsiteTemplate |
 
     industry = Industry.objects.filter(key=key).select_related("default_template").first() if key else None
 
-    # 1. default_template de la industria clasificada.
-    if industry and industry.default_template_id and industry.default_template.is_active:
+    # 1. default_template de la industria clasificada (solo si la industria
+    #    está activa — una industria desactivada no debe resolver su template).
+    if industry and industry.is_active and industry.default_template_id and industry.default_template.is_active:
         return industry.default_template
 
     # 2. Mapeo vertical (wellness -> belleza-elegante, etc.).

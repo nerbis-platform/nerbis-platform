@@ -385,7 +385,7 @@ class QuickStartSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Telefono de contacto del negocio",
     )
-    industry_key = serializers.CharField(
+    industry_key = serializers.SlugField(
         max_length=50,
         required=False,
         allow_blank=True,
@@ -487,7 +487,7 @@ class SuggestColorsSerializer(serializers.Serializer):
         max_length=1000,
         help_text="Descripción del negocio (qué hace, a quién atiende)",
     )
-    industry_key = serializers.CharField(
+    industry_key = serializers.SlugField(
         max_length=50,
         required=False,
         allow_blank=True,

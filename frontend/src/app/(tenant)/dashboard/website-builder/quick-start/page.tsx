@@ -1268,6 +1268,7 @@ export default function QuickStartPage() {
                             onChange={(e) => setCorrectionInput(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitCorrection(); } }}
                             placeholder="Ej: Floristería, taller mecánico, estudio de tatuajes..."
+                            aria-label="Describe a qué se dedica tu negocio para reclasificar tu sector"
                             autoFocus
                             className="flex-1 min-w-[12rem] h-10 px-3.5 rounded-lg border text-[0.85rem] outline-none focus:ring-2"
                             style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50, color: WARM_GRAY_800 }}
