@@ -293,7 +293,7 @@ Responde con un JSON con esta estructura (incluye SOLO las secciones indicadas a
             "title": "...",
             "subtitle": "...",
             "cta_text": "...",
-            "cta_link": "#contacto"
+            "cta_link": "..."
         }},
         "about": {{
             "title": "Sobre Nosotros",
@@ -304,7 +304,7 @@ Responde con un JSON con esta estructura (incluye SOLO las secciones indicadas a
             "title": "Nuestros Servicios",
             "subtitle": "...",
             "items": [
-                {{"name": "...", "description": "...", "icon": "spa"}}
+                {{"name": "...", "description": "...", "icon": "..."}}
             ]
         }},
         "products": {{
@@ -363,7 +363,14 @@ Responde con un JSON con esta estructura (incluye SOLO las secciones indicadas a
     "selected_pages": ["about", "blog"]
 }}
 
-Genera contenido profesional y atractivo basado en la información del negocio."""
+Genera contenido profesional y atractivo basado en la información del negocio.
+
+Antes de escribir, extrae de la información del negocio lo que lo hace ÚNICO:
+su propuesta de valor, su audiencia concreta, su tono y cualquier detalle
+diferenciador (nombre, ubicación, especialidad, historia). Refleja esos
+diferenciadores en el copy con sustantivos y verbos específicos del negocio.
+Evita frases genéricas, intercambiables o de relleno que servirían para
+cualquier otra empresa del mismo sector."""
 
         # Para la generación inicial usamos el modelo configurado para la tarea
         # web_content (por defecto Sonnet via settings). El chat y SEO usan
@@ -1016,7 +1023,7 @@ Responde SOLO con el JSON, sin explicaciones."""
                 "title": "Nuestros Servicios",
                 "subtitle": "Descubre todo lo que podemos hacer por ti",
                 "items": [
-                    {"name": "Servicio 1", "description": "Descripción del servicio", "icon": "spa"},
+                    {"name": "Servicio 1", "description": "Descripción del servicio", "icon": "check"},
                     {"name": "Servicio 2", "description": "Descripción del servicio", "icon": "star"},
                 ],
             }

@@ -15,6 +15,32 @@ FORBIDDEN_CTA_PHRASES = [
     "saber más",
     "descubre más",
     "conoce más",
+    "leer más",
+    "ver más",
+    "haz clic aquí",
+    "click aquí",
+    "más información",
+]
+
+# Frases genéricas prohibidas en CUALQUIER industria (issue #285).
+# Copy intercambiable que serviría para cualquier negocio del sector; empuja la
+# generación hacia texto específico del negocio. Se comparan en minúsculas,
+# coincidencia parcial. Es ADITIVO a FORBIDDEN_PHRASES_BY_INDUSTRY (que mantiene
+# las reglas por vertical, p.ej. beauty).
+FORBIDDEN_GENERIC_PHRASES = [
+    "tu mejor opción",
+    "calidad garantizada",
+    "atención personalizada",
+    "experiencia única",
+    "somos especialistas en",
+    "con más de",  # "con más de X años de experiencia"
+    "años de experiencia",
+    "descubre la diferencia",
+    "la mejor opción para ti",
+    "comprometidos con la calidad",
+    "soluciones a tu medida",
+    "soluciones a la medida",
+    "tu satisfacción es nuestra prioridad",
 ]
 
 # Frases prohibidas por industria (se comparan en minúsculas, coincidencia parcial).
@@ -53,6 +79,7 @@ def validate_generated_content(content_data: dict, template) -> list[str]:
     2. Si la industria del template tiene frases prohibidas, el contenido
        completo no debe contenerlas (match en minúsculas, parcial).
     3. CTAs genéricos prohibidos en cualquier industria.
+    4. Frases genéricas/intercambiables prohibidas en cualquier industria.
     """
     if not content_data:
         return []
@@ -70,16 +97,20 @@ def validate_generated_content(content_data: dict, template) -> list[str]:
                 f"Descripción de '{name}' muy corta ({word_count} palabras, mínimo {MIN_SERVICE_DESCRIPTION_WORDS})."
             )
 
-    # 2. Frases prohibidas según industria
+    # 2. Frases prohibidas según industria + 3. CTAs genéricos +
+    #    4. frases genéricas globales (todo en un solo pase sobre el texto).
     industry = ((template.industry.key if template and template.industry_id else "") or "").lower()
     forbidden = FORBIDDEN_PHRASES_BY_INDUSTRY.get(industry, [])
-    if forbidden or FORBIDDEN_CTA_PHRASES:
-        content_text = json.dumps(content_data, ensure_ascii=False).lower()
-        for phrase in forbidden:
-            if phrase.lower() in content_text:
-                problems.append(f"Contiene frase prohibida: '{phrase}'.")
-        for cta in FORBIDDEN_CTA_PHRASES:
-            if cta in content_text:
-                problems.append(f"Contiene CTA genérico prohibido: '{cta}'.")
+    content_text = json.dumps(content_data, ensure_ascii=False).lower()
+
+    for phrase in forbidden:
+        if phrase.lower() in content_text:
+            problems.append(f"Contiene frase prohibida: '{phrase}'.")
+    for cta in FORBIDDEN_CTA_PHRASES:
+        if cta in content_text:
+            problems.append(f"Contiene CTA genérico prohibido: '{cta}'.")
+    for phrase in FORBIDDEN_GENERIC_PHRASES:
+        if phrase in content_text:
+            problems.append(f"Contiene frase genérica prohibida: '{phrase}'.")
 
     return problems
