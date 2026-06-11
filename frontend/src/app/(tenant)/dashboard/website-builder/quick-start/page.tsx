@@ -471,7 +471,9 @@ export default function QuickStartPage() {
       await quickStartGenerate({
         business_description: answersData.description || answersData.pipe_description || '',
         main_services: answersData.services || answersData.pipe_services || '',
-        website_sections: Array.from(sections),
+        // home y contact son páginas obligatorias, no secciones de contenido
+        // seleccionables — se excluyen del hint website_sections.
+        website_sections: Array.from(sections).filter((key) => key !== 'home' && key !== 'contact'),
         brand_tone: selectedTone || undefined,
         primary_color: primaryColor || undefined,
         secondary_color: secondaryColor || undefined,
