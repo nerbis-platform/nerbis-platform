@@ -1438,8 +1438,13 @@ export default function QuickStartPage() {
               {step.type === 'input' && (
                 <>
                   <div
-                    className="flex items-center gap-2 rounded-xl border px-4 py-3 transition-all focus-within:ring-2 focus-within:ring-teal-500/20"
-                    style={{ borderColor: WARM_GRAY_200, backgroundColor: WARM_GRAY_50 }}
+                    className="flex items-center gap-2 rounded-xl border px-4 py-3 transition-all focus-within:ring-2"
+                    style={{
+                      borderColor: WARM_GRAY_200,
+                      backgroundColor: WARM_GRAY_50,
+                      // @ts-expect-error -- CSS custom property
+                      '--tw-ring-color': `${TEAL}30`,
+                    }}
                   >
                     <input
                       type={step.inputType || 'text'}
