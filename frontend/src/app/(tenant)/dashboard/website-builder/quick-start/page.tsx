@@ -576,26 +576,34 @@ export default function QuickStartPage() {
   }, [correctionInput, classifyResult, runClassification]);
 
   // ─── Rotating generation messages ─────────────────────────
+  // Los 5 pasos avanzan cada 6s para cubrir los ~30s reales de generación
+  // (5 × 6s = 30s); el último ("ya casi") queda hasta que el polling completa.
   useEffect(() => {
     if (pageState !== 'generating') return;
     const interval = setInterval(() => {
       setGenStep((prev) =>
         prev < GENERATION_STEPS.length - 1 ? prev + 1 : prev
       );
-    }, 3000);
+    }, 6000);
     return () => clearInterval(interval);
   }, [pageState]);
 
   // ─── Progress bar ─────────────────────────────────────────
+  // Simula el avance acompasado al tiempo real (~30s) con una curva ease-out
+  // basada en el tiempo transcurrido: rápida al inicio y desacelerando al
+  // acercarse al techo (95%). A los ~30s ronda el 90%. Nunca llega a 100% por
+  // sí sola — el polling fija 100% al completar la generación. El guard
+  // monótono evita retrocesos y respeta el 100% del polling.
   useEffect(() => {
     if (pageState !== 'generating') return;
+    const start = Date.now();
+    const CEILING = 95;
+    const TAU = 10.2; // segundos: calibra la curva para ~90% a los 30s
     const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 88) return 88;
-        const increment = prev < 40 ? 3 : prev < 70 ? 1.5 : 0.5;
-        return Math.min(88, prev + increment);
-      });
-    }, 300);
+      const elapsed = (Date.now() - start) / 1000;
+      const target = CEILING * (1 - Math.exp(-elapsed / TAU));
+      setProgress((prev) => (target > prev ? target : prev));
+    }, 200);
     return () => clearInterval(interval);
   }, [pageState]);
 
@@ -821,27 +829,13 @@ export default function QuickStartPage() {
   );
 
   const handleRetry = useCallback(() => {
-    setPageState('chat');
-    setCurrentStepIdx(0);
-    setAnswers({});
-    setCurrentInput('');
-    setGenStep(0);
-    setProgress(0);
+    // "Intentar de nuevo con los mismos datos": el fallo de generación es
+    // transitorio, así que NO reiniciamos el flujo ni borramos respuestas.
+    // Relanzamos la generación con los datos ya registrados (answers, páginas
+    // e industria confirmada siguen en el estado y en sessionStorage).
     setResult(null);
-    setSelectedTone('');
-    setPrimaryColor('');
-    setSecondaryColor('');
-    setAiColorSource(false);
-    setAiColorRationale(null);
-    setConfirmedIndustryKey('');
-    setConfirmedIndustryLabel('');
-    setInlineConfirm(false);
-    setClassifyResult(null);
-    setClassifyError(false);
-    setCorrecting(false);
-    setUsageLimitInfo(null);
-    sessionStorage.removeItem(SS_KEY);
-  }, []);
+    startGeneration(answers, selectedPages, confirmedIndustryKey || undefined);
+  }, [answers, selectedPages, confirmedIndustryKey, startGeneration]);
 
   const handleBack = useCallback(() => {
     if (currentStepIdx <= 0) return;
@@ -1926,7 +1920,7 @@ export default function QuickStartPage() {
 
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         <div className="w-full max-w-md text-center">
-          <div className="mb-5">
+          <div className="mb-5 flex justify-center">
             <PipeAvatar mood="idle" size={48} />
           </div>
 
