@@ -1,7 +1,7 @@
 """Slim the `rules-general` PromptBlock to remove redundancy (issue #285).
 
 `mejora-calidad-ia-promptblocks`: tras añadir el bloque premium
-(`rules-premium-anticliche`, migración 0033), varias reglas de `rules-general`
+(`rules-premium-anticliche`, migración 0034), varias reglas de `rules-general`
 quedaron duplicadas o cubiertas mejor por el bloque premium:
 
 - "3. Sé conciso pero impactante"        -> vago; premium #2/#4 dan límites concretos.
@@ -65,7 +65,7 @@ def restore_rules_general(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("websites", "0033_seed_premium_global_block"),
+        ("websites", "0034_seed_premium_global_block"),
     ]
 
     operations = [

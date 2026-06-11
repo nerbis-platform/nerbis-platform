@@ -105,7 +105,7 @@ def reverse_seed_premium_block(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("websites", "0032_update_whatsapp_copy"),
+        ("websites", "0033_alter_aigenerationlog_website_config"),
     ]
 
     operations = [
