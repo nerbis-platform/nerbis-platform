@@ -371,11 +371,16 @@ Genera contenido profesional y atractivo basado en la información del negocio."
         task_config = self.get_model_for_task("web_content")
         model = task_config["model"]
         max_tokens = task_config["max_tokens"]
+        temperature = task_config["temperature"]
         self._last_model_used = model
 
         try:
             content_data, seo_data, tokens_input, tokens_output, response_text, selected_pages = self._call_generation(
-                model=model, system_prompt=system_prompt, user_prompt=user_prompt, max_tokens=max_tokens
+                model=model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
             )
 
             # Validación post-generación. Si hay problemas, reintentamos una
@@ -397,7 +402,11 @@ Genera contenido profesional y atractivo basado en la información del negocio."
                 try:
                     content_data2, seo_data2, tokens_in2, tokens_out2, response_text2, selected_pages2 = (
                         self._call_generation(
-                            model=model, system_prompt=system_prompt, user_prompt=retry_prompt, max_tokens=max_tokens
+                            model=model,
+                            system_prompt=system_prompt,
+                            user_prompt=retry_prompt,
+                            max_tokens=max_tokens,
+                            temperature=temperature,
                         )
                     )
                     tokens_input += tokens_in2
@@ -424,7 +433,12 @@ Genera contenido profesional y atractivo basado en la información del negocio."
             return (*self._mock_generate_content(template, onboarding_responses), "", "", [])
 
     def _call_generation(
-        self, model: str, system_prompt: str, user_prompt: str, max_tokens: int = 4096
+        self,
+        model: str,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int = 4096,
+        temperature: float = 1.0,
     ) -> tuple[dict, dict, int, int, str, list[str]]:
         """
         Hace una llamada a Claude y parsea la respuesta JSON.
@@ -438,6 +452,7 @@ Genera contenido profesional y atractivo basado en la información del negocio."
         response = self.client.messages.create(
             model=model,
             max_tokens=max_tokens,
+            temperature=temperature,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
         )
@@ -533,6 +548,7 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             response = self.client.messages.create(
                 model=task_config["model"],
                 max_tokens=min(task_config["max_tokens"], 2048),
+                temperature=task_config["temperature"],
                 system=system_prompt,
                 messages=messages,
             )
@@ -740,6 +756,7 @@ Responde SOLO con el JSON, sin explicaciones."""
             response = self.client.messages.create(
                 model=task_config["model"],
                 max_tokens=min(task_config["max_tokens"], 512),
+                temperature=task_config["temperature"],
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
             )

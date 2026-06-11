@@ -126,6 +126,15 @@ class ClassifyIndustryView(APIView):
             ai_service._last_model_used = model_config["model"]
         except Exception as e:
             logger.error("Error llamando a Claude para classify-industry: %s", e)
+            ai_service.log_generation(
+                generation_type="classify_industry",
+                tokens_input=0,
+                tokens_output=0,
+                is_successful=False,
+                error_message=f"Anthropic no disponible: {e}",
+                full_prompt=full_prompt,
+                raw_response="",
+            )
             return self._mock_classify(tenant, business_description, selected_modules, normalized, active_industries)
 
         try:
@@ -317,6 +326,13 @@ class ClassifyIndustryView(APIView):
             industry, created = Industry.objects.get_or_create(key=key, defaults=defaults)
             if created:
                 return industry, True, confidence
+            # La key ya existe. Si pertenece a la MISMA industria (mismo label
+            # normalizado), la reutilizamos en vez de crear una variante: esto
+            # deduplica requests concurrentes idénticos que crearon la fila
+            # entre nuestro snapshot de active_industries y este punto.
+            if _normalize(industry.label) == normalized:
+                return industry, False, confidence
+            # Key tomada por OTRA industria: probamos la siguiente variante.
             key = f"{base_key}-{suffix}"
             suffix += 1
 
