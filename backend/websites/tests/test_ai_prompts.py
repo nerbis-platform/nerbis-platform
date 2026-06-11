@@ -27,10 +27,10 @@ from websites.services.ai_prompts import (
 
 # El nombre del módulo de migración empieza por dígito, así que no se puede
 # importar con `import`. Cargamos el dict PREMIUM_BLOCK real que se siembra.
-_migration_0030 = importlib.import_module(
-    "websites.migrations.0030_seed_premium_global_block"
+_migration_0033 = importlib.import_module(
+    "websites.migrations.0033_seed_premium_global_block"
 )
-PREMIUM_BLOCK = _migration_0030.PREMIUM_BLOCK
+PREMIUM_BLOCK = _migration_0033.PREMIUM_BLOCK
 
 pytestmark = pytest.mark.django_db
 
@@ -63,7 +63,7 @@ def _clean_prompt_blocks(db):
     """Aísla cada test del seed de migraciones.
 
     La BD de test corre TODAS las migraciones, incluidas las que siembran
-    PromptBlocks (0020 y 0030). Para que estos tests controlen su propio universo
+    PromptBlocks (0020 y 0033). Para que estos tests controlen su propio universo
     de bloques, limpiamos la tabla antes de cada test y creamos vía ORM lo que
     cada caso necesita.
     """
@@ -211,7 +211,7 @@ def test_premium_block_included_when_present():
 
 
 def test_migration_premium_block_renders_safely():
-    """El contenido REAL sembrado por la migración 0030 se renderiza sin romper.
+    """El contenido REAL sembrado por la migración 0033 se renderiza sin romper.
 
     Guarda el riesgo load-bearing del escape de llaves: si algún ``{``/``}`` del
     few-shot JSON no estuviera doblado, ``format_map`` lanzaría KeyError y el

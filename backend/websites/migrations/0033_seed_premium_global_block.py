@@ -97,7 +97,7 @@ def reverse_seed_premium_block(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("websites", "0029_seed_suggest_colors_config"),
+        ("websites", "0032_update_whatsapp_copy"),
     ]
 
     operations = [
