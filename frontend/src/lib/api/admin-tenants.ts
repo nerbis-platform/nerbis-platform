@@ -208,3 +208,21 @@ export async function adminResetOnboarding(
   );
   return { message: data.detail ?? 'Onboarding reset successfully.' };
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// AI usage management (Issue #284)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Resets the tenant's AI usage counter to 0 via a fresh cutoff.
+ * Superadmin only. Returns the updated tenant detail (with refreshed
+ * `ai_usage_used` / `ai_usage_reset_at`).
+ */
+export async function adminResetAIUsage(
+  tenantId: string,
+): Promise<AdminTenantDetail> {
+  const { data } = await adminClient.post<AdminTenantDetail>(
+    `/admin/tenants/${tenantId}/reset-ai-usage/`,
+  );
+  return data;
+}

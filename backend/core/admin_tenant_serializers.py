@@ -74,6 +74,10 @@ class AdminTenantDetailSerializer(serializers.ModelSerializer):
     days_remaining = serializers.IntegerField(read_only=True, allow_null=True)
     website_status = serializers.SerializerMethodField()
     onboarding_phase = serializers.CharField(read_only=True)
+    # Uso de IA (Issue #284) — solo lectura, calculado vía check_usage_limit.
+    ai_usage_used = serializers.SerializerMethodField()
+    ai_usage_limit = serializers.SerializerMethodField()
+    ai_usage_reset_at = serializers.DateTimeField(read_only=True, allow_null=True)
 
     class Meta:
         model = Tenant
@@ -110,6 +114,10 @@ class AdminTenantDetailSerializer(serializers.ModelSerializer):
             # Onboarding lifecycle
             "onboarding_phase",
             "website_status",
+            # Uso de IA (Issue #284)
+            "ai_usage_used",
+            "ai_usage_limit",
+            "ai_usage_reset_at",
             # Branding
             "logo",
             "primary_color",
@@ -142,6 +150,35 @@ class AdminTenantDetailSerializer(serializers.ModelSerializer):
             except Exception:
                 logger.warning("Error al obtener website_config para tenant %s", obj.pk, exc_info=True)
         return config.status if config else None
+
+    def _ai_usage(self, obj: Tenant) -> tuple[bool, int, int]:
+        """Calcula (can_generate, used, limit) una sola vez y lo cachea en el objeto.
+
+        Reutiliza ``AIWebsiteService.check_usage_limit`` (única fuente de verdad,
+        compartida con el servicio de generación) para que ``ai_usage_used`` y
+        ``ai_usage_limit`` no disparen el cálculo dos veces. Si el cálculo falla
+        (p. ej. sin suscripción), degrada a ``(False, 0, 0)``.
+        """
+        cached = getattr(obj, "_ai_usage_cache", None)
+        if cached is not None:
+            return cached
+
+        try:
+            from websites.services.ai_service import AIService
+
+            cached = AIService(tenant=obj).check_usage_limit(obj)
+        except Exception:
+            logger.warning("Error al calcular uso de IA para tenant %s", obj.pk, exc_info=True)
+            cached = (False, 0, 0)
+
+        obj._ai_usage_cache = cached
+        return cached
+
+    def get_ai_usage_used(self, obj: Tenant) -> int:
+        return self._ai_usage(obj)[1]
+
+    def get_ai_usage_limit(self, obj: Tenant) -> int:
+        return self._ai_usage(obj)[2]
 
 
 class AdminTenantUpdateSerializer(serializers.Serializer):

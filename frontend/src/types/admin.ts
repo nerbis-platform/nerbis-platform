@@ -161,6 +161,12 @@ export interface AdminTenantDetail {
   user_count: number;
   admin_count: number;
 
+  // AI usage (Issue #284) — generaciones de IA del período actual.
+  // Optional because older serializer payloads may not include them.
+  ai_usage_used?: number;
+  ai_usage_limit?: number;
+  ai_usage_reset_at?: string | null;
+
   // Soft delete
   is_deleted: boolean;
   deleted_at: string | null;

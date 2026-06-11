@@ -19,6 +19,7 @@ import logging
 
 from django.db import transaction
 from django.db.models import Count, Q, QuerySet
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -458,6 +459,64 @@ class AdminResetOnboardingView(APIView):
 
         return Response(
             {"detail": "Onboarding reset successfully.", "delete_website": delete_website},
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminResetAIUsageView(APIView):
+    """POST ``/api/admin/tenants/<uuid:pk>/reset-ai-usage/``.
+
+    Reinicia el contador de uso de IA de un tenant fijando
+    ``ai_usage_reset_at = timezone.now()``. A partir de ese instante, el conteo
+    de ``check_usage_limit`` excluye las generaciones previas al reinicio (hasta
+    que el mes rola, momento en que ``month_start`` vuelve a mandar).
+
+    - Registra ``AdminAuditLog`` con action ``reset_ai_usage`` (string crudo,
+      consistente con ``reset_onboarding`` / ``set_phase`` — sin migración de
+      ACTION_CHOICES).
+    - Devuelve el detalle del tenant con los campos de uso de IA recalculados.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request, pk, *args, **kwargs):
+        if not Tenant.objects.filter(pk=pk).exists():
+            return Response(
+                {"detail": "Tenant not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        with transaction.atomic():
+            tenant = Tenant.objects.select_for_update().get(pk=pk)
+
+            previous_reset_at = tenant.ai_usage_reset_at
+            tenant.ai_usage_reset_at = timezone.now()
+            tenant.save(update_fields=["ai_usage_reset_at"])
+
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                action="reset_ai_usage",
+                target_type="Tenant",
+                target_id=str(tenant.id),
+                target_repr=f"tenant: {tenant.slug}",
+                details={
+                    "previous_reset_at": (previous_reset_at.isoformat() if previous_reset_at else None),
+                    "new_reset_at": tenant.ai_usage_reset_at.isoformat(),
+                },
+                ip_address=get_client_ip(request),
+            )
+
+        # Re-fetch con las anotaciones que espera el serializer de detalle.
+        annotated = (
+            Tenant.objects.filter(pk=pk)
+            .annotate(
+                user_count=Count("users"),
+                admin_count=Count("users", filter=Q(users__role="admin")),
+            )
+            .get()
+        )
+        return Response(
+            AdminTenantDetailSerializer(annotated).data,
             status=status.HTTP_200_OK,
         )
 
