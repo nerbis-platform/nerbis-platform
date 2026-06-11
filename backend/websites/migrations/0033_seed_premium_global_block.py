@@ -91,7 +91,15 @@ def seed_premium_block(apps, schema_editor):
 
 def reverse_seed_premium_block(apps, schema_editor):
     PromptBlock = apps.get_model("websites", "PromptBlock")
-    PromptBlock.objects.filter(key=PREMIUM_BLOCK["key"]).delete()
+    # Reverse conservador: solo borra si el bloque sigue idéntico al sembrado,
+    # para no eliminar ajustes que un superadmin haya hecho desde el panel.
+    PromptBlock.objects.filter(
+        key=PREMIUM_BLOCK["key"],
+        content=PREMIUM_BLOCK["content"],
+        category=PREMIUM_BLOCK["category"],
+        scope=PREMIUM_BLOCK["scope"],
+        sort_order=PREMIUM_BLOCK["sort_order"],
+    ).delete()
 
 
 class Migration(migrations.Migration):

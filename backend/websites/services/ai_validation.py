@@ -103,14 +103,21 @@ def validate_generated_content(content_data: dict, template) -> list[str]:
     forbidden = FORBIDDEN_PHRASES_BY_INDUSTRY.get(industry, [])
     content_text = json.dumps(content_data, ensure_ascii=False).lower()
 
+    # Las listas pueden solaparse (una misma frase global y por industria);
+    # reportamos cada frase una sola vez para no inflar len(problems), del que
+    # depende la comparación del retry en ai_service.
+    seen_phrases: set[str] = set()
     for phrase in forbidden:
-        if phrase.lower() in content_text:
+        if phrase.lower() in content_text and phrase.lower() not in seen_phrases:
+            seen_phrases.add(phrase.lower())
             problems.append(f"Contiene frase prohibida: '{phrase}'.")
     for cta in FORBIDDEN_CTA_PHRASES:
-        if cta in content_text:
+        if cta in content_text and cta.lower() not in seen_phrases:
+            seen_phrases.add(cta.lower())
             problems.append(f"Contiene CTA genérico prohibido: '{cta}'.")
     for phrase in FORBIDDEN_GENERIC_PHRASES:
-        if phrase in content_text:
+        if phrase in content_text and phrase.lower() not in seen_phrases:
+            seen_phrases.add(phrase.lower())
             problems.append(f"Contiene frase genérica prohibida: '{phrase}'.")
 
     return problems
