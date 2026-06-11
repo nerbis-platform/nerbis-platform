@@ -554,7 +554,7 @@ class AIGenerationLog(models.Model):
 
     tenant = models.ForeignKey("core.Tenant", on_delete=models.CASCADE, related_name="ai_generation_logs")
     website_config = models.ForeignKey(
-        WebsiteConfig, on_delete=models.CASCADE, related_name="ai_logs", null=True, blank=True
+        WebsiteConfig, on_delete=models.SET_NULL, related_name="ai_logs", null=True, blank=True
     )
 
     generation_type = models.CharField("Tipo de generación", max_length=30, choices=GENERATION_TYPES)

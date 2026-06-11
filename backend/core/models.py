@@ -400,6 +400,18 @@ class Tenant(models.Model):
         help_text="True cuando el dueño del negocio ya eligió sus módulos.",
     )
 
+    ai_usage_reset_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Reinicio de uso de IA",
+        help_text=(
+            "Marca de tiempo del último reinicio manual del contador de uso de IA "
+            "hecho por un superadmin. El conteo de generaciones usa el máximo entre "
+            "el inicio del mes y esta fecha. NULL = sin reinicio manual (comportamiento "
+            "mensual por defecto)."
+        ),
+    )
+
     # Información legal (Art. 49 Ley 1480/2011)
     legal_name = models.CharField(max_length=300, blank=True, verbose_name="Razón social")
     tax_id = models.CharField(max_length=30, blank=True, verbose_name="NIT / Identificación fiscal")

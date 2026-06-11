@@ -613,11 +613,22 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
         else:
             limit = web_sm.module.get_ai_limit_for_subscription(subscription)
 
-        # Contar uso del mes actual
+        # Contar uso del periodo actual.
         from websites.models import AIGenerationLog
 
         month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        used = AIGenerationLog.objects.filter(tenant=tenant, created_at__gte=month_start, is_successful=True).count()
+
+        # Un superadmin puede reiniciar manualmente el contador vía
+        # ``ai_usage_reset_at``. Cuando existe, el cutoff es el máximo entre el
+        # inicio del mes y la marca de reinicio: así un reinicio dentro del mes
+        # excluye los logs previos, mientras que un reinicio de un mes pasado
+        # "expira" automáticamente al rolar el mes (month_start gana).
+        # ``getattr`` con default None mantiene retrocompatibilidad si el campo
+        # aún no existe en alguna instancia antigua del modelo.
+        reset_at = getattr(tenant, "ai_usage_reset_at", None)
+        cutoff = max(month_start, reset_at) if reset_at is not None else month_start
+
+        used = AIGenerationLog.objects.filter(tenant=tenant, created_at__gte=cutoff, is_successful=True).count()
 
         can_generate = used < limit
         return can_generate, used, limit

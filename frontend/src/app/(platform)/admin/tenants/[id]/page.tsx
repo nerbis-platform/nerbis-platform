@@ -14,6 +14,7 @@ import {
   Building2,
   Calendar,
   CalendarDays,
+  Gauge,
   Globe2,
   Loader2,
   Mail,
@@ -33,6 +34,7 @@ import {
   adminDeleteTenant,
   adminGetTenant,
   adminListTenantUsers,
+  adminResetAIUsage,
   adminResetOnboarding,
   adminSetTenantPhase,
   adminUpdateTenant,
@@ -170,6 +172,27 @@ export default function AdminTenantDetailPage({
       toast.error(message);
     } finally {
       setResetSubmitting(false);
+    }
+  }
+
+  // ── Reset AI usage state (Issue #284) ──────────────────────────────
+  const [resetAIUsageOpen, setResetAIUsageOpen] = useState(false);
+  const [resetAIUsageSubmitting, setResetAIUsageSubmitting] = useState(false);
+
+  async function handleResetAIUsage() {
+    if (!tenant) return;
+    setResetAIUsageSubmitting(true);
+    try {
+      const updated = await adminResetAIUsage(tenant.id);
+      setTenant(updated);
+      toast.success('Uso de IA reseteado correctamente');
+      setResetAIUsageOpen(false);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Error al resetear el uso de IA';
+      toast.error(message);
+    } finally {
+      setResetAIUsageSubmitting(false);
     }
   }
 
@@ -731,8 +754,124 @@ export default function AdminTenantDetailPage({
               </div>
             </div>
           </section>
+
+          {/* AI usage (Issue #284) */}
+          {(() => {
+            const used = tenant.ai_usage_used ?? 0;
+            const limit = tenant.ai_usage_limit ?? 0;
+            const clampedUsed = limit > 0 ? Math.min(used, limit) : 0;
+            const pct =
+              limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+            const barColor =
+              pct >= 100
+                ? 'bg-red-500'
+                : pct >= 80
+                  ? 'bg-amber-500'
+                  : 'bg-teal-500';
+            return (
+              <section
+                aria-labelledby="tenant-ai-usage-heading"
+                className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
+                <div className="mb-5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Gauge
+                      className="h-4 w-4 text-teal-600"
+                      aria-hidden="true"
+                    />
+                    <h3
+                      id="tenant-ai-usage-heading"
+                      className="text-sm font-semibold text-slate-900"
+                    >
+                      Uso de IA
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setResetAIUsageOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-600"
+                  >
+                    <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                    Resetear uso
+                  </button>
+                </div>
+
+                <div className="flex items-baseline justify-between">
+                  <p className="text-sm text-slate-600">
+                    <span className="text-base font-semibold tabular-nums text-slate-900">
+                      {used}
+                    </span>{' '}
+                    de{' '}
+                    <span className="font-semibold tabular-nums text-slate-900">
+                      {limit}
+                    </span>{' '}
+                    este mes
+                  </p>
+                  <span className="text-xs font-medium tabular-nums text-slate-500">
+                    {pct}%
+                  </span>
+                </div>
+
+                <div
+                  className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100"
+                  role="progressbar"
+                  aria-valuenow={clampedUsed}
+                  aria-valuemin={0}
+                  aria-valuemax={limit > 0 ? limit : 100}
+                  aria-valuetext={`${used} de ${limit} generaciones usadas`}
+                  aria-label="Uso de generaciones de IA"
+                >
+                  <div
+                    className={`h-full rounded-full transition-[width] duration-300 ${barColor}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+
+                {tenant.ai_usage_reset_at && (
+                  <p className="mt-3 text-[11px] text-slate-400">
+                    Último reset: {formatDate(tenant.ai_usage_reset_at)}
+                  </p>
+                )}
+              </section>
+            );
+          })()}
           </>
         ) : null}
+
+        {/* Reset AI usage dialog (Issue #284) */}
+        <AlertDialog open={resetAIUsageOpen} onOpenChange={setResetAIUsageOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Resetear uso de IA</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esto pondrá el contador de generaciones de IA del tenant en 0 e
+                iniciará un nuevo período. El historial de generaciones no se
+                elimina.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={resetAIUsageSubmitting}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleResetAIUsage();
+                }}
+                disabled={resetAIUsageSubmitting}
+              >
+                {resetAIUsageSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Reseteando...
+                  </>
+                ) : (
+                  'Resetear uso'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Reset onboarding dialog */}
         <AlertDialog open={resetOnboardingOpen} onOpenChange={setResetOnboardingOpen}>

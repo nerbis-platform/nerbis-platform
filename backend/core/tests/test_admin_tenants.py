@@ -17,8 +17,11 @@ Cubre escenarios del spec ``sdd/tenant-user-management`` (#110, Phase 2):
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -463,3 +466,238 @@ class AdminTenantUpdateViewTests(_AdminTenantTestBase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+# ---------------------------------------------------------------------------
+# Reset AI usage (POST /api/admin/tenants/<uuid>/reset-ai-usage/) — Issue #284
+# ---------------------------------------------------------------------------
+
+
+def _make_active_web_subscription(tenant: Tenant, *, ai_limit: int = 50):
+    """Asegura una suscripción activa con módulo ``web`` y un límite de IA dado.
+
+    Al crear un ``Tenant``, una señal de ``billing`` auto-crea una suscripción
+    trial con el módulo base ``web`` adjunto. Este helper reutiliza esa
+    suscripción: la pasa a ``active`` y fija ``Module.included_ai_requests`` para
+    que ``get_ai_limit_for_subscription`` (rama mensual / ``active``) devuelva
+    ``ai_limit``. Si no existiera (entorno sin módulo base), la crea.
+    """
+    from billing.models.modules import Module
+    from billing.models.subscriptions import Subscription, SubscriptionModule
+
+    now = timezone.now()
+    module, _ = Module.objects.get_or_create(
+        slug="web",
+        defaults={
+            "name": "Web",
+            "description": "Módulo web base",
+            "is_base": True,
+            "monthly_price": 0,
+            "included_ai_requests": ai_limit,
+        },
+    )
+    if module.included_ai_requests != ai_limit:
+        module.included_ai_requests = ai_limit
+        module.save(update_fields=["included_ai_requests"])
+
+    subscription = Subscription.objects.filter(tenant=tenant).first()
+    if subscription is None:
+        subscription = Subscription.objects.create(
+            tenant=tenant,
+            status="active",
+            billing_period="monthly",
+            current_period_start=now,
+            current_period_end=now + timedelta(days=30),
+        )
+    else:
+        subscription.status = "active"
+        subscription.billing_period = "monthly"
+        subscription.save(update_fields=["status", "billing_period"])
+
+    SubscriptionModule.objects.update_or_create(
+        subscription=subscription,
+        module=module,
+        defaults={"is_active": True},
+    )
+    return subscription
+
+
+def _add_ai_logs(tenant: Tenant, *, count: int, created_at) -> None:
+    """Crea ``count`` logs de IA exitosos con un ``created_at`` específico.
+
+    ``created_at`` es ``auto_now_add`` en el modelo, así que se sobreescribe
+    vía ``.update()`` tras la creación.
+    """
+    from websites.models import AIGenerationLog
+
+    for _ in range(count):
+        log = AIGenerationLog.objects.create(
+            tenant=tenant,
+            generation_type="edit_content",
+            is_successful=True,
+        )
+        AIGenerationLog.objects.filter(pk=log.pk).update(created_at=created_at)
+
+
+class AdminResetAIUsageViewTests(_AdminTenantTestBase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.tenant = _make_tenant("ai-shop", name="AI Shop", plan="professional")
+        self.subscription = _make_active_web_subscription(self.tenant, ai_limit=50)
+        self.url = reverse("admin-tenant-reset-ai-usage", args=[self.tenant.id])
+
+    def _check_usage(self, tenant: Tenant) -> tuple[bool, int, int]:
+        from websites.services.ai_service import AIService
+
+        return AIService(tenant=tenant).check_usage_limit(tenant)
+
+    def test_reset_ai_usage_non_superadmin_forbidden(self) -> None:
+        tenant_user = User.objects.create_user(
+            email="user@ai-shop.test",
+            password="Tenant123!",
+            username="ai-user",
+            first_name="AI",
+            last_name="User",
+            tenant=self.tenant,
+            role="admin",
+        )
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {_tenant_user_access_for(tenant_user)}")
+        response = client.post(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_reset_ai_usage_nonexistent_tenant_returns_404(self) -> None:
+        url = reverse(
+            "admin-tenant-reset-ai-usage",
+            args=["00000000-0000-0000-0000-000000000000"],
+        )
+        response = self.admin_client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_reset_drops_usage_count_to_zero(self) -> None:
+        # 3 generaciones recientes (antes del reset) → used == 3 antes del reset.
+        _add_ai_logs(self.tenant, count=3, created_at=timezone.now() - timedelta(minutes=10))
+        _, used_before, limit = self._check_usage(self.tenant)
+        self.assertEqual(used_before, 3)
+        self.assertEqual(limit, 50)
+
+        response = self.admin_client.post(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.tenant.refresh_from_db()
+        self.assertIsNotNone(self.tenant.ai_usage_reset_at)
+        _, used_after, _ = self._check_usage(self.tenant)
+        self.assertEqual(used_after, 0)
+
+    def test_reset_creates_audit_log(self) -> None:
+        response = self.admin_client.post(self.url, HTTP_X_FORWARDED_FOR="203.0.113.99")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        logs = AdminAuditLog.objects.all()
+        self.assertEqual(len(logs), 1)
+        log = logs[0]
+        self.assertEqual(log.action, "reset_ai_usage")
+        self.assertEqual(log.target_type, "Tenant")
+        self.assertEqual(log.target_id, str(self.tenant.id))
+        self.assertEqual(log.target_repr, f"tenant: {self.tenant.slug}")
+        self.assertEqual(log.actor_id, self.superadmin.id)
+        self.assertEqual(log.ip_address, "203.0.113.99")
+
+    def test_reset_isolated_between_tenants(self) -> None:
+        # Tenant B con su propia suscripción y logs.
+        tenant_b = _make_tenant("ai-shop-b", name="AI Shop B", plan="professional")
+        _make_active_web_subscription(tenant_b, ai_limit=50)
+        # Logs creados antes del reset (este mes, pero en el pasado reciente).
+        past = timezone.now() - timedelta(minutes=10)
+        _add_ai_logs(self.tenant, count=2, created_at=past)
+        _add_ai_logs(tenant_b, count=4, created_at=past)
+
+        # Reset solo en A.
+        response = self.admin_client.post(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.tenant.refresh_from_db()
+        _, used_a, _ = self._check_usage(self.tenant)
+        _, used_b, _ = self._check_usage(tenant_b)
+        self.assertEqual(used_a, 0)
+        self.assertEqual(used_b, 4)  # B no fue tocado.
+
+        tenant_b.refresh_from_db()
+        self.assertIsNone(tenant_b.ai_usage_reset_at)
+
+    def test_reset_is_idempotent_on_double_call(self) -> None:
+        _add_ai_logs(self.tenant, count=5, created_at=timezone.now() - timedelta(minutes=10))
+
+        first = self.admin_client.post(self.url)
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.tenant.refresh_from_db()
+        first_reset_at = self.tenant.ai_usage_reset_at
+        self.assertIsNotNone(first_reset_at)
+
+        second = self.admin_client.post(self.url)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.tenant.refresh_from_db()
+        # El contador sigue en 0 y se registra una segunda entrada de auditoría.
+        _, used_after, _ = self._check_usage(self.tenant)
+        self.assertEqual(used_after, 0)
+        self.assertGreaterEqual(self.tenant.ai_usage_reset_at, first_reset_at)
+        self.assertEqual(AdminAuditLog.objects.filter(action="reset_ai_usage").count(), 2)
+
+    def test_cutoff_excludes_pre_reset_logs(self) -> None:
+        now = timezone.now()
+        # 3 logs antes del reset (este mes) → no deben contar tras el reset.
+        _add_ai_logs(self.tenant, count=3, created_at=now - timedelta(hours=2))
+
+        response = self.admin_client.post(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.tenant.refresh_from_db()
+
+        _, used, _ = self._check_usage(self.tenant)
+        self.assertEqual(used, 0)
+
+    def test_cutoff_includes_post_reset_logs(self) -> None:
+        now = timezone.now()
+        _add_ai_logs(self.tenant, count=3, created_at=now - timedelta(hours=2))
+
+        response = self.admin_client.post(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.tenant.refresh_from_db()
+
+        # 2 logs después del reset → sí cuentan.
+        _add_ai_logs(self.tenant, count=2, created_at=self.tenant.ai_usage_reset_at + timedelta(minutes=5))
+
+        _, used, _ = self._check_usage(self.tenant)
+        self.assertEqual(used, 2)
+
+    def test_null_reset_at_behaves_as_month_start(self) -> None:
+        """Sin reinicio manual (NULL), el cutoff es ``month_start`` — retrocompat."""
+        self.tenant.refresh_from_db()
+        self.assertIsNone(self.tenant.ai_usage_reset_at)
+
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # 2 logs de este mes (después de month_start) cuentan.
+        _add_ai_logs(self.tenant, count=2, created_at=month_start + timedelta(hours=1))
+        # 1 log del mes pasado (antes de month_start) NO cuenta.
+        _add_ai_logs(self.tenant, count=1, created_at=month_start - timedelta(days=2))
+
+        _, used, _ = self._check_usage(self.tenant)
+        self.assertEqual(used, 2)
+
+    def test_past_month_reset_at_expires_on_month_rollover(self) -> None:
+        """Un ``reset_at`` de un mes pasado no debe excluir logs del mes actual.
+
+        Cuando el mes rola, ``month_start`` (más reciente que el reset viejo)
+        gana en ``max(month_start, reset_at)``.
+        """
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # reset_at fijado el mes pasado.
+        self.tenant.ai_usage_reset_at = month_start - timedelta(days=10)
+        self.tenant.save(update_fields=["ai_usage_reset_at"])
+
+        # 4 generaciones este mes → deben contarse (month_start manda).
+        _add_ai_logs(self.tenant, count=4, created_at=month_start + timedelta(hours=3))
+
+        _, used, _ = self._check_usage(self.tenant)
+        self.assertEqual(used, 4)
