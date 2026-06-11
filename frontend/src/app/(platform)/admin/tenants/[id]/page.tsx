@@ -759,6 +759,7 @@ export default function AdminTenantDetailPage({
           {(() => {
             const used = tenant.ai_usage_used ?? 0;
             const limit = tenant.ai_usage_limit ?? 0;
+            const clampedUsed = limit > 0 ? Math.min(used, limit) : 0;
             const pct =
               limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
             const barColor =
@@ -814,9 +815,10 @@ export default function AdminTenantDetailPage({
                 <div
                   className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100"
                   role="progressbar"
-                  aria-valuenow={used}
+                  aria-valuenow={clampedUsed}
                   aria-valuemin={0}
-                  aria-valuemax={limit || undefined}
+                  aria-valuemax={limit > 0 ? limit : 100}
+                  aria-valuetext={`${used} de ${limit} generaciones usadas`}
                   aria-label="Uso de generaciones de IA"
                 >
                   <div

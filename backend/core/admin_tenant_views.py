@@ -480,14 +480,13 @@ class AdminResetAIUsageView(APIView):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def post(self, request, pk, *args, **kwargs):
-        if not Tenant.objects.filter(pk=pk).exists():
-            return Response(
-                {"detail": "Tenant not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
         with transaction.atomic():
-            tenant = Tenant.objects.select_for_update().get(pk=pk)
+            tenant = Tenant.objects.select_for_update().filter(pk=pk).first()
+            if tenant is None:
+                return Response(
+                    {"detail": "Tenant not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
             previous_reset_at = tenant.ai_usage_reset_at
             tenant.ai_usage_reset_at = timezone.now()
