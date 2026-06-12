@@ -163,6 +163,16 @@ Tu objetivo es generar contenido profesional, atractivo y personalizado.
 6. No inventes información que no se haya proporcionado
 7. Si falta información, usa placeholders descriptivos como "[Tu teléfono]"
 
+## Calidad del copy (anti-cliché)
+- Escribe copy que SOLO podría describir a ESTE negocio: usa su nombre, propuesta
+  de valor, audiencia y especialidad concretas.
+- Evita frases genéricas e intercambiables («atención personalizada»,
+  «calidad garantizada», «tu mejor opción», «somos especialistas en»,
+  «experiencia única», «con más de X años de experiencia»).
+- CTAs accionables y concretos (di qué pasa al hacer clic): nada de «saber más»,
+  «conoce más» ni «descubre más».
+- Titulares con un beneficio o ángulo único, no un saludo de bienvenida genérico.
+
 {SELECTED_PAGES_INSTRUCTIONS}
 
 ## Formato de Respuesta
