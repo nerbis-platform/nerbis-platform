@@ -111,6 +111,7 @@ def _build_variant_instructions(section_keys: list[str]) -> str:
     variants = (
         SectionVariant.objects.filter(is_active=True, section__key__in=section_keys)
         .select_related("section")
+        .prefetch_related("industries")
         .order_by("section__key", "sort_order")
     )
     if not variants:
@@ -130,9 +131,16 @@ def _build_variant_instructions(section_keys: list[str]) -> str:
             lines.append(f"  CSS: `{v.css_class_hint}`")
         if v.mood:
             lines.append(f"  Mood: {v.get_mood_display()}")
+        industry_labels = [ind.label for ind in v.industries.all()]
+        if industry_labels:
+            lines.append(f"  Industrias: {', '.join(industry_labels)}")
 
     lines.append("")
     lines.append('Para cada seccion, elige UNA variante y devuelvela en el campo `"_variant"` del JSON de esa seccion.')
+    lines.append(
+        "Prefiere variantes cuyo Mood e Industrias encajen con este negocio; "
+        "si ninguna encaja claramente, usa la marcada como [DEFAULT]."
+    )
     return "\n".join(lines)
 
 
