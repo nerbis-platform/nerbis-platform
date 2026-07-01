@@ -6,8 +6,6 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-# Importar el admin site personalizado de NERBIS
-from core.admin_site import nerbis_admin_site
 from core.views import (
     CheckBusinessNameView,
     CheckTenantEmailView,
@@ -24,8 +22,6 @@ urlpatterns = [
     path("", RedirectView.as_view(url="/api/docs/", permanent=False)),
     # Suscripcion expirada
     path("subscription-expired/", subscription_expired_view, name="subscription_expired"),
-    # Admin (usando nuestro admin site personalizado con login multi-tenant)
-    path("admin/", nerbis_admin_site.urls),
     # API
     path(
         "api/",

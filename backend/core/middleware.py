@@ -75,9 +75,6 @@ class SubscriptionMiddleware:
 
     # URLs que siempre están permitidas (regex patterns)
     ALLOWED_URLS = [
-        r"^/admin/login/$",
-        r"^/admin/logout/$",
-        r"^/admin/password_change/",
         r"^/api/auth/",
         r"^/api/v1/auth/",
         r"^/static/",
@@ -113,11 +110,7 @@ class SubscriptionMiddleware:
 
         # Verificar si la suscripción está activa
         if not tenant.is_subscription_active:
-            # Determinar si es una petición al admin o al frontend
-            if request.path.startswith("/admin/"):
-                # En el admin, redirigir a página de suscripción expirada
-                return redirect("subscription_expired")
-            elif request.path.startswith("/api/"):
+            if request.path.startswith("/api/"):
                 # En la API, retornar 403 con mensaje
                 from django.http import JsonResponse
 

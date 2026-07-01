@@ -141,10 +141,8 @@ class Command(BaseCommand):
             active = "✅" if admin.is_active else "❌"
             if admin.is_superuser:
                 acceso = "⚠️  SUPERUSER (ve todos los tenants)"
-            elif admin.is_staff:
-                acceso = "✅ Admin de tenant (solo este tenant)"
             else:
-                acceso = "❌ Sin acceso a Django Admin"
+                acceso = "✅ Admin de tenant (solo este tenant)"
 
             self.stdout.write(
                 f"   - {admin.email}\n"
@@ -168,26 +166,16 @@ class Command(BaseCommand):
         self.stdout.write(f"   Nombre: {user.get_full_name() or 'N/A'}")
         self.stdout.write(f"   Rol: {user.get_role_display()} ({user.role})")
         self.stdout.write(f"   Activo: {'✅ Sí' if user.is_active else '❌ No'}")
-        self.stdout.write(f"   is_staff: {'✅ Sí' if user.is_staff else '❌ No'}")
         self.stdout.write(f"   is_superuser: {'✅ Sí' if user.is_superuser else '❌ No'}")
         self.stdout.write(f"   Fecha registro: {user.date_joined.strftime('%Y-%m-%d %H:%M')}")
 
         # Verificar tipo de acceso
         if user.is_superuser:
-            self.stdout.write(self.style.WARNING("\n   ⚠️  SUPERUSUARIO: Ve TODOS los tenants en Django Admin"))
-        elif user.role == "admin" and user.is_staff:
-            self.stdout.write(
-                self.style.SUCCESS(f"\n   ✅ Admin de tenant: Accede a /admin/ y ve solo '{tenant.name}'")
-            )
-        elif user.role == "admin" and not user.is_staff:
-            self.stdout.write(
-                self.style.WARNING(
-                    "\n   ⚠️  Tiene rol 'admin' pero NO puede acceder al Django Admin\n"
-                    f"      Ejecuta: python manage.py manage_tenant_admin --email {email} --tenant {tenant.slug} --promote"
-                )
-            )
+            self.stdout.write(self.style.WARNING("\n   ⚠️  SUPERUSUARIO: Ve TODOS los tenants"))
+        elif user.role == "admin":
+            self.stdout.write(self.style.SUCCESS(f"\n   ✅ Admin de tenant: gestiona solo '{tenant.name}'"))
         else:
-            self.stdout.write(f"\n   ℹ️  Rol actual: {user.role} (sin acceso a Django Admin)")
+            self.stdout.write(f"\n   ℹ️  Rol actual: {user.role}")
 
     def _promote_user(self, tenant, email):
         """Promueve un usuario a admin del tenant (sin is_superuser)"""
@@ -200,17 +188,15 @@ class Command(BaseCommand):
 
         # Actualizar permisos (SIN is_superuser para aislamiento por tenant)
         user.role = "admin"
-        user.is_staff = True
         user.is_superuser = False  # NO dar superuser, solo admin de su tenant
         user.is_active = True
         user.save()
 
         self.stdout.write(self.style.SUCCESS(f"✅ Usuario '{email}' promovido a administrador del tenant\n"))
         self.stdout.write("   - role: admin")
-        self.stdout.write("   - is_staff: True (acceso a Django Admin)")
         self.stdout.write("   - is_superuser: False (solo ve su tenant)")
         self.stdout.write("   - is_active: True")
-        self.stdout.write(self.style.SUCCESS(f"\n   🔐 Puede acceder a /admin/ y ver solo datos de '{tenant.name}'"))
+        self.stdout.write(self.style.SUCCESS(f"\n   🔐 Administra solo los datos de '{tenant.name}'"))
 
     def _demote_user(self, tenant, email):
         """Degrada un admin a customer"""
@@ -222,13 +208,11 @@ class Command(BaseCommand):
             raise CommandError(f"Usuario '{email}' no encontrado en tenant '{tenant.slug}'")
 
         user.role = "customer"
-        user.is_staff = False
         user.is_superuser = False
         user.save()
 
         self.stdout.write(self.style.WARNING(f"⬇️  Usuario '{email}' degradado a customer\n"))
         self.stdout.write("   - role: customer")
-        self.stdout.write("   - is_staff: False")
         self.stdout.write("   - is_superuser: False")
 
     def _create_admin(self, tenant, email, password, first_name, last_name):
@@ -257,7 +241,6 @@ class Command(BaseCommand):
             last_name=last_name,
             password=make_password(password),
             role="admin",
-            is_staff=True,
             is_superuser=False,  # NO dar superuser, solo admin de su tenant
             is_active=True,
         )
@@ -267,6 +250,5 @@ class Command(BaseCommand):
         self.stdout.write(f"   Username: {user.username}")
         self.stdout.write(f"   Nombre: {user.get_full_name()}")
         self.stdout.write(self.style.WARNING(f"   Contraseña: {password}"))
-        self.stdout.write("   is_staff: True (acceso a Django Admin)")
         self.stdout.write("   is_superuser: False (solo ve su tenant)")
-        self.stdout.write(self.style.SUCCESS(f"\n   🔐 Puede acceder a /admin/ y ver solo datos de '{tenant.name}'"))
+        self.stdout.write(self.style.SUCCESS(f"\n   🔐 Administra solo los datos de '{tenant.name}'"))
