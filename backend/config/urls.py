@@ -139,7 +139,7 @@ urlpatterns = [
                 path("", include("ecommerce.urls")),
                 path("services/", include("services.urls")),
                 path("bookings/", include("bookings.urls")),
-                path("billing/", include("billing.urls")),
+                path("v1/billing/", include("billing.urls")),
                 path("subscriptions/", include("subscriptions.urls")),
                 path("cart/", include("cart.urls")),
                 path("", include("orders.urls")),

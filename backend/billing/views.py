@@ -12,6 +12,7 @@ post_delete sobre Subscription/SubscriptionModule re-sincronizan los flags.
 
 from rest_framework import status
 from rest_framework.generics import ListAPIView
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -35,11 +36,17 @@ def _subscription_response(subscription, request) -> Response:
     return Response(SubscriptionSerializer(subscription, context={"request": request}).data)
 
 
+class ModuleCatalogPagination(PageNumberPagination):
+    page_size = 20
+    max_page_size = 100
+
+
 class ModuleListView(ListAPIView):
-    """GET /api/billing/modules/ — catalogo global de modulos contratables."""
+    """GET /api/v1/billing/modules/ — catalogo global de modulos contratables."""
 
     permission_classes = [IsTenantUser]
     serializer_class = ModuleSerializer
+    pagination_class = ModuleCatalogPagination
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -48,7 +55,7 @@ class ModuleListView(ListAPIView):
 
 
 class SubscriptionDetailView(APIView):
-    """GET /api/billing/subscription/ — estado de la suscripcion del tenant."""
+    """GET /api/v1/billing/subscription/ — estado de la suscripcion del tenant."""
 
     permission_classes = [IsTenantUser]
 
@@ -58,7 +65,7 @@ class SubscriptionDetailView(APIView):
 
 
 class SubscribeView(APIView):
-    """POST /api/billing/subscription/subscribe/ — activa una suscripcion modular."""
+    """POST /api/v1/billing/subscription/subscribe/ — activa una suscripcion modular."""
 
     permission_classes = [IsTenantAdmin]
 
@@ -75,7 +82,7 @@ class SubscribeView(APIView):
 
 
 class ModulesView(APIView):
-    """POST /api/billing/subscription/modules/ — agrega/quita modulos."""
+    """POST /api/v1/billing/subscription/modules/ — agrega/quita modulos."""
 
     permission_classes = [IsTenantAdmin]
 
@@ -107,7 +114,7 @@ class ModulesView(APIView):
 
 
 class BillingPeriodView(APIView):
-    """POST /api/billing/subscription/billing-period/ — cambia el periodo de facturacion."""
+    """POST /api/v1/billing/subscription/billing-period/ — cambia el periodo de facturacion."""
 
     permission_classes = [IsTenantAdmin]
 
@@ -129,7 +136,7 @@ class BillingPeriodView(APIView):
 
 
 class CancelView(APIView):
-    """POST /api/billing/subscription/cancel/ — cancela (inmediata o diferida)."""
+    """POST /api/v1/billing/subscription/cancel/ — cancela (inmediata o diferida)."""
 
     permission_classes = [IsTenantAdmin]
 

@@ -13,6 +13,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -454,23 +455,24 @@ class SubscriptionManager:
         Returns:
             Subscription instance actualizada
         """
-        now = timezone.now()
-        if subscription.is_trial and subscription.trial_ends_at and subscription.trial_ends_at > now:
-            start = subscription.trial_ends_at
-        else:
-            start = now
+        with transaction.atomic():
+            now = timezone.now()
+            if subscription.is_trial and subscription.trial_ends_at and subscription.trial_ends_at > now:
+                start = subscription.trial_ends_at
+            else:
+                start = now
 
-        subscription.status = "active"
-        subscription.billing_period = billing_period
-        subscription.current_period_start = start
-        subscription.current_period_end = start + timedelta(days=365 if billing_period == "yearly" else 30)
-        subscription.canceled_at = None
-        # trial_ends_at se conserva (historico); is_active ya es True por status
+            subscription.status = "active"
+            subscription.billing_period = billing_period
+            subscription.current_period_start = start
+            subscription.current_period_end = start + timedelta(days=365 if billing_period == "yearly" else 30)
+            subscription.canceled_at = None
+            # trial_ends_at se conserva (historico); is_active ya es True por status
 
-        for slug in module_slugs:
-            subscription.add_module(slug)  # idempotente, reactiva si estaba inactivo
+            for slug in module_slugs:
+                subscription.add_module(slug)  # idempotente, reactiva si estaba inactivo
 
-        subscription.save()
+            subscription.save()
         logger.info(f"Suscripcion activada para {subscription.tenant.name} ({billing_period})")
         return subscription
 

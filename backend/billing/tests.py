@@ -540,18 +540,18 @@ class TestMiddlewareExemption:
     def test_exempt_paths_pass_when_inactive(self, tenant, admin_user):
         self._inactive_tenant(tenant)
         for path in (
-            "/api/billing/modules/",
-            "/api/billing/subscription/",
-            "/api/billing/subscription/subscribe/",
-            "/api/billing/subscription/modules/",
-            "/api/billing/subscription/billing-period/",
+            "/api/v1/billing/modules/",
+            "/api/v1/billing/subscription/",
+            "/api/v1/billing/subscription/subscribe/",
+            "/api/v1/billing/subscription/modules/",
+            "/api/v1/billing/subscription/billing-period/",
         ):
             assert self._run(path, tenant, admin_user) is True, path
 
     def test_cancel_path_gated_when_inactive(self, tenant, admin_user):
         self._inactive_tenant(tenant)
         # Cancel NO esta exento: el gate debe bloquear (no pasa).
-        assert self._run("/api/billing/subscription/cancel/", tenant, admin_user) is False
+        assert self._run("/api/v1/billing/subscription/cancel/", tenant, admin_user) is False
 
     def test_non_billing_api_gated_when_inactive(self, tenant, admin_user):
         self._inactive_tenant(tenant)
@@ -560,5 +560,5 @@ class TestMiddlewareExemption:
     def test_billing_paths_pass_when_active(self, tenant, admin_user):
         # Suscripcion activa: nada se bloquea (incluido cancel).
         assert tenant.is_subscription_active is True
-        assert self._run("/api/billing/subscription/cancel/", tenant, admin_user) is True
+        assert self._run("/api/v1/billing/subscription/cancel/", tenant, admin_user) is True
         assert self._run("/api/products/", tenant, admin_user) is True
