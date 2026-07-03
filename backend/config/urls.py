@@ -40,7 +40,7 @@ def health_check(request):
     return JsonResponse(checks, status=http_status)
 
 
-# Importar el admin site personalizado de NERBIS
+# Vistas del admin REST (panel superadmin Next.js)
 from core.admin_settings_views import (
     AdminAIGenerationLogListView,
     AdminAIModelConfigDetailView,
@@ -67,7 +67,6 @@ from core.admin_settings_views import (
     AdminWebsiteSectionDetailView,
     AdminWebsiteSectionListCreateView,
 )
-from core.admin_site import nerbis_admin_site
 from core.admin_tenant_views import (
     AdminDeletePasskeyView,
     AdminDisable2FAView,
@@ -128,8 +127,6 @@ urlpatterns = [
     path("", RedirectView.as_view(url="/api/docs/", permanent=False)),
     # Suscripcion expirada
     path("subscription-expired/", subscription_expired_view, name="subscription_expired"),
-    # Admin (usando nuestro admin site personalizado con login multi-tenant)
-    path("admin/", nerbis_admin_site.urls),
     # API
     path(
         "api/",

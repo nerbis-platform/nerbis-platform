@@ -75,7 +75,6 @@ class SubscriptionMiddleware:
 
     # URLs que siempre están permitidas (regex patterns)
     ALLOWED_URLS = [
-        r"^/admin/",  # Django admin — acceso controlado por NerbisAdminSite.has_permission()
         r"^/api/auth/",
         r"^/api/v1/auth/",
         r"^/api/admin/auth/",
@@ -113,11 +112,7 @@ class SubscriptionMiddleware:
 
         # Verificar si la suscripción está activa
         if not tenant.is_subscription_active:
-            # Determinar si es una petición al admin o al frontend
-            if request.path.startswith("/admin/"):
-                # En el admin, redirigir a página de suscripción expirada
-                return redirect("subscription_expired")
-            elif request.path.startswith("/api/"):
+            if request.path.startswith("/api/"):
                 # En la API, retornar 403 con mensaje
                 from django.http import JsonResponse
 

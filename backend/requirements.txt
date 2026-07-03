@@ -35,7 +35,6 @@ twilio==9.0.4
 celery==5.3.4
 redis==5.0.1
 django-celery-beat==2.8.0
-django-unfold>=0.40.0
 drf-nested-routers==0.94.1
 
 # ===================================
