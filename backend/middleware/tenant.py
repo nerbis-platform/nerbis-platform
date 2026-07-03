@@ -180,13 +180,12 @@ class TenantExclusionMiddleware(MiddlewareMixin):
     Middleware opcional que EXCLUYE ciertas rutas del filtrado por tenant.
 
     Útil para:
-    - Panel de administración de Django (/admin/)
+    - Admin REST de plataforma (/api/admin/)
     - Endpoints públicos (/api/public/)
     - Landing page principal
     """
 
     EXCLUDED_PATHS = [
-        "/admin/",
         "/api/admin/",
         "/api/public/",
         "/api/docs/",
