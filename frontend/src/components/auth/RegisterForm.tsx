@@ -19,6 +19,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { socialLinkOnly } from '@/lib/api/auth';
+import { apiClient } from '@/lib/api/client';
 import { features } from '@/lib/features';
 import type { SocialProvider } from '@/types';
 import {
@@ -123,11 +124,10 @@ export function RegisterForm({
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/public/check-tenant-email/?email=${encodeURIComponent(emailValue)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setEmailExists(!!data.exists);
-        }
+        const { data } = await apiClient.get('/public/check-tenant-email/', {
+          params: { email: emailValue },
+        });
+        setEmailExists(!!data.exists);
       } catch {
         // Silently fail — non-critical check
       }
@@ -343,18 +343,20 @@ export function RegisterForm({
             control={form.control}
             name="data_consent"
             render={({ field }) => (
-              <FormItem className="flex items-start gap-2.5 space-y-0 pt-1">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value === true}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
-                    disabled={isLoading}
-                    className="mt-0.5 shrink-0"
-                  />
-                </FormControl>
+              <FormItem className="flex gap-2.5 space-y-0 pt-1">
+                <div className="flex items-center h-[18px] mt-px">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value === true}
+                      onCheckedChange={(checked) => field.onChange(checked === true)}
+                      disabled={isLoading}
+                      className="shrink-0"
+                    />
+                  </FormControl>
+                </div>
                 <div>
                   <FormLabel
-                    className="text-[0.75rem] leading-[1.6] font-normal cursor-pointer inline"
+                    className="text-[0.75rem] leading-[18px] font-normal cursor-pointer inline"
                     style={{
                       color: 'var(--auth-text-muted)',
                       fontFamily: 'var(--auth-font-body)',
@@ -378,6 +380,37 @@ export function RegisterForm({
                     </Link>
                   </FormLabel>
                   <FormMessage role="alert" aria-live="polite" className="mt-1" />
+                </div>
+              </FormItem>
+            )}
+          />
+
+          {/* Marketing consent (optional — GDPR / Ley 1581) */}
+          <FormField
+            control={form.control}
+            name="marketing_consent"
+            render={({ field }) => (
+              <FormItem className="flex gap-2.5 space-y-0 -mt-2">
+                <div className="flex items-center h-[18px]">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value === true}
+                      onCheckedChange={(checked) => field.onChange(checked === true)}
+                      disabled={isLoading}
+                      className="shrink-0"
+                    />
+                  </FormControl>
+                </div>
+                <div>
+                  <FormLabel
+                    className="text-[0.75rem] leading-[18px] font-normal cursor-pointer inline"
+                    style={{
+                      color: 'var(--auth-text-muted)',
+                      fontFamily: 'var(--auth-font-body)',
+                    }}
+                  >
+                    Acepto recibir novedades y ofertas de NERBIS por email
+                  </FormLabel>
                 </div>
               </FormItem>
             )}
