@@ -13,6 +13,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -430,6 +431,49 @@ class SubscriptionManager:
         )
 
         logger.info(f"Suscripción de prueba creada para {tenant.name}: {trial_days} días")
+        return subscription
+
+    @staticmethod
+    def activate_subscription(subscription, module_slugs, billing_period="monthly"):
+        """
+        Activa una suscripcion modular (NO usa el Plan deprecado).
+
+        - status -> 'active'
+        - Honra trial: si esta en trial y trial_ends_at es futuro, el periodo
+          pagado arranca en trial_ends_at; si no, arranca ahora.
+        - current_period_end = inicio + 365d (yearly) / 30d (monthly)
+        - billing_period seteado
+        - canceled_at = None  (deshace cancelacion diferida)
+        - activa cada modulo en module_slugs via add_module()
+        - save() dispara el signal que re-sincroniza tenant.has_*
+
+        Args:
+            subscription: Subscription instance
+            module_slugs: list[str] de slugs a activar (ya validados por el serializer)
+            billing_period: 'monthly' o 'yearly'
+
+        Returns:
+            Subscription instance actualizada
+        """
+        with transaction.atomic():
+            now = timezone.now()
+            if subscription.is_trial and subscription.trial_ends_at and subscription.trial_ends_at > now:
+                start = subscription.trial_ends_at
+            else:
+                start = now
+
+            subscription.status = "active"
+            subscription.billing_period = billing_period
+            subscription.current_period_start = start
+            subscription.current_period_end = start + timedelta(days=365 if billing_period == "yearly" else 30)
+            subscription.canceled_at = None
+            # trial_ends_at se conserva (historico); is_active ya es True por status
+
+            for slug in module_slugs:
+                subscription.add_module(slug)  # idempotente, reactiva si estaba inactivo
+
+            subscription.save()
+        logger.info(f"Suscripcion activada para {subscription.tenant.name} ({billing_period})")
         return subscription
 
     @staticmethod

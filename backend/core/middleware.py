@@ -84,6 +84,13 @@ class SubscriptionMiddleware:
         r"^/__reload__/",  # Django browser reload
         r"^/subscription-expired/$",
         r"^/favicon\.ico$",
+        # Billing read-only + reactivacion (deben funcionar con suscripcion inactiva).
+        # Cancel NO se exime: un tenant inactivo no tiene nada que cancelar.
+        r"^/api/v1/billing/modules/$",
+        r"^/api/v1/billing/subscription/$",
+        r"^/api/v1/billing/subscription/subscribe/$",
+        r"^/api/v1/billing/subscription/modules/$",
+        r"^/api/v1/billing/subscription/billing-period/$",
     ]
 
     def __init__(self, get_response):
