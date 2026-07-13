@@ -862,7 +862,11 @@ class SectionVariant(models.Model):
         related_name="variants",
         verbose_name="Sección",
     )
-    key = models.SlugField("Clave", max_length=80, unique=True)
+    # El `key` es el token BARE que consume el renderer (`_render_<section>_<key>`)
+    # y el frontend (`switch (variant)`). Los tokens colisionan entre secciones
+    # (ej. `grid-cards` en services+products), así que la unicidad es COMPUESTA
+    # por (section, key), no global.
+    key = models.SlugField("Clave", max_length=80)
     label = models.CharField("Etiqueta", max_length=100)
     description = models.TextField("Descripción", blank=True)
     css_class_hint = models.CharField("Clase CSS sugerida", max_length=100, blank=True)
@@ -885,6 +889,12 @@ class SectionVariant(models.Model):
         verbose_name = "Variante de sección"
         verbose_name_plural = "Variantes de sección"
         ordering = ["section", "sort_order", "label"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["section", "key"],
+                name="uq_sectionvariant_section_key",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.label} ({self.section.key})"

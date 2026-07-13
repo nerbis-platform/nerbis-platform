@@ -2,7 +2,6 @@
 """Views para el proceso de onboarding del website builder."""
 
 import logging
-import random
 
 from django.db import models, transaction
 from rest_framework import generics, status
@@ -14,6 +13,7 @@ from ..models import OnboardingQuestion, OnboardingResponse, WebsiteConfig, Webs
 from ..services.ai_service import AIService
 from ..services.pages import derive_enabled_pages
 from ..services.unsplash_service import UnsplashService
+from ..services.variants import resolve_hero_variant
 
 logger = logging.getLogger(__name__)
 from ..serializers import (
@@ -480,11 +480,7 @@ class QuickStartView(OnboardingView):
                 content["hero"]["_image"] = hero_imgs[0]
                 content["hero"]["_image_alternatives"] = hero_imgs[1:]
                 unsplash.trigger_download(hero_imgs[0].get("download_location", ""))
-                variant = random.choice(["split-image", "fullwidth-image", "diagonal-split"])
-            else:
-                variant = random.choice(["centered", "bold-typography", "glassmorphism"])
-            content["hero"]["_variant"] = variant
-            content["hero"]["_variant_ai_recommended"] = variant
+            resolve_hero_variant(content, has_image=bool(hero_imgs))
 
         if "about" in content:
             about_imgs = images.get("about", [])

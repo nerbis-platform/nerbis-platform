@@ -7,7 +7,6 @@ el request HTTP del usuario.
 """
 
 import logging
-import random
 from datetime import timedelta
 
 from celery import shared_task
@@ -278,6 +277,7 @@ def _inject_images_and_variants(content: dict, images: dict) -> None:
     para reutilizar en la tarea asincrona.
     """
     from websites.services import UnsplashService
+    from websites.services.variants import resolve_section_variant
 
     unsplash = UnsplashService()
 
@@ -288,11 +288,7 @@ def _inject_images_and_variants(content: dict, images: dict) -> None:
             content["hero"]["_image"] = hero_imgs[0]
             content["hero"]["_image_alternatives"] = hero_imgs[1:]
             unsplash.trigger_download(hero_imgs[0].get("download_location", ""))
-            variant = random.choice(["split-image", "fullwidth-image", "diagonal-split"])
-        else:
-            variant = random.choice(["centered", "bold-typography", "glassmorphism"])
-        content["hero"]["_variant"] = variant
-        content["hero"]["_variant_ai_recommended"] = variant
+        resolve_section_variant(content, "hero")
 
     # About
     if "about" in content:
@@ -301,31 +297,18 @@ def _inject_images_and_variants(content: dict, images: dict) -> None:
             content["about"]["_image"] = about_imgs[0]
             content["about"]["_image_alternatives"] = about_imgs[1:]
             unsplash.trigger_download(about_imgs[0].get("download_location", ""))
-            variant = random.choice(["split-image", "stats-banner", "fullwidth-banner"])
-        else:
-            variant = random.choice(["text-only", "stats-banner", "timeline", "overlapping-cards", "fullwidth-banner"])
-        content["about"]["_variant"] = variant
-        content["about"]["_variant_ai_recommended"] = variant
+        resolve_section_variant(content, "about")
 
     # Services
     if "services" in content:
         section_imgs = images.get("services", [])
         items = content["services"].get("items", [])
-        has_images = False
         for i, item in enumerate(items):
             if i < len(section_imgs):
                 item["_image"] = section_imgs[i]
                 unsplash.trigger_download(section_imgs[i].get("download_location", ""))
-                has_images = True
-        if has_images:
-            variant = random.choice(["grid-cards-image", "featured-highlight"])
-        else:
-            variant = random.choice(["grid-cards", "list-detailed", "horizontal-scroll", "icon-minimal"])
-        content["services"]["_variant"] = variant
-        content["services"]["_variant_ai_recommended"] = variant
+        resolve_section_variant(content, "services")
 
     # Products
     if "products" in content:
-        variant = random.choice(["grid-cards", "price-table"])
-        content["products"]["_variant"] = variant
-        content["products"]["_variant_ai_recommended"] = variant
+        resolve_section_variant(content, "products")
