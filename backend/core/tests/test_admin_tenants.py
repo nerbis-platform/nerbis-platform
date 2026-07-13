@@ -473,7 +473,13 @@ class AdminTenantUpdateViewTests(_AdminTenantTestBase):
 # ---------------------------------------------------------------------------
 
 
-def _make_active_web_subscription(tenant: Tenant, *, ai_limit: int = 50):
+def _make_active_web_subscription(
+    tenant: Tenant,
+    *,
+    ai_limit: int = 50,
+    period_start=None,
+    period_end=None,
+):
     """Asegura una suscripción activa con módulo ``web`` y un límite de IA dado.
 
     Al crear un ``Tenant``, una señal de ``billing`` auto-crea una suscripción
@@ -481,11 +487,19 @@ def _make_active_web_subscription(tenant: Tenant, *, ai_limit: int = 50):
     suscripción: la pasa a ``active`` y fija ``Module.included_ai_requests`` para
     que ``get_ai_limit_for_subscription`` (rama mensual / ``active``) devuelva
     ``ai_limit``. Si no existiera (entorno sin módulo base), la crea.
+
+    El período se ancla por defecto a ``[now - 15d, now + 15d]`` para que
+    ``check_usage_limit`` (que cuenta desde ``current_period_start``, no desde el
+    mes calendario — issue #289) incluya los logs creados relativos a ``now``.
     """
     from billing.models.modules import Module
     from billing.models.subscriptions import Subscription, SubscriptionModule
 
     now = timezone.now()
+    if period_start is None:
+        period_start = now - timedelta(days=15)
+    if period_end is None:
+        period_end = now + timedelta(days=15)
     module, _ = Module.objects.get_or_create(
         slug="web",
         defaults={
@@ -506,13 +520,17 @@ def _make_active_web_subscription(tenant: Tenant, *, ai_limit: int = 50):
             tenant=tenant,
             status="active",
             billing_period="monthly",
-            current_period_start=now,
-            current_period_end=now + timedelta(days=30),
+            current_period_start=period_start,
+            current_period_end=period_end,
         )
     else:
         subscription.status = "active"
         subscription.billing_period = "monthly"
-        subscription.save(update_fields=["status", "billing_period"])
+        subscription.current_period_start = period_start
+        subscription.current_period_end = period_end
+        subscription.save(
+            update_fields=["status", "billing_period", "current_period_start", "current_period_end"]
+        )
 
     SubscriptionModule.objects.update_or_create(
         subscription=subscription,
@@ -669,35 +687,126 @@ class AdminResetAIUsageViewTests(_AdminTenantTestBase):
         _, used, _ = self._check_usage(self.tenant)
         self.assertEqual(used, 2)
 
-    def test_null_reset_at_behaves_as_month_start(self) -> None:
-        """Sin reinicio manual (NULL), el cutoff es ``month_start`` — retrocompat."""
+    def test_null_reset_at_counts_from_period_start(self) -> None:
+        """Sin reinicio manual (NULL), el cutoff es ``current_period_start`` (#289)."""
         self.tenant.refresh_from_db()
         self.assertIsNone(self.tenant.ai_usage_reset_at)
 
-        now = timezone.now()
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        # 2 logs de este mes (después de month_start) cuentan.
-        _add_ai_logs(self.tenant, count=2, created_at=month_start + timedelta(hours=1))
-        # 1 log del mes pasado (antes de month_start) NO cuenta.
-        _add_ai_logs(self.tenant, count=1, created_at=month_start - timedelta(days=2))
+        period_start = self.subscription.current_period_start
+        # 2 logs dentro del período (después de period_start) cuentan.
+        _add_ai_logs(self.tenant, count=2, created_at=period_start + timedelta(hours=1))
+        # 1 log anterior al período (antes de period_start) NO cuenta.
+        _add_ai_logs(self.tenant, count=1, created_at=period_start - timedelta(days=2))
 
         _, used, _ = self._check_usage(self.tenant)
         self.assertEqual(used, 2)
 
-    def test_past_month_reset_at_expires_on_month_rollover(self) -> None:
-        """Un ``reset_at`` de un mes pasado no debe excluir logs del mes actual.
+    def test_past_period_reset_at_expires_on_renewal(self) -> None:
+        """Un ``reset_at`` de un período anterior no excluye logs del período actual.
 
-        Cuando el mes rola, ``month_start`` (más reciente que el reset viejo)
-        gana en ``max(month_start, reset_at)``.
+        Al renovar la suscripción, ``current_period_start`` (más reciente que el
+        reset viejo) gana en ``max(period_start, reset_at)``.
         """
-        now = timezone.now()
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        # reset_at fijado el mes pasado.
-        self.tenant.ai_usage_reset_at = month_start - timedelta(days=10)
+        period_start = self.subscription.current_period_start
+        # reset_at fijado antes del período actual (período anterior).
+        self.tenant.ai_usage_reset_at = period_start - timedelta(days=10)
         self.tenant.save(update_fields=["ai_usage_reset_at"])
 
-        # 4 generaciones este mes → deben contarse (month_start manda).
-        _add_ai_logs(self.tenant, count=4, created_at=month_start + timedelta(hours=3))
+        # 4 generaciones de este período → deben contarse (period_start manda).
+        _add_ai_logs(self.tenant, count=4, created_at=period_start + timedelta(hours=3))
 
         _, used, _ = self._check_usage(self.tenant)
         self.assertEqual(used, 4)
+
+
+class AIUsagePeriodAnchorTests(TestCase):
+    """Issue #289: el límite de IA se ancla al período de la suscripción, no al mes calendario.
+
+    Antes, ``check_usage_limit`` contaba desde ``month_start`` (día 1 del mes),
+    lo que daba trato desigual según la fecha de registro: registrarse a fin de
+    mes regalaba una segunda ventana de quota al rolar el día 1. Ahora la base es
+    ``subscription.current_period_start``, que se renueva con la suscripción.
+    """
+
+    def setUp(self) -> None:
+        clear_current_tenant()
+        self.tenant = _make_tenant("period-shop", name="Period Shop", plan="professional")
+
+    def _check_usage(self, tenant: Tenant) -> tuple[bool, int, int]:
+        from websites.services.ai_service import AIService
+
+        return AIService(tenant=tenant).check_usage_limit(tenant)
+
+    def test_end_of_month_registration_does_not_duplicate_quota(self) -> None:
+        """Logs de un mes calendario anterior, pero dentro del período, sí cuentan.
+
+        Con la lógica vieja (``month_start``), un log del mes pasado no contaba y
+        el día 1 reseteaba la quota a 0. Anclando al período, todos los logs del
+        período cuentan aunque crucen el cambio de mes → no se duplica la quota.
+        """
+        now = timezone.now()
+        # Período de 45 días que cruza al menos un cambio de mes calendario.
+        _make_active_web_subscription(
+            self.tenant,
+            ai_limit=50,
+            period_start=now - timedelta(days=40),
+            period_end=now + timedelta(days=5),
+        )
+
+        # 2 logs en un mes calendario anterior a "hoy" pero dentro del período.
+        _add_ai_logs(self.tenant, count=2, created_at=now - timedelta(days=38))
+        # 1 log reciente, dentro del mismo período.
+        _add_ai_logs(self.tenant, count=1, created_at=now - timedelta(days=1))
+
+        _, used, _ = self._check_usage(self.tenant)
+        self.assertEqual(used, 3)
+
+    def test_counter_resets_on_subscription_renewal(self) -> None:
+        """Al renovar (avanza ``current_period_start``), los logs del período previo no cuentan."""
+        now = timezone.now()
+        period_start = now - timedelta(days=3)
+        _make_active_web_subscription(
+            self.tenant,
+            ai_limit=50,
+            period_start=period_start,
+            period_end=now + timedelta(days=27),
+        )
+
+        # 5 logs del período anterior (antes de la renovación) → no cuentan.
+        _add_ai_logs(self.tenant, count=5, created_at=period_start - timedelta(days=2))
+        # 2 logs del período actual → cuentan.
+        _add_ai_logs(self.tenant, count=2, created_at=period_start + timedelta(hours=1))
+
+        _, used, limit = self._check_usage(self.tenant)
+        self.assertEqual(used, 2)
+        self.assertEqual(limit, 50)
+
+    def test_yearly_period_anchors_to_period_start(self) -> None:
+        """Con ``billing_period`` anual, el conteo también parte de ``current_period_start``."""
+        from billing.models.modules import Module
+
+        now = timezone.now()
+        period_start = now - timedelta(days=200)
+        subscription = _make_active_web_subscription(
+            self.tenant,
+            ai_limit=50,
+            period_start=period_start,
+            period_end=now + timedelta(days=165),
+        )
+        subscription.billing_period = "yearly"
+        subscription.save(update_fields=["billing_period"])
+        # Límite anual configurado en el módulo web.
+        module = Module.objects.get(slug="web")
+        module.annual_included_ai_requests = 600
+        module.save(update_fields=["annual_included_ai_requests"])
+
+        # Logs repartidos a lo largo del año, todos dentro del período → cuentan.
+        _add_ai_logs(self.tenant, count=3, created_at=period_start + timedelta(days=10))
+        _add_ai_logs(self.tenant, count=2, created_at=now - timedelta(days=1))
+        # 1 log anterior al período anual → no cuenta.
+        _add_ai_logs(self.tenant, count=1, created_at=period_start - timedelta(days=1))
+
+        subscription.refresh_from_db()
+        _, used, limit = self._check_usage(self.tenant)
+        self.assertEqual(used, 5)
+        self.assertEqual(limit, 600)

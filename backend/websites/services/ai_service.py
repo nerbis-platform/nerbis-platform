@@ -599,7 +599,7 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
             tenant: Tenant a verificar
 
         Returns:
-            tuple de (can_generate, used_this_month, limit)
+            tuple de (can_generate, used_in_period, limit)
         """
         from billing.models import Subscription
 
@@ -620,20 +620,24 @@ Si el usuario hace una pregunta sin pedir cambios, responde solo con:
         else:
             limit = web_sm.module.get_ai_limit_for_subscription(subscription)
 
-        # Contar uso del periodo actual.
+        # Contar uso del período real de la suscripción (no del mes calendario).
+        # Anclar al período evita el trato desigual según la fecha de registro:
+        # con el mes calendario, registrarse a fin de mes regalaba una segunda
+        # ventana de quota al rolar el día 1. ``current_period_start`` se renueva
+        # con la suscripción, así que el contador se resetea en la renovación.
         from websites.models import AIGenerationLog
 
-        month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_start = subscription.current_period_start
 
         # Un superadmin puede reiniciar manualmente el contador vía
         # ``ai_usage_reset_at``. Cuando existe, el cutoff es el máximo entre el
-        # inicio del mes y la marca de reinicio: así un reinicio dentro del mes
-        # excluye los logs previos, mientras que un reinicio de un mes pasado
-        # "expira" automáticamente al rolar el mes (month_start gana).
+        # inicio del período y la marca de reinicio: así un reinicio dentro del
+        # período excluye los logs previos, mientras que un reinicio de un
+        # período pasado "expira" al renovar la suscripción (period_start gana).
         # ``getattr`` con default None mantiene retrocompatibilidad si el campo
         # aún no existe en alguna instancia antigua del modelo.
         reset_at = getattr(tenant, "ai_usage_reset_at", None)
-        cutoff = max(month_start, reset_at) if reset_at is not None else month_start
+        cutoff = max(period_start, reset_at) if reset_at is not None else period_start
 
         used = AIGenerationLog.objects.filter(tenant=tenant, created_at__gte=cutoff, is_successful=True).count()
 
